@@ -30,6 +30,7 @@ import {
 } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
 import { useLanguage } from "@/src/i18n/context/LanguageContext";
+import { chatAPI, questionnaireAPI } from "@/src/services/api";
 
 const { width } = Dimensions.get("window");
 
@@ -57,34 +58,27 @@ export default function AIChatScreen() {
   const [inputText, setInputText] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [userProfile, setUserProfile] = useState<UserProfile>({
-    allergies: ["nuts", "dairy"], // Mock data - should come from user profile
-    medicalConditions: ["diabetes"],
-    dietaryPreferences: ["vegetarian"],
-    goals: ["lose_weight"],
+    allergies: [],
+    medicalConditions: [],
+    dietaryPreferences: [],
+    goals: [],
   });
+  const [isLoading, setIsLoading] = useState(true);
   const scrollViewRef = useRef<ScrollView>(null);
 
   const texts = {
     title: language === "he" ? "צ'אט AI תזונתי" : "Nutritional AI Chat",
     subtitle:
       language === "he"
-        ? "קבל המלצות תזונה מותאמות אישית מהיועץ הדיגיטלי שלנו"
-        : "Get personalized nutrition advice from our digital advisor",
+        ? "קבל המלצות תזונה מותאמות אישית"
+        : "Get personalized nutrition advice",
     typePlaceholder:
       language === "he" ? "הקלד שאלתך כאן..." : "Type your question here...",
     send: language === "he" ? "שלח" : "Send",
     typing: language === "he" ? "AI מקליד..." : "AI is typing...",
     allergenWarning: language === "he" ? "אזהרת אלרגן!" : "Allergen Warning!",
-    warningMessage:
-      language === "he"
-        ? "המלצה זו מכילה רכיבים שעלולים לגרום לך אלרגיה"
-        : "This recommendation contains ingredients that may cause you allergies",
     clearChat: language === "he" ? "נקה צ'אט" : "Clear Chat",
-    newConversation: language === "he" ? "שיחה חדשה" : "New Conversation",
-    suggestions: language === "he" ? "הצעות" : "Suggestions",
     tryThese: language === "he" ? "נסה את אלה:" : "Try these:",
-    noMessages:
-      language === "he" ? "התחל שיחה חדשה" : "Start a new conversation",
     welcomeMessage:
       language === "he"
         ? "שלום! אני היועץ התזונתי הדיגיטלי שלך. אני כאן לעזור לך עם שאלות תזונה, תכנון ארוחות והמלצות מותאמות אישית. איך אוכל לעזור לך היום?"
@@ -105,11 +99,105 @@ export default function AIChatScreen() {
             "How to plan a balanced vegetarian menu?",
             "What is a ketogenic diet?",
           ],
+    loading: language === "he" ? "טוען..." : "Loading...",
+    error: language === "he" ? "שגיאה" : "Error",
+    networkError:
+      language === "he"
+        ? "אירעה שגיאה בתקשורת עם השרת"
+        : "Network error occurred",
+    loadingProfile:
+      language === "he" ? "טוען פרופיל משתמש..." : "Loading user profile...",
   };
 
+  // Load user profile and chat history on component mount
   useEffect(() => {
-    // Add welcome message
-    if (messages.length === 0) {
+    loadUserProfile();
+    loadChatHistory();
+  }, []);
+
+  // Auto-scroll when messages change
+  useEffect(() => {
+    scrollViewRef.current?.scrollToEnd({ animated: true });
+  }, [messages]);
+
+  const loadUserProfile = async () => {
+    try {
+      console.log("🔄 Loading user profile from questionnaire...");
+      const response = await questionnaireAPI.getQuestionnaire();
+
+      if (response.success && response.data) {
+        const questionnaire = response.data;
+
+        // Extract user profile data from questionnaire
+        const profile: UserProfile = {
+          allergies: Array.isArray(questionnaire.allergies)
+            ? questionnaire.allergies
+            : questionnaire.allergies_text || [],
+          medicalConditions: Array.isArray(
+            questionnaire.medical_conditions_text
+          )
+            ? questionnaire.medical_conditions_text
+            : [],
+          dietaryPreferences: questionnaire.dietary_style
+            ? [questionnaire.dietary_style]
+            : [],
+          goals: questionnaire.main_goal ? [questionnaire.main_goal] : [],
+        };
+
+        setUserProfile(profile);
+        console.log("✅ User profile loaded:", profile);
+      } else {
+        console.log("⚠️ No questionnaire data found, using empty profile");
+      }
+    } catch (error) {
+      console.error("💥 Error loading user profile:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loadChatHistory = async () => {
+    try {
+      console.log("📜 Loading chat history...");
+      const response = await chatAPI.getChatHistory(20);
+
+      if (response.success && response.data && response.data.length > 0) {
+        const chatMessages: Message[] = response.data
+          .map((msg: any) => [
+            {
+              id: `user-${msg.message_id}`,
+              type: "user" as const,
+              content: msg.user_message,
+              timestamp: new Date(msg.created_at),
+            },
+            {
+              id: `bot-${msg.message_id}`,
+              type: "bot" as const,
+              content: msg.ai_response,
+              timestamp: new Date(msg.created_at),
+              hasWarning: checkForAllergens(msg.ai_response).length > 0,
+              allergenWarning: checkForAllergens(msg.ai_response),
+            },
+          ])
+          .flat();
+
+        setMessages(chatMessages);
+        console.log("✅ Loaded", chatMessages.length, "chat messages");
+      } else {
+        // Show welcome message if no chat history
+        setMessages([
+          {
+            id: "welcome",
+            type: "bot",
+            content: texts.welcomeMessage,
+            timestamp: new Date(),
+            suggestions: texts.commonQuestions,
+          },
+        ]);
+      }
+    } catch (error) {
+      console.error("💥 Error loading chat history:", error);
+      // Show welcome message on error
       setMessages([
         {
           id: "welcome",
@@ -120,14 +208,13 @@ export default function AIChatScreen() {
         },
       ]);
     }
-  }, []);
-
-  useEffect(() => {
-    // Scroll to bottom when new message is added
-    scrollViewRef.current?.scrollToEnd({ animated: true });
-  }, [messages]);
+  };
 
   const checkForAllergens = (messageContent: string): string[] => {
+    if (!userProfile.allergies || userProfile.allergies.length === 0) {
+      return [];
+    }
+
     const allergenMap: Record<string, string[]> = {
       nuts: [
         "אגוזים",
@@ -165,18 +252,35 @@ export default function AIChatScreen() {
       eggs: ["ביצים", "ביצה", "eggs", "egg"],
       fish: ["דג", "דגים", "סלמון", "טונה", "fish", "salmon", "tuna"],
       soy: ["סויה", "טופו", "soy", "tofu"],
+      shellfish: [
+        "סרטנים",
+        "לובסטר",
+        "שרימפס",
+        "shellfish",
+        "crab",
+        "lobster",
+        "shrimp",
+      ],
     };
 
     const foundAllergens: string[] = [];
 
     userProfile.allergies.forEach((allergy) => {
-      if (allergenMap[allergy]) {
-        const keywords = allergenMap[allergy];
-        if (
-          keywords.some((keyword) =>
-            messageContent.toLowerCase().includes(keyword.toLowerCase())
-          )
-        ) {
+      const allergyLower = allergy.toLowerCase();
+
+      // Check direct match first
+      if (messageContent.toLowerCase().includes(allergyLower)) {
+        foundAllergens.push(allergy);
+        return;
+      }
+
+      // Check mapped keywords
+      const mappedKeywords = allergenMap[allergyLower];
+      if (mappedKeywords) {
+        const hasAllergen = mappedKeywords.some((keyword) =>
+          messageContent.toLowerCase().includes(keyword.toLowerCase())
+        );
+        if (hasAllergen) {
           foundAllergens.push(allergy);
         }
       }
@@ -185,126 +289,93 @@ export default function AIChatScreen() {
     return foundAllergens;
   };
 
-  const generateAIResponse = async (userMessage: string): Promise<Message> => {
-    // Simulate API delay
-    await new Promise((resolve) =>
-      setTimeout(resolve, 1000 + Math.random() * 2000)
-    );
-
-    // Create enhanced prompt with user profile information
-    const allergyInfo =
-      userProfile.allergies.length > 0
-        ? language === "he"
-          ? `המשתמש רגיש ל: ${userProfile.allergies.join(
-              ", "
-            )}. אל תציע רכיבים אלה. אם הוא שואל לגביהם - הסבר שמדובר במרכיב שהוא אלרגי אליו.`
-          : `The user is allergic to: ${userProfile.allergies.join(
-              ", "
-            )}. Do not suggest these ingredients. If they ask about them - explain that these are ingredients they're allergic to.`
-        : "";
-
-    const medicalInfo =
-      userProfile.medicalConditions.length > 0
-        ? language === "he"
-          ? `המשתמש סובל מ: ${userProfile.medicalConditions.join(
-              ", "
-            )}. התאם המלצות בהתאם.`
-          : `The user has: ${userProfile.medicalConditions.join(
-              ", "
-            )}. Adjust recommendations accordingly.`
-        : "";
-
-    const dietaryInfo =
-      userProfile.dietaryPreferences.length > 0
-        ? language === "he"
-          ? `העדפות תזונה: ${userProfile.dietaryPreferences.join(", ")}.`
-          : `Dietary preferences: ${userProfile.dietaryPreferences.join(", ")}.`
-        : "";
-
-    const enhancedPrompt = `${allergyInfo} ${medicalInfo} ${dietaryInfo} שאלת המשתמש: ${userMessage}`;
-
-    // Mock AI responses with allergen awareness
-    const responses =
-      language === "he"
-        ? [
-            "זוהי המלצה מצוינת! בהתחשב בפרופיל התזונתי שלך, אני מציע להוסיף ירקות עלים ירוקים עשירים בברזל וחלבונים צמחיים כמו קטניות.",
-            "אני רואה שאתה מעוניין בדיאטה מאוזנת. חשוב לוודא שאתה מקבל מספיק חלבון, ויטמינים ומינרלים. האם תרצה שאמליץ על תפריט יומי?",
-            "בהתבסס על המגבלות התזונתיות שלך, אני ממליץ על מקורות חלבון חלופיים כמו קינואה, עדשים וחמוס. זה יעזור לך להגיע ליעדים התזונתיים שלך.",
-            "זה נשמע כמו בחירה חכמה! רק שים לב שהמוצר לא מכיל חומרים שאתה רגיש אליהם. תמיד כדאי לבדוק את רשימת הרכיבים.",
-          ]
-        : [
-            "That's an excellent recommendation! Based on your nutritional profile, I suggest adding iron-rich leafy greens and plant proteins like legumes.",
-            "I see you're interested in a balanced diet. It's important to ensure you get enough protein, vitamins and minerals. Would you like me to recommend a daily menu?",
-            "Based on your dietary restrictions, I recommend alternative protein sources like quinoa, lentils and chickpeas. This will help you reach your nutritional goals.",
-            "That sounds like a smart choice! Just make sure the product doesn't contain ingredients you're sensitive to. Always check the ingredient list.",
-          ];
-
-    let responseContent =
-      responses[Math.floor(Math.random() * responses.length)];
-
-    // Check for allergens in the response
-    const allergens = checkForAllergens(responseContent);
-    let hasWarning = false;
-
-    // If allergens are detected, modify response
-    if (allergens.length > 0) {
-      hasWarning = true;
-      const warningText =
-        language === "he"
-          ? `⚠️ שים לב: ההמלצה הזו מכילה ${allergens.join(
-              ", "
-            )} שאתה רגיש אליהם. אני ממליץ למצוא חלופות מתאימות.`
-          : `⚠️ Warning: This recommendation contains ${allergens.join(
-              ", "
-            )} which you're allergic to. I recommend finding suitable alternatives.`;
-
-      responseContent = warningText + "\n\n" + responseContent;
-    }
-
-    // Add suggestions for common questions
-    const suggestions =
-      language === "he"
-        ? [
-            "המלץ על ארוחת בוקר בריאה",
-            "איך לעלות במשקל באופן בריא?",
-            "מה השעות הטובות לאכילה?",
-          ]
-        : [
-            "Recommend a healthy breakfast",
-            "How to gain weight healthily?",
-            "What are good eating times?",
-          ];
-
-    return {
-      id: Date.now().toString(),
-      type: "bot",
-      content: responseContent,
-      timestamp: new Date(),
-      hasWarning,
-      allergenWarning: allergens.length > 0 ? allergens : undefined,
-      suggestions: Math.random() > 0.6 ? suggestions : undefined,
-    };
-  };
-
   const sendMessage = async () => {
     if (!inputText.trim()) return;
 
     const userMessage: Message = {
-      id: Date.now().toString(),
+      id: `user-${Date.now()}`,
       type: "user",
       content: inputText.trim(),
       timestamp: new Date(),
     };
 
     setMessages((prev) => [...prev, userMessage]);
+    const currentMessage = inputText.trim();
     setInputText("");
     setIsTyping(true);
 
     try {
-      const aiResponse = await generateAIResponse(userMessage.content);
-      setMessages((prev) => [...prev, aiResponse]);
+      console.log("💬 Sending message to AI:", currentMessage);
+
+      const response = await chatAPI.sendMessage(
+        currentMessage,
+        language === "he" ? "hebrew" : "english"
+      );
+
+      console.log("🔍 Full API response structure:", response);
+
+      // Handle both direct response format and nested response format
+      let aiResponseContent = "";
+      let responseData = null;
+
+      if (response.success && response.response) {
+        // Handle nested response format
+        responseData = response.response;
+        aiResponseContent = response.response.response || response.response;
+      } else if (response.response && response.response.response) {
+        // Handle direct response format from server
+        responseData = response.response;
+        aiResponseContent = response.response.response;
+      } else if (response.response && typeof response.response === "string") {
+        // Handle simple string response
+        aiResponseContent = response.response;
+      } else if (typeof response === "string") {
+        // Handle direct string response
+        aiResponseContent = response;
+      } else {
+        console.error("🚨 Unexpected response format:", response);
+        throw new Error("Invalid response format from server");
+      }
+
+      if (!aiResponseContent || aiResponseContent.trim() === "") {
+        throw new Error("Empty response from AI");
+      }
+
+      console.log("✅ Extracted AI response content:", aiResponseContent);
+
+      const allergens = checkForAllergens(aiResponseContent);
+
+      const aiMessage: Message = {
+        id: `bot-${Date.now()}`,
+        type: "bot",
+        content: aiResponseContent,
+        timestamp: new Date(),
+        hasWarning: allergens.length > 0,
+        allergenWarning: allergens.length > 0 ? allergens : undefined,
+        suggestions:
+          Math.random() > 0.7 ? texts.commonQuestions.slice(0, 3) : undefined,
+      };
+
+      setMessages((prev) => [...prev, aiMessage]);
+      console.log("✅ AI response received and displayed successfully");
     } catch (error) {
-      Alert.alert("שגיאה", "אירעה שגיאה בתקשורת עם השרת");
+      console.error("💥 Error sending message:", error);
+
+      // Add error message
+      const errorMessage: Message = {
+        id: `error-${Date.now()}`,
+        type: "bot",
+        content:
+          language === "he"
+            ? "מצטער, אירעה שגיאה בתקשורת עם השרת. אנא נסה שוב."
+            : "Sorry, there was an error communicating with the server. Please try again.",
+        timestamp: new Date(),
+        hasWarning: true,
+      };
+
+      setMessages((prev) => [...prev, errorMessage]);
+
+      Alert.alert(texts.error, texts.networkError);
     } finally {
       setIsTyping(false);
     }
@@ -321,16 +392,23 @@ export default function AIChatScreen() {
         {
           text: texts.clearChat,
           style: "destructive",
-          onPress: () => {
-            setMessages([
-              {
-                id: "welcome",
-                type: "bot",
-                content: texts.welcomeMessage,
-                timestamp: new Date(),
-                suggestions: texts.commonQuestions,
-              },
-            ]);
+          onPress: async () => {
+            try {
+              await chatAPI.clearHistory();
+              setMessages([
+                {
+                  id: "welcome",
+                  type: "bot",
+                  content: texts.welcomeMessage,
+                  timestamp: new Date(),
+                  suggestions: texts.commonQuestions,
+                },
+              ]);
+              console.log("🗑️ Chat history cleared");
+            } catch (error) {
+              console.error("💥 Error clearing chat:", error);
+              Alert.alert(texts.error, texts.networkError);
+            }
           },
         },
       ]
@@ -352,135 +430,138 @@ export default function AIChatScreen() {
     const isUser = message.type === "user";
 
     return (
-      <View
-        key={message.id}
-        style={[
-          styles.messageContainer,
-          isUser ? styles.userMessageContainer : styles.botMessageContainer,
-        ]}
-      >
-        <View
-          style={[
-            styles.messageContent,
-            isUser ? styles.userMessage : styles.botMessage,
-          ]}
-        >
+      <View key={message.id} style={styles.messageContainer}>
+        <View style={[styles.messageRow, isUser && styles.userMessageRow]}>
           {!isUser && (
-            <View style={styles.botIcon}>
-              <Bot size={16} color="#16A085" />
+            <View style={styles.botIconContainer}>
+              <Bot size={20} color="#16A085" />
             </View>
           )}
 
-          <View
-            style={[
-              styles.messageBubble,
-              isUser ? styles.userBubble : styles.botBubble,
-              message.hasWarning && styles.warningBubble,
-            ]}
-          >
-            {message.hasWarning && (
-              <View style={styles.warningHeader}>
-                <AlertTriangle size={16} color="#E74C3C" />
-                <Text style={styles.warningTitle}>{texts.allergenWarning}</Text>
+          <View style={styles.messageContentContainer}>
+            <View
+              style={[
+                styles.messageBubble,
+                isUser ? styles.userBubble : styles.botBubble,
+                message.hasWarning && styles.warningBubble,
+              ]}
+            >
+              {message.hasWarning && (
+                <View style={styles.warningBanner}>
+                  <AlertTriangle size={16} color="#E74C3C" />
+                  <Text style={styles.warningText}>
+                    {texts.allergenWarning}
+                  </Text>
+                </View>
+              )}
+
+              <Text style={[styles.messageText, isUser && styles.userText]}>
+                {message.content}
+              </Text>
+
+              <Text style={[styles.timestamp, isUser && styles.userTimestamp]}>
+                {formatTime(message.timestamp)}
+              </Text>
+            </View>
+
+            {message.suggestions && (
+              <View style={styles.suggestionsContainer}>
+                <Text style={styles.suggestionsLabel}>{texts.tryThese}</Text>
+                <View style={styles.suggestionsGrid}>
+                  {message.suggestions.map((suggestion, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      style={styles.suggestionButton}
+                      onPress={() => selectSuggestion(suggestion)}
+                    >
+                      <Text style={styles.suggestionButtonText}>
+                        {suggestion}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
               </View>
             )}
-
-            <Text
-              style={[
-                styles.messageText,
-                isUser ? styles.userMessageText : styles.botMessageText,
-              ]}
-            >
-              {message.content}
-            </Text>
-
-            <Text
-              style={[
-                styles.messageTime,
-                isUser ? styles.userMessageTime : styles.botMessageTime,
-              ]}
-            >
-              {formatTime(message.timestamp)}
-            </Text>
           </View>
 
           {isUser && (
-            <View style={styles.userIcon}>
-              <User size={16} color="#FFFFFF" />
+            <View style={styles.userIconContainer}>
+              <User size={20} color="#FFFFFF" />
             </View>
           )}
         </View>
-
-        {/* Suggestions */}
-        {message.suggestions && (
-          <View style={styles.suggestionsContainer}>
-            <Text style={styles.suggestionsTitle}>{texts.tryThese}</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              <View style={styles.suggestionsRow}>
-                {message.suggestions.map((suggestion, index) => (
-                  <TouchableOpacity
-                    key={index}
-                    style={styles.suggestionPill}
-                    onPress={() => selectSuggestion(suggestion)}
-                  >
-                    <Text style={styles.suggestionText}>{suggestion}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </ScrollView>
-          </View>
-        )}
       </View>
     );
   };
+
+  if (isLoading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#16A085" />
+          <Text style={styles.loadingText}>{texts.loadingProfile}</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <View>
-          <Text style={styles.title}>{texts.title}</Text>
-          <Text style={styles.subtitle}>{texts.subtitle}</Text>
+        <View style={styles.headerLeft}>
+          <View style={styles.titleContainer}>
+            <Text style={styles.title}>{texts.title}</Text>
+            <Text style={styles.subtitle}>{texts.subtitle}</Text>
+          </View>
         </View>
-        <TouchableOpacity style={styles.clearButton} onPress={clearChat}>
-          <Trash2 size={20} color="#E74C3C" />
+        <TouchableOpacity style={styles.headerButton} onPress={clearChat}>
+          <Trash2 size={22} color="#E74C3C" />
         </TouchableOpacity>
       </View>
 
-      {/* User Profile Summary */}
-      <View style={styles.profileSummary}>
-        <LinearGradient
-          colors={["#16A08515", "#16A08505"]}
-          style={styles.profileGradient}
-        >
+      {/* Profile Card - Only show if user has profile data */}
+      {(userProfile.allergies.length > 0 ||
+        userProfile.medicalConditions.length > 0) && (
+        <View style={styles.profileCard}>
           <View style={styles.profileHeader}>
-            <Shield size={16} color="#16A085" />
+            <Shield size={18} color="#16A085" />
             <Text style={styles.profileTitle}>
               {language === "he" ? "פרופיל בטיחות" : "Safety Profile"}
             </Text>
           </View>
-          <View style={styles.profileInfo}>
+          <View style={styles.profileContent}>
             {userProfile.allergies.length > 0 && (
-              <View style={styles.profileItem}>
-                <AlertTriangle size={12} color="#E74C3C" />
-                <Text style={styles.profileItemText}>
-                  {language === "he" ? "אלרגיות" : "Allergies"}:{" "}
-                  {userProfile.allergies.join(", ")}
+              <View style={styles.profileSection}>
+                <Text style={styles.profileLabel}>
+                  {language === "he" ? "אלרגיות:" : "Allergies:"}
                 </Text>
+                <View style={styles.tagContainer}>
+                  {userProfile.allergies.map((allergy, index) => (
+                    <View key={index} style={styles.allergyTag}>
+                      <Text style={styles.allergyTagText}>{allergy}</Text>
+                    </View>
+                  ))}
+                </View>
               </View>
             )}
             {userProfile.medicalConditions.length > 0 && (
-              <View style={styles.profileItem}>
-                <Heart size={12} color="#9B59B6" />
-                <Text style={styles.profileItemText}>
-                  {language === "he" ? "מצבים רפואיים" : "Medical conditions"}:{" "}
-                  {userProfile.medicalConditions.join(", ")}
+              <View style={styles.profileSection}>
+                <Text style={styles.profileLabel}>
+                  {language === "he" ? "מצבים רפואיים:" : "Medical:"}
                 </Text>
+                <View style={styles.tagContainer}>
+                  {userProfile.medicalConditions.map((condition, index) => (
+                    <View key={index} style={styles.medicalTag}>
+                      <Text style={styles.medicalTagText}>{condition}</Text>
+                    </View>
+                  ))}
+                </View>
               </View>
             )}
           </View>
-        </LinearGradient>
-      </View>
+        </View>
+      )}
 
       {/* Messages */}
       <ScrollView
@@ -489,24 +570,16 @@ export default function AIChatScreen() {
         contentContainerStyle={styles.messagesContent}
         showsVerticalScrollIndicator={false}
       >
-        {messages.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <MessageCircle size={64} color="#BDC3C7" />
-            <Text style={styles.emptyText}>{texts.noMessages}</Text>
-          </View>
-        ) : (
-          messages.map(renderMessage)
-        )}
+        {messages.map(renderMessage)}
 
-        {/* Typing Indicator */}
         {isTyping && (
-          <View style={styles.typingContainer}>
-            <View style={styles.typingBubble}>
-              <View style={styles.botIcon}>
-                <Bot size={16} color="#16A085" />
+          <View style={styles.typingIndicator}>
+            <View style={styles.typingRow}>
+              <View style={styles.botIconContainer}>
+                <Bot size={20} color="#16A085" />
               </View>
-              <View style={styles.typingDots}>
-                <ActivityIndicator size="small" color="#7F8C8D" />
+              <View style={styles.typingBubble}>
+                <ActivityIndicator size="small" color="#16A085" />
                 <Text style={styles.typingText}>{texts.typing}</Text>
               </View>
             </View>
@@ -514,46 +587,42 @@ export default function AIChatScreen() {
         )}
       </ScrollView>
 
-      {/* Input */}
+      {/* Input Area */}
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={styles.inputContainer}
+        style={styles.inputArea}
       >
-        <LinearGradient
-          colors={["#FFFFFF", "#F8F9FA"]}
-          style={styles.inputGradient}
-        >
-          <View style={styles.inputRow}>
-            <TextInput
-              style={styles.textInput}
-              value={inputText}
-              onChangeText={setInputText}
-              placeholder={texts.typePlaceholder}
-              placeholderTextColor="#BDC3C7"
-              multiline
-              maxLength={500}
-            />
-            <TouchableOpacity
-              style={[
-                styles.sendButton,
-                (!inputText.trim() || isTyping) && styles.sendButtonDisabled,
-              ]}
-              onPress={sendMessage}
-              disabled={!inputText.trim() || isTyping}
+        <View style={styles.inputContainer}>
+          <TextInput
+            style={styles.textInput}
+            value={inputText}
+            onChangeText={setInputText}
+            placeholder={texts.typePlaceholder}
+            placeholderTextColor="#95A5A6"
+            multiline
+            maxLength={500}
+            textAlign={language === "he" ? "right" : "left"}
+          />
+          <TouchableOpacity
+            style={[
+              styles.sendButton,
+              (!inputText.trim() || isTyping) && styles.sendButtonDisabled,
+            ]}
+            onPress={sendMessage}
+            disabled={!inputText.trim() || isTyping}
+          >
+            <LinearGradient
+              colors={
+                !inputText.trim() || isTyping
+                  ? ["#BDC3C7", "#95A5A6"]
+                  : ["#16A085", "#1ABC9C"]
+              }
+              style={styles.sendGradient}
             >
-              <LinearGradient
-                colors={
-                  !inputText.trim() || isTyping
-                    ? ["#BDC3C7", "#95A5A6"]
-                    : ["#16A085", "#1ABC9C"]
-                }
-                style={styles.sendButtonGradient}
-              >
-                <Send size={20} color="#FFFFFF" />
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
-        </LinearGradient>
+              <Send size={20} color="#FFFFFF" />
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -564,254 +633,295 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#F8F9FA",
   },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 16,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: "#7F8C8D",
+    textAlign: "center",
+  },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     paddingVertical: 20,
+    backgroundColor: "#FFFFFF",
+    borderBottomWidth: 1,
+    borderBottomColor: "#E9ECEF",
+  },
+  headerLeft: {
+    flex: 1,
+  },
+  titleContainer: {
+    flex: 1,
   },
   title: {
-    fontSize: 28,
-    fontWeight: "bold",
+    fontSize: 24,
+    fontWeight: "700",
     color: "#2C3E50",
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 14,
     color: "#7F8C8D",
     marginTop: 4,
   },
-  clearButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#FFFFFF",
+  headerButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#F8F9FA",
     justifyContent: "center",
     alignItems: "center",
-    elevation: 2,
+  },
+  profileCard: {
+    backgroundColor: "#FFFFFF",
+    marginHorizontal: 20,
+    marginTop: 16,
+    borderRadius: 16,
+    padding: 20,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  profileSummary: {
-    paddingHorizontal: 20,
-    marginBottom: 16,
-  },
-  profileGradient: {
-    padding: 16,
-    borderRadius: 12,
+    shadowRadius: 8,
+    elevation: 4,
   },
   profileHeader: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 8,
+    marginBottom: 16,
   },
   profileTitle: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: "600",
-    color: "#16A085",
-    marginLeft: 6,
+    color: "#2C3E50",
+    marginLeft: 8,
   },
-  profileInfo: {
-    gap: 6,
+  profileContent: {
+    gap: 12,
   },
-  profileItem: {
+  profileSection: {
     flexDirection: "row",
     alignItems: "center",
+    flexWrap: "wrap",
   },
-  profileItemText: {
-    fontSize: 12,
+  profileLabel: {
+    fontSize: 14,
+    fontWeight: "500",
     color: "#7F8C8D",
-    marginLeft: 6,
+    marginRight: 12,
+    minWidth: 70,
+  },
+  tagContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    flex: 1,
+  },
+  allergyTag: {
+    backgroundColor: "#FDEBEA",
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E74C3C",
+  },
+  allergyTagText: {
+    fontSize: 12,
+    color: "#E74C3C",
+    fontWeight: "500",
+  },
+  medicalTag: {
+    backgroundColor: "#F4ECF7",
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#9B59B6",
+  },
+  medicalTagText: {
+    fontSize: 12,
+    color: "#9B59B6",
+    fontWeight: "500",
   },
   messagesContainer: {
     flex: 1,
+    marginTop: 16,
   },
   messagesContent: {
     paddingHorizontal: 20,
     paddingBottom: 20,
   },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingVertical: 60,
-  },
-  emptyText: {
-    fontSize: 16,
-    color: "#7F8C8D",
-    marginTop: 16,
-    textAlign: "center",
-  },
   messageContainer: {
-    marginBottom: 16,
+    marginBottom: 24,
   },
-  userMessageContainer: {
-    alignItems: "flex-end",
-  },
-  botMessageContainer: {
-    alignItems: "flex-start",
-  },
-  messageContent: {
+  messageRow: {
     flexDirection: "row",
-    alignItems: "flex-end",
-    maxWidth: "85%",
+    alignItems: "flex-start",
+    gap: 12,
   },
-  userMessage: {
+  userMessageRow: {
     flexDirection: "row-reverse",
   },
-  botMessage: {
-    flexDirection: "row",
-  },
-  botIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+  botIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: "#E8F8F5",
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 8,
+    marginTop: 4,
   },
-  userIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+  userIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: "#16A085",
     justifyContent: "center",
     alignItems: "center",
-    marginLeft: 8,
+    marginTop: 4,
+  },
+  messageContentContainer: {
+    flex: 1,
+    maxWidth: width - 120,
   },
   messageBubble: {
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 16,
-    maxWidth: width - 120,
+    backgroundColor: "#FFFFFF",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   userBubble: {
     backgroundColor: "#16A085",
+    alignSelf: "flex-end",
   },
   botBubble: {
     backgroundColor: "#FFFFFF",
-    elevation: 1,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
+    alignSelf: "flex-start",
   },
   warningBubble: {
-    borderWidth: 1,
-    borderColor: "#E74C3C",
+    borderLeftWidth: 4,
+    borderLeftColor: "#E74C3C",
+    backgroundColor: "#FDEBEA",
   },
-  warningHeader: {
+  warningBanner: {
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 8,
     paddingBottom: 8,
     borderBottomWidth: 1,
-    borderBottomColor: "#FDEBEA",
+    borderBottomColor: "#E74C3C",
   },
-  warningTitle: {
-    fontSize: 14,
+  warningText: {
+    fontSize: 12,
     fontWeight: "600",
     color: "#E74C3C",
     marginLeft: 6,
   },
   messageText: {
     fontSize: 16,
-    lineHeight: 22,
-  },
-  userMessageText: {
-    color: "#FFFFFF",
-  },
-  botMessageText: {
+    lineHeight: 20,
     color: "#2C3E50",
   },
-  messageTime: {
-    fontSize: 12,
+  userText: {
+    color: "#FFFFFF",
+  },
+  timestamp: {
+    fontSize: 11,
+    color: "#95A5A6",
     marginTop: 6,
   },
-  userMessageTime: {
-    color: "rgba(255,255,255,0.7)",
+  userTimestamp: {
+    color: "rgba(255,255,255,0.8)",
     textAlign: "right",
   },
-  botMessageTime: {
-    color: "#95A5A6",
-  },
   suggestionsContainer: {
-    marginTop: 12,
-    marginLeft: 40,
+    marginTop: 16,
   },
-  suggestionsTitle: {
+  suggestionsLabel: {
     fontSize: 12,
     fontWeight: "500",
     color: "#7F8C8D",
     marginBottom: 8,
   },
-  suggestionsRow: {
+  suggestionsGrid: {
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: 8,
   },
-  suggestionPill: {
+  suggestionButton: {
     backgroundColor: "#E8F8F5",
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
     borderWidth: 1,
     borderColor: "#16A085",
   },
-  suggestionText: {
+  suggestionButtonText: {
     fontSize: 12,
     fontWeight: "500",
     color: "#16A085",
   },
-  typingContainer: {
-    alignItems: "flex-start",
-    marginBottom: 16,
+  typingIndicator: {
+    marginBottom: 24,
   },
-  typingBubble: {
+  typingRow: {
     flexDirection: "row",
     alignItems: "center",
+    gap: 12,
   },
-  typingDots: {
+  typingBubble: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#FFFFFF",
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 16,
-    marginLeft: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   typingText: {
     fontSize: 14,
     color: "#7F8C8D",
     marginLeft: 8,
   },
-  inputContainer: {
+  inputArea: {
     backgroundColor: "#FFFFFF",
     borderTopWidth: 1,
     borderTopColor: "#E9ECEF",
-  },
-  inputGradient: {
     paddingHorizontal: 20,
     paddingVertical: 16,
   },
-  inputRow: {
+  inputContainer: {
     flexDirection: "row",
     alignItems: "flex-end",
     gap: 12,
+    backgroundColor: "#F8F9FA",
+    borderRadius: 24,
+    paddingHorizontal: 4,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: "#E9ECEF",
   },
   textInput: {
     flex: 1,
-    backgroundColor: "#F8F9FA",
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
     fontSize: 16,
     color: "#2C3E50",
-    maxHeight: 100,
-    borderWidth: 1,
-    borderColor: "#E9ECEF",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    maxHeight: 120,
   },
   sendButton: {
     borderRadius: 20,
@@ -820,7 +930,7 @@ const styles = StyleSheet.create({
   sendButtonDisabled: {
     opacity: 0.5,
   },
-  sendButtonGradient: {
+  sendGradient: {
     width: 40,
     height: 40,
     justifyContent: "center",

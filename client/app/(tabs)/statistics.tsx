@@ -48,9 +48,9 @@ import {
   Battery,
   X,
 } from "lucide-react-native";
-import { useStatistics } from "@/hooks/useQueries";
 import { useTranslation } from "react-i18next";
 import { useLanguage } from "@/src/i18n/context/LanguageContext";
+import { api } from "@/src/services/api";
 
 const { width } = Dimensions.get("window");
 
@@ -115,6 +115,35 @@ interface TimeFilter {
   label: string;
 }
 
+interface StatisticsData {
+  level: number;
+  currentXP: number;
+  totalPoints: number;
+  currentStreak: number;
+  weeklyStreak: number;
+  perfectDays: number;
+  dailyGoalDays: number;
+  totalDays: number;
+  averageCalories: number;
+  averageProtein: number;
+  averageCarbs: number;
+  averageFats: number;
+  averageFiber: number;
+  averageSugar: number;
+  averageSodium: number;
+  averageFluids: number;
+  achievements: any[];
+  badges: any[];
+  dailyBreakdown: any[];
+  successfulDays: number;
+  averageCompletion: number;
+  bestStreak: number;
+  happyDays: number;
+  highEnergyDays: number;
+  satisfiedDays: number;
+  averageMealQuality: number;
+}
+
 export default function StatisticsScreen() {
   const { t } = useTranslation();
   const { language } = useLanguage();
@@ -125,19 +154,11 @@ export default function StatisticsScreen() {
   const [showComparison, setShowComparison] = useState(false);
   const [showAchievements, setShowAchievements] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-
-  // Get statistics data with proper error handling
-  const {
-    data: statisticsResponse,
-    isLoading,
-    error,
-    refetch,
-    data,
-  } = useStatistics(selectedPeriod);
-
-  // Safely extract statistics data with fallbacks
-  const statisticsData = statisticsResponse?.data || null;
-  const hasData = statisticsData && statisticsResponse?.success;
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [statisticsData, setStatisticsData] = useState<StatisticsData | null>(
+    null
+  );
 
   const texts = {
     title: language === "he" ? "התקדמות וסטטיסטיקות" : "Progress & Statistics",
@@ -236,36 +257,20 @@ export default function StatisticsScreen() {
     score: language === "he" ? "ניקוד" : "score",
     meals: language === "he" ? "ארוחות" : "meals",
     hours: language === "he" ? "שעות" : "hours",
-    increaseIntake:
-      t("statistics.increase_intake") ||
-      (language === "he" ? "הגדל צריכה" : "Increase intake"),
-    decreaseIntake:
-      t("statistics.decrease_intake") ||
-      (language === "he" ? "הפחת צריכה" : "Decrease intake"),
-    maintainLevel:
-      t("statistics.maintain_level") ||
-      (language === "he" ? "שמור על הרמה" : "Maintain level"),
-    consultDoctor:
-      t("statistics.consult_doctor") ||
-      (language === "he" ? "התייעץ עם רופא" : "Consult doctor"),
+    increaseIntake: language === "he" ? "הגדל צריכה" : "Increase intake",
+    decreaseIntake: language === "he" ? "הפחת צריכה" : "Decrease intake",
+    maintainLevel: language === "he" ? "שמור על הרמה" : "Maintain level",
+    consultDoctor: language === "he" ? "התייעץ עם רופא" : "Consult doctor",
     addSupplement:
-      t("statistics.add_supplement") ||
-      (language === "he" ? "שקול תוסף תזונה" : "Consider supplement"),
-    improveHydration:
-      t("statistics.improve_hydration") ||
-      (language === "he" ? "שפר הידרציה" : "Improve hydration"),
+      language === "he" ? "שקול תוסף תזונה" : "Consider supplement",
+    improveHydration: language === "he" ? "שפר הידרציה" : "Improve hydration",
     balanceMeals:
-      t("statistics.balance_meals") ||
-      (language === "he" ? "איזן זמני ארוחות" : "Balance meal timing"),
+      language === "he" ? "איזן זמני ארוחות" : "Balance meal timing",
     increaseFiber:
-      t("statistics.increase_fiber") ||
-      (language === "he" ? "הוסף סיבים תזונתיים" : "Add fiber sources"),
-    reduceSodium:
-      t("statistics.reduce_sodium") ||
-      (language === "he" ? "הפחת נתרן" : "Reduce sodium"),
+      language === "he" ? "הוסף סיבים תזונתיים" : "Add fiber sources",
+    reduceSodium: language === "he" ? "הפחת נתרן" : "Reduce sodium",
     addOmega3:
-      t("statistics.add_omega3") ||
-      (language === "he" ? "הוסף מקורות אומגה 3" : "Add omega-3 sources"),
+      language === "he" ? "הוסף מקורות אומגה 3" : "Add omega-3 sources",
     insightTitle:
       language === "he"
         ? "תובנות חכמות מבוססות נתונים"
@@ -280,11 +285,37 @@ export default function StatisticsScreen() {
     retryButton: language === "he" ? "נסה שוב" : "Retry",
   };
 
+  // Fetch statistics data from API
+  const fetchStatistics = async (period: "today" | "week" | "month") => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      console.log(`📊 Fetching statistics for period: ${period}`);
+      const response = await api.get(`/statistics?period=${period}`);
+
+      if (response.data.success) {
+        setStatisticsData(response.data.data);
+        console.log(`✅ Statistics loaded successfully`);
+      } else {
+        setError(response.data.message || "Failed to load statistics");
+      }
+    } catch (err) {
+      console.error("❌ Error fetching statistics:", err);
+      setError("Failed to load statistics data");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // Initialize data
+  useEffect(() => {
+    fetchStatistics(selectedPeriod);
+  }, [selectedPeriod]);
+
   // Generate nutrition data from real API response
   const generateNutritionMetrics = (): NutritionMetric[] => {
-    if (!statisticsData) {
-      return [];
-    }
+    if (!statisticsData) return [];
 
     const calculateTrend = (
       current: number,
@@ -309,7 +340,7 @@ export default function StatisticsScreen() {
         id: "calories",
         name: texts.totalCalories,
         nameEn: "Total Calories",
-        value: statisticsData?.average_calories_daily || 0,
+        value: statisticsData.averageCalories || 0,
         target: 1800,
         unit: texts.kcal,
         icon: <Flame size={20} color="#E74C3C" />,
@@ -319,23 +350,18 @@ export default function StatisticsScreen() {
           language === "he"
             ? "צריכת קלוריות יומית כוללת"
             : "Total daily calorie intake",
-        trend: calculateTrend(
-          statisticsData?.average_calories_daily || 0,
-          1800
-        ),
-        weeklyAverage: statisticsData?.average_calories_daily || 0,
+        trend: calculateTrend(statisticsData.averageCalories || 0, 1800),
+        weeklyAverage: statisticsData.averageCalories || 0,
         lastWeekChange: calculateWeeklyChange(
-          statisticsData?.average_calories_daily || 0,
-          statisticsData?.previous_calories_daily ||
-            statisticsData?.average_calories_daily ||
-            0
+          statisticsData.averageCalories || 0,
+          statisticsData.averageCalories || 0
         ),
       },
       {
         id: "protein",
         name: texts.protein,
         nameEn: "Protein",
-        value: statisticsData?.average_protein_daily || 0,
+        value: statisticsData.averageProtein || 0,
         target: 120,
         unit: texts.g,
         icon: <Zap size={20} color="#9B59B6" />,
@@ -345,20 +371,18 @@ export default function StatisticsScreen() {
           language === "he"
             ? "חלבון לבניית שרירים ותיקון רקמות"
             : "Protein for muscle building and tissue repair",
-        trend: calculateTrend(statisticsData?.average_protein_daily || 0, 120),
-        weeklyAverage: statisticsData?.average_protein_daily || 0,
+        trend: calculateTrend(statisticsData.averageProtein || 0, 120),
+        weeklyAverage: statisticsData.averageProtein || 0,
         lastWeekChange: calculateWeeklyChange(
-          statisticsData?.average_protein_daily || 0,
-          statisticsData?.previous_protein_daily ||
-            statisticsData?.average_protein_daily ||
-            0
+          statisticsData.averageProtein || 0,
+          statisticsData.averageProtein || 0
         ),
       },
       {
         id: "carbs",
         name: texts.carbohydrates,
         nameEn: "Carbohydrates",
-        value: statisticsData?.average_carbs_daily || 0,
+        value: statisticsData.averageCarbs || 0,
         target: 225,
         unit: texts.g,
         icon: <Wheat size={20} color="#F39C12" />,
@@ -368,20 +392,18 @@ export default function StatisticsScreen() {
           language === "he"
             ? "פחמימות לאנרגיה ותפקוד המוח"
             : "Carbohydrates for energy and brain function",
-        trend: calculateTrend(statisticsData?.average_carbs_daily || 0, 225),
-        weeklyAverage: statisticsData?.average_carbs_daily || 0,
+        trend: calculateTrend(statisticsData.averageCarbs || 0, 225),
+        weeklyAverage: statisticsData.averageCarbs || 0,
         lastWeekChange: calculateWeeklyChange(
-          statisticsData?.average_carbs_daily || 0,
-          statisticsData?.previous_carbs_daily ||
-            statisticsData?.average_carbs_daily ||
-            0
+          statisticsData.averageCarbs || 0,
+          statisticsData.averageCarbs || 0
         ),
       },
       {
         id: "fats",
         name: texts.fats,
         nameEn: "Fats",
-        value: statisticsData?.average_fats_daily || 0,
+        value: statisticsData.averageFats || 0,
         target: 70,
         unit: texts.g,
         icon: <Fish size={20} color="#16A085" />,
@@ -391,20 +413,18 @@ export default function StatisticsScreen() {
           language === "he"
             ? "שומנים בריאים לתפקוד הורמונלי"
             : "Healthy fats for hormonal function",
-        trend: calculateTrend(statisticsData?.average_fats_daily || 0, 70),
-        weeklyAverage: statisticsData?.average_fats_daily || 0,
+        trend: calculateTrend(statisticsData.averageFats || 0, 70),
+        weeklyAverage: statisticsData.averageFats || 0,
         lastWeekChange: calculateWeeklyChange(
-          statisticsData?.average_fats_daily || 0,
-          statisticsData?.previous_fats_daily ||
-            statisticsData?.average_fats_daily ||
-            0
+          statisticsData.averageFats || 0,
+          statisticsData.averageFats || 0
         ),
       },
       {
         id: "fiber",
         name: texts.fiber,
         nameEn: "Fiber",
-        value: statisticsData?.average_fiber_daily || 0,
+        value: statisticsData.averageFiber || 0,
         target: 25,
         unit: texts.g,
         icon: <Leaf size={20} color="#27AE60" />,
@@ -415,20 +435,18 @@ export default function StatisticsScreen() {
             ? "סיבים תזונתיים לבריאות העיכול"
             : "Dietary fiber for digestive health",
         recommendation: texts.increaseFiber,
-        trend: calculateTrend(statisticsData?.average_fiber_daily || 0, 25),
-        weeklyAverage: statisticsData?.average_fiber_daily || 0,
+        trend: calculateTrend(statisticsData.averageFiber || 0, 25),
+        weeklyAverage: statisticsData.averageFiber || 0,
         lastWeekChange: calculateWeeklyChange(
-          statisticsData?.average_fiber_daily || 0,
-          statisticsData?.previous_fiber_daily ||
-            statisticsData?.average_fiber_daily ||
-            0
+          statisticsData.averageFiber || 0,
+          statisticsData.averageFiber || 0
         ),
       },
       {
         id: "sugars",
         name: texts.sugars,
         nameEn: "Sugars",
-        value: statisticsData?.average_sugar_daily || 0,
+        value: statisticsData.averageSugar || 0,
         target: 50,
         maxTarget: 50,
         unit: texts.g,
@@ -440,20 +458,18 @@ export default function StatisticsScreen() {
             ? "סוכרים פשוטים - מומלץ להגביל"
             : "Simple sugars - recommended to limit",
         recommendation: texts.decreaseIntake,
-        trend: calculateTrend(statisticsData?.average_sugar_daily || 0, 50),
-        weeklyAverage: statisticsData?.average_sugar_daily || 0,
+        trend: calculateTrend(statisticsData.averageSugar || 0, 50),
+        weeklyAverage: statisticsData.averageSugar || 0,
         lastWeekChange: calculateWeeklyChange(
-          statisticsData?.average_sugar_daily || 0,
-          statisticsData?.previous_sugar_daily ||
-            statisticsData?.average_sugar_daily ||
-            0
+          statisticsData.averageSugar || 0,
+          statisticsData.averageSugar || 0
         ),
       },
       {
         id: "sodium",
         name: texts.sodium,
         nameEn: "Sodium",
-        value: statisticsData?.average_sodium_daily || 0,
+        value: statisticsData.averageSodium || 0,
         target: 2300,
         maxTarget: 2300,
         unit: texts.mg,
@@ -465,20 +481,18 @@ export default function StatisticsScreen() {
             ? "נתרן - חשוב להגביל למניעת יתר לחץ דם"
             : "Sodium - important to limit to prevent hypertension",
         recommendation: texts.reduceSodium,
-        trend: calculateTrend(statisticsData?.average_sodium_daily || 0, 2300),
-        weeklyAverage: statisticsData?.average_sodium_daily || 0,
+        trend: calculateTrend(statisticsData.averageSodium || 0, 2300),
+        weeklyAverage: statisticsData.averageSodium || 0,
         lastWeekChange: calculateWeeklyChange(
-          statisticsData?.average_sodium_daily || 0,
-          statisticsData?.previous_sodium_daily ||
-            statisticsData?.average_sodium_daily ||
-            0
+          statisticsData.averageSodium || 0,
+          statisticsData.averageSodium || 0
         ),
       },
       {
         id: "hydration",
         name: texts.hydration,
         nameEn: "Hydration",
-        value: statisticsData?.average_fluids_daily || 0,
+        value: statisticsData.averageFluids || 0,
         target: 2500,
         unit: texts.ml,
         icon: <Droplets size={20} color="#3498DB" />,
@@ -487,13 +501,11 @@ export default function StatisticsScreen() {
         description:
           language === "he" ? "רמת הידרציה יומית" : "Daily hydration level",
         recommendation: texts.improveHydration,
-        trend: calculateTrend(statisticsData?.average_fluids_daily || 0, 2500),
-        weeklyAverage: statisticsData?.average_fluids_daily || 0,
+        trend: calculateTrend(statisticsData.averageFluids || 0, 2500),
+        weeklyAverage: statisticsData.averageFluids || 0,
         lastWeekChange: calculateWeeklyChange(
-          statisticsData?.average_fluids_daily || 0,
-          statisticsData?.previous_fluids_daily ||
-            statisticsData?.average_fluids_daily ||
-            0
+          statisticsData.averageFluids || 0,
+          statisticsData.averageFluids || 0
         ),
       },
     ];
@@ -534,34 +546,20 @@ export default function StatisticsScreen() {
       return [];
     }
 
-    return statisticsData.dailyBreakdown.map(
-      (day: {
-        date: any;
-        calories: any;
-        protein_g: any;
-        carbs_g: any;
-        fats_g: any;
-        liquids_ml: any;
-        weight_kg: any;
-        mood: string;
-        energy: string;
-        satiety: string;
-        meal_quality: any;
-      }) => ({
-        date: day.date,
-        calories: day.calories || 0,
-        protein: day.protein_g || 0,
-        carbs: day.carbs_g || 0,
-        fats: day.fats_g || 0,
-        water: day.liquids_ml || 0,
-        weight: day.weight_kg,
-        mood: (day.mood as "happy" | "neutral" | "sad") || "neutral",
-        energy: (day.energy as "high" | "medium" | "low") || "medium",
-        satiety:
-          (day.satiety as "very_full" | "satisfied" | "hungry") || "satisfied",
-        mealQuality: day.meal_quality || 3,
-      })
-    );
+    return statisticsData.dailyBreakdown.map((day: any) => ({
+      date: day.date,
+      calories: day.calories || 0,
+      protein: day.protein_g || 0,
+      carbs: day.carbs_g || 0,
+      fats: day.fats_g || 0,
+      water: day.liquids_ml || 0,
+      weight: day.weight_kg,
+      mood: (day.mood as "happy" | "neutral" | "sad") || "neutral",
+      energy: (day.energy as "high" | "medium" | "low") || "medium",
+      satiety:
+        (day.satiety as "very_full" | "satisfied" | "hungry") || "satisfied",
+      mealQuality: day.meal_quality || 3,
+    }));
   };
 
   // Generate achievements from real API data
@@ -664,21 +662,24 @@ export default function StatisticsScreen() {
 
   const [metrics, setMetrics] = useState<NutritionMetric[]>([]);
   const [weeklyData, setWeeklyData] = useState<ProgressData[]>([]);
-  const [achievements] = useState<Achievement[]>(generateAchievements());
-  const [badges] = useState<Badge[]>(generateBadges());
+  const [achievements, setAchievements] = useState<Achievement[]>([]);
+  const [badges, setBadges] = useState<Badge[]>([]);
 
   // Update metrics when data changes
   useEffect(() => {
-    // Always generate metrics and weekly data, even with limited data
-    setMetrics(generateNutritionMetrics());
-    setWeeklyData(generateWeeklyData());
-  }, [statisticsData, isLoading]);
+    if (statisticsData) {
+      setMetrics(generateNutritionMetrics());
+      setWeeklyData(generateWeeklyData());
+      setAchievements(generateAchievements());
+      setBadges(generateBadges());
+    }
+  }, [statisticsData]);
 
   // Refresh handler
   const handleRefresh = async () => {
     setRefreshing(true);
     try {
-      await refetch();
+      await fetchStatistics(selectedPeriod);
     } finally {
       setRefreshing(false);
     }
@@ -792,70 +793,58 @@ export default function StatisticsScreen() {
 
   // Calculate progress statistics
   const calculateProgressStats = () => {
-    const goals = {
-      calories: 1800,
-      protein: 120,
-      carbs: 225,
-      fats: 70,
-      water: 2500,
-    };
+    if (!statisticsData) {
+      return {
+        totalDays: 0,
+        successfulDays: 0,
+        averageCompletion: 0,
+        bestStreak: 0,
+        currentStreak: 0,
+        averages: { calories: 0, protein: 0, carbs: 0, fats: 0, water: 0 },
+      };
+    }
+
     const averages = {
-      calories: Math.round(
-        weeklyData.reduce((sum, day) => sum + day.calories, 0) /
-          Math.max(weeklyData.length, 1)
-      ),
-      protein: Math.round(
-        weeklyData.reduce((sum, day) => sum + day.protein, 0) /
-          Math.max(weeklyData.length, 1)
-      ),
-      carbs: Math.round(
-        weeklyData.reduce((sum, day) => sum + day.carbs, 0) /
-          Math.max(weeklyData.length, 1)
-      ),
-      fats: Math.round(
-        weeklyData.reduce((sum, day) => sum + day.fats, 0) /
-          Math.max(weeklyData.length, 1)
-      ),
-      water: Math.round(
-        weeklyData.reduce((sum, day) => sum + day.water, 0) /
-          Math.max(weeklyData.length, 1)
-      ),
+      calories: Math.round(statisticsData.averageCalories || 0),
+      protein: Math.round(statisticsData.averageProtein || 0),
+      carbs: Math.round(statisticsData.averageCarbs || 0),
+      fats: Math.round(statisticsData.averageFats || 0),
+      water: Math.round(statisticsData.averageFluids || 0),
     };
-
-    const successfulDays = weeklyData.filter(
-      (day) =>
-        Math.abs(day.calories - goals.calories) <= 100 &&
-        day.protein >= goals.protein * 0.8 &&
-        day.water >= goals.water * 0.8
-    ).length;
-
-    const averageCompletion = Math.round(
-      ((averages.calories / goals.calories +
-        averages.protein / goals.protein +
-        averages.water / goals.water) /
-        3) *
-        100
-    );
 
     return {
-      totalDays: weeklyData.length,
-      successfulDays,
-      averageCompletion,
-      bestStreak: 4,
-      currentStreak: 2,
+      totalDays: statisticsData.totalDays || 0,
+      successfulDays: statisticsData.successfulDays || 0,
+      averageCompletion: Math.round(statisticsData.averageCompletion || 0),
+      bestStreak: statisticsData.bestStreak || 0,
+      currentStreak: statisticsData.currentStreak || 0,
       averages,
     };
   };
 
   // Calculate gamification stats from real data
   const calculateGamificationStats = () => {
-    const totalPoints = statisticsData?.totalPoints || 0;
+    if (!statisticsData) {
+      return {
+        level: 1,
+        currentXP: 0,
+        nextLevelXP: 1000,
+        totalPoints: 0,
+        dailyStreak: 0,
+        weeklyStreak: 0,
+        perfectDays: 0,
+        xpToNext: 1000,
+        xpProgress: 0,
+      };
+    }
+
+    const totalPoints = statisticsData.totalPoints || 0;
     const level = Math.floor(totalPoints / 1000) + 1;
     const currentXP = totalPoints % 1000;
     const nextLevelXP = 1000;
-    const dailyStreak = statisticsData?.currentStreak || 0;
-    const weeklyStreak = statisticsData?.weeklyStreak || 0;
-    const perfectDays = statisticsData?.perfectDays || 0;
+    const dailyStreak = statisticsData.currentStreak || 0;
+    const weeklyStreak = statisticsData.weeklyStreak || 0;
+    const perfectDays = statisticsData.perfectDays || 0;
 
     return {
       level,
@@ -872,26 +861,22 @@ export default function StatisticsScreen() {
 
   // Calculate wellbeing insights
   const calculateWellbeingInsights = () => {
-    const moodData = weeklyData.map((d) => d.mood);
-    const energyData = weeklyData.map((d) => d.energy);
-    const satietyData = weeklyData.map((d) => d.satiety);
-
-    const happyDays = moodData.filter((m) => m === "happy").length;
-    const highEnergyDays = energyData.filter((e) => e === "high").length;
-    const satisfiedDays = satietyData.filter(
-      (s) => s === "satisfied" || s === "very_full"
-    ).length;
-
-    const averageMealQuality =
-      weeklyData.reduce((sum, day) => sum + (day.mealQuality || 3), 0) /
-      Math.max(weeklyData.length, 1);
+    if (!statisticsData) {
+      return {
+        happyDays: 0,
+        highEnergyDays: 0,
+        satisfiedDays: 0,
+        averageMealQuality: "3.0",
+        totalDays: 0,
+      };
+    }
 
     return {
-      happyDays,
-      highEnergyDays,
-      satisfiedDays,
-      averageMealQuality: averageMealQuality.toFixed(1),
-      totalDays: weeklyData.length,
+      happyDays: statisticsData.happyDays || 0,
+      highEnergyDays: statisticsData.highEnergyDays || 0,
+      satisfiedDays: statisticsData.satisfiedDays || 0,
+      averageMealQuality: (statisticsData.averageMealQuality || 3).toFixed(1),
+      totalDays: statisticsData.totalDays || 0,
     };
   };
 
@@ -1067,15 +1052,15 @@ export default function StatisticsScreen() {
         </View>
 
         {/* No Data Message */}
-        {!hasData && !isLoading && (
+        {!statisticsData && !isLoading && (
           <View style={styles.noDataContainer}>
             <BarChart3 size={64} color="#BDC3C7" />
             <Text style={styles.noDataText}>{texts.noDataMessage}</Text>
           </View>
         )}
 
-        {/* Always show content, use fallback data when needed */}
-        {
+        {/* Main Content */}
+        {statisticsData && (
           <>
             {/* Gamification Dashboard */}
             <View style={styles.section}>
@@ -1546,16 +1531,24 @@ export default function StatisticsScreen() {
                       <Star size={16} color="#F39C12" />
                       <Text style={styles.insightText}>
                         {language === "he"
-                          ? "אתה עומד ביעד החלבון ב-85% מהימים השבוע - מעולה לבניית שרירים!"
-                          : "You're meeting protein goals 85% of days this week - excellent for muscle building!"}
+                          ? `אתה עומד ביעד החלבון ב-${Math.round(
+                              (progressStats.averages.protein / 120) * 100
+                            )}% מהימים השבוע - מעולה לבניית שרירים!`
+                          : `You're meeting protein goals ${Math.round(
+                              (progressStats.averages.protein / 120) * 100
+                            )}% of days this week - excellent for muscle building!`}
                       </Text>
                     </View>
                     <View style={styles.insightItem}>
                       <TrendingUp size={16} color="#2ECC71" />
                       <Text style={styles.insightText}>
                         {language === "he"
-                          ? "צריכת המים שלך השתפרה ב-23% השבוע - המשך כך!"
-                          : "Your water intake improved by 23% this week - keep it up!"}
+                          ? `צריכת המים שלך עמדה על ${Math.round(
+                              progressStats.averages.water
+                            )}מ"ל יומית - המשך כך!`
+                          : `Your water intake averaged ${Math.round(
+                              progressStats.averages.water
+                            )}ml daily - keep it up!`}
                       </Text>
                     </View>
                     <View style={styles.insightItem}>
@@ -1579,7 +1572,7 @@ export default function StatisticsScreen() {
               </View>
             </View>
           </>
-        }
+        )}
 
         {/* Achievements Modal */}
         <Modal

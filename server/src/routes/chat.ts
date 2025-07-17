@@ -34,16 +34,43 @@ router.post(
     }
 
     try {
-      const { message } = chatSchema.parse(req.body);
-      const response = await ChatService.processMessage(userId, message);
+      const { message, language = "hebrew" } = req.body;
 
+      if (!message || typeof message !== "string" || message.trim() === "") {
+        return res.status(400).json({
+          success: false,
+          error: "Message is required and must be a non-empty string",
+        });
+      }
+
+      console.log("🔄 Processing chat message for user:", userId);
+      console.log("📝 Message:", message);
+      console.log("🌐 Language:", language);
+
+      const response = await ChatService.processMessage(
+        userId,
+        message,
+        language
+      );
+
+      console.log("✅ Chat service response:", response);
+
+      // Ensure consistent response format
       res.json({
-        response,
+        success: true,
+        response: {
+          response: response.response,
+          messageId: response.messageId,
+        },
         timestamp: new Date().toISOString(),
       });
     } catch (error) {
-      console.error("Chat error:", error);
-      res.status(500).json({ error: "Failed to process message" });
+      console.error("💥 Chat error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to process message",
+        timestamp: new Date().toISOString(),
+      });
     }
   }
 );

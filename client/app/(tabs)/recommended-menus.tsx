@@ -13,7 +13,21 @@ import {
   Image,
 } from "react-native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  RefreshCw,
+  Clock,
+  Star,
+  Filter,
+  TrendingUp,
+  Heart,
+  Zap,
+  Check,
+  Shuffle,
+  Sparkles,
+} from "lucide-react-native";
 import { api } from "@/src/services/api";
+import { BlurView } from "expo-blur";
+import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
 
 const { width: screenWidth } = Dimensions.get("window");
@@ -104,6 +118,118 @@ const CATEGORY_COLORS = {
 };
 
 export default function RecommendedMenusScreen() {
+  const [activeTab, setActiveTab] = useState("all");
+  const [recommendedMenus, setRecommendedMenus] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  useEffect(() => {
+    loadRecommendedMenus();
+  }, []);
+
+  const loadRecommendedMenus = async () => {
+    try {
+      setIsLoading(true);
+      const response = await api.get("/recommended-menu");
+      if (response.data.success) {
+        setRecommendedMenus(response.data.data);
+      }
+    } catch (error) {
+      console.error("💥 Load menus error:", error);
+      Alert.alert("common.error", "menu.load_failed");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSelectMenu = async (menu: any) => {
+    try {
+      Alert.alert("menu.confirm_selection", "menu.add_to_today", [
+        { text: "common.cancel", style: "cancel" },
+        {
+          text: "common.confirm",
+          onPress: async () => {
+            const response = await api.post("/recommended-menu/select", {
+              menu_id: menu.id,
+              date: new Date().toISOString().split("T")[0],
+            });
+
+            if (response.data.success) {
+              Alert.alert("common.success", "menu.added_to_meals");
+            } else {
+              throw new Error(response.data.error);
+            }
+          },
+        },
+      ]);
+    } catch (error) {
+      console.error("💥 Select menu error:", error);
+      Alert.alert("common.error", "menu.select_failed");
+    }
+  };
+
+  const handleSwitchMeal = async (menu: any) => {
+    try {
+      setIsGenerating(true);
+      const response = await api.post("/recommended-menu/switch", {
+        menu_id: menu.id,
+      });
+
+      if (response.data.success) {
+        // Update the menu with new suggestion
+        setRecommendedMenus((prev) =>
+          prev.map((m) => (m.id === menu.id ? response.data.data : m))
+        );
+        Alert.alert("common.success", "menu.meal_switched");
+      } else {
+        throw new Error(response.data.error);
+      }
+    } catch (error) {
+      console.error("💥 Switch meal error:", error);
+      Alert.alert("common.error", "menu.switch_failed");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleSelectAlternative = async (menu: any, alternative: any) => {
+    try {
+      const response = await api.post("/recommended-menu/alternative", {
+        menu_id: menu.id,
+        alternative_id: alternative.id,
+      });
+
+      if (response.data.success) {
+        Alert.alert("common.success", "menu.alternative_selected");
+        loadRecommendedMenus();
+      } else {
+        throw new Error(response.data.error);
+      }
+    } catch (error) {
+      console.error("💥 Select alternative error:", error);
+      Alert.alert("common.error", "menu.alternative_failed");
+    }
+  };
+
+  const handleGenerateNewMenu = async () => {
+    try {
+      setIsGenerating(true);
+      const response = await api.post("/recommended-menu/generate");
+
+      if (response.data.success) {
+        setRecommendedMenus((prev) => [response.data.data, ...prev]);
+        Alert.alert("common.success", "menu.new_menu_generated");
+      } else {
+        throw new Error(response.data.error);
+      }
+    } catch (error) {
+      console.error("💥 Generate menu error:", error);
+      Alert.alert("common.error", "menu.generate_failed");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
   const [selectedDay, setSelectedDay] = useState(1);
   const [showPreferences, setShowPreferences] = useState(false);
   const [showMealDetails, setShowMealDetails] = useState<string | null>(null);
@@ -122,7 +248,6 @@ export default function RecommendedMenusScreen() {
 
   const {
     data: menusData,
-    isLoading,
     error,
     refetch,
   } = useQuery({
@@ -904,6 +1029,178 @@ export default function RecommendedMenusScreen() {
           </View>
         )}
 
+        {isLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#6366f1" />
+            <Text style={styles.loadingText}>טוען...</Text>
+          </View>
+        ) : (
+          <ScrollView style={styles.menuContainer}>
+            {recommendedMenus.map((menu, index) => (
+              <BlurView
+                key={menu.menu_id}
+                intensity={20}
+                style={styles.menuCard}
+              >
+                <View style={styles.menuHeader}>
+                  <Text style={styles.menuTitle}>{menu.title}</Text>
+                  <View style={styles.menuMeta}>
+                    <Text style={styles.menuCalories}>
+                      {menu.total_calories} קק"ל
+                    </Text>
+                    <Text style={styles.menuType}>{menu.meal_type}</Text>
+                  </View>
+                </View>
+
+                <Text style={styles.menuDescription}>{menu.description}</Text>
+
+                {/* Nutrition Summary */}
+                <View style={styles.nutritionSummary}>
+                  <View style={styles.nutritionItem}>
+                    <Text style={styles.nutritionLabel}>חלבון</Text>
+                    <Text style={styles.nutritionValue}>
+                      {menu.total_protein}g
+                    </Text>
+                  </View>
+                  <View style={styles.nutritionItem}>
+                    <Text style={styles.nutritionLabel}>פחמימות</Text>
+                    <Text style={styles.nutritionValue}>
+                      {menu.total_carbs}g
+                    </Text>
+                  </View>
+                  <View style={styles.nutritionItem}>
+                    <Text style={styles.nutritionLabel}>שומן</Text>
+                    <Text style={styles.nutritionValue}>
+                      {menu.total_fats}g
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Action Buttons */}
+                <View style={styles.actionButtons}>
+                  <TouchableOpacity
+                    style={styles.selectButton}
+                    onPress={() => handleSelectMenu(menu)}
+                  >
+                    <Check size={20} color="white" />
+                    <Text style={styles.buttonText}>בחר תפריט</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.switchButton}
+                    onPress={() => handleSwitchMeal(menu)}
+                  >
+                    <Shuffle size={20} color="#6366f1" />
+                    <Text style={styles.switchButtonText}>החלף ארוחה</Text>
+                  </TouchableOpacity>
+                </View>
+
+                {/* Alternatives */}
+                {menu.alternatives && menu.alternatives.length > 0 && (
+                  <View style={styles.alternativesSection}>
+                    <Text style={styles.alternativesTitle}>
+                      אפשרויות חלופיות
+                    </Text>
+                    {menu.alternatives.slice(0, 2).map(
+                      (
+                        alt: {
+                          name:
+                            | string
+                            | number
+                            | bigint
+                            | boolean
+                            | React.ReactElement<
+                                unknown,
+                                string | React.JSXElementConstructor<any>
+                              >
+                            | Iterable<React.ReactNode>
+                            | React.ReactPortal
+                            | Promise<
+                                | string
+                                | number
+                                | bigint
+                                | boolean
+                                | React.ReactPortal
+                                | React.ReactElement<
+                                    unknown,
+                                    string | React.JSXElementConstructor<any>
+                                  >
+                                | Iterable<React.ReactNode>
+                                | null
+                                | undefined
+                              >
+                            | null
+                            | undefined;
+                          calories:
+                            | string
+                            | number
+                            | bigint
+                            | boolean
+                            | React.ReactElement<
+                                unknown,
+                                string | React.JSXElementConstructor<any>
+                              >
+                            | Iterable<React.ReactNode>
+                            | React.ReactPortal
+                            | Promise<
+                                | string
+                                | number
+                                | bigint
+                                | boolean
+                                | React.ReactPortal
+                                | React.ReactElement<
+                                    unknown,
+                                    string | React.JSXElementConstructor<any>
+                                  >
+                                | Iterable<React.ReactNode>
+                                | null
+                                | undefined
+                              >
+                            | null
+                            | undefined;
+                        },
+                        altIndex: React.Key | null | undefined
+                      ) => (
+                        <TouchableOpacity
+                          key={altIndex}
+                          style={styles.alternativeItem}
+                          onPress={() => handleSelectAlternative(menu, alt)}
+                        >
+                          <Text style={styles.alternativeName}>{alt.name}</Text>
+                          <Text style={styles.alternativeCalories}>
+                            {alt.calories} cal
+                          </Text>
+                        </TouchableOpacity>
+                      )
+                    )}
+                  </View>
+                )}
+              </BlurView>
+            ))}
+
+            {/* Generate New Menu Button */}
+            <TouchableOpacity
+              style={styles.generateButton}
+              onPress={handleGenerateNewMenu}
+              disabled={isGenerating}
+            >
+              <LinearGradient
+                colors={["#6366f1", "#8b5cf6"]}
+                style={styles.gradientButton}
+              >
+                {isGenerating ? (
+                  <ActivityIndicator size="small" color="white" />
+                ) : (
+                  <Sparkles size={24} color="white" />
+                )}
+                <Text style={styles.buttonText}>
+                  {isGenerating ? "Generating..." : "צור תפריט חדש"}
+                </Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </ScrollView>
+        )}
+
         {renderDaySelector()}
         {renderMealTypeFilter()}
 
@@ -1636,5 +1933,122 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginTop: 24,
     fontWeight: "600",
+  },
+  menuContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 20,
+  },
+  menuCard: {
+    backgroundColor: "rgba(255, 255, 255, 0.7)",
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  menuHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 10,
+  },
+  menuMeta: {
+    alignItems: "flex-end",
+  },
+  menuCalories: {
+    fontSize: 14,
+    color: "#666",
+  },
+  menuType: {
+    fontSize: 14,
+    color: "#666",
+  },
+  nutritionItem: {
+    alignItems: "center",
+  },
+  nutritionLabel: {
+    fontSize: 14,
+    color: "#777",
+    marginBottom: 5,
+  },
+  nutritionValue: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#555",
+  },
+  actionButtons: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  selectButton: {
+    backgroundColor: "#10b981",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+  },
+  switchButton: {
+    backgroundColor: "transparent",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: "#6366f1",
+  },
+  buttonText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "700",
+    marginLeft: 8,
+  },
+  switchButtonText: {
+    color: "#6366f1",
+    fontSize: 16,
+    fontWeight: "700",
+    marginLeft: 8,
+  },
+  alternativesSection: {
+    marginTop: 15,
+    paddingTop: 15,
+    borderTopWidth: 1,
+    borderTopColor: "#eee",
+  },
+  alternativesTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 10,
+  },
+  alternativeItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    backgroundColor: "#f9f9f9",
+    borderRadius: 10,
+    marginBottom: 8,
+  },
+  alternativeName: {
+    fontSize: 16,
+    color: "#444",
+  },
+  alternativeCalories: {
+    fontSize: 14,
+    color: "#777",
+  },
+  gradientButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 15,
   },
 });

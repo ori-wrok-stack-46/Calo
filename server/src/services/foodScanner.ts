@@ -1,12 +1,6 @@
-import OpenAI from "openai";
 import { prisma } from "../lib/database";
+import { openai } from "./openai";
 import axios from "axios";
-
-const openai = process.env.OPENAI_API_KEY
-  ? new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    })
-  : null;
 
 interface ProductData {
   barcode?: string;
@@ -24,7 +18,7 @@ interface ProductData {
   };
   ingredients: string[];
   allergens: string[];
-  labels: string[]; // kosher, vegan, gluten-free, etc.
+  labels: string[];
   health_score?: number;
   image_url?: string;
 }
@@ -186,7 +180,7 @@ If you cannot read the label clearly, estimate based on visible information and 
   static async addProductToMealLog(
     userId: string,
     productData: ProductData,
-    quantity: number, // in grams
+    quantity: number,
     mealTiming: string = "SNACK"
   ): Promise<any> {
     try {
@@ -218,7 +212,8 @@ If you cannot read the label clearly, estimate based on visible information and 
           allergens: productData.allergens,
           labels: productData.labels,
         },
-        image_url: productData.image_url || "", // Fix: Add the required image_url field
+        image_url: "", // Add the required image_url field
+        health_score: productData.health_score || 50,
       };
 
       const meal = await prisma.meal.create({
@@ -226,14 +221,33 @@ If you cannot read the label clearly, estimate based on visible information and 
           user_id: userId,
           analysis_status: "COMPLETED",
           ...mealData,
+          upload_time: new Date(),
           created_at: new Date(),
         },
       });
+
+      // Award achievement for first scan
+      await this.checkAndAwardAchievements(userId);
 
       return meal;
     } catch (error) {
       console.error("💥 Add to meal log error:", error);
       throw error;
+    }
+  }
+
+  static async getScanHistory(userId: string): Promise<any[]> {
+    try {
+      const products = await prisma.foodProduct.findMany({
+        where: { user_id: userId },
+        orderBy: { created_at: "desc" },
+        take: 50,
+      });
+
+      return products;
+    } catch (error) {
+      console.error("Error getting scan history:", error);
+      return [];
     }
   }
 
@@ -269,7 +283,7 @@ If you cannot read the label clearly, estimate based on visible information and 
     barcode: string
   ): Promise<ProductData | null> {
     try {
-      // ✅ Try OpenFoodFacts
+      // Try OpenFoodFacts
       const response = await axios.get(
         `https://world.openfoodfacts.org/api/v0/product/${barcode}.json`,
         { timeout: 5000 }
@@ -309,71 +323,17 @@ If you cannot read the label clearly, estimate based on visible information and 
         };
       }
 
-      // ⚠️ If OpenFoodFacts found no result, fallback
-      return await this.tryFallbackAPIs(barcode);
+      return null;
     } catch (error: any) {
       console.warn("❌ OpenFoodFacts failed:", error.message || error);
-      // Fallback to alternate sources
-      return await this.tryFallbackAPIs(barcode);
+      return null;
     }
-  }
-
-  private static async tryFallbackAPIs(
-    barcode: string
-  ): Promise<ProductData | null> {
-    // Fallback 1: Nutritionix (requires appId + appKey)
-    try {
-      const nutritionixResponse = await axios.get(
-        `https://trackapi.nutritionix.com/v2/search/item?upc=${barcode}`,
-        {
-          headers: {
-            "x-app-id": process.env.NUTRITIONIX_APP_ID!,
-            "x-app-key": process.env.NUTRITIONIX_APP_KEY!,
-          },
-          timeout: 5000,
-        }
-      );
-
-      const item = nutritionixResponse.data.foods?.[0];
-      if (item) {
-        return {
-          barcode,
-          name: item.food_name,
-          brand: item.brand_name,
-          category: "Unknown",
-          nutrition_per_100g: {
-            calories: item.nf_calories || 0,
-            protein: item.nf_protein || 0,
-            carbs: item.nf_total_carbohydrate || 0,
-            fat: item.nf_total_fat || 0,
-            fiber: item.nf_dietary_fiber || undefined,
-            sugar: item.nf_sugars || undefined,
-            sodium: item.nf_sodium || undefined,
-          },
-          ingredients: item.nf_ingredient_statement
-            ? item.nf_ingredient_statement
-                .split(",")
-                .map((i: string) => i.trim())
-            : [],
-          allergens: [], // Nutritionix has allergen data but via another endpoint
-          labels: [],
-          health_score: undefined,
-          image_url: item.photo?.thumb,
-        };
-      }
-    } catch (e: any) {
-      console.warn("⚠️ Nutritionix fallback failed:", e.message || e);
-    }
-
-    // Fallback 2: Add USDA fallback here if needed...
-
-    return null; // Nothing worked
   }
 
   private static async saveProductToDatabase(
     productData: ProductData,
     barcode: string,
-    user_id: string // add user_id param or get it from somewhere
+    user_id: string
   ): Promise<void> {
     try {
       await prisma.foodProduct.upsert({
@@ -401,7 +361,7 @@ If you cannot read the label clearly, estimate based on visible information and 
           labels: productData.labels,
           health_score: productData.health_score,
           image_url: productData.image_url,
-          user_id, // <--- add this here
+          user_id,
           created_at: new Date(),
         },
       });
@@ -416,14 +376,13 @@ If you cannot read the label clearly, estimate based on visible information and 
   ): Promise<UserAnalysis> {
     try {
       // Get user's nutrition goals and preferences
-      const [nutritionPlan, questionnaire, todayIntake] = await Promise.all([
+      const [nutritionPlan, questionnaire] = await Promise.all([
         prisma.nutritionPlan.findFirst({ where: { user_id: userId } }),
         prisma.userQuestionnaire.findFirst({ where: { user_id: userId } }),
-        this.getTodayIntake(userId),
       ]);
 
       const analysis: UserAnalysis = {
-        compatibility_score: 70, // Default score
+        compatibility_score: 70,
         daily_contribution: {
           calories_percent: 0,
           protein_percent: 0,
@@ -438,7 +397,6 @@ If you cannot read the label clearly, estimate based on visible information and 
       // Calculate daily contribution percentages
       if (nutritionPlan) {
         const nutrition = productData.nutrition_per_100g;
-        // Fix: Add null checks for all nutrition plan goals
         analysis.daily_contribution = {
           calories_percent: nutritionPlan.goal_calories
             ? (nutrition.calories / nutritionPlan.goal_calories) * 100
@@ -550,26 +508,49 @@ If you cannot read the label clearly, estimate based on visible information and 
     }
   }
 
-  private static async getTodayIntake(userId: string): Promise<any> {
-    const today = new Date().toISOString().split("T")[0];
-    const todayMeals = await prisma.meal.findMany({
-      where: {
-        user_id: userId,
-        created_at: {
-          gte: new Date(today),
-          lt: new Date(new Date(today).getTime() + 24 * 60 * 60 * 1000),
-        },
-      },
-    });
+  private static async checkAndAwardAchievements(
+    userId: string
+  ): Promise<void> {
+    try {
+      // Check for first scan achievement
+      const scanCount = await prisma.meal.count({
+        where: { user_id: userId },
+      });
 
-    return todayMeals.reduce(
-      (acc, meal) => ({
-        calories: acc.calories + (meal.calories || 0),
-        protein: acc.protein + (meal.protein_g || 0),
-        carbs: acc.carbs + (meal.carbs_g || 0),
-        fat: acc.fat + (meal.fats_g || 0),
-      }),
-      { calories: 0, protein: 0, carbs: 0, fat: 0 }
-    );
+      if (scanCount === 1) {
+        // This is the first scan, award achievement
+        await prisma.userAchievement.upsert({
+          where: {
+            user_id_achievement_id: {
+              user_id: userId,
+              achievement_id: "first_scan",
+            },
+          },
+          update: {
+            progress: 1,
+            unlocked: true,
+            unlocked_date: new Date(),
+          },
+          create: {
+            user_id: userId,
+            achievement_id: "first_scan",
+            progress: 1,
+            unlocked: true,
+            unlocked_date: new Date(),
+          },
+        });
+
+        // Award XP
+        await prisma.user.update({
+          where: { user_id: userId },
+          data: {
+            current_xp: { increment: 50 },
+            total_points: { increment: 50 },
+          },
+        });
+      }
+    } catch (error) {
+      console.error("Error checking achievements:", error);
+    }
   }
 }

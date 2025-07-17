@@ -78,7 +78,7 @@ router.post(
       // Award XP and badge if 16+ cups (only if not already awarded today)
       if (cups >= 16) {
         // Check if user already has scuba diver badge for today
-        const existingBadge = await prisma.userBadge.findFirst({
+        const todayBadgeCount = await prisma.userBadge.count({
           where: {
             user_id: userId,
             badge_id: "scuba_diver",
@@ -89,7 +89,7 @@ router.post(
           },
         });
 
-        if (!existingBadge) {
+        if (todayBadgeCount === 0) {
           // Create scuba diver badge if it doesn't exist
           await prisma.badge.upsert({
             where: { id: "scuba_diver" },
@@ -105,7 +105,7 @@ router.post(
             },
           });
 
-          // Award badge to user
+          // Award badge to user (create new entry each time they achieve it)
           await prisma.userBadge.create({
             data: {
               user_id: userId,
@@ -114,16 +114,24 @@ router.post(
             },
           });
 
-          // Update user XP and total points
+          // Update user level and XP
+          const currentUser = await prisma.user.findUnique({
+            where: { user_id: userId },
+            select: { current_xp: true, total_points: true, level: true },
+          });
+
+          const newTotalPoints = (currentUser?.total_points || 0) + 100;
+          const newCurrentXP = (currentUser?.current_xp || 0) + 100;
+          const newLevel = Math.floor(newTotalPoints / 1000) + 1;
+          const finalXP =
+            newCurrentXP >= 1000 ? newCurrentXP - 1000 : newCurrentXP;
+
           await prisma.user.update({
             where: { user_id: userId },
             data: {
-              current_xp: {
-                increment: 100,
-              },
-              total_points: {
-                increment: 100,
-              },
+              current_xp: finalXP,
+              total_points: newTotalPoints,
+              level: newLevel,
             },
           });
 

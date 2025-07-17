@@ -51,6 +51,11 @@ const LanguageToolbar: React.FC<LanguageToolbarProps> = ({ helpContent }) => {
     outputRange: [50, helpContent ? 160 : 120],
   });
 
+  const translateX = expandAnimation.interpolate({
+    inputRange: [0, 1],
+    outputRange: [isRTL ? -25 : 25, 0],
+  });
+
   const gearRotation = expandAnimation.interpolate({
     inputRange: [0, 1],
     outputRange: ["0deg", "180deg"],
@@ -67,21 +72,24 @@ const LanguageToolbar: React.FC<LanguageToolbarProps> = ({ helpContent }) => {
   });
 
   return (
-    <View
-      style={[
-        styles.container,
-        { paddingTop: insets.top },
-        isRTL && styles.containerRTL,
-      ]}
-    >
+    <>
       <View
-        style={[styles.toolbarContainer, isRTL && styles.toolbarContainerRTL]}
+        style={[
+          styles.container,
+          {
+            top: insets.top + 50,
+            [isRTL ? "left" : "right"]: 0,
+          },
+        ]}
       >
         <Animated.View
           style={[
             styles.toolbar,
             isRTL && styles.toolbarRTL,
-            { width: expandedWidth },
+            {
+              width: expandedWidth,
+              transform: [{ translateX }],
+            },
           ]}
         >
           {/* Gear Icon Button */}
@@ -94,7 +102,7 @@ const LanguageToolbar: React.FC<LanguageToolbarProps> = ({ helpContent }) => {
             <Animated.View style={{ transform: [{ rotate: gearRotation }] }}>
               <Ionicons
                 name="settings"
-                size={22}
+                size={20}
                 color="#4ECDC4"
                 style={styles.gearIcon}
               />
@@ -147,7 +155,7 @@ const LanguageToolbar: React.FC<LanguageToolbarProps> = ({ helpContent }) => {
                 >
                   <Ionicons
                     name="help-circle-outline"
-                    size={18}
+                    size={16}
                     color="#4ECDC4"
                     style={styles.helpIcon}
                   />
@@ -177,7 +185,7 @@ const LanguageToolbar: React.FC<LanguageToolbarProps> = ({ helpContent }) => {
                 accessibilityLabel="Close"
                 accessibilityRole="button"
               >
-                <Ionicons name="close" size={20} color="#666" />
+                <Ionicons name="close" size={18} color="#666" />
               </TouchableOpacity>
             </View>
             <ScrollView style={styles.modalBody}>
@@ -188,35 +196,21 @@ const LanguageToolbar: React.FC<LanguageToolbarProps> = ({ helpContent }) => {
           </View>
         </View>
       </Modal>
-    </View>
+    </>
   );
 };
 
 const styles = StyleSheet.create({
   container: {
     position: "absolute",
-    top: 0,
-    right: 0,
-    backgroundColor: "transparent",
     zIndex: 1000,
-  },
-  containerRTL: {
-    right: "auto",
-    left: 0,
-  },
-  toolbarContainer: {
-    alignItems: "flex-end",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-  },
-  toolbarContainerRTL: {
-    alignItems: "flex-start",
+    elevation: 10,
   },
   toolbar: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 8,
-    paddingVertical: 8,
+    paddingHorizontal: 4,
+    paddingVertical: 6,
     backgroundColor: "#ffffff",
     borderRadius: 25,
     shadowColor: "#000",
@@ -228,6 +222,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 6,
     overflow: "hidden",
+    minHeight: 40,
   },
   toolbarRTL: {
     flexDirection: "row-reverse",
@@ -238,7 +233,8 @@ const styles = StyleSheet.create({
     backgroundColor: "transparent",
     alignItems: "center",
     justifyContent: "center",
-    zIndex: 10,
+    minWidth: 32,
+    minHeight: 32,
   },
   gearButtonRTL: {
     // No specific RTL styles needed for gear button
@@ -251,23 +247,23 @@ const styles = StyleSheet.create({
   expandedButtons: {
     flexDirection: "row",
     alignItems: "center",
-    marginLeft: 8,
-    gap: 8,
+    marginLeft: 6,
+    gap: 6,
   },
   expandedButtonsRTL: {
     flexDirection: "row-reverse",
     marginLeft: 0,
-    marginRight: 8,
+    marginRight: 6,
   },
   animatedButton: {
     // Container for animated buttons
   },
   languageButton: {
     backgroundColor: "#4ECDC4",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    minWidth: 40,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 14,
+    minWidth: 36,
     alignItems: "center",
     shadowColor: "#4ECDC4",
     shadowOffset: {
@@ -283,13 +279,13 @@ const styles = StyleSheet.create({
   },
   languageText: {
     color: "#ffffff",
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "600",
     letterSpacing: 0.3,
   },
   helpButton: {
-    padding: 6,
-    borderRadius: 16,
+    padding: 5,
+    borderRadius: 14,
     backgroundColor: "#ffffff",
     borderWidth: 1,
     borderColor: "#4ECDC4",
@@ -301,6 +297,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 2,
     elevation: 2,
+    minWidth: 26,
+    minHeight: 26,
+    alignItems: "center",
+    justifyContent: "center",
   },
   helpButtonRTL: {
     // No specific RTL styles needed

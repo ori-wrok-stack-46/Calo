@@ -18,6 +18,7 @@ export class ChatService {
   }> {
     try {
       console.log("🤖 Processing chat message:", message);
+      console.log("🌐 Language:", language);
 
       // Get user context for personalized advice
       const userContext = await this.getUserNutritionContext(userId);
@@ -43,33 +44,62 @@ export class ChatService {
         console.log("⚠️ No OpenAI API key, using fallback response");
         aiResponse = this.getFallbackResponse(message, language);
       } else {
-        // Call OpenAI
-        const response = await openai.chat.completions.create({
-          model: "gpt-4o",
-          messages: [
-            { role: "system", content: systemPrompt },
-            ...conversationHistory,
-          ],
-          max_tokens: 1000,
-          temperature: 0.7,
-        });
+        try {
+          console.log("🔄 Calling OpenAI API...");
 
+          // Call OpenAI with improved error handling
+          const response = await openai.chat.completions.create({
+            model: "gpt-4o",
+            messages: [
+              { role: "system", content: systemPrompt },
+              ...conversationHistory,
+            ],
+            max_tokens: 1000,
+            temperature: 0.7,
+          });
+
+          const aiContent = response.choices[0]?.message?.content;
+
+          if (!aiContent || aiContent.trim() === "") {
+            console.log("⚠️ Empty response from OpenAI, using fallback");
+            aiResponse = this.getFallbackResponse(message, language);
+          } else {
+            aiResponse = aiContent.trim();
+            console.log(
+              "✅ OpenAI response received:",
+              aiResponse.substring(0, 100) + "..."
+            );
+          }
+        } catch (openaiError) {
+          console.error("💥 OpenAI API error:", openaiError);
+          aiResponse = this.getFallbackResponse(message, language);
+        }
+      }
+
+      // Ensure we have a valid response
+      if (!aiResponse || aiResponse.trim() === "") {
         aiResponse =
-          response.choices[0]?.message?.content ||
-          "מצטער, לא הצלחתי לעבד את השאלה שלך.";
+          language === "hebrew"
+            ? "מצטער, אירעה שגיאה בעיבוד השאלה שלך. אנא נסה שוב."
+            : "Sorry, there was an error processing your question. Please try again.";
       }
 
       // Save conversation to database
       const messageId = await this.saveChatMessage(userId, message, aiResponse);
 
+      console.log("✅ Chat processing completed successfully");
+
       return {
         response: aiResponse,
-        messageId,
+        messageId: messageId,
       };
     } catch (error) {
       console.error("💥 Chat service error:", error);
+
+      const fallbackResponse = this.getFallbackResponse(message, language);
+
       return {
-        response: this.getFallbackResponse(message, language),
+        response: fallbackResponse,
         messageId: "",
       };
     }
