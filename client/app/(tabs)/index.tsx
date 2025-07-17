@@ -861,7 +861,7 @@ const HomeScreen = React.memo(() => {
                       onPress={() => router.push(`/(tabs)/history`)}
                     >
                       <View
-                        key={meal.meal_id || `meal-${index}`}
+                        key={index}
                         style={styles.mealSection}
                       >
                         <View style={styles.mealCard}>
