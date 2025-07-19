@@ -47,7 +47,7 @@ router.get("/debug", authenticateToken, async (req: AuthRequest, res) => {
     const menuCount = await prisma.recommendedMenu.count({
       where: { user_id: userId },
     });
- 
+
     // Get detailed menu data
     const menus = await prisma.recommendedMenu.findMany({
       where: { user_id: userId },
@@ -131,6 +131,113 @@ router.get("/:menuId", authenticateToken, async (req: AuthRequest, res) => {
     });
   }
 });
+
+// POST /api/recommended-menus/generate-custom - Generate custom menu based on user description
+router.post(
+  "/generate-custom",
+  authenticateToken,
+  async (req: AuthRequest, res) => {
+    try {
+      const userId = req.user.user_id;
+      console.log("🎨 Generating custom menu for user:", userId);
+      console.log("📋 Custom request:", req.body);
+
+      const {
+        days = 7,
+        mealsPerDay = "3_main",
+        customRequest,
+        budget,
+        mealChangeFrequency = "daily",
+        includeLeftovers = false,
+        sameMealTimes = true,
+      } = req.body;
+
+      // Validate input
+      if (!customRequest || customRequest.trim() === "") {
+        return res.status(400).json({
+          success: false,
+          error: "Custom request description is required",
+        });
+      }
+
+      if (days < 1 || days > 30) {
+        return res.status(400).json({
+          success: false,
+          error: "Days must be between 1 and 30",
+        });
+      }
+
+      console.log("✅ Input validation passed, generating custom menu...");
+
+      const menu = await RecommendedMenuService.generateCustomMenu({
+        userId,
+        days,
+        mealsPerDay,
+        customRequest: customRequest.trim(),
+        budget,
+        mealChangeFrequency,
+        includeLeftovers,
+        sameMealTimes,
+      });
+
+      if (!menu) {
+        throw new Error("Custom menu generation returned null");
+      }
+
+      console.log("🎉 Custom menu generated successfully!");
+      console.log("📊 Menu stats:", {
+        menu_id: menu?.menu_id,
+        title: menu?.title,
+        meals_count: menu?.meals?.length || 0,
+        total_calories: menu?.total_calories,
+      });
+
+      const responseData = {
+        ...menu,
+        menu_id: menu.menu_id,
+        title: menu.title,
+        description: menu.description,
+        meals: menu.meals || [],
+        days_count: menu.days_count,
+        total_calories: menu.total_calories,
+        estimated_cost: menu.estimated_cost,
+      };
+
+      console.log(
+        "📤 Sending custom menu response with",
+        responseData.meals.length,
+        "meals"
+      );
+
+      res.json({
+        success: true,
+        message: "Custom menu generated successfully",
+        data: responseData,
+      });
+    } catch (error) {
+      console.error("💥 Error generating custom menu:", error);
+
+      let errorMessage = "Failed to generate custom menu";
+      let statusCode = 500;
+
+      if (error instanceof Error) {
+        if (error.message.includes("questionnaire not found")) {
+          errorMessage =
+            "Please complete your questionnaire first before generating a custom menu";
+          statusCode = 400;
+        } else {
+          errorMessage = error.message;
+        }
+      }
+
+      res.status(statusCode).json({
+        success: false,
+        error: errorMessage,
+        details: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  }
+);
 
 // POST /api/recommended-menus/generate - Generate new menu with preferences
 router.post("/generate", authenticateToken, async (req: AuthRequest, res) => {

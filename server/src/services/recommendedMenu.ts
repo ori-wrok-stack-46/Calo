@@ -14,7 +14,82 @@ export interface MenuGenerationRequest {
   budget?: number;
 }
 
+export interface CustomMenuGenerationRequest extends MenuGenerationRequest {
+  customRequest: string;
+}
+
 export class RecommendedMenuService {
+  static async generateCustomMenu(request: CustomMenuGenerationRequest) {
+    const {
+      userId,
+      days = 7,
+      mealsPerDay = "3_main",
+      customRequest,
+      budget,
+      mealChangeFrequency = "daily",
+      includeLeftovers = false,
+      sameMealTimes = true,
+    } = request;
+
+    console.log("🎨 Generating custom menu for user:", userId);
+    console.log("🎯 Custom request:", customRequest);
+
+    try {
+      // Get user's questionnaire data
+      const questionnaire = await prisma.userQuestionnaire.findFirst({
+        where: { user_id: userId },
+        orderBy: { date_completed: "desc" },
+      });
+
+      if (!questionnaire) {
+        throw new Error(
+          "User questionnaire not found. Please complete the questionnaire first."
+        );
+      }
+
+      console.log("📋 Found questionnaire data for user:", userId);
+
+      // Calculate nutritional needs based on questionnaire
+      const nutritionalNeeds = this.calculateNutritionalNeeds(questionnaire);
+      console.log("🔢 Calculated nutritional needs:", nutritionalNeeds);
+
+      // Override budget if provided
+      if (budget) {
+        questionnaire.daily_food_budget = budget;
+      }
+
+      // Generate custom menu using AI with user request
+      const menuData = await this.generateCustomMenuWithAI(
+        questionnaire,
+        nutritionalNeeds,
+        customRequest,
+        days,
+        mealsPerDay,
+        mealChangeFrequency,
+        includeLeftovers,
+        sameMealTimes
+      );
+
+      console.log("🤖 AI generated custom menu data:", {
+        title: menuData.title,
+        mealsCount: menuData.meals?.length || 0,
+        totalCalories: menuData.total_calories,
+      });
+
+      // Save complete menu to database
+      const savedMenu = await this.saveCompleteMenuToDatabase(userId, menuData);
+      console.log(
+        "💾 Custom menu saved successfully with ID:",
+        savedMenu.menu_id
+      );
+
+      return savedMenu;
+    } catch (error) {
+      console.error("💥 Error generating custom menu:", error);
+      throw error;
+    }
+  }
+
   static async generatePersonalizedMenu(request: MenuGenerationRequest) {
     const {
       userId,
@@ -156,6 +231,83 @@ export class RecommendedMenuService {
     };
   }
 
+  private static async generateCustomMenuWithAI(
+    questionnaire: any,
+    nutritionalNeeds: any,
+    customRequest: string,
+    days: number,
+    mealsPerDay: string,
+    mealChangeFrequency: string,
+    includeLeftovers: boolean,
+    sameMealTimes: boolean
+  ) {
+    const prompt = this.buildCustomMenuPrompt(
+      questionnaire,
+      nutritionalNeeds,
+      customRequest,
+      days,
+      mealsPerDay,
+      mealChangeFrequency,
+      includeLeftovers,
+      sameMealTimes
+    );
+
+    console.log("🤖 Generating custom menu with AI...");
+
+    try {
+      const response = await OpenAIService.generateText(prompt);
+      console.log("🤖 Raw AI response length:", response.length);
+
+      // Parse and validate the response
+      let parsedResponse;
+      try {
+        parsedResponse = JSON.parse(response);
+      } catch (parseError) {
+        console.error("🚨 Failed to parse AI response, using fallback");
+        return this.getCustomFallbackMenu(
+          nutritionalNeeds,
+          customRequest,
+          days,
+          mealsPerDay,
+          questionnaire
+        );
+      }
+
+      // Validate the parsed response has required structure
+      if (
+        !parsedResponse.meals ||
+        !Array.isArray(parsedResponse.meals) ||
+        parsedResponse.meals.length === 0
+      ) {
+        console.error("🚨 AI response missing meals array, using fallback");
+        return this.getCustomFallbackMenu(
+          nutritionalNeeds,
+          customRequest,
+          days,
+          mealsPerDay,
+          questionnaire
+        );
+      }
+
+      console.log(
+        "✅ AI generated",
+        parsedResponse.meals.length,
+        "custom meals"
+      );
+      return parsedResponse;
+    } catch (error) {
+      console.error("💥 Error generating custom menu with AI:", error);
+      console.log("🔄 Using custom fallback menu");
+      return this.getCustomFallbackMenu(
+        nutritionalNeeds,
+        customRequest,
+        days,
+        mealsPerDay,
+        questionnaire
+      );
+    }
+  }
+
   private static async generateComprehensiveMenuWithAI(
     questionnaire: any,
     nutritionalNeeds: any,
@@ -222,6 +374,132 @@ export class RecommendedMenuService {
         questionnaire
       );
     }
+  }
+
+  private static buildCustomMenuPrompt(
+    questionnaire: any,
+    nutritionalNeeds: any,
+    customRequest: string,
+    days: number,
+    mealsPerDay: string,
+    mealChangeFrequency: string,
+    includeLeftovers: boolean,
+    sameMealTimes: boolean
+  ) {
+    const {
+      dietary_style,
+      allergies,
+      disliked_foods,
+      liked_foods,
+      cooking_preference,
+      available_cooking_methods,
+      daily_food_budget,
+      kosher,
+      medical_conditions_text,
+      age,
+      gender,
+      main_goal,
+    } = questionnaire;
+
+    const mealStructure = this.getMealStructure(mealsPerDay);
+    const budget = daily_food_budget || 200; // Default budget in NIS
+    const totalBudget = budget * days;
+    const totalMeals = this.calculateTotalMeals(days, mealsPerDay);
+
+    // Clean and escape the custom request for JSON
+    const cleanCustomRequest = customRequest.replace(/"/g, '\\"').trim();
+    const allergiesList = Array.isArray(allergies)
+      ? allergies.join(", ")
+      : allergies || "None";
+    const dislikedList = Array.isArray(disliked_foods)
+      ? disliked_foods.join(", ")
+      : disliked_foods || "None";
+    const likedList = Array.isArray(liked_foods)
+      ? liked_foods.join(", ")
+      : liked_foods || "None";
+    const cookingMethodsList = Array.isArray(available_cooking_methods)
+      ? available_cooking_methods.join(", ")
+      : available_cooking_methods || "All methods";
+
+    return `צור תפריט ארוחות מקיף ל-${days} ימים בעברית ואנגלית המבוסס על בקשת המשתמש הספציפית. צור בדיוק ${totalMeals} ארוחות שלמות עם רשימות מרכיבים מלאות.
+
+Create a comprehensive ${days}-day meal plan in Hebrew and English based on the user's specific request. Generate EXACTLY ${totalMeals} complete meals with full ingredient lists.
+
+בקשת המשתמש המותאמת / USER'S CUSTOM REQUEST: "${cleanCustomRequest}"
+
+פרופיל המשתמש / USER PROFILE:
+- גיל: ${age || 30}, מין: ${gender || "לא ידוע"} / Age: ${age || 30}, Gender: ${
+      gender || "unknown"
+    }
+- מטרה: ${main_goal || "בריאות"} / Goal: ${main_goal || "health"}
+- תקציב יומי: ₪${budget} (סה"כ: ₪${totalBudget}) / Daily Budget: ₪${budget} (Total: ₪${totalBudget} NIS)
+- סגנון תזונה: ${dietary_style || "מאוזן"} / Dietary Style: ${
+      dietary_style || "Balanced"
+    }
+- אלרגיות: ${allergiesList} / Allergies: ${allergiesList}
+- לא אוהב: ${dislikedList} / Dislikes: ${dislikedList}
+- אוהב: ${likedList} / Likes: ${likedList}
+- כשר: ${kosher ? "כן" : "לא"} / Kosher: ${kosher ? "Yes" : "No"}
+- שיטות בישול: ${cookingMethodsList} / Cooking Methods: ${cookingMethodsList}
+- הערות רפואיות: ${medical_conditions_text || "ללא"} / Medical Notes: ${
+      medical_conditions_text || "None"
+    }
+
+יעדים תזונתיים (ליום) / NUTRITIONAL TARGETS (per day):
+- קלוריות: ${nutritionalNeeds.calories} / Calories: ${nutritionalNeeds.calories}
+- חלבון: ${nutritionalNeeds.protein}g / Protein: ${nutritionalNeeds.protein}g
+- פחמימות: ${nutritionalNeeds.carbs}g / Carbohydrates: ${
+      nutritionalNeeds.carbs
+    }g
+- שומן: ${nutritionalNeeds.fat}g / Fat: ${nutritionalNeeds.fat}g
+- סיבים: ${nutritionalNeeds.fiber}g / Fiber: ${nutritionalNeeds.fiber}g
+
+מבנה ארוחות: ${mealStructure} / MEAL STRUCTURE: ${mealStructure}
+ימים: ${days} / DAYS: ${days}
+
+דרישות קריטיות / CRITICAL REQUIREMENTS:
+1. לתת עדיפות למילוי הבקשה: "${cleanCustomRequest}" / PRIORITIZE fulfilling: "${cleanCustomRequest}"
+2. ליצור בדיוק ${totalMeals} ארוחות שלמות / Generate EXACTLY ${totalMeals} complete meals
+3. כל ארוחה חייבת לכלול מרכיבים ישראליים ריאליים ועלויות בשקלים / Each meal must have realistic Israeli ingredients and costs in NIS
+4. לספק מגוון - ללא ארוחות חוזרות בתפריט / Provide variety - no repeated meals within the plan
+5. ליצור ארוחות ייחודיות שונות מארוחות סטנדרטיות כמו "חביתה", "חזה עוף עם אורז" / Create UNIQUE meals different from standard meals like "omelet", "chicken breast with rice"
+6. להתמקד בארוחות יצירתיות, פיוז'ן ומתקדמות המתאימות לבקשה / Focus on creative, fusion, and advanced meals that match the request
+7. לכלול וריאציות של ארוחות בוקר, צהריים וערב המתאימות לישראל / Include breakfast, lunch, dinner variations appropriate for Israel
+8. להתחשב במטבחים ים תיכוני, מזרח תיכוני ובינלאומי / Consider Mediterranean, Middle Eastern, and international cuisines
+9. כל ארוחה חייבת לכלול רשימת מרכיבים שלמה עם שמות בעברית ואנגלית / Each meal must have complete ingredient list with Hebrew and English names
+10. להישאר בתקציב הכולל של ₪${totalBudget} / Stay within total budget of ₪${totalBudget}
+11. לייצר ארוחות מתוחכמות עם שילובי טעמים מיוחדים / Generate sophisticated meals with unique flavor combinations
+12. לא לחזור על ארוחות בסיסיות או פשוטות - רק ארוחות מעוררות השראה / Avoid basic or simple meals - only create inspiring, innovative dishes
+
+דרישות מגוון ארוחות / MEAL VARIETY REQUIREMENTS:
+- לכלול מקורות חלבון שונים: עוף, דגים, ביצים, קטניות, מוצרי חלב / Include different protein sources: chicken, fish, eggs, legumes, dairy
+- לגוון מקורות פחמימות: אורז, פסטה, לחם, קינואה, תפוחי אדמה / Vary carbohydrate sources: rice, pasta, bread, quinoa, potatoes
+- להשתמש בירקות מגוונים ומרכיבים טריים הזמינים בישראל / Use diverse vegetables and fresh ingredients available in Israel
+- לכלול גם אפשרויות ארוחות מבושלות וטריות / Include both cooked and fresh meal options
+- להתחשב בתוצרת ישראלית עונתית / Consider seasonal Israeli produce
+
+החזר JSON תקין (ללא עיצוב markdown) / Return valid JSON (no markdown formatting):
+{
+  "title": "תפריט מותאם: ${cleanCustomRequest.substring(0, 40)}...",
+  "title_english": "Custom Menu: ${cleanCustomRequest.substring(0, 40)}...",
+  "description": "תפריט אישי ל-${days} ימים המבוסס על: ${cleanCustomRequest}",
+  "description_english": "Personalized ${days}-day menu based on: ${cleanCustomRequest}",
+  "total_calories": ${nutritionalNeeds.calories * days},
+  "total_protein": ${nutritionalNeeds.protein * days},
+  "total_carbs": ${nutritionalNeeds.carbs * days},
+  "total_fat": ${nutritionalNeeds.fat * days},
+  "total_fiber": ${nutritionalNeeds.fiber * days},
+  "days_count": ${days},
+  "dietary_category": "${dietary_style || "CUSTOM"}",
+  "estimated_cost": ${totalBudget},
+  "prep_time_minutes": 25,
+  "difficulty_level": 2,
+  "meal_structure": "${mealsPerDay}",
+  "meals": [...]
+}
+
+צור ${totalMeals} אובייקטי ארוחות שלמים עם מרכיבים ריאליים, עלויות בשקלים ושמות עבריים/אנגליים נכונים.
+Generate ${totalMeals} complete meal objects with realistic ingredients, costs in NIS, and proper Hebrew/English names.`;
   }
 
   private static buildComprehensiveMenuPrompt(
@@ -322,6 +600,544 @@ Generate realistic, budget-friendly meals that people actually want to eat. Incl
       days *
       (mealsPerDayCount[mealsPerDay as keyof typeof mealsPerDayCount] || 3)
     );
+  }
+
+  private static generateCustomMealExamples(
+    customRequest: string,
+    days: number,
+    mealsPerDay: string,
+    nutritionalNeeds: any,
+    dailyBudget: number
+  ): string {
+    const mealTypes = this.getMealTypesForStructure(mealsPerDay);
+    const examples = [];
+
+    // Generate example based on custom request
+    for (let day = 1; day <= Math.min(days, 2); day++) {
+      for (let i = 0; i < mealTypes.length; i++) {
+        const mealType = mealTypes[i];
+        const caloriesPerMeal = Math.round(
+          nutritionalNeeds.calories / mealTypes.length
+        );
+        const proteinPerMeal = Math.round(
+          nutritionalNeeds.protein / mealTypes.length
+        );
+        const carbsPerMeal = Math.round(
+          nutritionalNeeds.carbs / mealTypes.length
+        );
+        const fatPerMeal = Math.round(nutritionalNeeds.fat / mealTypes.length);
+
+        examples.push(`{
+      "name": "Custom ${mealType.toLowerCase()} for day ${day}",
+      "name_english": "Custom ${mealType.toLowerCase()} for day ${day}",
+      "meal_type": "${mealType}",
+      "day_number": ${day},
+      "calories": ${caloriesPerMeal},
+      "protein": ${proteinPerMeal},
+      "carbs": ${carbsPerMeal},
+      "fat": ${fatPerMeal},
+      "fiber": 8,
+      "prep_time_minutes": 25,
+      "cooking_method": "Based on user preference",
+      "instructions": "Prepare according to custom request: ${customRequest}",
+      "instructions_english": "Prepare according to custom request: ${customRequest}",
+      "ingredients": [
+        {
+          "name": "Main ingredient matching request",
+          "name_english": "Main ingredient matching request",
+          "quantity": 100,
+          "unit": "גרם",
+          "unit_english": "g",
+          "category": "protein",
+          "estimated_cost": ${(dailyBudget / mealTypes.length / 3).toFixed(2)}
+        }
+      ]
+    }`);
+      }
+    }
+
+    return (
+      examples.join(",\n    ") +
+      "\n    // ... continue pattern for all " +
+      this.calculateTotalMeals(days, mealsPerDay) +
+      " meals matching the custom request"
+    );
+  }
+
+  private static getCustomFallbackMenu(
+    nutritionalNeeds: any,
+    customRequest: string,
+    days: number,
+    mealsPerDay: string,
+    questionnaire: any
+  ) {
+    console.log("🔄 Generating custom fallback menu");
+
+    const budget = questionnaire.daily_food_budget || 200; // NIS per day
+    const mealTypes = this.getMealTypesForStructure(mealsPerDay);
+    const meals = [];
+
+    // Analyze custom request for fallback with more options
+    const lowerRequest = customRequest.toLowerCase();
+    let mealStyle = "balanced";
+
+    if (
+      lowerRequest.includes("mediterranean") ||
+      lowerRequest.includes("greek") ||
+      lowerRequest.includes("israeli")
+    ) {
+      mealStyle = "mediterranean";
+    } else if (
+      lowerRequest.includes("asian") ||
+      lowerRequest.includes("chinese") ||
+      lowerRequest.includes("thai") ||
+      lowerRequest.includes("japanese")
+    ) {
+      mealStyle = "asian";
+    } else if (
+      lowerRequest.includes("high protein") ||
+      lowerRequest.includes("muscle") ||
+      lowerRequest.includes("bodybuilding")
+    ) {
+      mealStyle = "high_protein";
+    } else if (
+      lowerRequest.includes("low carb") ||
+      lowerRequest.includes("keto") ||
+      lowerRequest.includes("ketogenic")
+    ) {
+      mealStyle = "low_carb";
+    } else if (
+      lowerRequest.includes("vegetarian") ||
+      lowerRequest.includes("vegan") ||
+      lowerRequest.includes("plant based")
+    ) {
+      mealStyle = "vegetarian";
+    } else if (
+      lowerRequest.includes("budget") ||
+      lowerRequest.includes("cheap") ||
+      lowerRequest.includes("economical")
+    ) {
+      mealStyle = "budget_friendly";
+    } else if (
+      lowerRequest.includes("quick") ||
+      lowerRequest.includes("fast") ||
+      lowerRequest.includes("easy")
+    ) {
+      mealStyle = "quick_meals";
+    } else if (
+      lowerRequest.includes("healthy") ||
+      lowerRequest.includes("clean") ||
+      lowerRequest.includes("nutritious")
+    ) {
+      mealStyle = "healthy_focus";
+    }
+
+    for (let day = 1; day <= days; day++) {
+      for (let mealIndex = 0; mealIndex < mealTypes.length; mealIndex++) {
+        const mealType = mealTypes[mealIndex];
+        const caloriesPerMeal = Math.round(
+          nutritionalNeeds.calories / mealTypes.length
+        );
+        const proteinPerMeal = Math.round(
+          nutritionalNeeds.protein / mealTypes.length
+        );
+        const carbsPerMeal = Math.round(
+          nutritionalNeeds.carbs / mealTypes.length
+        );
+        const fatPerMeal = Math.round(nutritionalNeeds.fat / mealTypes.length);
+
+        const meal = this.generateCustomFallbackMeal(
+          mealType,
+          day,
+          caloriesPerMeal,
+          proteinPerMeal,
+          carbsPerMeal,
+          fatPerMeal,
+          budget / mealTypes.length,
+          mealStyle,
+          customRequest
+        );
+
+        meals.push(meal);
+      }
+    }
+
+    return {
+      title: `Custom Menu: ${customRequest.slice(0, 40)}...`,
+      description: `Personalized menu based on your request: ${customRequest}`,
+      total_calories: nutritionalNeeds.calories * days,
+      total_protein: nutritionalNeeds.protein * days,
+      total_carbs: nutritionalNeeds.carbs * days,
+      total_fat: nutritionalNeeds.fat * days,
+      total_fiber: nutritionalNeeds.fiber * days,
+      days_count: days,
+      dietary_category: "CUSTOM",
+      estimated_cost: budget * days,
+      prep_time_minutes: 25,
+      difficulty_level: 2,
+      meal_structure: mealsPerDay,
+      meals: meals,
+    };
+  }
+
+  private static generateCustomFallbackMeal(
+    mealType: string,
+    day: number,
+    calories: number,
+    protein: number,
+    carbs: number,
+    fat: number,
+    budgetPerMeal: number,
+    mealStyle: string,
+    customRequest: string
+  ) {
+    // Expanded meal templates with Israeli pricing and variety
+    const customMealTemplates: any = {
+      mediterranean: {
+        BREAKFAST: [
+          {
+            name: "יוגורט יווני עם דבש ואגוזים",
+            name_english: "Greek Yogurt with Honey and Nuts",
+            instructions: "מערבבים יוגורט יווני עם דבש, אגוזים ופירות טריים",
+            instructions_english:
+              "Mix Greek yogurt with honey, nuts, and fresh fruits",
+            ingredients: [
+              {
+                name: "יוגורט יווני",
+                name_english: "Greek yogurt",
+                quantity: 200,
+                unit: "g",
+                category: "dairy",
+                estimated_cost: 12,
+              },
+              {
+                name: "דבש",
+                name_english: "Honey",
+                quantity: 20,
+                unit: "g",
+                category: "sweetener",
+                estimated_cost: 4,
+              },
+              {
+                name: "אגוזים מעורבים",
+                name_english: "Mixed nuts",
+                quantity: 30,
+                unit: "g",
+                category: "nuts",
+                estimated_cost: 8,
+              },
+            ],
+          },
+          {
+            name: "חביתת ירקות עם לחם מלא",
+            name_english: "Vegetable Omelet with Whole Bread",
+            instructions: "מכינים חביתה עם ירקות ומגישים עם לחם מלא",
+            instructions_english:
+              "Make vegetable omelet and serve with whole grain bread",
+            ingredients: [
+              {
+                name: "ביצים",
+                name_english: "Eggs",
+                quantity: 2,
+                unit: "pieces",
+                category: "protein",
+                estimated_cost: 6,
+              },
+              {
+                name: "ירקות מעורבים",
+                name_english: "Mixed vegetables",
+                quantity: 100,
+                unit: "g",
+                category: "vegetables",
+                estimated_cost: 5,
+              },
+              {
+                name: "לחם מלא",
+                name_english: "Whole grain bread",
+                quantity: 2,
+                unit: "slices",
+                category: "carbs",
+                estimated_cost: 4,
+              },
+            ],
+          },
+        ],
+        LUNCH: [
+          {
+            name: "סלט קינואה ים תיכוני",
+            name_english: "Mediterranean Quinoa Salad",
+            instructions: "מערבבים קינואה עם ירקות, זיתים ורוטב שמן זית",
+            instructions_english:
+              "Mix quinoa with vegetables, olives, and olive oil dressing",
+            ingredients: [
+              {
+                name: "קינואה",
+                name_english: "Quinoa",
+                quantity: 80,
+                unit: "g",
+                category: "grains",
+                estimated_cost: 10,
+              },
+              {
+                name: "עגבניות שרי",
+                name_english: "Cherry tomatoes",
+                quantity: 100,
+                unit: "g",
+                category: "vegetables",
+                estimated_cost: 6,
+              },
+              {
+                name: "זיתים",
+                name_english: "Olives",
+                quantity: 30,
+                unit: "g",
+                category: "fats",
+                estimated_cost: 8,
+              },
+              {
+                name: "גבינת פטה",
+                name_english: "Feta cheese",
+                quantity: 50,
+                unit: "g",
+                category: "dairy",
+                estimated_cost: 12,
+              },
+            ],
+          },
+        ],
+        DINNER: [
+          {
+            name: "דג צלוי עם ירקות",
+            name_english: "Grilled Fish with Vegetables",
+            instructions: "צולים דג עם ירקות עונתיים ותבלינים ים תיכוניים",
+            instructions_english:
+              "Grill fish with seasonal vegetables and Mediterranean spices",
+            ingredients: [
+              {
+                name: "פילה דג",
+                name_english: "Fish fillet",
+                quantity: 150,
+                unit: "g",
+                category: "protein",
+                estimated_cost: 25,
+              },
+              {
+                name: "ירקות עונתיים",
+                name_english: "Seasonal vegetables",
+                quantity: 200,
+                unit: "g",
+                category: "vegetables",
+                estimated_cost: 8,
+              },
+              {
+                name: "שמן זית",
+                name_english: "Olive oil",
+                quantity: 15,
+                unit: "ml",
+                category: "fats",
+                estimated_cost: 3,
+              },
+            ],
+          },
+        ],
+      },
+      high_protein: {
+        BREAKFAST: [
+          {
+            name: "חביתת חלבון כפולה",
+            name_english: "Double Protein Scramble",
+            instructions: "מכינים חביתה עם גבינת קוטג' ותרד",
+            instructions_english:
+              "Make scrambled eggs with cottage cheese and spinach",
+            ingredients: [
+              {
+                name: "ביצים",
+                name_english: "Eggs",
+                quantity: 3,
+                unit: "pieces",
+                category: "protein",
+                estimated_cost: 9,
+              },
+              {
+                name: "גבינת קוטג'",
+                name_english: "Cottage cheese",
+                quantity: 100,
+                unit: "g",
+                category: "protein",
+                estimated_cost: 8,
+              },
+              {
+                name: "תרד",
+                name_english: "Spinach",
+                quantity: 50,
+                unit: "g",
+                category: "vegetables",
+                estimated_cost: 4,
+              },
+            ],
+          },
+        ],
+        LUNCH: [
+          {
+            name: "חזה עוף עם קינואה",
+            name_english: "Chicken Breast with Quinoa",
+            instructions: "חזה עוף צלוי עם קינואה וירקות",
+            instructions_english:
+              "Grilled chicken breast with quinoa and vegetables",
+            ingredients: [
+              {
+                name: "חזה עוף",
+                name_english: "Chicken breast",
+                quantity: 150,
+                unit: "g",
+                category: "protein",
+                estimated_cost: 18,
+              },
+              {
+                name: "קינואה",
+                name_english: "Quinoa",
+                quantity: 80,
+                unit: "g",
+                category: "grains",
+                estimated_cost: 10,
+              },
+              {
+                name: "ברוקולי",
+                name_english: "Broccoli",
+                quantity: 100,
+                unit: "g",
+                category: "vegetables",
+                estimated_cost: 5,
+              },
+            ],
+          },
+        ],
+      },
+      budget_friendly: {
+        BREAKFAST: [
+          {
+            name: "שקשוקה פשוטה",
+            name_english: "Simple Shakshuka",
+            instructions: "ביצים ברוטב עגבניות עם לחם פיתה",
+            instructions_english: "Eggs in tomato sauce with pita bread",
+            ingredients: [
+              {
+                name: "ביצים",
+                name_english: "Eggs",
+                quantity: 2,
+                unit: "pieces",
+                category: "protein",
+                estimated_cost: 6,
+              },
+              {
+                name: "רסק עגבניות",
+                name_english: "Tomato paste",
+                quantity: 100,
+                unit: "g",
+                category: "vegetables",
+                estimated_cost: 3,
+              },
+              {
+                name: "פיתה",
+                name_english: "Pita bread",
+                quantity: 1,
+                unit: "piece",
+                category: "carbs",
+                estimated_cost: 2,
+              },
+            ],
+          },
+        ],
+      },
+      quick_meals: {
+        BREAKFAST: [
+          {
+            name: "שייק חלבון ובננה",
+            name_english: "Protein Banana Shake",
+            instructions: "מערבבים חלב, בננה ואבקת חלבון",
+            instructions_english: "Blend milk, banana and protein powder",
+            ingredients: [
+              {
+                name: "חלב",
+                name_english: "Milk",
+                quantity: 250,
+                unit: "ml",
+                category: "dairy",
+                estimated_cost: 5,
+              },
+              {
+                name: "בננה",
+                name_english: "Banana",
+                quantity: 1,
+                unit: "piece",
+                category: "fruits",
+                estimated_cost: 3,
+              },
+              {
+                name: "אבקת חלבון",
+                name_english: "Protein powder",
+                quantity: 30,
+                unit: "g",
+                category: "protein",
+                estimated_cost: 15,
+              },
+            ],
+          },
+        ],
+      },
+    };
+
+    // Get templates for the meal style, with fallback
+    const styleTemplates =
+      customMealTemplates[mealStyle] || customMealTemplates["mediterranean"];
+    const mealTemplates =
+      styleTemplates[mealType] || styleTemplates["BREAKFAST"] || [];
+
+    // Select a random template if multiple available
+    let template;
+    if (Array.isArray(mealTemplates) && mealTemplates.length > 0) {
+      template =
+        mealTemplates[Math.floor(Math.random() * mealTemplates.length)];
+    } else if (mealTemplates && !Array.isArray(mealTemplates)) {
+      template = mealTemplates;
+    } else {
+      template = this.getDefaultCustomMeal(mealType, customRequest);
+    }
+
+    return {
+      name: template.name,
+      name_english: template.name_english,
+      meal_type: mealType,
+      day_number: day,
+      calories: calories,
+      protein: protein,
+      carbs: carbs,
+      fat: fat,
+      fiber: Math.round(calories * 0.014),
+      prep_time_minutes: 25,
+      cooking_method: "Based on custom request",
+      instructions: template.instructions,
+      instructions_english: template.instructions_english,
+      ingredients: template.ingredients,
+    };
+  }
+
+  private static getDefaultCustomMeal(mealType: string, customRequest: string) {
+    return {
+      name: `Custom ${mealType.toLowerCase()} meal`,
+      name_english: `Custom ${mealType.toLowerCase()} meal`,
+      instructions: `Prepare a ${mealType.toLowerCase()} meal based on: ${customRequest}`,
+      instructions_english: `Prepare a ${mealType.toLowerCase()} meal based on: ${customRequest}`,
+      ingredients: [
+        {
+          name: "Custom ingredients",
+          quantity: 100,
+          unit: "g",
+          category: "mixed",
+          estimated_cost: 5.0,
+        },
+      ],
+    };
   }
 
   private static generateMealExamples(
@@ -861,7 +1677,7 @@ Generate realistic, budget-friendly meals that people actually want to eat. Incl
       });
 
       return completeMenu;
-    } catch (error) {
+    } catch (error: any) {
       console.error("💥 Error saving menu to database:", error);
       throw new Error("Failed to save menu to database: " + error.message);
     }
