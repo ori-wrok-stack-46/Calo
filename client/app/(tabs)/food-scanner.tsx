@@ -39,6 +39,9 @@ import {
   Star,
   Trash2,
   History,
+  Wheat,
+  Droplet,
+  CircleDot,
 } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
 import { useLanguage } from "@/src/i18n/context/LanguageContext";
@@ -89,6 +92,8 @@ interface ScanResult {
 export default function FoodScannerScreen() {
   const { t } = useTranslation();
   const { language } = useLanguage();
+
+  const isRTL = language === "he";
 
   // Camera and scanning states
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
@@ -171,6 +176,7 @@ export default function FoodScannerScreen() {
     mg: language === "he" ? 'מ"ג' : "mg",
     kcal: language === "he" ? 'קק"ל' : "kcal",
     percent: "%",
+    barcode: isRTL ? "ברקוד" : "Barcode",
   };
 
   useEffect(() => {
@@ -290,7 +296,7 @@ export default function FoodScannerScreen() {
 
         try {
           const response = await api.post("/food-scanner/image", {
-            image: result.assets[0].base64,
+            imageBase64: result.assets[0].base64,
           });
 
           if (response.data.success && response.data.data) {
@@ -478,39 +484,65 @@ export default function FoodScannerScreen() {
   };
 
   const renderNutritionInfo = () => {
-    if (!productData) return null;
+    const nutrition =
+      productData?.nutrition_per_100g ||
+      scanResult?.product?.nutrition_per_100g;
+    if (!nutrition) return null;
 
-    const nutrition = productData.nutrition_per_100g;
     const qty = parseInt(quantity.toString()) / 100;
 
     return (
       <View style={styles.nutritionContainer}>
         <Text style={styles.sectionTitle}>ערכים תזונתיים ל-{quantity} גרם</Text>
-        <View style={styles.nutritionGrid}>
-          <View style={styles.nutritionItem}>
-            <Text style={styles.nutritionValue}>
-              {Math.round(nutrition.calories * qty)}
+        <View style={styles.nutritionDisplayGrid}>
+          <View style={styles.nutritionDisplayItem}>
+            <Text style={styles.nutritionDisplayValue}>
+              {Math.round((nutrition.calories || 0) * qty)}
             </Text>
-            <Text style={styles.nutritionLabel}>קלוריות</Text>
+            <Text style={styles.nutritionDisplayLabel}>קלוריות</Text>
           </View>
-          <View style={styles.nutritionItem}>
-            <Text style={styles.nutritionValue}>
-              {Math.round(nutrition.protein * qty)}ג
+          <View style={styles.nutritionDisplayItem}>
+            <Text style={styles.nutritionDisplayValue}>
+              {Math.round((nutrition.protein || 0) * qty)}ג
             </Text>
-            <Text style={styles.nutritionLabel}>חלבון</Text>
+            <Text style={styles.nutritionDisplayLabel}>חלבון</Text>
           </View>
-          <View style={styles.nutritionItem}>
-            <Text style={styles.nutritionValue}>
-              {Math.round(nutrition.carbs * qty)}ג
+          <View style={styles.nutritionDisplayItem}>
+            <Text style={styles.nutritionDisplayValue}>
+              {Math.round((nutrition.carbs || 0) * qty)}ג
             </Text>
-            <Text style={styles.nutritionLabel}>פחמימות</Text>
+            <Text style={styles.nutritionDisplayLabel}>פחמימות</Text>
           </View>
-          <View style={styles.nutritionItem}>
-            <Text style={styles.nutritionValue}>
-              {Math.round(nutrition.fat * qty)}ג
+          <View style={styles.nutritionDisplayItem}>
+            <Text style={styles.nutritionDisplayValue}>
+              {Math.round((nutrition.fat || 0) * qty)}ג
             </Text>
-            <Text style={styles.nutritionLabel}>שומן</Text>
+            <Text style={styles.nutritionDisplayLabel}>שומן</Text>
           </View>
+          {(nutrition.fiber || 0) > 0 && (
+            <View style={styles.nutritionDisplayItem}>
+              <Text style={styles.nutritionDisplayValue}>
+                {Math.round((nutrition.fiber || 0) * qty)}ג
+              </Text>
+              <Text style={styles.nutritionDisplayLabel}>סיבים</Text>
+            </View>
+          )}
+          {(nutrition.sugar || 0) > 0 && (
+            <View style={styles.nutritionDisplayItem}>
+              <Text style={styles.nutritionDisplayValue}>
+                {Math.round((nutrition.sugar || 0) * qty)}ג
+              </Text>
+              <Text style={styles.nutritionDisplayLabel}>סוכר</Text>
+            </View>
+          )}
+          {(nutrition.sodium || 0) > 0 && (
+            <View style={styles.nutritionDisplayItem}>
+              <Text style={styles.nutritionDisplayValue}>
+                {Math.round((nutrition.sodium || 0) * qty)}מג
+              </Text>
+              <Text style={styles.nutritionDisplayLabel}>נתרן</Text>
+            </View>
+          )}
         </View>
       </View>
     );
@@ -852,9 +884,9 @@ export default function FoodScannerScreen() {
                 ]}
                 style={styles.resultGradient}
               >
-                {/* Product Header */}
-                <View style={styles.productHeader}>
-                  <View style={styles.productInfo}>
+                {/* Product Info */}
+                <View style={styles.productInfo}>
+                  <View style={styles.productHeader}>
                     <Text style={styles.productName}>
                       {scanResult.product.name}
                     </Text>
@@ -866,17 +898,45 @@ export default function FoodScannerScreen() {
                     <Text style={styles.productCategory}>
                       {scanResult.product.category}
                     </Text>
-                  </View>
-                  {scanResult.product.health_score && (
-                    <View style={styles.healthScoreContainer}>
-                      <Text style={styles.healthScoreLabel}>
-                        {texts.healthScore}
+                    {scanResult.product.barcode && (
+                      <Text style={styles.productBarcode}>
+                        {texts.barcode}: {scanResult.product.barcode}
                       </Text>
-                      <Text style={styles.healthScoreValue}>
-                        {scanResult.product.health_score}/100
+                    )}
+                  </View>
+                  <View style={styles.productStats}>
+                    <View style={styles.calorieHighlight}>
+                      <Text style={styles.calorieHighlightValue}>
+                        {scanResult.product.nutrition_per_100g.calories || 0}
+                      </Text>
+                      <Text style={styles.calorieHighlightLabel}>
+                        {texts.calories} / 100g
                       </Text>
                     </View>
-                  )}
+                    {scanResult.product.health_score && (
+                      <View style={styles.healthScoreContainer}>
+                        <Text style={styles.healthScoreLabel}>
+                          {texts.healthScore}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.healthScoreValue,
+                            {
+                              color:
+                                (scanResult.product.health_score || 50) >= 70
+                                  ? "#10B981"
+                                  : (scanResult.product.health_score || 50) >=
+                                    50
+                                  ? "#F59E0B"
+                                  : "#EF4444",
+                            },
+                          ]}
+                        >
+                          {scanResult.product.health_score || 50}/100
+                        </Text>
+                      </View>
+                    )}
+                  </View>
                 </View>
 
                 {/* Compatibility Score */}
@@ -906,17 +966,51 @@ export default function FoodScannerScreen() {
                     )}
                     {renderNutritionCard(
                       texts.carbs,
-                      scanResult.product.nutrition_per_100g.carbs,
+                      scanResult.product.nutrition_per_100g.carbs || 0,
                       texts.g,
-                      <Apple size={16} color="#F39C12" />,
+                      <Wheat size={16} color="#F39C12" />,
                       "#F39C12"
                     )}
                     {renderNutritionCard(
                       texts.fat,
-                      scanResult.product.nutrition_per_100g.fat,
+                      scanResult.product.nutrition_per_100g.fat || 0,
                       texts.g,
-                      <Leaf size={16} color="#16A085" />,
-                      "#16A085"
+                      <Droplet size={16} color="#9B59B6" />,
+                      "#9B59B6"
+                    )}
+                    {(scanResult.product.nutrition_per_100g.fiber || 0) > 0 && (
+                      <>
+                        {renderNutritionCard(
+                          texts.fiber,
+                          scanResult.product.nutrition_per_100g.fiber || 0,
+                          texts.g,
+                          <Leaf size={16} color="#27AE60" />,
+                          "#27AE60"
+                        )}
+                      </>
+                    )}
+                    {(scanResult.product.nutrition_per_100g.sugar || 0) > 0 && (
+                      <>
+                        {renderNutritionCard(
+                          texts.sugar,
+                          scanResult.product.nutrition_per_100g.sugar || 0,
+                          texts.g,
+                          <CircleDot size={16} color="#E67E22" />,
+                          "#E67E22"
+                        )}
+                      </>
+                    )}
+                    {(scanResult.product.nutrition_per_100g.sodium || 0) >
+                      0 && (
+                      <>
+                        {renderNutritionCard(
+                          texts.sodium,
+                          scanResult.product.nutrition_per_100g.sodium || 0,
+                          "mg",
+                          <Minus size={16} color="#34495E" />,
+                          "#34495E"
+                        )}
+                      </>
                     )}
                   </View>
                 </View>
@@ -1151,16 +1245,121 @@ export default function FoodScannerScreen() {
             <ScrollView style={styles.resultsContainer}>
               {productData && (
                 <>
-                  <View style={styles.productHeader}>
-                    <Text style={styles.productName}>{productData.name}</Text>
-                    {productData.brand && (
-                      <Text style={styles.productBrand}>
-                        {productData.brand}
-                      </Text>
-                    )}
-                    <Text style={styles.productCategory}>
-                      {productData.category}
-                    </Text>
+                  {/* Product Info */}
+                  <View style={styles.productInfo}>
+                    <View style={styles.productCard}>
+                      <View style={styles.productMainInfo}>
+                        <Text style={styles.productName}>
+                          {productData?.name || scanResult?.product?.name}
+                        </Text>
+                        {(productData?.brand || scanResult?.product?.brand) && (
+                          <Text style={styles.productBrand}>
+                            {productData?.brand || scanResult?.product?.brand}
+                          </Text>
+                        )}
+                        <Text style={styles.productCategory}>
+                          {productData?.category ||
+                            scanResult?.product?.category}
+                        </Text>
+                        {(productData?.barcode ||
+                          scanResult?.product?.barcode) && (
+                          <Text style={styles.productBarcode}>
+                            ברקוד:{" "}
+                            {productData?.barcode ||
+                              scanResult?.product?.barcode}
+                          </Text>
+                        )}
+                      </View>
+
+                      <View style={styles.productNutritionSummary}>
+                        <View style={styles.calorieCard}>
+                          <Text style={styles.calorieValue}>
+                            {productData?.nutrition_per_100g?.calories ||
+                              scanResult?.product?.nutrition_per_100g
+                                ?.calories ||
+                              0}
+                          </Text>
+                          <Text style={styles.calorieLabel}>קלוריות</Text>
+                          <Text style={styles.caloriePer}>ל-100 גרם</Text>
+                        </View>
+
+                        <View style={styles.macroGrid}>
+                          <View style={styles.macroItem}>
+                            <Text
+                              style={[styles.macroValue, { color: "#E74C3C" }]}
+                            >
+                              {(
+                                productData?.nutrition_per_100g?.protein ||
+                                scanResult?.product?.nutrition_per_100g
+                                  ?.protein ||
+                                0
+                              ).toFixed(1)}
+                              ג
+                            </Text>
+                            <Text style={styles.macroLabel}>חלבון</Text>
+                          </View>
+                          <View style={styles.macroItem}>
+                            <Text
+                              style={[styles.macroValue, { color: "#F39C12" }]}
+                            >
+                              {(
+                                productData?.nutrition_per_100g?.carbs ||
+                                scanResult?.product?.nutrition_per_100g
+                                  ?.carbs ||
+                                0
+                              ).toFixed(1)}
+                              ג
+                            </Text>
+                            <Text style={styles.macroLabel}>פחמימות</Text>
+                          </View>
+                          <View style={styles.macroItem}>
+                            <Text
+                              style={[styles.macroValue, { color: "#9B59B6" }]}
+                            >
+                              {(
+                                productData?.nutrition_per_100g?.fat ||
+                                scanResult?.product?.nutrition_per_100g?.fat ||
+                                0
+                              ).toFixed(1)}
+                              ג
+                            </Text>
+                            <Text style={styles.macroLabel}>שומן</Text>
+                          </View>
+                        </View>
+
+                        {(productData?.health_score ||
+                          scanResult?.product?.health_score) && (
+                          <View style={styles.healthScoreCard}>
+                            <Text style={styles.healthScoreLabel}>
+                              ניקוד בריאות
+                            </Text>
+                            <View
+                              style={[
+                                styles.healthScoreBadge,
+                                {
+                                  backgroundColor:
+                                    (productData?.health_score ||
+                                      scanResult?.product?.health_score ||
+                                      50) >= 70
+                                      ? "#10B981"
+                                      : (productData?.health_score ||
+                                          scanResult?.product?.health_score ||
+                                          50) >= 50
+                                      ? "#F59E0B"
+                                      : "#EF4444",
+                                },
+                              ]}
+                            >
+                              <Text style={styles.healthScoreValue}>
+                                {productData?.health_score ||
+                                  scanResult?.product?.health_score ||
+                                  50}
+                              </Text>
+                            </View>
+                          </View>
+                        )}
+                      </View>
+                    </View>
                   </View>
 
                   <View style={styles.quantitySelector}>
@@ -1414,38 +1613,133 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   productInfo: {
-    flex: 1,
+    backgroundColor: "#fff",
+    marginHorizontal: 20,
+    marginTop: -20,
+    borderRadius: 16,
+    padding: 20,
+    elevation: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    zIndex: 1,
   },
-  productName: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#2C3E50",
-    marginBottom: 4,
+  productCard: {
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 20,
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
   },
-  productBrand: {
-    fontSize: 16,
-    color: "#7F8C8D",
-    marginBottom: 2,
+  productMainInfo: {
+    marginBottom: 16,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f0f0f0",
   },
-  productCategory: {
-    fontSize: 14,
-    color: "#95A5A6",
+  productNutritionSummary: {
+    gap: 16,
   },
-  healthScoreContainer: {
+  calorieCard: {
+    backgroundColor: "#FFF3CD",
+    borderRadius: 16,
+    padding: 16,
     alignItems: "center",
-    backgroundColor: "rgba(22, 160, 133, 0.1)",
+    borderLeftWidth: 4,
+    borderLeftColor: "#F39C12",
+  },
+  calorieValue: {
+    fontSize: 32,
+    fontWeight: "bold",
+    color: "#D97706",
+  },
+  calorieLabel: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#92400E",
+    marginTop: 4,
+  },
+  caloriePer: {
+    fontSize: 12,
+    color: "#92400E",
+    opacity: 0.8,
+  },
+  macroGrid: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 8,
+  },
+  macroItem: {
+    flex: 1,
+    backgroundColor: "#F8F9FA",
+    borderRadius: 12,
+    padding: 12,
+    alignItems: "center",
+  },
+  macroValue: {
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+  macroLabel: {
+    fontSize: 12,
+    color: "#6B7280",
+    marginTop: 4,
+  },
+  healthScoreCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#F8F9FA",
     borderRadius: 12,
     padding: 12,
   },
-  healthScoreLabel: {
-    fontSize: 12,
-    color: "#16A085",
-    marginBottom: 4,
+  healthScoreBadge: {
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
   },
   healthScoreValue: {
-    fontSize: 16,
+    color: "#fff",
     fontWeight: "bold",
-    color: "#16A085",
+    fontSize: 14,
+  },
+  productStats: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 15,
+    paddingTop: 15,
+    borderTopWidth: 1,
+    borderTopColor: "#F3F4F6",
+  },
+  calorieHighlight: {
+    backgroundColor: "#FEF3C7",
+    borderRadius: 12,
+    padding: 12,
+    alignItems: "center",
+    flex: 1,
+    marginRight: 10,
+  },
+  calorieHighlightValue: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#D97706",
+  },
+  calorieHighlightLabel: {
+    fontSize: 12,
+    color: "#92400E",
+    marginTop: 2,
+  },
+  productBarcode: {
+    fontSize: 12,
+    color: "#6B7280",
+    marginTop: 4,
+    fontFamily: "monospace",
   },
   compatibilityContainer: {
     borderRadius: 16,
@@ -1781,6 +2075,31 @@ const styles = StyleSheet.create({
   },
   nutritionContainer: {
     padding: 16,
+    backgroundColor: "#fff",
+    borderRadius: 16,
+    marginBottom: 16,
+  },
+  nutritionDisplayGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+  },
+  nutritionDisplayItem: {
+    width: "48%",
+    backgroundColor: "#F8F9FA",
+    borderRadius: 12,
+    padding: 16,
+    alignItems: "center",
+  },
+  nutritionDisplayValue: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#2C3E50",
+  },
+  nutritionDisplayLabel: {
+    fontSize: 14,
+    color: "#7F8C8D",
+    marginTop: 4,
   },
   nutritionItem: {
     width: "48%",

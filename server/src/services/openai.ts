@@ -68,9 +68,13 @@ export class OpenAIService {
       })
     : null;
 
-  static async generateText(prompt: string): Promise<string> {
+  static async generateText(
+    prompt: string,
+    maxTokens: number = 4000
+  ): Promise<string> {
     try {
       console.log("🤖 Sending request to OpenAI...");
+      console.log("📏 Prompt length:", prompt.length, "characters");
 
       const response = await this.openai?.chat.completions.create({
         model: "gpt-4",
@@ -82,10 +86,11 @@ export class OpenAIService {
           },
           {
             role: "user",
-            content: prompt,
+            content:
+              prompt.length > 6000 ? prompt.substring(0, 6000) + "..." : prompt,
           },
         ],
-        max_tokens: 8000,
+        max_tokens: Math.min(maxTokens, 4000),
         temperature: 0.3,
       });
 

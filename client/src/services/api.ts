@@ -1369,6 +1369,7 @@ export const foodScannerAPI = {
   scanBarcode: async (barcode: string) => {
     try {
       console.log("🔍 Scanning barcode:", barcode);
+      console.log("🌐 API URL:", `${API_BASE_URL}/food-scanner/barcode`);
 
       const response = await api.post("/food-scanner/barcode", {
         barcode,
@@ -1378,6 +1379,13 @@ export const foodScannerAPI = {
       return response.data;
     } catch (error: any) {
       console.error("💥 Barcode scan API error:", error);
+      console.error("💥 Error details:", {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        url: error.config?.url,
+        method: error.config?.method,
+      });
       throw error;
     }
   },
@@ -1385,6 +1393,7 @@ export const foodScannerAPI = {
   scanProductImage: async (imageBase64: string) => {
     try {
       console.log("📷 Scanning product image...");
+      console.log("🌐 API URL:", `${API_BASE_URL}/food-scanner/image`);
 
       // Remove data URL prefix if present
       const cleanBase64 = imageBase64.replace(
@@ -1400,6 +1409,13 @@ export const foodScannerAPI = {
       return response.data;
     } catch (error: any) {
       console.error("💥 Image scan API error:", error);
+      console.error("💥 Error details:", {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        url: error.config?.url,
+        method: error.config?.method,
+      });
       throw error;
     }
   },

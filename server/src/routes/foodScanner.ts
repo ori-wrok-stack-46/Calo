@@ -10,9 +10,14 @@ const barcodeSchema = z.object({
   barcode: z.string().min(8, "Barcode must be at least 8 characters"),
 });
 
-const imageSchema = z.object({
-  image: z.string().min(100, "Image data is required"),
-});
+const imageSchema = z
+  .object({
+    image: z.string().min(100, "Image data is required").optional(),
+    imageBase64: z.string().min(100, "Image data is required").optional(),
+  })
+  .refine((data) => data.image || data.imageBase64, {
+    message: "Either image or imageBase64 is required",
+  });
 
 const addToMealSchema = z.object({
   productData: z.object({
@@ -40,7 +45,7 @@ const addToMealSchema = z.object({
 
 // Scan barcode endpoint
 router.post(
-  "/scan-barcode",
+  "/barcode",
   authenticateToken,
   async (req: AuthRequest, res: Response) => {
     try {
@@ -84,7 +89,7 @@ router.post(
 
 // Scan image endpoint
 router.post(
-  "/scan-image",
+  "/image",
   authenticateToken,
   async (req: AuthRequest, res: Response) => {
     try {
@@ -107,9 +112,13 @@ router.post(
         });
       }
 
-      const { image } = validationResult.data;
+      const { image, imageBase64 } = validationResult.data;
+      const imageData = image || imageBase64 || "";
 
-      const result = await FoodScannerService.scanProductImage(image, userId);
+      const result = await FoodScannerService.scanProductImage(
+        imageData,
+        userId
+      );
 
       res.json({
         success: true,

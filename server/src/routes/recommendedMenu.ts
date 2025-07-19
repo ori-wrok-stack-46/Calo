@@ -2,40 +2,105 @@ import { Router } from "express";
 import { authenticateToken, AuthRequest } from "../middleware/auth";
 import { RecommendedMenuService } from "../services/recommendedMenu";
 import { prisma } from "../lib/database";
+import { Response } from "express";
 
 const router = Router();
 
-// GET /api/recommended-menus - Get user's recommended menus
-router.get("/", authenticateToken, async (req: AuthRequest, res) => {
+// Get user's recommended menus
+router.get("/", authenticateToken, async (req: AuthRequest, res: Response) => {
   try {
-    const userId = req.user.user_id;
-    console.log("📋 Fetching menus for user:", userId);
-
-    const menus = await RecommendedMenuService.getUserMenus(userId);
-
-    console.log("📊 Found", menus.length, "menus for user");
-    menus.forEach((menu, index) => {
-      console.log(`📋 Menu ${index + 1}:`, {
-        menu_id: menu.menu_id,
-        title: menu.title,
-        meals_count: menu.meals?.length || 0,
-        created_at: menu.created_at,
+    const userId = req.user?.user_id;
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: "User not authenticated",
       });
+    }
+
+    console.log("📋 Getting recommended menus for user:", userId);
+
+    const menus = await prisma.recommendedMenu.findMany({
+      where: { user_id: userId },
+      include: {
+        meals: {
+          include: {
+            ingredients: true,
+          },
+          orderBy: [{ day_number: "asc" }, { meal_type: "asc" }],
+        },
+      },
+      orderBy: { created_at: "desc" },
     });
+
+    console.log(`✅ Found ${menus.length} recommended menus`);
 
     res.json({
       success: true,
       data: menus,
     });
   } catch (error) {
-    console.error("💥 Error fetching recommended menus:", error);
+    console.error("💥 Error getting recommended menus:", error);
     res.status(500).json({
       success: false,
-      error: "Failed to fetch recommended menus",
-      details: error instanceof Error ? error.message : "Unknown error",
+      error: "Failed to get recommended menus",
     });
   }
 });
+
+// Get specific menu details
+router.get(
+  "/:menuId",
+  authenticateToken,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const userId = req.user?.user_id;
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          error: "User not authenticated",
+        });
+      }
+
+      const { menuId } = req.params;
+      console.log("📋 Getting menu details for:", menuId);
+
+      const menu = await prisma.recommendedMenu.findFirst({
+        where: {
+          menu_id: menuId,
+          user_id: userId, // Ensure user can only access their own menus
+        },
+        include: {
+          meals: {
+            include: {
+              ingredients: true,
+            },
+            orderBy: [{ day_number: "asc" }, { meal_type: "asc" }],
+          },
+        },
+      });
+
+      if (!menu) {
+        return res.status(404).json({
+          success: false,
+          error: "Menu not found",
+        });
+      }
+
+      console.log(`✅ Found menu with ${menu.meals.length} meals`);
+
+      res.json({
+        success: true,
+        data: menu,
+      });
+    } catch (error) {
+      console.error("💥 Error getting menu details:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to get menu details",
+      });
+    }
+  }
+);
 
 // GET /api/recommended-menus/debug - Debug endpoint to check menu data
 router.get("/debug", authenticateToken, async (req: AuthRequest, res) => {
@@ -98,35 +163,6 @@ router.get("/debug", authenticateToken, async (req: AuthRequest, res) => {
     res.status(500).json({
       success: false,
       error: "Debug failed",
-      details: error instanceof Error ? error.message : "Unknown error",
-    });
-  }
-});
-
-// GET /api/recommended-menus/:menuId - Get specific menu
-router.get("/:menuId", authenticateToken, async (req: AuthRequest, res) => {
-  try {
-    const userId = req.user.user_id;
-    const { menuId } = req.params;
-
-    const menu = await RecommendedMenuService.getMenuById(userId, menuId);
-
-    if (!menu) {
-      return res.status(404).json({
-        success: false,
-        error: "Menu not found",
-      });
-    }
-
-    res.json({
-      success: true,
-      data: menu,
-    });
-  } catch (error) {
-    console.error("💥 Error fetching menu:", error);
-    res.status(500).json({
-      success: false,
-      error: "Failed to fetch menu",
       details: error instanceof Error ? error.message : "Unknown error",
     });
   }

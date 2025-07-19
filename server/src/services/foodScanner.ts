@@ -15,12 +15,22 @@ interface ProductData {
     fiber?: number;
     sugar?: number;
     sodium?: number;
+    saturated_fat?: number;
+    trans_fat?: number;
+    cholesterol?: number;
+    potassium?: number;
+    calcium?: number;
+    iron?: number;
+    vitamin_c?: number;
+    vitamin_d?: number;
   };
   ingredients: string[];
   allergens: string[];
   labels: string[];
   health_score?: number;
   image_url?: string;
+  serving_size?: string;
+  servings_per_container?: number;
 }
 
 interface UserAnalysis {
@@ -60,6 +70,12 @@ export class FoodScannerService {
 
         // Save to our database for future use
         await this.saveProductToDatabase(productData, barcode, userId);
+      } else {
+        // Update the access time for existing products
+        await prisma.foodProduct.update({
+          where: { barcode },
+          data: { updated_at: new Date() },
+        });
       }
 
       // Get user-specific analysis
@@ -92,13 +108,13 @@ export class FoodScannerService {
         throw new Error("AI image scanning not available - no API key");
       }
 
-      const systemPrompt = `You are a nutrition label scanner. Analyze the food product image and extract nutritional information.
+      const systemPrompt = `You are a comprehensive nutrition label scanner. Analyze the food product image and extract complete nutritional information.
 
 Return JSON with this exact structure:
 {
   "name": "Product name",
   "brand": "Brand name if visible",
-  "category": "Food category (dairy, snacks, grains, etc.)",
+  "category": "Food category (dairy, snacks, grains, beverages, etc.)",
   "nutrition_per_100g": {
     "calories": number,
     "protein": number,
@@ -106,16 +122,26 @@ Return JSON with this exact structure:
     "fat": number,
     "fiber": number,
     "sugar": number,
-    "sodium": number
+    "sodium": number,
+    "saturated_fat": number,
+    "trans_fat": number,
+    "cholesterol": number,
+    "potassium": number,
+    "calcium": number,
+    "iron": number,
+    "vitamin_c": number,
+    "vitamin_d": number
   },
   "ingredients": ["ingredient1", "ingredient2"],
   "allergens": ["allergen1", "allergen2"],
-  "labels": ["kosher", "vegan", "gluten-free"],
+  "labels": ["kosher", "vegan", "gluten-free", "organic", "non-gmo"],
   "health_score": number (0-100),
-  "barcode": "if visible"
+  "barcode": "if visible",
+  "serving_size": "serving size if visible",
+  "servings_per_container": number
 }
 
-If you cannot read the label clearly, estimate based on visible information and note uncertainty.`;
+Extract all visible nutritional information. If a value is not visible, use 0 or null. Calculate health score based on nutritional quality: high fiber/protein = good, high sugar/sodium = bad. Be precise with nutritional values.`;
 
       const response = await openai.chat.completions.create({
         model: "gpt-4o",
@@ -152,14 +178,11 @@ If you cannot read the label clearly, estimate based on visible information and 
 
       const productData = JSON.parse(content) as ProductData;
 
-      // Save to database if barcode was detected
-      if (productData.barcode) {
-        await this.saveProductToDatabase(
-          productData,
-          productData.barcode,
-          userId
-        );
-      }
+      // Save to database if barcode was detected, or create a unique identifier for image scans
+      const productId =
+        productData.barcode ||
+        `img_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      await this.saveProductToDatabase(productData, productId, userId);
 
       // Get user-specific analysis
       const userAnalysis = await this.analyzeProductForUser(
@@ -192,10 +215,10 @@ If you cannot read the label clearly, estimate based on visible information and 
 
       const mealData = {
         meal_name: `${productData.name} (${quantity}g)`,
-        calories: Math.round(nutritionPer100g.calories * multiplier),
-        protein_g: Math.round(nutritionPer100g.protein * multiplier),
-        carbs_g: Math.round(nutritionPer100g.carbs * multiplier),
-        fats_g: Math.round(nutritionPer100g.fat * multiplier),
+        calories: Math.round((nutritionPer100g.calories || 0) * multiplier),
+        protein_g: Math.round((nutritionPer100g.protein || 0) * multiplier),
+        carbs_g: Math.round((nutritionPer100g.carbs || 0) * multiplier),
+        fats_g: Math.round((nutritionPer100g.fat || 0) * multiplier),
         fiber_g: nutritionPer100g.fiber
           ? Math.round(nutritionPer100g.fiber * multiplier)
           : null,
@@ -211,9 +234,39 @@ If you cannot read the label clearly, estimate based on visible information and 
         additives_json: {
           allergens: productData.allergens,
           labels: productData.labels,
+          health_score: productData.health_score || 50,
         },
-        image_url: "", // Add the required image_url field
-        health_score: productData.health_score || 50,
+        allergens_json: {
+          allergens: productData.allergens,
+        },
+        vitamins_json: {},
+        micronutrients_json: {},
+        image_url: productData.image_url || "",
+        processing_level: "processed",
+        confidence: 85,
+        health_risk_notes:
+          productData.health_score && productData.health_score < 50
+            ? "Product may have health concerns based on analysis"
+            : null,
+        // Add missing required fields
+        saturated_fats_g: nutritionPer100g.saturated_fat
+          ? Math.round(nutritionPer100g.saturated_fat * multiplier)
+          : null,
+        polyunsaturated_fats_g: null,
+        monounsaturated_fats_g: null,
+        omega_3_g: null,
+        omega_6_g: null,
+        soluble_fiber_g: null,
+        insoluble_fiber_g: null,
+        cholesterol_mg: nutritionPer100g.cholesterol
+          ? Math.round(nutritionPer100g.cholesterol * multiplier)
+          : null,
+        alcohol_g: null,
+        caffeine_mg: null,
+        liquids_ml: null,
+        glycemic_index: null,
+        insulin_index: null,
+        cooking_method: null,
       };
 
       const meal = await prisma.meal.create({
@@ -238,13 +291,49 @@ If you cannot read the label clearly, estimate based on visible information and 
 
   static async getScanHistory(userId: string): Promise<any[]> {
     try {
-      const products = await prisma.foodProduct.findMany({
-        where: { user_id: userId },
-        orderBy: { created_at: "desc" },
-        take: 50,
-      });
+      // Get both scanned food products and meals created from scanned items
+      const [products, meals] = await Promise.all([
+        prisma.foodProduct.findMany({
+          where: { user_id: userId },
+          orderBy: { created_at: "desc" },
+          take: 25,
+        }),
+        prisma.meal.findMany({
+          where: {
+            user_id: userId,
+            meal_name: { contains: "g)" }, // Meals created from scanner have format "Product (XXXg)"
+          },
+          orderBy: { created_at: "desc" },
+          take: 25,
+        }),
+      ]);
 
-      return products;
+      // Combine and format the results
+      const history = [
+        ...products.map((product) => ({
+          id: product.product_id,
+          product_name: product.product_name,
+          name: product.product_name,
+          brand: product.brand,
+          category: product.category,
+          barcode: product.barcode,
+          created_at: product.created_at,
+          type: "product",
+        })),
+        ...meals.map((meal) => ({
+          id: meal.meal_id,
+          product_name: meal.meal_name,
+          name: meal.meal_name,
+          category: meal.food_category,
+          created_at: meal.created_at,
+          type: "meal",
+        })),
+      ].sort(
+        (a, b) =>
+          new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+
+      return history.slice(0, 50);
     } catch (error) {
       console.error("Error getting scan history:", error);
       return [];
@@ -299,7 +388,11 @@ If you cannot read the label clearly, estimate based on visible information and 
           brand: product.brands || undefined,
           category: product.categories?.split(",")[0] || "Unknown",
           nutrition_per_100g: {
-            calories: nutriments.energy_kcal_100g || 0,
+            calories:
+              nutriments.energy_kcal_100g ||
+              nutriments["energy-kcal_100g"] ||
+              nutriments.energy_100g ||
+              0,
             protein: nutriments.proteins_100g || 0,
             carbs: nutriments.carbohydrates_100g || 0,
             fat: nutriments.fat_100g || 0,
@@ -308,6 +401,14 @@ If you cannot read the label clearly, estimate based on visible information and 
             sodium: nutriments.sodium_100g
               ? nutriments.sodium_100g * 1000
               : undefined,
+            saturated_fat: nutriments.saturated_fat_100g || undefined,
+            trans_fat: nutriments.trans_fat_100g || undefined,
+            cholesterol: nutriments.cholesterol_100g || undefined,
+            potassium: nutriments.potassium_100g || undefined,
+            calcium: nutriments.calcium_100g || undefined,
+            iron: nutriments.iron_100g || undefined,
+            vitamin_c: nutriments.vitamin_c_100g || undefined,
+            vitamin_d: nutriments.vitamin_d_100g || undefined,
           },
           ingredients:
             product.ingredients_text_en
@@ -320,6 +421,8 @@ If you cannot read the label clearly, estimate based on visible information and 
             product.labels_tags?.map((l: string) => l.replace("en:", "")) || [],
           health_score: product.nutriscore_score || undefined,
           image_url: product.image_url || undefined,
+          serving_size: product.serving_size || undefined,
+          servings_per_container: product.servings_per_container || undefined,
         };
       }
 
