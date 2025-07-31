@@ -51,6 +51,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { useLanguage } from "@/src/i18n/context/LanguageContext";
 import { api } from "@/src/services/api";
+import LoadingScreen from "@/components/LoadingScreen";
 
 const { width } = Dimensions.get("window");
 
@@ -147,6 +148,7 @@ interface StatisticsData {
 export default function StatisticsScreen() {
   const { t } = useTranslation();
   const { language } = useLanguage();
+  const isRTL = language === "he";
   const [selectedPeriod, setSelectedPeriod] = useState<
     "today" | "week" | "month"
   >("week");
@@ -976,12 +978,9 @@ export default function StatisticsScreen() {
   // Loading state
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#16A085" />
-          <Text style={styles.loadingText}>{texts.loadingMessage}</Text>
-        </View>
-      </SafeAreaView>
+      <LoadingScreen
+        text={isRTL ? "טוען סטיסטיקות..." : "Loading your statistics..."}
+      />
     );
   }
 

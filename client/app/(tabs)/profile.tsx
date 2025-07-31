@@ -8,19 +8,50 @@ import {
   Alert,
   Image,
   StatusBar,
-  Dimensions,
+  Switch,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
 import { useTranslation } from "react-i18next";
 import { useLanguage } from "@/src/i18n/context/LanguageContext";
-import { Ionicons } from "@expo/vector-icons";
+import {
+  User,
+  Bell,
+  Shield,
+  CircleHelp as HelpCircle,
+  LogOut,
+  ChevronLeft,
+  CreditCard as Edit,
+  Target,
+  Scale,
+  Activity,
+  Globe,
+  Moon,
+  ChevronRight,
+} from "lucide-react-native";
 import EditProfile from "@/components/EditProfile";
 import NotificationSettings from "@/components/NotificationSettings";
 import PrivacySettings from "@/components/PrivacySettings";
-import LanguageSelector from "@/components/LanguageSelector";
 import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch, RootState } from "@/src/store";
 import { signOut } from "@/src/store/authSlice";
 import { router } from "expo-router";
+
+// Define the interface for menu items
+interface MenuItem {
+  id: string;
+  title: string;
+  icon: React.ReactElement;
+  onPress?: () => void;
+  rightComponent?: React.ReactElement;
+  subtitle?: string;
+  danger?: boolean;
+}
+
+interface MenuSection {
+  title: string;
+  items: MenuItem[];
+}
 
 export default function ProfileScreen() {
   const { t } = useTranslation();
@@ -29,82 +60,133 @@ export default function ProfileScreen() {
   const { user } = useSelector((state: RootState) => state.auth);
   const [activeSection, setActiveSection] = useState<string | null>(null);
   const [showLanguageModal, setShowLanguageModal] = useState(false);
+  const [notifications, setNotifications] = useState(true);
+  const [darkMode, setDarkMode] = useState(false);
 
-  const menuItems = [
-    {
-      id: "editProfile",
-      title: t("profile.edit_profile"),
-      icon: "person-outline",
-      color: "#007AFF",
-      gradient: ["#007AFF", "#0051D5"],
-    },
-    {
-      id: "notifications",
-      title: t("profile.notifications"),
-      icon: "notifications-outline",
-      color: "#FF9500",
-      gradient: ["#FF9500", "#FF6B35"],
-    },
-    {
-      id: "personalData",
-      title: t("profile.personal_data"),
-      icon: "person-circle-outline",
-      color: "#FF9500",
-      gradient: ["#FF9500", "#FF6B35"],
-    },
-    {
-      id: "privacy",
-      title: t("profile.privacy"),
-      icon: "shield-checkmark-outline",
-      color: "#34C759",
-      gradient: ["#34C759", "#30BA6A"],
-    },
-    {
-      id: "language",
-      title: t("profile.language"),
-      icon: "language",
-      color: "#5856D6",
-      gradient: ["#5856D6", "#4D4AE8"],
-    },
-    {
-      id: "support",
-      title: t("profile.support"),
-      icon: "help-circle-outline",
-      color: "#FF3B30",
-      gradient: ["#FF3B30", "#FF4542"],
-    },
-    {
-      id: "about",
-      title: t("profile.about"),
-      icon: "information-circle-outline",
-      color: "#8E8E93",
-      gradient: ["#8E8E93", "#6D6D7A"],
-    },
-  ];
+  const handleSignOut = () => {
+    Alert.alert(
+      t("profile.signout") || "Sign Out",
+      t("profile.signout_confirmation") || "Are you sure you want to sign out?",
+      [
+        { text: t("common.cancel") || "Cancel", style: "cancel" },
+        {
+          text: t("profile.signout") || "Sign Out",
+          style: "destructive",
+          onPress: () => {
+            dispatch(signOut());
+          },
+        },
+      ]
+    );
+  };
 
   const handleMenuPress = (itemId: string) => {
     if (itemId === "language") {
       setShowLanguageModal(true);
     } else if (itemId === "personalData") {
-      // Navigate to questionnaire in edit mode
       router.push("/questionnaire?mode=edit");
     } else {
       setActiveSection(activeSection === itemId ? null : itemId);
     }
   };
 
-  const handleSignOut = () => {
-    Alert.alert(t("profile.signout"), t("profile.signout_confirmation"), [
-      { text: t("common.cancel"), style: "cancel" },
-      {
-        text: t("profile.signout"),
-        style: "destructive",
-        onPress: () => {
-          dispatch(signOut());
+  const menuSections: MenuSection[] = [
+    {
+      title: t("profile.personal_info") || "Personal Information",
+      items: [
+        {
+          id: "editProfile",
+          title: t("profile.edit_profile") || "Edit Profile",
+          icon: <Edit size={20} color="#2C3E50" />,
+          onPress: () => handleMenuPress("editProfile"),
         },
-      },
-    ]);
-  };
+        {
+          id: "personalData",
+          title: t("profile.personal_data") || "Personal Data",
+          icon: <Target size={20} color="#2C3E50" />,
+          onPress: () => handleMenuPress("personalData"),
+        },
+      ],
+    },
+    {
+      title: t("profile.preferences") || "Preferences",
+      items: [
+        {
+          id: "notifications",
+          title: t("profile.notifications") || "Notifications",
+          icon: <Bell size={20} color="#2C3E50" />,
+          rightComponent: (
+            <Switch
+              value={notifications}
+              onValueChange={setNotifications}
+              trackColor={{ false: "#E9ECEF", true: "#16A085" }}
+              thumbColor={notifications ? "#FFFFFF" : "#FFFFFF"}
+            />
+          ),
+        },
+        {
+          id: "darkMode",
+          title: "Dark Mode",
+          icon: <Moon size={20} color="#2C3E50" />,
+          rightComponent: (
+            <Switch
+              value={darkMode}
+              onValueChange={setDarkMode}
+              trackColor={{ false: "#E9ECEF", true: "#16A085" }}
+              thumbColor={darkMode ? "#FFFFFF" : "#FFFFFF"}
+            />
+          ),
+        },
+        {
+          id: "language",
+          title: t("profile.language") || "Language",
+          icon: <Globe size={20} color="#2C3E50" />,
+          subtitle: isRTL ? "עברית" : "English",
+          onPress: () => handleMenuPress("language"),
+        },
+      ],
+    },
+    {
+      title: t("profile.support") || "Support",
+      items: [
+        {
+          id: "support",
+          title: t("profile.support") || "Help Center",
+          icon: <HelpCircle size={20} color="#2C3E50" />,
+          onPress: () => handleMenuPress("support"),
+        },
+        {
+          id: "about",
+          title: t("profile.about") || "About",
+          icon: <User size={20} color="#2C3E50" />,
+          onPress: () => handleMenuPress("about"),
+        },
+      ],
+    },
+    {
+      title: t("profile.privacy") || "Privacy",
+      items: [
+        {
+          id: "privacy",
+          title: t("profile.privacy") || "Privacy Policy",
+          icon: <Shield size={20} color="#2C3E50" />,
+          onPress: () => handleMenuPress("privacy"),
+        },
+      ],
+    },
+    {
+      title: t("profile.account") || "Account",
+      items: [
+        {
+          id: "signOut",
+          title: t("profile.signout") || "Sign Out",
+          icon: <LogOut size={20} color="#E74C3C" />,
+          onPress: handleSignOut,
+          danger: true,
+        },
+      ],
+    },
+  ];
 
   const renderSectionContent = () => {
     switch (activeSection) {
@@ -135,38 +217,68 @@ export default function ProfileScreen() {
     }
   };
 
-  return (
-    <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#007AFF" />
+  const profileStats = [
+    {
+      label: "AI Requests",
+      value: (user?.ai_requests_count || 0).toString(),
+      icon: <Target size={20} color="#E74C3C" />,
+    },
+    {
+      label: "Member Since",
+      value: formatDate(user?.created_at ?? ""),
+      icon: <Scale size={20} color="#9B59B6" />,
+    },
+    {
+      label: "Profile Status",
+      value: user?.is_questionnaire_completed ? "Complete" : "Incomplete",
+      icon: <Activity size={20} color="#16A085" />,
+    },
+  ];
 
-      {/* Header with gradient background */}
-      <View
-        style={[styles.headerContainer, isRTL && styles.headerContainerRTL]}
-      >
-        <View style={styles.headerOverlay}>
-          <View
-            style={[styles.profileSection, isRTL && styles.profileSectionRTL]}
+  return (
+    <SafeAreaView style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="#16A085" />
+      <ScrollView showsVerticalScrollIndicator={false}>
+        {/* Header */}
+        <View style={[styles.header, isRTL && styles.headerRTL]}>
+          <View>
+            <Text style={[styles.title, isRTL && styles.titleRTL]}>
+              {t("profile.title") || "Profile"}
+            </Text>
+            <Text style={[styles.subtitle, isRTL && styles.subtitleRTL]}>
+              {t("profile.subtitle") || "Manage your account and preferences"}
+            </Text>
+          </View>
+        </View>
+
+        {/* Profile Card */}
+        <View style={styles.profileCard}>
+          <LinearGradient
+            colors={["#16A085", "#1ABC9C"]}
+            style={styles.profileGradient}
           >
-            <View style={styles.avatarContainer}>
+            <View style={styles.profileAvatar}>
               <Image
                 source={{
                   uri:
-                    user?.avatar ||
-                    "https://via.placeholder.com/120x120/007AFF/FFFFFF?text=U",
+                    // user?.avatar ||
+                    "https://via.placeholder.com/80x80/FFFFFF/16A085?text=U",
                 }}
-                style={styles.avatar}
+                style={styles.avatarImage}
               />
               <View style={styles.onlineBadge} />
             </View>
-
-            <View style={[styles.userInfo, isRTL && styles.userInfoRTL]}>
-              <Text style={[styles.name, isRTL && styles.nameRTL]}>
+            <View style={[styles.profileInfo, isRTL && styles.profileInfoRTL]}>
+              <Text
+                style={[styles.profileName, isRTL && styles.profileNameRTL]}
+              >
                 {user?.name || "User Name"}
               </Text>
-              <Text style={[styles.email, isRTL && styles.emailRTL]}>
+              <Text
+                style={[styles.profileEmail, isRTL && styles.profileEmailRTL]}
+              >
                 {user?.email || "user@example.com"}
               </Text>
-
               <View
                 style={[
                   styles.subscriptionBadge,
@@ -182,172 +294,195 @@ export default function ProfileScreen() {
                 </Text>
               </View>
             </View>
-          </View>
-        </View>
-      </View>
-
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* User Stats */}
-        <View
-          style={[styles.statsContainer, isRTL && styles.statsContainerRTL]}
-        >
-          <View style={[styles.statItem, isRTL && styles.statItemRTL]}>
-            <Text style={styles.statValue}>{user?.ai_requests_count || 0}</Text>
-            <Text style={styles.statLabel}>AI Requests</Text>
-          </View>
-          <View style={[styles.statItem, isRTL && styles.statItemRTL]}>
-            <Text style={styles.statValue}>
-              {formatDate(user?.created_at ?? "")}
-            </Text>
-            <Text style={styles.statLabel}>Member Since</Text>
-          </View>
-          <View style={[styles.statItem, isRTL && styles.statItemRTL]}>
-            <Text style={styles.statValue}>
-              {user?.is_questionnaire_completed ? "✓" : "○"}
-            </Text>
-            <Text style={styles.statLabel}>Profile Complete</Text>
-          </View>
+          </LinearGradient>
         </View>
 
-        {/* Menu Items */}
-        <View style={styles.menuContainer}>
-          {menuItems.map((item, index) => (
-            <View
-              key={item.id}
-              style={[
-                styles.menuItemWrapper,
-                index === menuItems.length - 1 && styles.lastMenuItem,
-              ]}
-            >
-              <TouchableOpacity
-                style={[
-                  styles.menuItem,
-                  isRTL && styles.menuItemRTL,
-                  activeSection === item.id && styles.menuItemActive,
-                ]}
-                onPress={() => handleMenuPress(item.id)}
-                activeOpacity={0.8}
-              >
-                <View
-                  style={[styles.menuItemLeft, isRTL && styles.menuItemLeftRTL]}
+        {/* Profile Stats */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, isRTL && styles.sectionTitleRTL]}>
+            {t("profile.stats") || "Statistics"}
+          </Text>
+          <View style={styles.statsContainer}>
+            {profileStats.map((stat, index) => (
+              <View key={index} style={styles.statCard}>
+                <LinearGradient
+                  colors={["#F8F9FA", "#FFFFFF"]}
+                  style={styles.statGradient}
                 >
-                  <View
-                    style={[
-                      styles.iconContainer,
-                      { backgroundColor: item.color },
-                    ]}
-                  >
-                    <Ionicons name={item.icon as any} size={20} color="white" />
+                  <View style={styles.statHeader}>
+                    {stat.icon}
+                    <Text
+                      style={[styles.statLabel, isRTL && styles.statLabelRTL]}
+                    >
+                      {stat.label}
+                    </Text>
                   </View>
                   <Text
-                    style={[
-                      styles.menuItemText,
-                      isRTL && styles.menuItemTextRTL,
-                    ]}
+                    style={[styles.statValue, isRTL && styles.statValueRTL]}
                   >
-                    {item.title}
+                    {stat.value}
                   </Text>
-                </View>
-                <View
-                  style={[
-                    styles.menuItemRight,
-                    isRTL && styles.menuItemRightRTL,
-                  ]}
-                >
-                  <Ionicons
-                    name={
-                      activeSection === item.id
-                        ? "chevron-up"
-                        : isRTL
-                        ? "chevron-back"
-                        : "chevron-forward"
-                    }
-                    size={20}
-                    color="#8E8E93"
-                  />
-                </View>
-              </TouchableOpacity>
-
-              {/* Render section content */}
-              {activeSection === item.id && (
-                <View style={styles.sectionContent}>
-                  {renderSectionContent()}
-                </View>
-              )}
-            </View>
-          ))}
+                </LinearGradient>
+              </View>
+            ))}
+          </View>
         </View>
 
-        {/* Language Selector */}
-        <LanguageSelector
-          showModal={showLanguageModal}
-          onToggleModal={() => setShowLanguageModal(!showLanguageModal)}
-        />
+        {/* Menu Sections */}
+        {menuSections.map((section, sectionIndex) => (
+          <View key={sectionIndex} style={styles.section}>
+            <Text
+              style={[styles.sectionTitle, isRTL && styles.sectionTitleRTL]}
+            >
+              {section.title}
+            </Text>
+            <View style={styles.menuContainer}>
+              {section.items.map((item, itemIndex) => (
+                <View key={itemIndex}>
+                  <TouchableOpacity
+                    style={[
+                      styles.menuItem,
+                      activeSection === item.id && styles.menuItemActive,
+                    ]}
+                    onPress={item.onPress}
+                    activeOpacity={0.8}
+                  >
+                    <View
+                      style={[
+                        styles.menuItemLeft,
+                        isRTL && styles.menuItemLeftRTL,
+                      ]}
+                    >
+                      <View
+                        style={[
+                          styles.menuItemIcon,
+                          item.danger && styles.menuItemIconDanger,
+                        ]}
+                      >
+                        {item.icon}
+                      </View>
+                      <View>
+                        <Text
+                          style={[
+                            styles.menuItemTitle,
+                            item.danger && styles.menuItemTitleDanger,
+                            isRTL && styles.menuItemTitleRTL,
+                          ]}
+                        >
+                          {item.title}
+                        </Text>
+                        {item.subtitle && (
+                          <Text
+                            style={[
+                              styles.menuItemSubtitle,
+                              isRTL && styles.menuItemSubtitleRTL,
+                            ]}
+                          >
+                            {item.subtitle}
+                          </Text>
+                        )}
+                      </View>
+                    </View>
+                    <View style={styles.menuItemRight}>
+                      {item.rightComponent ||
+                        (isRTL ? (
+                          <ChevronRight size={20} color="#BDC3C7" />
+                        ) : (
+                          <ChevronLeft size={20} color="#BDC3C7" />
+                        ))}
+                    </View>
+                  </TouchableOpacity>
 
-        {/* Sign Out Button */}
-        <TouchableOpacity
-          style={[styles.signOutButton, isRTL && styles.signOutButtonRTL]}
-          onPress={handleSignOut}
-          activeOpacity={0.8}
-        >
-          <Ionicons name="log-out-outline" size={24} color="#FF3B30" />
-          <Text style={[styles.signOutText, isRTL && styles.signOutTextRTL]}>
-            {t("profile.signout")}
-          </Text>
-        </TouchableOpacity>
+                  {/* Render section content */}
+                  {activeSection === item.id && (
+                    <View style={styles.sectionContent}>
+                      {renderSectionContent()}
+                    </View>
+                  )}
+                </View>
+              ))}
+            </View>
+          </View>
+        ))}
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f8f9fa",
+    backgroundColor: "#F8F9FA",
   },
-  headerContainer: {
-    backgroundColor: "#007AFF",
-    paddingTop: 50,
-    paddingBottom: 30,
-    borderBottomLeftRadius: 25,
-    borderBottomRightRadius: 25,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  headerContainerRTL: {
-    // RTL specific styles can be added here if needed
-  },
-  headerOverlay: {
-    backgroundColor: "rgba(0, 0, 0, 0.1)",
-    borderBottomLeftRadius: 25,
-    borderBottomRightRadius: 25,
-  },
-  profileSection: {
+  header: {
     flexDirection: "row",
+    justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 20,
     paddingVertical: 20,
   },
-  profileSectionRTL: {
+  headerRTL: {
     flexDirection: "row-reverse",
   },
-  avatarContainer: {
-    position: "relative",
+  title: {
+    fontSize: 28,
+    fontWeight: "bold",
+    color: "#2C3E50",
   },
-  avatar: {
+  titleRTL: {
+    textAlign: "right",
+  },
+  subtitle: {
+    fontSize: 16,
+    color: "#7F8C8D",
+    marginTop: 4,
+  },
+  subtitleRTL: {
+    textAlign: "right",
+  },
+  headerIcons: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  languageButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#FFFFFF",
+    justifyContent: "center",
+    alignItems: "center",
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  profileCard: {
+    marginHorizontal: 20,
+    marginBottom: 24,
+    borderRadius: 20,
+    overflow: "hidden",
+    elevation: 8,
+    shadowColor: "#16A085",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+  },
+  profileGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 24,
+  },
+  profileAvatar: {
+    position: "relative",
+    marginRight: 20,
+  },
+  avatarImage: {
     width: 80,
     height: 80,
     borderRadius: 40,
     borderWidth: 3,
-    borderColor: "white",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
+    borderColor: "rgba(255,255,255,0.3)",
   },
   onlineBadge: {
     position: "absolute",
@@ -360,30 +495,26 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: "white",
   },
-  userInfo: {
+  profileInfo: {
     flex: 1,
-    marginLeft: 16,
   },
-  userInfoRTL: {
-    marginLeft: 0,
-    marginRight: 16,
+  profileInfoRTL: {
     alignItems: "flex-end",
   },
-  name: {
-    fontSize: 24,
+  profileName: {
+    fontSize: 22,
     fontWeight: "bold",
-    color: "white",
-    marginBottom: 4,
+    color: "#FFFFFF",
   },
-  nameRTL: {
+  profileNameRTL: {
     textAlign: "right",
   },
-  email: {
+  profileEmail: {
     fontSize: 16,
-    color: "rgba(255, 255, 255, 0.8)",
-    marginBottom: 8,
+    color: "rgba(255,255,255,0.9)",
+    marginTop: 4,
   },
-  emailRTL: {
+  profileEmailRTL: {
     textAlign: "right",
   },
   subscriptionBadge: {
@@ -391,69 +522,69 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 12,
     alignSelf: "flex-start",
+    marginTop: 8,
   },
   subscriptionText: {
     color: "white",
     fontSize: 12,
     fontWeight: "600",
   },
-  content: {
-    flex: 1,
-    marginTop: -15,
+  section: {
+    paddingHorizontal: 20,
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: "600",
+    color: "#2C3E50",
+    marginBottom: 16,
+  },
+  sectionTitleRTL: {
+    textAlign: "right",
   },
   statsContainer: {
-    flexDirection: "row",
-    backgroundColor: "white",
-    marginHorizontal: 20,
-    marginTop: 20,
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    gap: 12,
   },
-  statsContainerRTL: {
-    flexDirection: "row-reverse",
-  },
-  statItem: {
-    flex: 1,
-    alignItems: "center",
-  },
-  statItemRTL: {
-    alignItems: "center",
-  },
-  statValue: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#333",
-    marginBottom: 4,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: "#666",
-    textAlign: "center",
-  },
-  menuContainer: {
-    marginHorizontal: 20,
-    marginTop: 20,
-    marginBottom: 20,
+  statCard: {
     borderRadius: 16,
     overflow: "hidden",
+  },
+  statGradient: {
+    padding: 16,
+  },
+  statHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  statLabel: {
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#2C3E50",
+    marginLeft: 12,
+  },
+  statLabelRTL: {
+    marginLeft: 0,
+    marginRight: 12,
+    textAlign: "right",
+  },
+  statValue: {
+    fontSize: 20,
+    fontWeight: "600",
+    color: "#16A085",
+  },
+  statValueRTL: {
+    textAlign: "right",
+  },
+  menuContainer: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    overflow: "hidden",
+    elevation: 2,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.05,
     shadowRadius: 8,
-    elevation: 4,
-  },
-  menuItemWrapper: {
-    backgroundColor: "white",
-    borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
-  },
-  lastMenuItem: {
-    borderBottomWidth: 0,
   },
   menuItem: {
     flexDirection: "row",
@@ -461,12 +592,11 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 20,
     paddingVertical: 16,
-  },
-  menuItemRTL: {
-    flexDirection: "row-reverse",
+    borderBottomWidth: 1,
+    borderBottomColor: "#F8F9FA",
   },
   menuItemActive: {
-    backgroundColor: "#f8f9fa",
+    backgroundColor: "#F8F9FA",
   },
   menuItemLeft: {
     flexDirection: "row",
@@ -476,64 +606,44 @@ const styles = StyleSheet.create({
   menuItemLeftRTL: {
     flexDirection: "row-reverse",
   },
-  iconContainer: {
+  menuItemIcon: {
     width: 40,
     height: 40,
     borderRadius: 20,
+    backgroundColor: "#F8F9FA",
     justifyContent: "center",
     alignItems: "center",
     marginRight: 16,
   },
-  menuItemText: {
-    fontSize: 16,
-    color: "#333",
-    fontWeight: "500",
+  menuItemIconDanger: {
+    backgroundColor: "#FCE4EC",
   },
-  menuItemTextRTL: {
-    marginLeft: 0,
-    marginRight: 16,
+  menuItemTitle: {
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#2C3E50",
+  },
+  menuItemTitleDanger: {
+    color: "#E74C3C",
+  },
+  menuItemTitleRTL: {
+    textAlign: "right",
+  },
+  menuItemSubtitle: {
+    fontSize: 14,
+    color: "#7F8C8D",
+    marginTop: 2,
+  },
+  menuItemSubtitleRTL: {
     textAlign: "right",
   },
   menuItemRight: {
-    paddingLeft: 16,
-  },
-  menuItemRightRTL: {
-    paddingLeft: 0,
-    paddingRight: 16,
+    marginLeft: 12,
   },
   sectionContent: {
     padding: 20,
     backgroundColor: "#f8f9fa",
     borderTopWidth: 1,
     borderTopColor: "#e9ecef",
-  },
-  signOutButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "white",
-    marginHorizontal: 20,
-    marginBottom: 40,
-    paddingVertical: 16,
-    borderRadius: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  signOutButtonRTL: {
-    flexDirection: "row-reverse",
-  },
-  signOutText: {
-    marginLeft: 8,
-    fontSize: 16,
-    color: "#FF3B30",
-    fontWeight: "600",
-  },
-  signOutTextRTL: {
-    marginLeft: 0,
-    marginRight: 8,
-    textAlign: "right",
   },
 });

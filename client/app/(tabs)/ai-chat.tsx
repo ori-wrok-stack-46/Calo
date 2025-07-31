@@ -31,6 +31,8 @@ import {
 import { useTranslation } from "react-i18next";
 import { useLanguage } from "@/src/i18n/context/LanguageContext";
 import { chatAPI, questionnaireAPI } from "@/src/services/api";
+import i18n from "@/src/i18n";
+import LoadingScreen from "@/components/LoadingScreen";
 
 const { width } = Dimensions.get("window");
 
@@ -65,7 +67,7 @@ export default function AIChatScreen() {
   });
   const [isLoading, setIsLoading] = useState(true);
   const scrollViewRef = useRef<ScrollView>(null);
-
+  const isRTL = i18n.language === "he";
   const texts = {
     title: language === "he" ? "צ'אט AI תזונתי" : "Nutritional AI Chat",
     subtitle:
@@ -494,17 +496,14 @@ export default function AIChatScreen() {
     );
   };
 
-  if (isLoading) {
+ if (isLoading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#16A085" />
-          <Text style={styles.loadingText}>{texts.loadingProfile}</Text>
-        </View>
-      </SafeAreaView>
+      <LoadingScreen
+        text={isRTL ? "טוען בינה מלכותית" : "Loading AI..."}
+      />
     );
   }
-
+  
   return (
     <SafeAreaView style={styles.container}>
       {/* Header */}

@@ -1,9 +1,6 @@
 import {
-  ExternalPathString,
-  RelativePathString,
   SplashScreen,
   Stack,
-  UnknownInputParams,
 } from "expo-router";
 import { Provider } from "react-redux";
 import { PersistGate } from "redux-persist/integration/react";
@@ -24,7 +21,6 @@ import { LanguageProvider } from "@/src/i18n/context/LanguageContext";
 import { useFonts } from "expo-font";
 import "react-native-reanimated";
 import { I18nextProvider } from "react-i18next";
-import { useColorScheme } from "@/hooks/useColorScheme";
 import i18n from "@/src/i18n";
 import { User } from "@/src/types";
 import LanguageToolbar from "@/components/LanguageToolbar";
@@ -123,7 +119,7 @@ function useNavigationManager(
     isNavigatingRef.current = true;
     lastNavigationRef.current = targetRoute;
 
-    router.replace(targetRoute);
+    router.replace(targetRoute as typeof router.replace extends (url: infer U, ...args: any) => any ? U : never);
 
     // Reset navigation flag after a short delay
     const resetTimeout = setTimeout(() => {

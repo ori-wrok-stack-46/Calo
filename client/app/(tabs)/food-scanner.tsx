@@ -47,6 +47,7 @@ import { useTranslation } from "react-i18next";
 import { useLanguage } from "@/src/i18n/context/LanguageContext";
 import { api } from "@/src/services/api";
 import { Ionicons } from "@expo/vector-icons";
+import LoadingScreen from "@/components/LoadingScreen";
 
 const { width, height } = Dimensions.get("window");
 
@@ -1106,10 +1107,9 @@ export default function FoodScannerScreen() {
 
         {/* Loading */}
         {isLoading && (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#16A085" />
-            <Text style={styles.loadingText}>מעבד את המוצר...</Text>
-          </View>
+          <LoadingScreen
+            text={isRTL ? "טוען את הסורק..." : "Loading your scanner..."}
+          />
         )}
 
         {/* Add to Meal Modal */}

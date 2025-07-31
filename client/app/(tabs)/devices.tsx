@@ -19,6 +19,7 @@ import {
   DailyBalance,
 } from "../../src/services/deviceAPI";
 import { HealthData } from "../../src/services/healthKit";
+import LoadingScreen from "@/components/LoadingScreen";
 
 type DeviceType =
   | "APPLE_HEALTH"
@@ -484,12 +485,11 @@ export default function DevicesScreen() {
     );
   };
 
-  if (isLoading) {
+ if (isLoading) {
     return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#007AFF" />
-        <Text style={styles.loadingText}>{t("devices.loading")}</Text>
-      </View>
+      <LoadingScreen
+        text={isRTL ? "טוען מכשירים חכמים..." : "Loading your smart devices..."}
+      />
     );
   }
 

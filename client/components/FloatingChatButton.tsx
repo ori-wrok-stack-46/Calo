@@ -51,7 +51,7 @@ const ANIMATIONS = {
 
 // Glassmorphism colors
 const COLORS = {
-  glass: "rgba(255, 255, 255, 0.25)",
+  glass: "rgba(0, 0, 0, 0.25)",
   glassStroke: "rgba(255, 255, 255, 0.3)",
   backdrop: "rgba(0, 0, 0, 0.1)",
   white: "#ffffff",

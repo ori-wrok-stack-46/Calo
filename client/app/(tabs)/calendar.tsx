@@ -39,6 +39,9 @@ import {
   Flame,
   Scroll,
 } from "lucide-react-native";
+import LoadingScreen from "@/components/LoadingScreen";
+import { useTranslation } from "react-i18next";
+import i18n from "@/src/i18n";
 
 const { width } = Dimensions.get("window");
 
@@ -72,6 +75,7 @@ interface MonthStats {
 }
 
 export default function CalendarScreen() {
+  const { t } = useTranslation();
   const dispatch = useDispatch<AppDispatch>();
   const {
     calendarData,
@@ -82,6 +86,7 @@ export default function CalendarScreen() {
     error,
   } = useSelector((state: RootState) => state.calendar);
 
+  const isRTL = i18n.language === "he";
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState<DayData | null>(null);
   const [showDayModal, setShowDayModal] = useState(false);
@@ -95,103 +100,10 @@ export default function CalendarScreen() {
   const [eventDescription, setEventDescription] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
   const [badges, setBadges] = useState([]);
-  const [language, setLanguage] = useState<"he" | "en">("he");
-
-  const texts = {
-    he: {
-      title: "לוח יעדים",
-      subtitle: "עקוב אחרי ההתקדמות היומית שלך",
-      monthlyStats: "סטטיסטיקות חודשיות",
-      successfulDays: "ימים מוצלחים",
-      averageCompletion: "ממוצע השלמה",
-      bestStreak: "רצף הטוב ביותר",
-      currentStreak: "רצף נוכחי",
-      dayDetails: "פרטי היום",
-      caloriesGoal: "יעד קלוריות",
-      proteinGoal: "יעד חלבון",
-      waterGoal: "יעד מים",
-      consumed: "נצרך",
-      goal: "יעד",
-      deviation: "סטייה",
-      over: "עודף",
-      under: "חסר",
-      goalMet: "יעד הושג!",
-      goalNotMet: "יעד לא הושג",
-      days: "ימים",
-      kcal: 'קק"ל',
-      g: "גר׳",
-      ml: 'מ"ל',
-      today: "היום",
-      selectDay: "בחר יום לצפייה בפרטים",
-      excellent: "מעולה!",
-      good: "טוב!",
-      needsImprovement: "צריך שיפור",
-      monthNames: [
-        "ינואר",
-        "פברואר",
-        "מרץ",
-        "אפריל",
-        "מאי",
-        "יוני",
-        "יולי",
-        "אוגוסט",
-        "ספטמבר",
-        "אוקטובר",
-        "נובמבר",
-        "דצמבר",
-      ],
-      dayNames: ["א", "ב", "ג", "ד", "ה", "ו", "ש"],
-    },
-    en: {
-      title: "Goal Calendar",
-      subtitle: "Track your daily progress",
-      monthlyStats: "Monthly Statistics",
-      successfulDays: "Successful Days",
-      averageCompletion: "Average Completion",
-      bestStreak: "Best Streak",
-      currentStreak: "Current Streak",
-      dayDetails: "Day Details",
-      caloriesGoal: "Calorie Goal",
-      proteinGoal: "Protein Goal",
-      waterGoal: "Water Goal",
-      consumed: "Consumed",
-      goal: "Goal",
-      deviation: "Deviation",
-      over: "Over",
-      under: "Under",
-      goalMet: "Goal Achieved!",
-      goalNotMet: "Goal Not Met",
-      days: "days",
-      kcal: "kcal",
-      g: "g",
-      ml: "ml",
-      today: "Today",
-      selectDay: "Select a day to view details",
-      excellent: "Excellent!",
-      good: "Good!",
-      needsImprovement: "Needs Improvement",
-      monthNames: [
-        "January",
-        "February",
-        "March",
-        "April",
-        "May",
-        "June",
-        "July",
-        "August",
-        "September",
-        "October",
-        "November",
-        "December",
-      ],
-      dayNames: ["S", "M", "T", "W", "T", "F", "S"],
-    },
-  };
-
-  const t = texts[language];
 
   const toggleLanguage = () => {
-    setLanguage((prev) => (prev === "he" ? "en" : "he"));
+    const newLang = i18n.language === "he" ? "en" : "he";
+    i18n.changeLanguage(newLang);
   };
 
   useEffect(() => {
@@ -200,11 +112,14 @@ export default function CalendarScreen() {
 
   useEffect(() => {
     if (error) {
-      Alert.alert("Error", error, [
-        { text: "OK", onPress: () => dispatch(clearError()) },
+      Alert.alert(t("calendar.errors.generic"), error, [
+        {
+          text: t("calendar.errors.ok"),
+          onPress: () => dispatch(clearError()),
+        },
       ]);
     }
-  }, [error, dispatch]);
+  }, [error, dispatch, t]);
 
   const loadCalendarData = () => {
     const year = currentDate.getFullYear();
@@ -277,10 +192,10 @@ export default function CalendarScreen() {
       dayData.calories_goal
     );
 
-    if (caloriesProgress >= 110) return "Overeating";
-    if (caloriesProgress >= 100) return t.goalMet;
-    if (caloriesProgress >= 70) return "Close to Goal";
-    return t.goalNotMet;
+    if (caloriesProgress >= 110) return t("calendar.overeating");
+    if (caloriesProgress >= 100) return t("calendar.goalMet");
+    if (caloriesProgress >= 70) return t("calendar.closeToGoal");
+    return t("calendar.goalNotMet");
   };
 
   const getDayStatus = (dayData: DayData) => {
@@ -289,9 +204,9 @@ export default function CalendarScreen() {
       dayData.calories_goal
     );
 
-    if (caloriesProgress >= 100) return t.excellent;
-    if (caloriesProgress >= 80) return t.good;
-    return t.needsImprovement;
+    if (caloriesProgress >= 100) return t("calendar.excellent");
+    if (caloriesProgress >= 80) return t("calendar.good");
+    return t("calendar.needsImprovement");
   };
 
   const navigateMonth = (direction: number) => {
@@ -323,8 +238,6 @@ export default function CalendarScreen() {
     return years;
   };
 
-  const months = t.monthNames;
-
   const handleDayPress = (dayData: DayData) => {
     setSelectedDay(dayData);
     setShowDayModal(true);
@@ -340,7 +253,10 @@ export default function CalendarScreen() {
 
   const submitEvent = async () => {
     if (!eventTitle.trim()) {
-      Alert.alert("Error", "Please enter an event title");
+      Alert.alert(
+        t("calendar.errors.generic"),
+        t("calendar.events.titleRequired")
+      );
       return;
     }
 
@@ -355,28 +271,38 @@ export default function CalendarScreen() {
       ).unwrap();
 
       setShowEventModal(false);
-      Alert.alert("Success", "Event added successfully!");
+      Alert.alert(t("calendar.events.success"), t("calendar.events.success"));
     } catch (error) {
-      Alert.alert("Error", "Failed to add event");
+      Alert.alert(t("calendar.errors.generic"), t("calendar.events.error"));
     }
   };
 
   const handleDeleteEvent = async (eventId: string, date: string) => {
-    Alert.alert("Delete Event", "Are you sure you want to delete this event?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await dispatch(deleteEvent({ eventId, date })).unwrap();
-            Alert.alert("Success", "Event deleted successfully!");
-          } catch (error) {
-            Alert.alert("Error", "Failed to delete event");
-          }
+    Alert.alert(
+      t("calendar.events.deleteTitle"),
+      t("calendar.events.deleteConfirm"),
+      [
+        { text: t("calendar.events.cancel"), style: "cancel" },
+        {
+          text: t("calendar.events.deleteButton"),
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await dispatch(deleteEvent({ eventId, date })).unwrap();
+              Alert.alert(
+                t("calendar.events.deleteSuccess"),
+                t("calendar.events.deleteSuccess")
+              );
+            } catch (error) {
+              Alert.alert(
+                t("calendar.errors.generic"),
+                t("calendar.events.deleteError")
+              );
+            }
+          },
         },
-      },
-    ]);
+      ]
+    );
   };
 
   const calculateMonthStats = (): MonthStats => {
@@ -484,9 +410,12 @@ export default function CalendarScreen() {
   };
 
   const renderWeekDays = () => {
+    const dayNames = t("calendar.dayNames", {
+      returnObjects: true,
+    }) as string[];
     return (
       <View style={styles.weekDaysContainer}>
-        {t.dayNames.map((day, index) => (
+        {dayNames.map((day, index) => (
           <View key={index} style={styles.dayHeader}>
             <Text style={styles.dayHeaderText}>{day}</Text>
           </View>
@@ -507,10 +436,10 @@ export default function CalendarScreen() {
           >
             <View style={styles.gamificationHeader}>
               <Text style={styles.gamificationTitle}>
-                🏆 Recent Achievements
+                {t("calendar.recentAchievements")}
               </Text>
               <TouchableOpacity onPress={() => setShowBadgesModal(true)}>
-                <Text style={styles.seeAllText}>See All</Text>
+                <Text style={styles.seeAllText}>{t("calendar.seeAll")}</Text>
               </TouchableOpacity>
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
@@ -534,7 +463,7 @@ export default function CalendarScreen() {
 
     return (
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>{t.monthlyStats}</Text>
+        <Text style={styles.sectionTitle}>{t("calendar.monthlyStats")}</Text>
         <View style={styles.statsContainer}>
           <LinearGradient
             colors={["#16A08515", "#16A08505"]}
@@ -552,7 +481,9 @@ export default function CalendarScreen() {
                 <Text style={styles.statValue}>
                   {monthStats.successfulDays}/{monthStats.totalDays}
                 </Text>
-                <Text style={styles.statLabel}>{t.successfulDays}</Text>
+                <Text style={styles.statLabel}>
+                  {t("calendar.successfulDays")}
+                </Text>
               </View>
 
               <View style={styles.statItem}>
@@ -562,7 +493,9 @@ export default function CalendarScreen() {
                 <Text style={styles.statValue}>
                   {Math.round(monthStats.averageCompletion)}%
                 </Text>
-                <Text style={styles.statLabel}>{t.averageCompletion}</Text>
+                <Text style={styles.statLabel}>
+                  {t("calendar.averageCompletion")}
+                </Text>
               </View>
 
               <View style={styles.statItem}>
@@ -570,7 +503,7 @@ export default function CalendarScreen() {
                   <Award size={20} color="#F39C12" />
                 </View>
                 <Text style={styles.statValue}>{monthStats.bestStreak}</Text>
-                <Text style={styles.statLabel}>{t.bestStreak}</Text>
+                <Text style={styles.statLabel}>{t("calendar.bestStreak")}</Text>
               </View>
 
               <View style={styles.statItem}>
@@ -578,7 +511,9 @@ export default function CalendarScreen() {
                   <Flame size={20} color="#E74C3C" />
                 </View>
                 <Text style={styles.statValue}>{monthStats.currentStreak}</Text>
-                <Text style={styles.statLabel}>{t.currentStreak}</Text>
+                <Text style={styles.statLabel}>
+                  {t("calendar.currentStreak")}
+                </Text>
               </View>
             </View>
 
@@ -588,7 +523,7 @@ export default function CalendarScreen() {
                 onPress={() => setShowInsightsModal(true)}
               >
                 <Text style={styles.insightsButtonText}>
-                  📊 View Weekly Insights
+                  {t("calendar.viewWeeklyInsights")}
                 </Text>
               </TouchableOpacity>
             )}
@@ -611,24 +546,24 @@ export default function CalendarScreen() {
         const calculatedBadges = [
           {
             id: 1,
-            name: "First Week",
+            name: t("calendar.badges.firstWeek"),
             icon: "🏆",
             earned: userStats?.daysTracked >= 7,
-            description: "Complete your first week of tracking",
+            description: t("calendar.badges.firstWeekDesc"),
           },
           {
             id: 2,
-            name: "Streak Master",
+            name: t("calendar.badges.streakMaster"),
             icon: "🔥",
             earned: userStats?.currentStreak >= 5,
-            description: "Maintain a 5-day streak",
+            description: t("calendar.badges.streakMasterDesc"),
           },
           {
             id: 3,
-            name: "Healthy Choice",
+            name: t("calendar.badges.healthyChoice"),
             icon: "🥗",
             earned: userStats?.healthyMealsCount >= 10,
-            description: "Log 10 healthy meals",
+            description: t("calendar.badges.healthyChoiceDesc"),
           },
         ];
         setBadges(calculatedBadges);
@@ -639,16 +574,15 @@ export default function CalendarScreen() {
     };
 
     loadBadges();
-  }, []);
+  }, [t]);
 
   if (isLoading) {
-    return (
-      <View style={styles.centered}>
-        <ActivityIndicator size="large" color="#16A085" />
-        <Text style={styles.loadingText}>Loading calendar...</Text>
-      </View>
-    );
+    return <LoadingScreen text={t("calendar.loading")} />;
   }
+
+  const monthNames = t("calendar.monthNames", {
+    returnObjects: true,
+  }) as string[];
 
   return (
     <SafeAreaView style={styles.container}>
@@ -656,8 +590,8 @@ export default function CalendarScreen() {
         {/* Header */}
         <View style={styles.header}>
           <View>
-            <Text style={styles.title}>{t.title}</Text>
-            <Text style={styles.subtitle}>{t.subtitle}</Text>
+            <Text style={styles.title}>{t("calendar.title")}</Text>
+            <Text style={styles.subtitle}>{t("calendar.subtitle")}</Text>
           </View>
           <View style={styles.headerIcons}>
             <TouchableOpacity
@@ -687,7 +621,7 @@ export default function CalendarScreen() {
           <View style={styles.monthContainer}>
             <CalendarIcon size={20} color="#16A085" />
             <Text style={styles.monthText}>
-              {t.monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
+              {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
             </Text>
           </View>
 
@@ -718,7 +652,7 @@ export default function CalendarScreen() {
               <View
                 style={[styles.legendColor, { backgroundColor: "#2ECC71" }]}
               />
-              <Text style={styles.legendText}>{t.goalMet}</Text>
+              <Text style={styles.legendText}>{t("calendar.goalMet")}</Text>
             </View>
             <View style={styles.legendItem}>
               <View
@@ -738,7 +672,7 @@ export default function CalendarScreen() {
         {/* Day Details */}
         {selectedDay ? (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>{t.dayDetails}</Text>
+            <Text style={styles.sectionTitle}>{t("calendar.dayDetails")}</Text>
             <View style={styles.dayDetailsContainer}>
               <LinearGradient
                 colors={[
@@ -753,7 +687,7 @@ export default function CalendarScreen() {
                       {new Date(selectedDay.date).getDate()}
                     </Text>
                     <Text style={styles.dayDetailsMonthText}>
-                      {t.monthNames[new Date(selectedDay.date).getMonth()]}
+                      {monthNames[new Date(selectedDay.date).getMonth()]}
                     </Text>
                   </View>
                   <View style={styles.dayDetailsStatus}>
@@ -780,11 +714,13 @@ export default function CalendarScreen() {
                   <View style={styles.metricCard}>
                     <View style={styles.metricHeader}>
                       <Flame size={16} color="#E74C3C" />
-                      <Text style={styles.metricTitle}>{t.caloriesGoal}</Text>
+                      <Text style={styles.metricTitle}>
+                        {t("calendar.caloriesGoal")}
+                      </Text>
                     </View>
                     <Text style={styles.metricValue}>
                       {selectedDay.calories_actual} /{" "}
-                      {selectedDay.calories_goal} {t.kcal}
+                      {selectedDay.calories_goal} {t("calendar.kcal")}
                     </Text>
                     <View style={styles.deviationContainer}>
                       {selectedDay.calories_actual >
@@ -809,10 +745,10 @@ export default function CalendarScreen() {
                           selectedDay.calories_actual -
                             selectedDay.calories_goal
                         )}{" "}
-                        {t.kcal}{" "}
+                        {t("calendar.kcal")}{" "}
                         {selectedDay.calories_actual > selectedDay.calories_goal
-                          ? t.over
-                          : t.under}
+                          ? t("calendar.over")
+                          : t("calendar.under")}
                       </Text>
                     </View>
                   </View>
@@ -820,11 +756,13 @@ export default function CalendarScreen() {
                   <View style={styles.metricCard}>
                     <View style={styles.metricHeader}>
                       <Target size={16} color="#9B59B6" />
-                      <Text style={styles.metricTitle}>{t.proteinGoal}</Text>
+                      <Text style={styles.metricTitle}>
+                        {t("calendar.proteinGoal")}
+                      </Text>
                     </View>
                     <Text style={styles.metricValue}>
                       {selectedDay.protein_actual} / {selectedDay.protein_goal}{" "}
-                      {t.g}
+                      {t("calendar.g")}
                     </Text>
                     <Text style={styles.metricPercentage}>
                       {Math.round(
@@ -839,17 +777,21 @@ export default function CalendarScreen() {
                   <View style={styles.metricCard}>
                     <View style={styles.metricHeader}>
                       <Target size={16} color="#3498DB" />
-                      <Text style={styles.metricTitle}>{t.waterGoal}</Text>
+                      <Text style={styles.metricTitle}>
+                        {t("calendar.waterGoal")}
+                      </Text>
                     </View>
                     <Text style={styles.metricValue}>
-                      {selectedDay.water_intake_ml} {t.ml}
+                      {selectedDay.water_intake_ml} {t("calendar.ml")}
                     </Text>
                   </View>
                 </View>
 
                 {selectedDay.events.length > 0 && (
                   <View style={styles.eventsSection}>
-                    <Text style={styles.eventsTitle}>Events</Text>
+                    <Text style={styles.eventsTitle}>
+                      {t("calendar.events.title")}
+                    </Text>
                     {selectedDay.events.map((event) => (
                       <View key={event.id} style={styles.eventItem}>
                         <Ionicons name="calendar" size={16} color="#16A085" />
@@ -876,7 +818,9 @@ export default function CalendarScreen() {
                       handleAddEvent(selectedDay.date);
                     }}
                   >
-                    <Text style={styles.addEventButtonText}>Add Event</Text>
+                    <Text style={styles.addEventButtonText}>
+                      {t("calendar.events.addEvent")}
+                    </Text>
                   </TouchableOpacity>
                 </View>
               </LinearGradient>
@@ -886,7 +830,9 @@ export default function CalendarScreen() {
           <View style={styles.section}>
             <View style={styles.selectDayContainer}>
               <CalendarIcon size={48} color="#BDC3C7" />
-              <Text style={styles.selectDayText}>{t.selectDay}</Text>
+              <Text style={styles.selectDayText}>
+                {t("calendar.selectDay")}
+              </Text>
             </View>
           </View>
         )}
@@ -901,11 +847,13 @@ export default function CalendarScreen() {
           <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
               <ScrollView>
-                <Text style={styles.modalTitle}>Add Event</Text>
+                <Text style={styles.modalTitle}>
+                  {t("calendar.events.addEventTitle")}
+                </Text>
 
                 <TextInput
                   style={styles.eventInput}
-                  placeholder="Event title (e.g., Wedding, Heavy workout, Fasting day)"
+                  placeholder={t("calendar.events.eventTitle")}
                   value={eventTitle}
                   onChangeText={setEventTitle}
                   autoFocus={true}
@@ -913,7 +861,7 @@ export default function CalendarScreen() {
 
                 <TextInput
                   style={[styles.eventInput, styles.eventDescriptionInput]}
-                  placeholder="Description (optional)"
+                  placeholder={t("calendar.events.eventDescription")}
                   value={eventDescription}
                   onChangeText={setEventDescription}
                   multiline
@@ -921,15 +869,41 @@ export default function CalendarScreen() {
                 />
 
                 <View style={styles.eventTypeContainer}>
-                  <Text style={styles.eventTypeLabel}>Event Type:</Text>
+                  <Text style={styles.eventTypeLabel}>
+                    {t("calendar.events.eventType")}
+                  </Text>
                   <View style={styles.eventTypeButtons}>
                     {[
-                      { key: "general", label: "General", icon: "calendar" },
-                      { key: "workout", label: "Workout", icon: "fitness" },
-                      { key: "social", label: "Social", icon: "people" },
-                      { key: "health", label: "Health", icon: "medical" },
-                      { key: "travel", label: "Travel", icon: "airplane" },
-                      { key: "work", label: "Work", icon: "briefcase" },
+                      {
+                        key: "general",
+                        label: t("calendar.events.eventTypes.general"),
+                        icon: "calendar",
+                      },
+                      {
+                        key: "workout",
+                        label: t("calendar.events.eventTypes.workout"),
+                        icon: "fitness",
+                      },
+                      {
+                        key: "social",
+                        label: t("calendar.events.eventTypes.social"),
+                        icon: "people",
+                      },
+                      {
+                        key: "health",
+                        label: t("calendar.events.eventTypes.health"),
+                        icon: "medical",
+                      },
+                      {
+                        key: "travel",
+                        label: t("calendar.events.eventTypes.travel"),
+                        icon: "airplane",
+                      },
+                      {
+                        key: "work",
+                        label: t("calendar.events.eventTypes.work"),
+                        icon: "briefcase",
+                      },
                     ].map((type) => (
                       <TouchableOpacity
                         key={type.key}
@@ -965,7 +939,9 @@ export default function CalendarScreen() {
                     onPress={() => setShowEventModal(false)}
                     disabled={isAddingEvent}
                   >
-                    <Text style={styles.cancelButtonText}>Cancel</Text>
+                    <Text style={styles.cancelButtonText}>
+                      {t("calendar.events.cancel")}
+                    </Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -976,7 +952,9 @@ export default function CalendarScreen() {
                     {isAddingEvent ? (
                       <ActivityIndicator color="white" size="small" />
                     ) : (
-                      <Text style={styles.submitButtonText}>Add Event</Text>
+                      <Text style={styles.submitButtonText}>
+                        {t("calendar.events.submit")}
+                      </Text>
                     )}
                   </TouchableOpacity>
                 </View>
@@ -995,7 +973,9 @@ export default function CalendarScreen() {
           <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
               <View style={styles.badgesHeader}>
-                <Text style={styles.modalTitle}>🏆 Your Achievements</Text>
+                <Text style={styles.modalTitle}>
+                  {t("calendar.badges.title")}
+                </Text>
                 <TouchableOpacity onPress={() => setShowBadgesModal(false)}>
                   <Ionicons name="close" size={24} color="#666" />
                 </TouchableOpacity>
@@ -1028,7 +1008,9 @@ export default function CalendarScreen() {
           <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
               <View style={styles.insightsHeader}>
-                <Text style={styles.modalTitle}>📊 Weekly Insights</Text>
+                <Text style={styles.modalTitle}>
+                  {t("calendar.insights.title")}
+                </Text>
                 <TouchableOpacity onPress={() => setShowInsightsModal(false)}>
                   <Ionicons name="close" size={24} color="#666" />
                 </TouchableOpacity>
@@ -1037,7 +1019,9 @@ export default function CalendarScreen() {
               <ScrollView style={styles.insightsScrollView}>
                 {statistics?.weeklyInsights?.bestWeekDetails && (
                   <View style={styles.insightCard}>
-                    <Text style={styles.insightCardTitle}>🎯 Best Week</Text>
+                    <Text style={styles.insightCardTitle}>
+                      {t("calendar.insights.bestWeek")}
+                    </Text>
                     <Text style={styles.insightCardSubtitle}>
                       {statistics.weeklyInsights.bestWeekDetails.weekStart} to{" "}
                       {statistics.weeklyInsights.bestWeekDetails.weekEnd}
@@ -1047,7 +1031,7 @@ export default function CalendarScreen() {
                         statistics.weeklyInsights.bestWeekDetails
                           .averageProgress
                       )}
-                      % average progress
+                      % {t("calendar.insights.averageProgress")}
                     </Text>
                     <View style={styles.insightHighlights}>
                       {statistics.weeklyInsights.bestWeekDetails.highlights.map(
@@ -1064,7 +1048,7 @@ export default function CalendarScreen() {
                 {statistics?.weeklyInsights?.challengingWeekDetails && (
                   <View style={styles.insightCard}>
                     <Text style={styles.insightCardTitle}>
-                      💪 Most Challenging Week
+                      {t("calendar.insights.challengingWeek")}
                     </Text>
                     <Text style={styles.insightCardSubtitle}>
                       {
@@ -1079,7 +1063,7 @@ export default function CalendarScreen() {
                         statistics.weeklyInsights.challengingWeekDetails
                           .averageProgress
                       )}
-                      % average progress
+                      % {t("calendar.insights.averageProgress")}
                     </Text>
                     <View style={styles.insightChallenges}>
                       {statistics.weeklyInsights.challengingWeekDetails.challenges.map(

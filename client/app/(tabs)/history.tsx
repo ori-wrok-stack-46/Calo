@@ -11,6 +11,7 @@ import {
   Alert,
   RefreshControl,
   ActivityIndicator,
+  Dimensions,
 } from "react-native";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState, AppDispatch } from "../../src/store";
@@ -22,15 +23,36 @@ import {
   updateMeal,
 } from "../../src/store/mealSlice";
 import { Meal } from "../../src/types";
-import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { useRTLStyles } from "../../hooks/useRTLStyle";
 import { useMealDataRefresh } from "@/hooks/useMealDataRefresh";
-import LanguageToolbar from "@/components/LanguageToolbar";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ScrollView } from "react-native-gesture-handler";
 import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
+import {
+  Search,
+  Filter,
+  Heart,
+  Copy,
+  CreditCard as Edit3,
+  Star,
+  TrendingUp,
+  Calendar,
+  Clock,
+  Target,
+  Globe,
+  ListRestart as Restaurant,
+  Lightbulb,
+  TriangleAlert as AlertTriangle,
+  ChevronDown,
+  ChevronUp,
+  MessageCircle,
+} from "lucide-react-native";
+import AccessibilityButton from "@/components/AccessibilityButton";
+import LoadingScreen from "@/components/LoadingScreen";
+
+const { width } = Dimensions.get("window");
 
 interface MealWithFeedback extends Meal {
   userRating?: number;
@@ -62,6 +84,9 @@ export default function HistoryScreen() {
 
   const { t, i18n } = useTranslation();
   const isRTL = i18n.language === "he";
+  const [language, setLanguage] = useState<"he" | "en">(
+    i18n.language as "he" | "en"
+  );
 
   const [filteredMeals, setFilteredMeals] = useState<MealWithFeedback[]>([]);
   const [expandedMeals, setExpandedMeals] = useState<ExpandedMealData>({});
@@ -79,6 +104,43 @@ export default function HistoryScreen() {
   const [satietyRating, setSatietyRating] = useState(0);
   const [energyRating, setEnergyRating] = useState(0);
   const [heavinessRating, setHeavinessRating] = useState(0);
+
+  const texts = {
+    he: {
+      title: "היסטוריית ארוחות",
+      subtitle: "כל הארוחות שלך במקום אחד",
+      searchPlaceholder: "חפש ארוחות...",
+      insights: "תובנות חכמות",
+      mealHistory: "היסטוריית ארוחות",
+      rate: "דרג",
+      favorite: "מועדף",
+      duplicate: "שכפל",
+      update: "עדכן",
+      noMeals: "אין ארוחות להצגה",
+      startLogging: "התחל לתעד ארוחות כדי לראות את ההיסטוריה כאן",
+    },
+    en: {
+      title: "Meal History",
+      subtitle: "All your meals in one place",
+      searchPlaceholder: "Search meals...",
+      insights: "Smart Insights",
+      mealHistory: "Meal History",
+      rate: "Rate",
+      favorite: "Favorite",
+      duplicate: "Duplicate",
+      update: "Update",
+      noMeals: "No meals to display",
+      startLogging: "Start logging your meals to see your history here",
+    },
+  };
+
+  const currentTexts = texts[language];
+
+  const toggleLanguage = () => {
+    const newLang = language === "he" ? "en" : "he";
+    setLanguage(newLang);
+    i18n.changeLanguage(newLang);
+  };
 
   useEffect(() => {
     dispatch(fetchMeals());
@@ -250,9 +312,9 @@ export default function HistoryScreen() {
     // Ensure score is between 1-10
     score = Math.max(1, Math.min(10, score));
 
-    let color = "#2563eb"; // Blue theme
-    if (score <= 4) color = "#dc2626"; // Red
-    else if (score <= 6) color = "#ea580c"; // Orange
+    let color = "#16A085"; // Teal theme
+    if (score <= 4) color = "#E74C3C"; // Red
+    else if (score <= 6) color = "#F39C12"; // Orange
 
     return { score, color };
   };
@@ -454,10 +516,10 @@ export default function HistoryScreen() {
       <View style={styles.starContainer}>
         {[1, 2, 3, 4, 5].map((star) => (
           <TouchableOpacity key={star} onPress={() => setRating(star)}>
-            <Ionicons
-              name={star <= rating ? "star" : "star-outline"}
+            <Star
               size={30}
-              color={star <= rating ? "#fbbf24" : "#d1d5db"}
+              color={star <= rating ? "#F39C12" : "#BDC3C7"}
+              fill={star <= rating ? "#F39C12" : "transparent"}
             />
           </TouchableOpacity>
         ))}
@@ -471,9 +533,9 @@ export default function HistoryScreen() {
     }
 
     return (
-      <BlurView intensity={20} style={styles.ingredientsSection}>
+      <View style={styles.ingredientsSection}>
         <View style={styles.ingredientsSectionHeader}>
-          <Ionicons name="restaurant-outline" size={20} color="#2563eb" />
+          <Restaurant size={20} color="#16A085" />
           <Text style={styles.ingredientsSectionTitle}>
             {t("food_scanner.ingredients") || "Ingredients"} (
             {meal.ingredients.length})
@@ -487,18 +549,10 @@ export default function HistoryScreen() {
           contentContainerStyle={styles.ingredientsScrollContent}
         >
           {meal.ingredients.map((ingredient, index) => (
-            <BlurView
-              intensity={40}
-              key={index}
-              style={styles.modernIngredientCard}
-            >
+            <View key={index} style={styles.modernIngredientCard}>
               <View style={styles.ingredientCardHeader}>
                 <View style={styles.modernIngredientIconContainer}>
-                  <Ionicons
-                    name={getIngredientIcon(ingredient.name) as any}
-                    size={18}
-                    color="#2563eb"
-                  />
+                  <Restaurant size={18} color="#16A085" />
                 </View>
                 <Text style={styles.modernIngredientName} numberOfLines={2}>
                   {ingredient.name}
@@ -531,58 +585,58 @@ export default function HistoryScreen() {
                   <Text style={styles.nutritionInfoLabel}>fat</Text>
                 </View>
               </View>
-            </BlurView>
+            </View>
           ))}
         </ScrollView>
-      </BlurView>
+      </View>
     );
   };
 
   const renderNutritionDetails = (meal: MealWithFeedback) => {
     return (
-      <BlurView intensity={15} style={styles.nutritionDetails}>
+      <View style={styles.nutritionDetails}>
         <Text style={styles.nutritionDetailsTitle}>
           {t("history.detailed_nutrition") || "Detailed Nutrition Information"}
         </Text>
 
         {/* Basic Macros */}
         <View style={styles.macroSection}>
-          <Text style={styles.sectionTitle}>
+          <Text style={styles.macroSectionTitle}>
             {t("meals.nutrition_info") || "Macronutrients"}
           </Text>
           <View style={styles.nutritionGrid}>
-            <BlurView intensity={30} style={styles.nutritionDetailItem}>
+            <View style={styles.nutritionDetailItem}>
               <Text style={styles.nutritionDetailLabel}>
                 {t("meals.calories") || "Calories"}
               </Text>
               <Text style={styles.nutritionDetailValue}>
                 {Math.round(meal.calories || 0)}
               </Text>
-            </BlurView>
-            <BlurView intensity={30} style={styles.nutritionDetailItem}>
+            </View>
+            <View style={styles.nutritionDetailItem}>
               <Text style={styles.nutritionDetailLabel}>
                 {t("meals.protein") || "Protein"}
               </Text>
               <Text style={styles.nutritionDetailValue}>
                 {Math.round(meal.protein || meal.protein_g || 0)}g
               </Text>
-            </BlurView>
-            <BlurView intensity={30} style={styles.nutritionDetailItem}>
+            </View>
+            <View style={styles.nutritionDetailItem}>
               <Text style={styles.nutritionDetailLabel}>
                 {t("meals.carbs") || "Carbs"}
               </Text>
               <Text style={styles.nutritionDetailValue}>
                 {Math.round(meal.carbs || meal.carbs_g || 0)}g
               </Text>
-            </BlurView>
-            <BlurView intensity={30} style={styles.nutritionDetailItem}>
+            </View>
+            <View style={styles.nutritionDetailItem}>
               <Text style={styles.nutritionDetailLabel}>
                 {t("meals.fat") || "Fat"}
               </Text>
               <Text style={styles.nutritionDetailValue}>
                 {Math.round(meal.fat || meal.fats_g || 0)}g
               </Text>
-            </BlurView>
+            </View>
           </View>
         </View>
 
@@ -594,105 +648,40 @@ export default function HistoryScreen() {
           meal.sodium ||
           meal.sodium_mg) && (
           <View style={styles.macroSection}>
-            <Text style={styles.sectionTitle}>
+            <Text style={styles.macroSectionTitle}>
               {t("statistics.additional_nutrients") || "Additional Nutrients"}
             </Text>
             <View style={styles.nutritionGrid}>
               {(meal.fiber || meal.fiber_g) && (
-                <BlurView intensity={30} style={styles.nutritionDetailItem}>
+                <View style={styles.nutritionDetailItem}>
                   <Text style={styles.nutritionDetailLabel}>
                     {t("meals.fiber") || "Fiber"}
                   </Text>
                   <Text style={styles.nutritionDetailValue}>
                     {Math.round(meal.fiber || meal.fiber_g || 0)}g
                   </Text>
-                </BlurView>
+                </View>
               )}
               {(meal.sugar || meal.sugar_g) && (
-                <BlurView intensity={30} style={styles.nutritionDetailItem}>
+                <View style={styles.nutritionDetailItem}>
                   <Text style={styles.nutritionDetailLabel}>
                     {t("meals.sugar") || "Sugar"}
                   </Text>
                   <Text style={styles.nutritionDetailValue}>
                     {Math.round(meal.sugar || meal.sugar_g || 0)}g
                   </Text>
-                </BlurView>
+                </View>
               )}
               {(meal.sodium || meal.sodium_mg) && (
-                <BlurView intensity={30} style={styles.nutritionDetailItem}>
+                <View style={styles.nutritionDetailItem}>
                   <Text style={styles.nutritionDetailLabel}>
                     {t("meals.sodium") || "Sodium"}
                   </Text>
                   <Text style={styles.nutritionDetailValue}>
                     {Math.round(meal.sodium || meal.sodium_mg || 0)}mg
                   </Text>
-                </BlurView>
+                </View>
               )}
-            </View>
-          </View>
-        )}
-
-        {/* Vitamins and Minerals */}
-        {meal.vitamins_json && (
-          <View style={styles.macroSection}>
-            <Text style={styles.sectionTitle}>
-              {t("statistics.vitamins") || "Vitamins"}
-            </Text>
-            <View style={styles.nutritionGrid}>
-              {Object.entries(meal.vitamins_json).map(([key, value]) => {
-                if (!value || value === 0) return null;
-                const vitaminName = key
-                  .replace(/_/g, " ")
-                  .replace(/\b\w/g, (l) => l.toUpperCase());
-                return (
-                  <BlurView
-                    intensity={30}
-                    key={key}
-                    style={styles.nutritionDetailItem}
-                  >
-                    <Text style={styles.nutritionDetailLabel}>
-                      {vitaminName}
-                    </Text>
-                    <Text style={styles.nutritionDetailValue}>
-                      {typeof value === "number"
-                        ? Math.round(value * 100) / 100
-                        : String(value)}
-                    </Text>
-                  </BlurView>
-                );
-              })}
-            </View>
-          </View>
-        )}
-
-        {meal.micronutrients_json && (
-          <View style={styles.macroSection}>
-            <Text style={styles.sectionTitle}>
-              {t("history.vitamins_minerals") || "Minerals"}
-            </Text>
-            <View style={styles.nutritionGrid}>
-              {Object.entries(meal.micronutrients_json).map(([key, value]) => {
-                if (!value || value === 0) return null;
-                const mineralName = key
-                  .replace(/_/g, " ")
-                  .replace(/\b\w/g, (l) => l.toUpperCase());
-                return (
-                  <BlurView
-                    intensity={30}
-                    key={key}
-                    style={styles.nutritionDetailItem}
-                  >
-                    <Text style={styles.nutritionDetailLabel}>
-                      {mineralName}
-                    </Text>
-                    <Text style={styles.nutritionDetailValue}>
-                      {typeof value === "number"
-                        ? Math.round(value * 100) / 100
-                        : String(value)}
-                    </Text>
-                  </BlurView>
-                );
-              })}
             </View>
           </View>
         )}
@@ -702,34 +691,34 @@ export default function HistoryScreen() {
           meal.food_category ||
           meal.cooking_method) && (
           <View style={styles.macroSection}>
-            <Text style={styles.sectionTitle}>
+            <Text style={styles.macroSectionTitle}>
               {t("history.meal_analysis") || "Food Analysis"}
             </Text>
             {meal.processing_level && (
-              <BlurView intensity={30} style={styles.analysisItem}>
+              <View style={styles.analysisItem}>
                 <Text style={styles.analysisLabel}>
                   {t("history.processing_level") || "Processing Level"}
                 </Text>
                 <Text style={styles.analysisValue}>
                   {meal.processing_level}
                 </Text>
-              </BlurView>
+              </View>
             )}
             {meal.food_category && (
-              <BlurView intensity={30} style={styles.analysisItem}>
+              <View style={styles.analysisItem}>
                 <Text style={styles.analysisLabel}>
                   {t("history.food_category") || "Food Category"}
                 </Text>
                 <Text style={styles.analysisValue}>{meal.food_category}</Text>
-              </BlurView>
+              </View>
             )}
             {meal.cooking_method && (
-              <BlurView intensity={30} style={styles.analysisItem}>
+              <View style={styles.analysisItem}>
                 <Text style={styles.analysisLabel}>
                   {t("food_scanner.cooking_method") || "Cooking Method"}
                 </Text>
                 <Text style={styles.analysisValue}>{meal.cooking_method}</Text>
-              </BlurView>
+              </View>
             )}
           </View>
         )}
@@ -739,19 +728,15 @@ export default function HistoryScreen() {
           meal.allergens_json.possible_allergens &&
           meal.allergens_json.possible_allergens.length > 0 && (
             <View style={styles.macroSection}>
-              <Text style={styles.sectionTitle}>
+              <Text style={styles.macroSectionTitle}>
                 {t("history.allergens") || "Possible Allergens"}
               </Text>
               <View style={styles.allergensContainer}>
                 {meal.allergens_json.possible_allergens.map(
                   (allergen: string, index: number) => (
-                    <BlurView
-                      intensity={40}
-                      key={index}
-                      style={styles.allergenTag}
-                    >
+                    <View key={index} style={styles.allergenTag}>
                       <Text style={styles.allergenText}>{allergen}</Text>
-                    </BlurView>
+                    </View>
                   )
                 )}
               </View>
@@ -761,18 +746,16 @@ export default function HistoryScreen() {
         {/* Health Warnings */}
         {meal.health_risk_notes && meal.health_risk_notes.length > 0 && (
           <View style={styles.macroSection}>
-            <Text style={styles.sectionTitle}>
+            <Text style={styles.macroSectionTitle}>
               {t("history.health_warnings") || "Health Warnings"}
             </Text>
-            {meal.health_risk_notes && (
-              <BlurView intensity={30} style={styles.warningItem}>
-                <Ionicons name="warning" size={16} color="#ea580c" />
-                <Text style={styles.warningText}>{meal.health_risk_notes}</Text>
-              </BlurView>
-            )}
+            <View style={styles.warningItem}>
+              <AlertTriangle size={16} color="#E74C3C" />
+              <Text style={styles.warningText}>{meal.health_risk_notes}</Text>
+            </View>
           </View>
         )}
-      </BlurView>
+      </View>
     );
   };
 
@@ -782,7 +765,7 @@ export default function HistoryScreen() {
     const isExpanded = expandedMeals[item.id];
 
     return (
-      <BlurView intensity={80} style={styles.mealCard}>
+      <View style={styles.mealTypeContainer}>
         <TouchableOpacity
           style={styles.mealHeader}
           onPress={() => toggleMealExpansion(item.id)}
@@ -797,21 +780,24 @@ export default function HistoryScreen() {
                   "Unnamed Meal"}
               </Text>
               {item.is_favorite && (
-                <Ionicons name="heart" size={16} color="#ef4444" />
+                <Heart size={16} color="#E74C3C" fill="#E74C3C" />
               )}
-              <Ionicons
-                name={isExpanded ? "chevron-up" : "chevron-down"}
-                size={20}
-                color="#2563eb"
-              />
+              {isExpanded ? (
+                <ChevronUp size={20} color="#7F8C8D" />
+              ) : (
+                <ChevronDown size={20} color="#7F8C8D" />
+              )}
             </View>
-            <Text style={styles.mealTime}>
-              {mealDate.toLocaleDateString()} •{" "}
-              {mealDate.toLocaleTimeString([], {
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </Text>
+            <View style={styles.mealTimeContainer}>
+              <Calendar size={14} color="#16A085" />
+              <Text style={styles.mealTime}>
+                {mealDate.toLocaleDateString()} •{" "}
+                {mealDate.toLocaleTimeString([], {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                })}
+              </Text>
+            </View>
             {item.description && (
               <Text
                 style={styles.mealDescription}
@@ -821,50 +807,59 @@ export default function HistoryScreen() {
               </Text>
             )}
           </View>
-          <LinearGradient
-            colors={["#3b82f6", "#1d4ed8"]}
-            style={styles.scoreContainer}
+          <View
+            style={[
+              styles.scoreContainer,
+              { backgroundColor: mealScore.color },
+            ]}
           >
             <Text style={styles.scoreText}>{mealScore.score}</Text>
-          </LinearGradient>
+          </View>
         </TouchableOpacity>
 
         {item.image_url && (
           <Image source={{ uri: item.image_url }} style={styles.mealImage} />
         )}
 
-        <BlurView intensity={30} style={styles.nutritionSummary}>
-          <View style={styles.nutritionItem}>
-            <Text style={styles.nutritionValue}>
-              {Math.round(item.calories || 0)}
-            </Text>
-            <Text style={styles.nutritionLabel}>
-              {t("meals.calories") || "Calories"}
-            </Text>
-          </View>
-          <View style={styles.nutritionItem}>
-            <Text style={styles.nutritionValue}>
-              {Math.round(item.protein || item.protein_g || 0)}g
-            </Text>
-            <Text style={styles.nutritionLabel}>
-              {t("meals.protein") || "Protein"}
-            </Text>
-          </View>
-          <View style={styles.nutritionItem}>
-            <Text style={styles.nutritionValue}>
-              {Math.round(item.carbs || item.carbs_g || 0)}g
-            </Text>
-            <Text style={styles.nutritionLabel}>
-              {t("meals.carbs") || "Carbs"}
-            </Text>
-          </View>
-          <View style={styles.nutritionItem}>
-            <Text style={styles.nutritionValue}>
-              {Math.round(item.fat || item.fats_g || 0)}g
-            </Text>
-            <Text style={styles.nutritionLabel}>{t("meals.fat") || "Fat"}</Text>
-          </View>
-        </BlurView>
+        <View style={styles.nutritionSummary}>
+          <LinearGradient
+            colors={["#16A08515", "#16A08505"]}
+            style={styles.nutritionSummaryGradient}
+          >
+            <View style={styles.macroContainer}>
+              <View style={styles.macroItem}>
+                <Text style={styles.macroValue}>
+                  {Math.round(item.calories || 0)}
+                </Text>
+                <Text style={styles.macroLabel}>
+                  {t("meals.calories") || "Calories"}
+                </Text>
+              </View>
+              <View style={styles.macroItem}>
+                <Text style={styles.macroValue}>
+                  {Math.round(item.protein || item.protein_g || 0)}g
+                </Text>
+                <Text style={styles.macroLabel}>
+                  {t("meals.protein") || "Protein"}
+                </Text>
+              </View>
+              <View style={styles.macroItem}>
+                <Text style={styles.macroValue}>
+                  {Math.round(item.carbs || item.carbs_g || 0)}g
+                </Text>
+                <Text style={styles.macroLabel}>
+                  {t("meals.carbs") || "Carbs"}
+                </Text>
+              </View>
+              <View style={styles.macroItem}>
+                <Text style={styles.macroValue}>
+                  {Math.round(item.fat || item.fats_g || 0)}g
+                </Text>
+                <Text style={styles.macroLabel}>{t("meals.fat") || "Fat"}</Text>
+              </View>
+            </View>
+          </LinearGradient>
+        </View>
 
         {/* Expanded Content */}
         {isExpanded && (
@@ -882,7 +877,7 @@ export default function HistoryScreen() {
           item.satiety_rating ||
           item.energy_rating ||
           item.heaviness_rating) && (
-          <BlurView intensity={25} style={styles.ratingsDisplay}>
+          <View style={styles.ratingsDisplay}>
             <Text style={styles.ratingsTitle}>
               {t("history.your_ratings") || "Your Ratings"}:
             </Text>
@@ -894,18 +889,18 @@ export default function HistoryScreen() {
                   </Text>
                   <View style={styles.miniStars}>
                     {[1, 2, 3, 4, 5].map((star) => (
-                      <Ionicons
+                      <Star
                         key={star}
-                        name={
-                          star <= (item.taste_rating || 0)
-                            ? "star"
-                            : "star-outline"
-                        }
                         size={12}
                         color={
                           star <= (item.taste_rating || 0)
-                            ? "#fbbf24"
-                            : "#d1d5db"
+                            ? "#F39C12"
+                            : "#BDC3C7"
+                        }
+                        fill={
+                          star <= (item.taste_rating || 0)
+                            ? "#F39C12"
+                            : "transparent"
                         }
                       />
                     ))}
@@ -919,18 +914,18 @@ export default function HistoryScreen() {
                   </Text>
                   <View style={styles.miniStars}>
                     {[1, 2, 3, 4, 5].map((star) => (
-                      <Ionicons
+                      <Star
                         key={star}
-                        name={
-                          star <= (item.satiety_rating || 0)
-                            ? "star"
-                            : "star-outline"
-                        }
                         size={12}
                         color={
                           star <= (item.satiety_rating || 0)
-                            ? "#fbbf24"
-                            : "#d1d5db"
+                            ? "#F39C12"
+                            : "#BDC3C7"
+                        }
+                        fill={
+                          star <= (item.satiety_rating || 0)
+                            ? "#F39C12"
+                            : "transparent"
                         }
                       />
                     ))}
@@ -938,10 +933,10 @@ export default function HistoryScreen() {
                 </View>
               )}
             </View>
-          </BlurView>
+          </View>
         )}
 
-        <BlurView intensity={25} style={styles.mealActions}>
+        <View style={styles.mealActions}>
           <TouchableOpacity
             style={styles.actionButton}
             onPress={() => {
@@ -955,8 +950,8 @@ export default function HistoryScreen() {
             }}
             disabled={isSavingFeedback}
           >
-            <Ionicons name="chatbubble-outline" size={20} color="#2563eb" />
-            <Text style={styles.actionText}>{t("history.rate") || "Rate"}</Text>
+            <MessageCircle size={20} color="#16A085" />
+            <Text style={styles.actionText}>{currentTexts.rate}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -964,15 +959,15 @@ export default function HistoryScreen() {
             onPress={() => handleToggleFavorite(item.id)}
             disabled={isTogglingFavorite}
           >
-            <Ionicons
-              name={item.is_favorite ? "heart" : "heart-outline"}
+            <Heart
               size={20}
-              color="#ef4444"
+              color="#E74C3C"
+              fill={item.is_favorite ? "#E74C3C" : "transparent"}
             />
             <Text style={styles.actionText}>
               {item.is_favorite
                 ? t("history.unfavorite") || "Unfavorite"
-                : t("history.favorite") || "Favorite"}
+                : currentTexts.favorite}
             </Text>
           </TouchableOpacity>
 
@@ -982,13 +977,11 @@ export default function HistoryScreen() {
             disabled={isDuplicating}
           >
             {isDuplicating ? (
-              <ActivityIndicator size="small" color="#2563eb" />
+              <ActivityIndicator size="small" color="#16A085" />
             ) : (
-              <Ionicons name="copy-outline" size={20} color="#2563eb" />
+              <Copy size={20} color="#16A085" />
             )}
-            <Text style={styles.actionText}>
-              {t("history.duplicate") || "Duplicate"}
-            </Text>
+            <Text style={styles.actionText}>{currentTexts.duplicate}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -996,13 +989,11 @@ export default function HistoryScreen() {
             onPress={() => handleUpdateMeal(item)}
             disabled={isUpdating}
           >
-            <Ionicons name="create-outline" size={20} color="#2563eb" />
-            <Text style={styles.actionText}>
-              {t("history.update") || "Update"}
-            </Text>
+            <Edit3 size={20} color="#16A085" />
+            <Text style={styles.actionText}>{currentTexts.update}</Text>
           </TouchableOpacity>
-        </BlurView>
-      </BlurView>
+        </View>
+      </View>
     );
   };
 
@@ -1010,324 +1001,346 @@ export default function HistoryScreen() {
     dispatch(fetchMeals());
   };
 
-  const helpContent = {
-    title: t("history.title") || "Meal History",
-    description:
-      t("history.help_description") ||
-      "Here you can see all the meals you've photographed and uploaded. You can filter by meal type or date. Click on a meal to see more details or edit it.",
-  };
-
-  if (isLoading && filteredMeals.length === 0) {
+  if (isLoading) {
     return (
-      <LinearGradient colors={["#eff6ff", "#dbeafe"]} style={styles.container}>
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color="#2563eb" />
-          <Text style={styles.loadingText}>
-            {t("common.loading") || "Loading"}...
-          </Text>
-        </View>
-      </LinearGradient>
+      <LoadingScreen
+        text={
+          isRTL ? "טוען היסטורית ארוחות..." : "Loading your meal history..."
+        }
+      />
     );
   }
 
   return (
-    <LinearGradient colors={["#eff6ff", "#dbeafe"]} style={styles.container}>
-      <SafeAreaView style={styles.container}>
-        <LanguageToolbar helpContent={helpContent} />
+    <SafeAreaView style={styles.container}>
+      <ScrollView showsVerticalScrollIndicator={false}>
+        {/* Header */}
+        <View style={styles.header}>
+          <View>
+            <Text style={styles.title}>{currentTexts.title}</Text>
+            <Text style={styles.subtitle}>{currentTexts.subtitle}</Text>
+          </View>
+        </View>
 
-        {/* Search and Filter Header with RTL Support */}
-        <BlurView
-          intensity={80}
-          style={[styles.header, isRTL && styles.headerRTL]}
-        >
-          {!isRTL && <Ionicons name="search" size={20} color="#2563eb" />}
-          <TextInput
-            style={[styles.searchInput, isRTL && styles.searchInputRTL]}
-            placeholder={t("history.search_meals") || "Search meals..."}
-            value={searchText}
-            onChangeText={setSearchText}
-            textAlign={isRTL ? "right" : "left"}
-          />
-          {isRTL && <Ionicons name="search" size={20} color="#2563eb" />}
+        {/* Search and Filter */}
+        <View style={styles.searchSection}>
+          <View style={styles.searchContainer}>
+            <Search size={20} color="#16A085" />
+            <TextInput
+              style={styles.searchInput}
+              placeholder={currentTexts.searchPlaceholder}
+              value={searchText}
+              onChangeText={setSearchText}
+              textAlign={isRTL ? "right" : "left"}
+            />
+          </View>
           <TouchableOpacity
             style={styles.filterButton}
             onPress={() => setShowFilters(true)}
           >
-            <Ionicons name="filter" size={20} color="#2563eb" />
+            <Filter size={20} color="#16A085" />
           </TouchableOpacity>
-        </BlurView>
+        </View>
 
         {/* Smart Insight */}
         {smartInsight ? (
-          <BlurView intensity={60} style={styles.insightContainer}>
-            <Ionicons name="bulb" size={20} color="#fbbf24" />
-            <Text style={styles.insightText}>{smartInsight}</Text>
-          </BlurView>
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>{currentTexts.insights}</Text>
+            <View style={styles.insightContainer}>
+              <LinearGradient
+                colors={["#F39C1215", "#F39C1205"]}
+                style={styles.insightGradient}
+              >
+                <View style={styles.insightHeader}>
+                  <Lightbulb size={20} color="#F39C12" />
+                  <Text style={styles.insightText}>{smartInsight}</Text>
+                </View>
+              </LinearGradient>
+            </View>
+          </View>
         ) : null}
 
         {/* Meals List */}
-        <FlatList
-          data={filteredMeals}
-          renderItem={renderMealItem}
-          keyExtractor={(item) => item.id}
-          refreshControl={
-            <RefreshControl refreshing={isLoading} onRefresh={onRefresh} />
-          }
-          contentContainerStyle={
-            filteredMeals.length === 0
-              ? styles.emptyContainer
-              : styles.listContainer
-          }
-          ListEmptyComponent={
-            <View style={styles.emptyState}>
-              <Ionicons name="restaurant-outline" size={64} color="#93c5fd" />
-              <Text style={styles.emptyTitle}>
-                {t("history.no_meals") || "No meals to display"}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>{currentTexts.mealHistory}</Text>
+          <View style={styles.mealsContainer}>
+            {filteredMeals.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Restaurant size={64} color="#BDC3C7" />
+                <Text style={styles.emptyTitle}>{currentTexts.noMeals}</Text>
+                <Text style={styles.emptyText}>
+                  {currentTexts.startLogging}
+                </Text>
+              </View>
+            ) : (
+              <FlatList
+                data={filteredMeals}
+                renderItem={renderMealItem}
+                keyExtractor={(item) => item.id}
+                refreshControl={
+                  <RefreshControl
+                    refreshing={isLoading}
+                    onRefresh={onRefresh}
+                  />
+                }
+                showsVerticalScrollIndicator={false}
+                scrollEnabled={false}
+              />
+            )}
+          </View>
+        </View>
+      </ScrollView>
+
+      {/* Feedback Modal */}
+      <Modal
+        visible={showFeedbackModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowFeedbackModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>
+              {t("history.rate_meal") || "Rate Meal"}
+            </Text>
+            <Text style={styles.modalSubtitle}>{selectedMeal?.name || ""}</Text>
+
+            <View style={styles.ratingSection}>
+              <Text style={styles.ratingLabel}>
+                {t("history.taste") || "Taste"}
               </Text>
-              <Text style={styles.emptyText}>
-                {t("history.start_logging") ||
-                  "Start logging your meals to see your history here"}
-              </Text>
+              {renderStarRating(tasteRating, setTasteRating)}
             </View>
-          }
-        />
 
-        {/* Feedback Modal */}
-        <Modal
-          visible={showFeedbackModal}
-          animationType="slide"
-          transparent={true}
-          onRequestClose={() => setShowFeedbackModal(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <BlurView intensity={100} style={styles.modalContent}>
-              <Text style={styles.modalTitle}>
-                {t("history.rate_meal") || "Rate Meal"}
+            <View style={styles.ratingSection}>
+              <Text style={styles.ratingLabel}>
+                {t("history.satiety") || "Satiety"}
               </Text>
-              <Text style={styles.modalSubtitle}>
-                {selectedMeal?.name || ""}
+              {renderStarRating(satietyRating, setSatietyRating)}
+            </View>
+
+            <View style={styles.ratingSection}>
+              <Text style={styles.ratingLabel}>
+                {t("history.energy") || "Energy"}
               </Text>
+              {renderStarRating(energyRating, setEnergyRating)}
+            </View>
 
-              <View style={styles.ratingSection}>
-                <Text style={styles.ratingLabel}>
-                  {t("history.taste") || "Taste"}
+            <View style={styles.ratingSection}>
+              <Text style={styles.ratingLabel}>
+                {t("history.heaviness") || "Heaviness"}
+              </Text>
+              {renderStarRating(heavinessRating, setHeavinessRating)}
+            </View>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => {
+                  setShowFeedbackModal(false);
+                  resetFeedbackRatings();
+                }}
+                disabled={isSavingFeedback}
+              >
+                <Text style={styles.cancelButtonText}>
+                  {t("common.cancel") || "Cancel"}
                 </Text>
-                {renderStarRating(tasteRating, setTasteRating)}
-              </View>
+              </TouchableOpacity>
 
-              <View style={styles.ratingSection}>
-                <Text style={styles.ratingLabel}>
-                  {t("history.satiety") || "Satiety"}
-                </Text>
-                {renderStarRating(satietyRating, setSatietyRating)}
-              </View>
-
-              <View style={styles.ratingSection}>
-                <Text style={styles.ratingLabel}>
-                  {t("history.energy") || "Energy"}
-                </Text>
-                {renderStarRating(energyRating, setEnergyRating)}
-              </View>
-
-              <View style={styles.ratingSection}>
-                <Text style={styles.ratingLabel}>
-                  {t("history.heaviness") || "Heaviness"}
-                </Text>
-                {renderStarRating(heavinessRating, setHeavinessRating)}
-              </View>
-
-              <View style={styles.modalButtons}>
-                <TouchableOpacity
-                  style={[styles.modalButton, styles.cancelButton]}
-                  onPress={() => {
-                    setShowFeedbackModal(false);
-                    resetFeedbackRatings();
-                  }}
-                  disabled={isSavingFeedback}
-                >
-                  <Text style={styles.cancelButtonText}>
-                    {t("common.cancel") || "Cancel"}
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[styles.modalButton, styles.submitButton]}
-                  onPress={handleFeedbackSubmit}
-                  disabled={isSavingFeedback}
-                >
-                  {isSavingFeedback ? (
-                    <ActivityIndicator color="white" size="small" />
-                  ) : (
+              <TouchableOpacity
+                style={[styles.modalButton, styles.submitButton]}
+                onPress={handleFeedbackSubmit}
+                disabled={isSavingFeedback}
+              >
+                {isSavingFeedback ? (
+                  <ActivityIndicator color="white" size="small" />
+                ) : (
+                  <LinearGradient
+                    colors={["#16A085", "#1ABC9C"]}
+                    style={styles.submitButtonGradient}
+                  >
                     <Text style={styles.submitButtonText}>
                       {t("common.save") || "Save"}
                     </Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </BlurView>
+                  </LinearGradient>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
-        </Modal>
+        </View>
+      </Modal>
 
-        {/* Update Modal */}
-        <Modal
-          visible={showUpdateModal}
-          animationType="slide"
-          transparent={true}
-          onRequestClose={() => setShowUpdateModal(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <BlurView intensity={100} style={styles.modalContent}>
-              <Text style={styles.modalTitle}>
-                {t("history.update_meal") || "Update Meal"}
-              </Text>
-              <Text style={styles.modalSubtitle}>
-                {t("history.add_additional_info") ||
-                  "Add additional information about"}{" "}
-                "{selectedMeal?.name || ""}"
-              </Text>
+      {/* Update Modal */}
+      <Modal
+        visible={showUpdateModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowUpdateModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>
+              {t("history.update_meal") || "Update Meal"}
+            </Text>
+            <Text style={styles.modalSubtitle}>
+              {`${
+                t("history.add_additional_info") ||
+                "Add additional information about"
+              } "${selectedMeal?.name || ""}"`}
+            </Text>
 
-              <TextInput
-                style={styles.updateInput}
-                placeholder={
-                  t("history.enter_additional_info") ||
-                  "Enter additional meal information..."
-                }
-                value={updateText}
-                onChangeText={setUpdateText}
-                multiline
-                numberOfLines={4}
-                textAlignVertical="top"
-                autoFocus={true}
-              />
+            <TextInput
+              style={styles.updateInput}
+              placeholder={
+                t("history.enter_additional_info") ||
+                "Enter additional meal information..."
+              }
+              value={updateText}
+              onChangeText={setUpdateText}
+              multiline
+              numberOfLines={4}
+              textAlignVertical="top"
+              autoFocus={true}
+            />
 
-              <View style={styles.modalButtons}>
-                <TouchableOpacity
-                  style={[styles.modalButton, styles.cancelButton]}
-                  onPress={() => {
-                    setShowUpdateModal(false);
-                    setUpdateText("");
-                    setSelectedMeal(null);
-                  }}
-                  disabled={isUpdating}
-                >
-                  <Text style={styles.cancelButtonText}>
-                    {t("common.cancel") || "Cancel"}
-                  </Text>
-                </TouchableOpacity>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => {
+                  setShowUpdateModal(false);
+                  setUpdateText("");
+                  setSelectedMeal(null);
+                }}
+                disabled={isUpdating}
+              >
+                <Text style={styles.cancelButtonText}>
+                  {t("common.cancel") || "Cancel"}
+                </Text>
+              </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={[styles.modalButton, styles.submitButton]}
-                  onPress={handleUpdateSubmit}
-                  disabled={!updateText.trim() || isUpdating}
-                >
-                  {isUpdating ? (
-                    <ActivityIndicator color="white" size="small" />
-                  ) : (
+              <TouchableOpacity
+                style={[styles.modalButton, styles.submitButton]}
+                onPress={handleUpdateSubmit}
+                disabled={!updateText.trim() || isUpdating}
+              >
+                {isUpdating ? (
+                  <ActivityIndicator color="white" size="small" />
+                ) : (
+                  <LinearGradient
+                    colors={["#16A085", "#1ABC9C"]}
+                    style={styles.submitButtonGradient}
+                  >
                     <Text style={styles.submitButtonText}>
                       {t("common.update") || "Update"}
                     </Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </BlurView>
+                  </LinearGradient>
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
-        </Modal>
+        </View>
+      </Modal>
 
-        {/* Filters Modal */}
-        <Modal
-          visible={showFilters}
-          animationType="slide"
-          transparent={true}
-          onRequestClose={() => setShowFilters(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <BlurView intensity={100} style={styles.modalContent}>
-              <Text style={styles.modalTitle}>
-                {t("history.filter_meals") || "Filter Meals"}
+      {/* Filters Modal */}
+      <Modal
+        visible={showFilters}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowFilters(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>
+              {t("history.filter_meals") || "Filter Meals"}
+            </Text>
+
+            <View style={styles.filterSection}>
+              <Text style={styles.filterLabel}>
+                {t("history.category") || "Category"}
               </Text>
-
-              <View style={styles.filterSection}>
-                <Text style={styles.filterLabel}>
-                  {t("history.category") || "Category"}
-                </Text>
-                <View style={styles.categoryButtons}>
-                  {[
-                    { key: "", label: t("common.all") || "All" },
-                    {
-                      key: "high-protein",
-                      label: t("history.high_protein") || "High Protein",
-                    },
-                    {
-                      key: "high-carb",
-                      label: t("history.high_carb") || "High Carb",
-                    },
-                    {
-                      key: "high-fat",
-                      label: t("history.high_fat") || "High Fat",
-                    },
-                    {
-                      key: "balanced",
-                      label: t("history.balanced") || "Balanced",
-                    },
-                  ].map((category) => (
-                    <TouchableOpacity
-                      key={category.key}
+              <View style={styles.categoryButtons}>
+                {[
+                  { key: "", label: t("common.all") || "All" },
+                  {
+                    key: "high-protein",
+                    label: t("history.high_protein") || "High Protein",
+                  },
+                  {
+                    key: "high-carb",
+                    label: t("history.high_carb") || "High Carb",
+                  },
+                  {
+                    key: "high-fat",
+                    label: t("history.high_fat") || "High Fat",
+                  },
+                  {
+                    key: "balanced",
+                    label: t("history.balanced") || "Balanced",
+                  },
+                ].map((category) => (
+                  <TouchableOpacity
+                    key={category.key}
+                    style={[
+                      styles.categoryButton,
+                      filters.category === category.key &&
+                        styles.categoryButtonActive,
+                    ]}
+                    onPress={() =>
+                      setFilters({ ...filters, category: category.key })
+                    }
+                  >
+                    <Text
                       style={[
-                        styles.categoryButton,
+                        styles.categoryButtonText,
                         filters.category === category.key &&
-                          styles.categoryButtonActive,
+                          styles.categoryButtonTextActive,
                       ]}
-                      onPress={() =>
-                        setFilters({ ...filters, category: category.key })
-                      }
                     >
-                      <Text
-                        style={[
-                          styles.categoryButtonText,
-                          filters.category === category.key &&
-                            styles.categoryButtonTextActive,
-                        ]}
-                      >
-                        {category.label}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
+                      {category.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
               </View>
+            </View>
 
-              <View style={styles.modalButtons}>
-                <TouchableOpacity
-                  style={[styles.modalButton, styles.cancelButton]}
-                  onPress={() => {
-                    setFilters({});
-                    setShowFilters(false);
-                  }}
-                >
-                  <Text style={styles.cancelButtonText}>
-                    {t("common.refresh") || "Reset"}
-                  </Text>
-                </TouchableOpacity>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => {
+                  setFilters({});
+                  setShowFilters(false);
+                }}
+              >
+                <Text style={styles.cancelButtonText}>
+                  {t("common.refresh") || "Reset"}
+                </Text>
+              </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={[styles.modalButton, styles.submitButton]}
-                  onPress={() => setShowFilters(false)}
+              <TouchableOpacity
+                style={[styles.modalButton, styles.submitButton]}
+                onPress={() => setShowFilters(false)}
+              >
+                <LinearGradient
+                  colors={["#16A085", "#1ABC9C"]}
+                  style={styles.submitButtonGradient}
                 >
                   <Text style={styles.submitButtonText}>
                     {t("common.ok") || "Apply"}
                   </Text>
-                </TouchableOpacity>
-              </View>
-            </BlurView>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
           </View>
-        </Modal>
-      </SafeAreaView>
-    </LinearGradient>
+        </View>
+      </Modal>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: "#F8F9FA",
   },
   centered: {
     flex: 1,
@@ -1337,78 +1350,126 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 16,
     fontSize: 18,
-    color: "#2563eb",
-    fontWeight: "600",
+    fontFamily: "Rubik-Medium",
+    color: "#16A085",
   },
   header: {
     flexDirection: "row",
-    padding: 16,
+    justifyContent: "space-between",
     alignItems: "center",
-    borderRadius: 20,
-    margin: 16,
-    backgroundColor: "rgba(255, 255, 255, 0.25)",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.18)",
+    paddingHorizontal: 20,
+    paddingVertical: 20,
   },
-  headerRTL: {
-    flexDirection: "row-reverse",
+  title: {
+    fontSize: 28,
+    fontFamily: "Rubik-Bold",
+    color: "#2C3E50",
+  },
+  subtitle: {
+    fontSize: 16,
+    fontFamily: "Rubik-Regular",
+    color: "#7F8C8D",
+    marginTop: 4,
+  },
+  headerIcons: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  languageButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#FFFFFF",
+    justifyContent: "center",
+    alignItems: "center",
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  searchSection: {
+    flexDirection: "row",
+    paddingHorizontal: 20,
+    marginBottom: 24,
+    gap: 12,
+  },
+  searchContainer: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 16,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
   },
   searchInput: {
     flex: 1,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
     fontSize: 16,
-    backgroundColor: "rgba(255, 255, 255, 0.3)",
-    borderRadius: 12,
+    fontFamily: "Rubik-Regular",
+    color: "#2C3E50",
     marginLeft: 12,
-    borderWidth: 1,
-    borderColor: "rgba(37, 99, 235, 0.3)",
-    color: "#1e40af",
-  },
-  searchInputRTL: {
-    marginLeft: 0,
-    marginRight: 12,
   },
   filterButton: {
-    padding: 12,
-    marginLeft: 8,
-    backgroundColor: "rgba(37, 99, 235, 0.1)",
-    borderRadius: 12,
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    backgroundColor: "#FFFFFF",
+    justifyContent: "center",
+    alignItems: "center",
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+  },
+  section: {
+    paddingHorizontal: 20,
+    marginBottom: 24,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontFamily: "Rubik-SemiBold",
+    color: "#2C3E50",
+    marginBottom: 16,
   },
   insightContainer: {
+    borderRadius: 16,
+    overflow: "hidden",
+  },
+  insightGradient: {
+    padding: 20,
+  },
+  insightHeader: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 16,
-    marginHorizontal: 16,
-    marginBottom: 12,
-    borderRadius: 16,
-    backgroundColor: "rgba(251, 191, 36, 0.1)",
-    borderWidth: 1,
-    borderColor: "rgba(251, 191, 36, 0.3)",
   },
   insightText: {
     flex: 1,
     marginLeft: 12,
     fontSize: 15,
-    color: "#92400e",
-    fontWeight: "600",
+    fontFamily: "Rubik-Regular",
+    color: "#2C3E50",
+    lineHeight: 22,
   },
-  listContainer: {
-    padding: 16,
+  mealsContainer: {
+    gap: 16,
   },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  mealCard: {
-    borderRadius: 24,
-    marginBottom: 20,
-    marginHorizontal: 4,
+  mealTypeContainer: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
     overflow: "hidden",
-    backgroundColor: "rgba(255, 255, 255, 0.25)",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.18)",
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    marginBottom: 16,
   },
   mealHeader: {
     flexDirection: "row",
@@ -1422,75 +1483,80 @@ const styles = StyleSheet.create({
   mealTitleRow: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 8,
+    marginBottom: 8,
   },
   mealName: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#1e40af",
+    fontSize: 18,
+    fontFamily: "Rubik-SemiBold",
+    color: "#2C3E50",
     flex: 1,
+  },
+  mealTimeContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
   },
   mealTime: {
     fontSize: 14,
-    color: "#64748b",
-    marginTop: 6,
-    fontWeight: "500",
+    fontFamily: "Rubik-Regular",
+    color: "#7F8C8D",
   },
   mealDescription: {
     fontSize: 15,
-    color: "#475569",
+    fontFamily: "Rubik-Regular",
+    color: "#7F8C8D",
     marginTop: 8,
     lineHeight: 22,
   },
   scoreContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: "center",
     alignItems: "center",
     marginLeft: 12,
   },
   scoreText: {
     color: "white",
-    fontSize: 18,
-    fontWeight: "800",
+    fontSize: 16,
+    fontFamily: "Inter-Bold",
   },
   mealImage: {
     width: "100%",
     height: 200,
   },
   nutritionSummary: {
+    borderRadius: 16,
+    overflow: "hidden",
+  },
+  nutritionSummaryGradient: {
+    padding: 20,
+  },
+  macroContainer: {
     flexDirection: "row",
     justifyContent: "space-around",
-    padding: 20,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.18)",
   },
-  nutritionItem: {
+  macroItem: {
     alignItems: "center",
   },
-  nutritionValue: {
+  macroValue: {
     fontSize: 18,
-    fontWeight: "700",
-    color: "#2563eb",
+    fontFamily: "Inter-SemiBold",
+    color: "#2C3E50",
   },
-  nutritionLabel: {
+  macroLabel: {
     fontSize: 12,
-    color: "#64748b",
+    fontFamily: "Rubik-Regular",
+    color: "#7F8C8D",
     marginTop: 4,
-    fontWeight: "500",
   },
   expandedContent: {
-    backgroundColor: "rgba(239, 246, 255, 0.5)",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.18)",
+    backgroundColor: "#F8F9FA",
   },
   ingredientsSection: {
     padding: 20,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.18)",
+    backgroundColor: "#FFFFFF",
   },
   ingredientsSectionHeader: {
     flexDirection: "row",
@@ -1499,8 +1565,8 @@ const styles = StyleSheet.create({
   },
   ingredientsSectionTitle: {
     fontSize: 16,
-    fontWeight: "600",
-    color: "#1e40af",
+    fontFamily: "Rubik-SemiBold",
+    color: "#2C3E50",
     marginLeft: 12,
   },
   ingredientsScrollView: {
@@ -1510,31 +1576,31 @@ const styles = StyleSheet.create({
     paddingRight: 16,
   },
   modernIngredientCard: {
-    borderRadius: 16,
+    borderRadius: 12,
     padding: 16,
     marginRight: 16,
     width: 140,
-    backgroundColor: "rgba(255, 255, 255, 0.3)",
+    backgroundColor: "#F8F9FA",
     borderWidth: 1,
-    borderColor: "rgba(37, 99, 235, 0.2)",
+    borderColor: "#E5E7EB",
   },
   ingredientCardHeader: {
     alignItems: "center",
     marginBottom: 12,
   },
   modernIngredientIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "rgba(37, 99, 235, 0.1)",
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#16A08520",
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 8,
   },
   modernIngredientName: {
     fontSize: 13,
-    fontWeight: "600",
-    color: "#1e40af",
+    fontFamily: "Rubik-Medium",
+    color: "#2C3E50",
     textAlign: "center",
     lineHeight: 16,
   },
@@ -1548,32 +1614,31 @@ const styles = StyleSheet.create({
   },
   nutritionInfoValue: {
     fontSize: 13,
-    fontWeight: "600",
-    color: "#2563eb",
+    fontFamily: "Inter-SemiBold",
+    color: "#16A085",
   },
   nutritionInfoLabel: {
     fontSize: 11,
-    color: "#64748b",
+    fontFamily: "Rubik-Regular",
+    color: "#7F8C8D",
   },
   nutritionDetails: {
     padding: 20,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.18)",
+    backgroundColor: "#FFFFFF",
   },
   nutritionDetailsTitle: {
     fontSize: 18,
-    fontWeight: "700",
-    color: "#1e40af",
+    fontFamily: "Rubik-SemiBold",
+    color: "#2C3E50",
     marginBottom: 20,
   },
   macroSection: {
     marginBottom: 24,
   },
-  sectionTitle: {
+  macroSectionTitle: {
     fontSize: 16,
-    fontWeight: "600",
-    color: "#1e40af",
+    fontFamily: "Rubik-SemiBold",
+    color: "#2C3E50",
     marginBottom: 12,
   },
   nutritionGrid: {
@@ -1586,20 +1651,20 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     minWidth: "45%",
     flexGrow: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.3)",
+    backgroundColor: "#F8F9FA",
     borderWidth: 1,
-    borderColor: "rgba(37, 99, 235, 0.2)",
+    borderColor: "#E5E7EB",
   },
   nutritionDetailLabel: {
     fontSize: 12,
-    color: "#64748b",
+    fontFamily: "Rubik-Regular",
+    color: "#7F8C8D",
     marginBottom: 6,
-    fontWeight: "500",
   },
   nutritionDetailValue: {
     fontSize: 16,
-    fontWeight: "700",
-    color: "#2563eb",
+    fontFamily: "Inter-SemiBold",
+    color: "#16A085",
   },
   analysisItem: {
     flexDirection: "row",
@@ -1608,20 +1673,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 12,
     marginBottom: 8,
-    backgroundColor: "rgba(255, 255, 255, 0.3)",
+    backgroundColor: "#F8F9FA",
     borderWidth: 1,
-    borderColor: "rgba(37, 99, 235, 0.2)",
+    borderColor: "#E5E7EB",
   },
   analysisLabel: {
     fontSize: 14,
-    color: "#64748b",
+    fontFamily: "Rubik-Regular",
+    color: "#7F8C8D",
     flex: 1,
-    fontWeight: "500",
   },
   analysisValue: {
     fontSize: 14,
-    color: "#1e40af",
-    fontWeight: "600",
+    fontFamily: "Rubik-Medium",
+    color: "#2C3E50",
   },
   allergensContainer: {
     flexDirection: "row",
@@ -1632,42 +1697,40 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
-    backgroundColor: "rgba(239, 68, 68, 0.1)",
+    backgroundColor: "#E74C3C20",
     borderWidth: 1,
-    borderColor: "rgba(239, 68, 68, 0.3)",
+    borderColor: "#E74C3C30",
   },
   allergenText: {
     fontSize: 12,
-    color: "#dc2626",
-    fontWeight: "500",
+    fontFamily: "Rubik-Medium",
+    color: "#E74C3C",
   },
   warningItem: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 8,
+    paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 12,
     gap: 12,
-    backgroundColor: "rgba(255, 255, 255, 0.3)",
+    backgroundColor: "#F39C1220",
     borderWidth: 1,
-    borderColor: "rgba(234, 88, 12, 0.3)",
+    borderColor: "#F39C1230",
   },
   warningText: {
     fontSize: 14,
-    color: "#ea580c",
+    fontFamily: "Rubik-Regular",
+    color: "#E74C3C",
     flex: 1,
-    fontWeight: "500",
   },
   ratingsDisplay: {
     padding: 20,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.18)",
+    backgroundColor: "#F8F9FA",
   },
   ratingsTitle: {
     fontSize: 16,
-    fontWeight: "600",
-    color: "#1e40af",
+    fontFamily: "Rubik-SemiBold",
+    color: "#2C3E50",
     marginBottom: 12,
   },
   ratingsRow: {
@@ -1679,9 +1742,9 @@ const styles = StyleSheet.create({
   },
   ratingLabel: {
     fontSize: 12,
-    color: "#64748b",
+    fontFamily: "Rubik-Regular",
+    color: "#7F8C8D",
     marginBottom: 6,
-    fontWeight: "500",
   },
   miniStars: {
     flexDirection: "row",
@@ -1691,9 +1754,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-around",
     padding: 20,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.18)",
+    backgroundColor: "#F8F9FA",
+    borderTopWidth: 1,
+    borderTopColor: "#E5E7EB",
   },
   actionButton: {
     alignItems: "center",
@@ -1702,33 +1765,37 @@ const styles = StyleSheet.create({
   },
   actionText: {
     fontSize: 12,
-    color: "#64748b",
+    fontFamily: "Rubik-Regular",
+    color: "#7F8C8D",
     marginTop: 6,
     textAlign: "center",
-    fontWeight: "500",
   },
   emptyState: {
     alignItems: "center",
     paddingHorizontal: 40,
-    paddingVertical: 80,
+    paddingVertical: 60,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    margin: 4,
   },
   emptyTitle: {
-    fontSize: 28,
-    fontWeight: "700",
+    fontSize: 24,
+    fontFamily: "Rubik-SemiBold",
     marginTop: 24,
-    marginBottom: 16,
-    color: "#1e40af",
+    marginBottom: 12,
+    color: "#2C3E50",
     textAlign: "center",
   },
   emptyText: {
     fontSize: 16,
+    fontFamily: "Rubik-Regular",
     textAlign: "center",
-    color: "#64748b",
+    color: "#7F8C8D",
     lineHeight: 24,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.6)",
+    backgroundColor: "rgba(0,0,0,0.5)",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -1738,20 +1805,24 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     width: "90%",
     maxHeight: "80%",
-    backgroundColor: "rgba(255, 255, 255, 0.95)",
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.18)",
+    backgroundColor: "#FFFFFF",
+    elevation: 5,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
   },
   modalTitle: {
     fontSize: 24,
-    fontWeight: "700",
-    marginBottom: 12,
+    fontFamily: "Rubik-Bold",
+    marginBottom: 8,
     textAlign: "center",
-    color: "#1e40af",
+    color: "#2C3E50",
   },
   modalSubtitle: {
     fontSize: 16,
-    color: "#64748b",
+    fontFamily: "Rubik-Regular",
+    color: "#7F8C8D",
     marginBottom: 24,
     textAlign: "center",
   },
@@ -1765,14 +1836,16 @@ const styles = StyleSheet.create({
   },
   updateInput: {
     borderWidth: 2,
-    borderColor: "rgba(37, 99, 235, 0.3)",
+    borderColor: "#16A08530",
     borderRadius: 12,
     padding: 16,
     fontSize: 16,
+    fontFamily: "Rubik-Regular",
     minHeight: 120,
     marginBottom: 24,
-    backgroundColor: "rgba(255, 255, 255, 0.8)",
-    color: "#1e40af",
+    backgroundColor: "#F8F9FA",
+    color: "#2C3E50",
+    textAlignVertical: "top",
   },
   modalButtons: {
     flexDirection: "row",
@@ -1782,36 +1855,42 @@ const styles = StyleSheet.create({
   },
   modalButton: {
     flex: 1,
-    padding: 16,
     borderRadius: 12,
-    alignItems: "center",
+    overflow: "hidden",
   },
   cancelButton: {
-    backgroundColor: "rgba(100, 116, 139, 0.1)",
+    backgroundColor: "#F8F9FA",
     borderWidth: 2,
-    borderColor: "rgba(100, 116, 139, 0.3)",
+    borderColor: "#E5E7EB",
+    padding: 16,
+    alignItems: "center",
   },
   submitButton: {
-    backgroundColor: "#2563eb",
+    borderRadius: 12,
+    overflow: "hidden",
+  },
+  submitButtonGradient: {
+    padding: 16,
+    alignItems: "center",
   },
   cancelButtonText: {
-    color: "#64748b",
+    color: "#7F8C8D",
     fontSize: 16,
-    fontWeight: "600",
+    fontFamily: "Rubik-SemiBold",
   },
   submitButtonText: {
     color: "white",
     fontSize: 16,
-    fontWeight: "700",
+    fontFamily: "Rubik-SemiBold",
   },
   filterSection: {
     marginBottom: 24,
   },
   filterLabel: {
     fontSize: 16,
-    fontWeight: "600",
+    fontFamily: "Rubik-SemiBold",
     marginBottom: 12,
-    color: "#1e40af",
+    color: "#2C3E50",
   },
   categoryButtons: {
     flexDirection: "row",
@@ -1821,22 +1900,21 @@ const styles = StyleSheet.create({
   categoryButton: {
     paddingHorizontal: 16,
     paddingVertical: 10,
-    backgroundColor: "rgba(100, 116, 139, 0.1)",
+    backgroundColor: "#F8F9FA",
     borderRadius: 20,
     borderWidth: 2,
-    borderColor: "rgba(100, 116, 139, 0.3)",
+    borderColor: "#E5E7EB",
   },
   categoryButtonActive: {
-    backgroundColor: "#2563eb",
-    borderColor: "#2563eb",
+    backgroundColor: "#16A085",
+    borderColor: "#16A085",
   },
   categoryButtonText: {
     fontSize: 14,
-    color: "#64748b",
-    fontWeight: "500",
+    fontFamily: "Rubik-Medium",
+    color: "#7F8C8D",
   },
   categoryButtonTextActive: {
     color: "white",
-    fontWeight: "600",
   },
 });

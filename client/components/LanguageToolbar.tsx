@@ -34,6 +34,14 @@ const LanguageToolbar: React.FC<LanguageToolbarProps> = ({ helpContent }) => {
     changeLanguage(newLanguage);
   };
 
+  const handleHelpPress = () => {
+    setShowHelp(true);
+  };
+
+  const handleCloseHelp = () => {
+    setShowHelp(false);
+  };
+
   const toggleExpanded = () => {
     const toValue = isExpanded ? 0 : 1;
     setIsExpanded(!isExpanded);
@@ -48,27 +56,27 @@ const LanguageToolbar: React.FC<LanguageToolbarProps> = ({ helpContent }) => {
 
   const expandedWidth = expandAnimation.interpolate({
     inputRange: [0, 1],
-    outputRange: [50, helpContent ? 160 : 120],
+    outputRange: [40, helpContent ? 140 : 100],
   });
 
   const translateX = expandAnimation.interpolate({
     inputRange: [0, 1],
-    outputRange: [isRTL ? -25 : 25, 0],
+    outputRange: [isRTL ? -20 : 20, 0],
   });
 
   const gearRotation = expandAnimation.interpolate({
     inputRange: [0, 1],
-    outputRange: ["0deg", "180deg"],
+    outputRange: ["0deg", "90deg"],
   });
 
   const buttonOpacity = expandAnimation.interpolate({
-    inputRange: [0, 0.5, 1],
+    inputRange: [0, 0.3, 1],
     outputRange: [0, 0, 1],
   });
 
   const buttonScale = expandAnimation.interpolate({
-    inputRange: [0, 0.5, 1],
-    outputRange: [0.8, 0.8, 1],
+    inputRange: [0, 0.3, 1],
+    outputRange: [0.7, 0.7, 1],
   });
 
   return (
@@ -92,44 +100,34 @@ const LanguageToolbar: React.FC<LanguageToolbarProps> = ({ helpContent }) => {
             },
           ]}
         >
-          {/* Gear Icon Button */}
           <TouchableOpacity
-            style={[styles.gearButton, isRTL && styles.gearButtonRTL]}
+            style={styles.gearButton}
             onPress={toggleExpanded}
             accessibilityLabel="Settings"
             accessibilityRole="button"
+            activeOpacity={0.7}
           >
             <Animated.View style={{ transform: [{ rotate: gearRotation }] }}>
-              <Ionicons
-                name="settings"
-                size={20}
-                color="#4ECDC4"
-                style={styles.gearIcon}
-              />
+              <Ionicons name="settings-outline" size={18} color="#333" />
             </Animated.View>
           </TouchableOpacity>
 
-          {/* Expanded Buttons */}
           <View
             style={[styles.expandedButtons, isRTL && styles.expandedButtonsRTL]}
           >
             <Animated.View
-              style={[
-                styles.animatedButton,
-                {
-                  opacity: buttonOpacity,
-                  transform: [{ scale: buttonScale }],
-                },
-              ]}
+              style={{
+                opacity: buttonOpacity,
+                transform: [{ scale: buttonScale }],
+                marginHorizontal: 4,
+              }}
             >
               <TouchableOpacity
-                style={[
-                  styles.languageButton,
-                  isRTL && styles.languageButtonRTL,
-                ]}
+                style={styles.languageButton}
                 onPress={handleLanguageToggle}
                 accessibilityLabel="Change Language"
                 accessibilityRole="button"
+                activeOpacity={0.8}
               >
                 <Text style={styles.languageText}>
                   {language === "he" ? "EN" : "עב"}
@@ -139,26 +137,20 @@ const LanguageToolbar: React.FC<LanguageToolbarProps> = ({ helpContent }) => {
 
             {helpContent && (
               <Animated.View
-                style={[
-                  styles.animatedButton,
-                  {
-                    opacity: buttonOpacity,
-                    transform: [{ scale: buttonScale }],
-                  },
-                ]}
+                style={{
+                  opacity: buttonOpacity,
+                  transform: [{ scale: buttonScale }],
+                  marginHorizontal: 4,
+                }}
               >
                 <TouchableOpacity
-                  style={[styles.helpButton, isRTL && styles.helpButtonRTL]}
-                  onPress={() => setShowHelp(true)}
+                  style={styles.helpButton}
+                  onPress={handleHelpPress}
                   accessibilityLabel="Help"
                   accessibilityRole="button"
+                  activeOpacity={0.7}
                 >
-                  <Ionicons
-                    name="help-circle-outline"
-                    size={16}
-                    color="#4ECDC4"
-                    style={styles.helpIcon}
-                  />
+                  <Ionicons name="help-circle-outline" size={16} color="#333" />
                 </TouchableOpacity>
               </Animated.View>
             )}
@@ -167,30 +159,30 @@ const LanguageToolbar: React.FC<LanguageToolbarProps> = ({ helpContent }) => {
       </View>
 
       <Modal
-        visible={showHelp}
-        animationType="slide"
+        visible={showHelp && !!helpContent}
+        animationType="fade"
         transparent={true}
-        onRequestClose={() => setShowHelp(false)}
-        statusBarTranslucent={Platform.OS === "android"}
+        onRequestClose={handleCloseHelp}
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, isRTL && styles.modalContentRTL]}>
-            <View style={[styles.modalHeader, isRTL && styles.modalHeaderRTL]}>
-              <Text style={[styles.modalTitle, isRTL && styles.modalTitleRTL]}>
-                {helpContent?.title}
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>
+                {helpContent?.title || "Help"}
               </Text>
               <TouchableOpacity
-                onPress={() => setShowHelp(false)}
+                onPress={handleCloseHelp}
                 style={styles.closeButton}
                 accessibilityLabel="Close"
                 accessibilityRole="button"
+                activeOpacity={0.7}
               >
-                <Ionicons name="close" size={18} color="#666" />
+                <Ionicons name="close" size={20} color="#666" />
               </TouchableOpacity>
             </View>
             <ScrollView style={styles.modalBody}>
-              <Text style={[styles.modalText, isRTL && styles.modalTextRTL]}>
-                {helpContent?.description}
+              <Text style={styles.modalText}>
+                {helpContent?.description || "No help content available."}
               </Text>
             </ScrollView>
           </View>
@@ -209,10 +201,8 @@ const styles = StyleSheet.create({
   toolbar: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 4,
-    paddingVertical: 6,
     backgroundColor: "#ffffff",
-    borderRadius: 25,
+    borderRadius: 20,
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
@@ -220,156 +210,111 @@ const styles = StyleSheet.create({
     },
     shadowOpacity: 0.1,
     shadowRadius: 8,
-    elevation: 6,
+    elevation: 5,
     overflow: "hidden",
-    minHeight: 40,
+    height: 40,
+    borderWidth: 0.5,
+    borderColor: "#ddd",
   },
   toolbarRTL: {
     flexDirection: "row-reverse",
   },
   gearButton: {
-    padding: 6,
+    width: 40,
+    height: 40,
     borderRadius: 20,
-    backgroundColor: "transparent",
+    backgroundColor: "#f8f8f8",
     alignItems: "center",
     justifyContent: "center",
-    minWidth: 32,
-    minHeight: 32,
-  },
-  gearButtonRTL: {
-    // No specific RTL styles needed for gear button
-  },
-  gearIcon: {
-    textShadowColor: "rgba(16, 185, 129, 0.2)",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
+    borderWidth: 0.5,
+    borderColor: "#ccc",
   },
   expandedButtons: {
     flexDirection: "row",
     alignItems: "center",
-    marginLeft: 6,
-    gap: 6,
+    marginLeft: 8,
   },
   expandedButtonsRTL: {
     flexDirection: "row-reverse",
     marginLeft: 0,
-    marginRight: 6,
-  },
-  animatedButton: {
-    // Container for animated buttons
+    marginRight: 8,
   },
   languageButton: {
-    backgroundColor: "#4ECDC4",
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 14,
-    minWidth: 36,
-    alignItems: "center",
-    shadowColor: "#4ECDC4",
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 3,
-    elevation: 3,
-  },
-  languageButtonRTL: {
-    // No specific RTL styles needed
-  },
-  languageText: {
-    color: "#ffffff",
-    fontSize: 11,
-    fontWeight: "600",
-    letterSpacing: 0.3,
-  },
-  helpButton: {
-    padding: 5,
-    borderRadius: 14,
-    backgroundColor: "#ffffff",
-    borderWidth: 1,
-    borderColor: "#4ECDC4",
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.08,
-    shadowRadius: 2,
-    elevation: 2,
-    minWidth: 26,
-    minHeight: 26,
+    backgroundColor: "#333",
+    width: 32,
+    height: 24,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
   },
-  helpButtonRTL: {
-    // No specific RTL styles needed
+  languageText: {
+    color: "#fff",
+    fontSize: 10,
+    fontWeight: "700",
   },
-  helpIcon: {
-    textShadowColor: "rgba(16, 185, 129, 0.2)",
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-  },
-  closeButton: {
-    padding: 6,
-    borderRadius: 16,
-    backgroundColor: "#f8f9fa",
+  helpButton: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "#f8f8f8",
+    borderWidth: 0.5,
+    borderColor: "#ccc",
+    alignItems: "center",
+    justifyContent: "center",
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(255, 255, 255, 0.8)",
-    justifyContent: "flex-end",
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
     alignItems: "center",
+    padding: 20,
   },
   modalContent: {
     backgroundColor: "#ffffff",
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderRadius: 16,
     width: "100%",
-    maxHeight: "75%",
+    maxWidth: 400,
+    maxHeight: "70%",
     shadowColor: "#000",
     shadowOffset: {
       width: 0,
-      height: -4,
+      height: 10,
     },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 20,
-  },
-  modalContentRTL: {
-    textAlign: "right",
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 25,
   },
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: "#f1f3f4",
-    paddingTop: 24,
-  },
-  modalHeaderRTL: {
-    flexDirection: "row-reverse",
+    borderBottomColor: "#eee",
+    paddingHorizontal: 20,
+    paddingVertical: 16,
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: "700",
-    color: "#1a1a1a",
+    color: "#333",
     flex: 1,
   },
-  modalTitleRTL: {
-    textAlign: "right",
+  closeButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#f0f0f0",
+    alignItems: "center",
+    justifyContent: "center",
   },
   modalBody: {
     padding: 20,
+    maxHeight: 400,
   },
   modalText: {
     fontSize: 16,
-    lineHeight: 26,
-    color: "#4a4a4a",
-  },
-  modalTextRTL: {
-    textAlign: "right",
+    lineHeight: 24,
+    color: "#666",
   },
 });
 

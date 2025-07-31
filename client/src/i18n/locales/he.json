@@ -63,9 +63,23 @@
     "nutrition_breakdown": "פירוט תזונתי",
     "water_intake": "צריכת מים יומית",
     "meal_plan": "תוכנית ארוחות",
-    "statistics": "סטטיסטיקות"
+    "statistics": "סטטיסטיקות",
+    "track_goals": "בואו נעקוב אחרי היעדים שלך היום",
+    "goal_progress": "התקדמות יעדים",
+    "remaining": "נותר",
+    "daily_water": "סך מים יומי",
+    "behind_schedule": "מאחורי המטרה",
+    "behind_description": "",
+    "days": "ימים",
+    "hours_left": "שעות נותרו",
+    "target": "מטרה",
+    "cups": "כוסות",
+    "todays_summary": "סקירת ארוחות אחרונות",
+    "water": "מים",
+    "completed": "הושלם"
   },
   "meals": {
+    "kcal": "קלוריות",
     "title": "הארוחות שלי",
     "no_meals": "לא נמצאו ארוחות",
     "add_meal": "הוספת ארוחה",
@@ -208,7 +222,12 @@
     "signout": "התנתקות",
     "edit_profile": "עריכת פרופיל",
     "signout_confirmation": "בטוח שברצונך להתנתק מהחשבון ?",
-    "save_success": "שמירה בוצעה בהצלחה"
+    "save_success": "שמירה בוצעה בהצלחה",
+    "subtitle": "נהל את החשבון והעדפות שלך",
+    "personal_data": "מידע אישי",
+    "stats": "יעדים",
+    "account": "חשבון",
+    "preferences": "העדפות אישיות"
   },
   "statistics": {
     "title": "סטטיסטיקות",
@@ -257,16 +276,6 @@
     "insoluble_fiber": "סיבים בלתי מסיסים",
     "confidence": "רמת ביטחון",
     "no_data": "אין נתונים זמינים"
-  },
-  "calendar": {
-    "title": "לוח שנה",
-    "meal_plan": "תוכנית ארוחות",
-    "today": "היום",
-    "select_date": "בחירת תאריך",
-    "no_meals_planned": "לא מתוכננות ארוחות",
-    "add_meal_plan": "הוספת תוכנית ארוחות",
-    "view_meal": "צפייה בארוחה",
-    "edit_meal": "עריכת ארוחה"
   },
   "devices": {
     "title": "מכשירים מחוברים",
@@ -343,5 +352,100 @@
     "select": "בחירת שפה",
     "english": "English",
     "hebrew": "עברית"
+  },
+  "calendar": {
+    "title": "לוח יעדים",
+    "subtitle": "עקוב אחרי ההתקדמות היומית שלך",
+    "monthlyStats": "סטטיסטיקות חודשיות",
+    "successfulDays": "ימים מוצלחים",
+    "averageCompletion": "ממוצע השלמה",
+    "bestStreak": "רצף הטוב ביותר",
+    "currentStreak": "רצף נוכחי",
+    "dayDetails": "פרטי היום",
+    "caloriesGoal": "יעד קלוריות",
+    "proteinGoal": "יעד חלבון",
+    "waterGoal": "יעד מים",
+    "consumed": "נצרך",
+    "goal": "יעד",
+    "deviation": "סטייה",
+    "over": "עודף",
+    "under": "חסר",
+    "goalMet": "יעד הושג!",
+    "goalNotMet": "יעד לא הושג",
+    "days": "ימים",
+    "kcal": "קק\"ל",
+    "g": "גר׳",
+    "ml": "מ\"ל",
+    "today": "היום",
+    "selectDay": "בחר יום לצפייה בפרטים",
+    "excellent": "מעולה!",
+    "good": "טוב!",
+    "needsImprovement": "צריך שיפור",
+    "overeating": "אכילת יתר",
+    "closeToGoal": "קרוב ליעד",
+    "recentAchievements": "🏆 הישגים אחרונים",
+    "seeAll": "צפה בהכל",
+    "viewWeeklyInsights": "📊 צפה בתובנות שבועיות",
+    "loading": "טוען את הלוח שנה...",
+    "monthNames": [
+      "ינואר",
+      "פברואר",
+      "מרץ",
+      "אפריל",
+      "מאי",
+      "יוני",
+      "יולי",
+      "אוגוסט",
+      "ספטמבר",
+      "אוקטובר",
+      "נובמבר",
+      "דצמבר"
+    ],
+    "dayNames": ["א", "ב", "ג", "ד", "ה", "ו", "ש"],
+    "events": {
+      "title": "אירועים",
+      "addEvent": "הוסף אירוע",
+      "addEventTitle": "הוסף אירוע",
+      "eventTitle": "כותרת האירוע (למשל: חתונה, אימון כבד, יום צום)",
+      "eventDescription": "תיאור (אופציונלי)",
+      "eventType": "סוג האירוע:",
+      "eventTypes": {
+        "general": "כללי",
+        "workout": "אימון",
+        "social": "חברתי",
+        "health": "בריאות",
+        "travel": "נסיעות",
+        "work": "עבודה"
+      },
+      "cancel": "ביטול",
+      "submit": "הוסף אירוע",
+      "deleteConfirm": "האם אתה בטוח שברצונך למחוק את האירוע הזה?",
+      "deleteTitle": "מחק אירוע",
+      "deleteButton": "מחק",
+      "success": "האירוע נוסף בהצלחה!",
+      "deleteSuccess": "האירוע נמחק בהצלחה!",
+      "error": "נכשל בהוספת האירוע",
+      "deleteError": "נכשל במחיקת האירוע",
+      "titleRequired": "אנא הכנס כותרת לאירוע"
+    },
+    "badges": {
+      "title": "🏆 ההישגים שלך",
+      "firstWeek": "השבוע הראשון",
+      "firstWeekDesc": "השלם את השבוע הראשון של המעקב",
+      "streakMaster": "מאסטר רצפים",
+      "streakMasterDesc": "שמור על רצף של 5 ימים",
+      "healthyChoice": "בחירה בריאה",
+      "healthyChoiceDesc": "רשום 10 ארוחות בריאות"
+    },
+    "insights": {
+      "title": "📊 תובנות שבועיות",
+      "bestWeek": "🎯 השבוע הטוב ביותר",
+      "challengingWeek": "💪 השבוע המאתגר ביותר",
+      "averageProgress": "התקדמות ממוצעת"
+    },
+    "errors": {
+      "generic": "שגיאה",
+      "ok": "אישור"
+    }
   }
 }

@@ -62,7 +62,20 @@
     "nutrition_breakdown": "Nutrition Breakdown",
     "water_intake": "Daily water intake",
     "meal_plan": "Meal Plan",
-    "statistics": "Statistics"
+    "statistics": "Statistics",
+    "track_goals": "Let's track your goals today",
+    "goal_progress": "Goal Progress",
+    "remaining": "Remaining",
+    "daily_water": "Daily water goal",
+    "behind_schedule": "Behind schedule",
+    "behind_description": "",
+    "days": "Days",
+    "hours_left": "Hours left",
+    "target": "Goal",
+    "cups": "Cups",
+    "todays_summary": "Last meals breakdown",
+    "water": "Water",
+    "completed": "Completed"
   },
   "meals": {
     "title": "My Meals",
@@ -78,7 +91,8 @@
     "sugar": "Sugar",
     "sodium": "Sodium",
     "update_meal": "Update Meal",
-    "delete_meal": "Delete Meal"
+    "delete_meal": "Delete Meal",
+    "kcal": "kcal"
   },
   "history": {
     "title": "Meal History",
@@ -244,7 +258,12 @@
     "about": "About",
     "signout": "Logout",
     "edit_profile": "Edit Profile",
-    "signout_confirmation": "Are you sure you want to sign out?"
+    "signout_confirmation": "Are you sure you want to sign out?",
+    "subtitle": "Manage your account and preferences",
+    "personal_data": "Personal Data",
+    "stats": "Goals",
+    "account": "Account",
+    "preferences": "Personal preferences"
   },
   "statistics": {
     "title": "Statistics",
@@ -293,16 +312,6 @@
     "insoluble_fiber": "Insoluble Fiber",
     "confidence": "Confidence",
     "no_data": "No data available"
-  },
-  "calendar": {
-    "title": "Calendar",
-    "meal_plan": "Meal Plan",
-    "today": "Today",
-    "select_date": "Select Date",
-    "no_meals_planned": "No meals planned",
-    "add_meal_plan": "Add Meal Plan",
-    "view_meal": "View Meal",
-    "edit_meal": "Edit Meal"
   },
   "devices": {
     "title": "Connected Devices",
@@ -377,5 +386,100 @@
     "select": "Language Selection",
     "english": "English",
     "hebrew": "עברית"
+  },
+  "calendar": {
+    "title": "Goal Calendar",
+    "subtitle": "Track your daily progress",
+    "monthlyStats": "Monthly Statistics",
+    "successfulDays": "Successful Days",
+    "averageCompletion": "Average Completion",
+    "bestStreak": "Best Streak",
+    "currentStreak": "Current Streak",
+    "dayDetails": "Day Details",
+    "caloriesGoal": "Calorie Goal",
+    "proteinGoal": "Protein Goal",
+    "waterGoal": "Water Goal",
+    "consumed": "Consumed",
+    "goal": "Goal",
+    "deviation": "Deviation",
+    "over": "Over",
+    "under": "Under",
+    "goalMet": "Goal Achieved!",
+    "goalNotMet": "Goal Not Met",
+    "days": "days",
+    "kcal": "kcal",
+    "g": "g",
+    "ml": "ml",
+    "today": "Today",
+    "selectDay": "Select a day to view details",
+    "excellent": "Excellent!",
+    "good": "Good!",
+    "needsImprovement": "Needs Improvement",
+    "overeating": "Overeating",
+    "closeToGoal": "Close to Goal",
+    "recentAchievements": "🏆 Recent Achievements",
+    "seeAll": "See All",
+    "viewWeeklyInsights": "📊 View Weekly Insights",
+    "loading": "Loading your calendar...",
+    "monthNames": [
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December"
+    ],
+    "dayNames": ["S", "M", "T", "W", "T", "F", "S"],
+    "events": {
+      "title": "Events",
+      "addEvent": "Add Event",
+      "addEventTitle": "Add Event",
+      "eventTitle": "Event title (e.g., Wedding, Heavy workout, Fasting day)",
+      "eventDescription": "Description (optional)",
+      "eventType": "Event Type:",
+      "eventTypes": {
+        "general": "General",
+        "workout": "Workout",
+        "social": "Social",
+        "health": "Health",
+        "travel": "Travel",
+        "work": "Work"
+      },
+      "cancel": "Cancel",
+      "submit": "Add Event",
+      "deleteConfirm": "Are you sure you want to delete this event?",
+      "deleteTitle": "Delete Event",
+      "deleteButton": "Delete",
+      "success": "Event added successfully!",
+      "deleteSuccess": "Event deleted successfully!",
+      "error": "Failed to add event",
+      "deleteError": "Failed to delete event",
+      "titleRequired": "Please enter an event title"
+    },
+    "badges": {
+      "title": "🏆 Your Achievements",
+      "firstWeek": "First Week",
+      "firstWeekDesc": "Complete your first week of tracking",
+      "streakMaster": "Streak Master",
+      "streakMasterDesc": "Maintain a 5-day streak",
+      "healthyChoice": "Healthy Choice",
+      "healthyChoiceDesc": "Log 10 healthy meals"
+    },
+    "insights": {
+      "title": "📊 Weekly Insights",
+      "bestWeek": "🎯 Best Week",
+      "challengingWeek": "💪 Most Challenging Week",
+      "averageProgress": "average progress"
+    },
+    "errors": {
+      "generic": "Error",
+      "ok": "OK"
+    }
   }
 }
