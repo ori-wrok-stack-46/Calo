@@ -1,7 +1,4 @@
-import {
-  SplashScreen,
-  Stack,
-} from "expo-router";
+import { SplashScreen, Stack } from "expo-router";
 import { Provider } from "react-redux";
 import { PersistGate } from "redux-persist/integration/react";
 import { store, persistor } from "@/src/store";
@@ -10,6 +7,7 @@ import { Text, View, ActivityIndicator, StyleSheet } from "react-native";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { useAppInitialization } from "@/hooks/useAppInitialization";
+import { ThemeProvider } from "@/src/context/ThemeContext";
 import { useSelector } from "react-redux";
 import { RootState } from "@/src/store";
 import { useRouter, useSegments } from "expo-router";
@@ -24,6 +22,7 @@ import { I18nextProvider } from "react-i18next";
 import i18n from "@/src/i18n";
 import { User } from "@/src/types";
 import LanguageToolbar from "@/components/LanguageToolbar";
+import { NotificationService } from "@/src/services/notifications";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -119,7 +118,14 @@ function useNavigationManager(
     isNavigatingRef.current = true;
     lastNavigationRef.current = targetRoute;
 
-    router.replace(targetRoute as typeof router.replace extends (url: infer U, ...args: any) => any ? U : never);
+    router.replace(
+      targetRoute as typeof router.replace extends (
+        url: infer U,
+        ...args: any
+      ) => any
+        ? U
+        : never
+    );
 
     // Reset navigation flag after a short delay
     const resetTimeout = setTimeout(() => {
@@ -270,6 +276,8 @@ const AppContent = () => {
   useEffect(() => {
     if (loaded) {
       SplashScreen.hideAsync();
+      // Initialize notifications
+      NotificationService.requestPermissions();
     }
   }, [loaded]);
 
@@ -301,10 +309,12 @@ export default function RootLayout() {
           <Provider store={store}>
             <QueryClientProvider client={queryClient}>
               <PersistGate loading={<LoadingScreen />} persistor={persistor}>
-                <LanguageProvider>
-                  <MainApp />
-                  <StatusBar style="auto" />
-                </LanguageProvider>
+                <ThemeProvider>
+                  <LanguageProvider>
+                    <MainApp />
+                    <StatusBar style="auto" />
+                  </LanguageProvider>
+                </ThemeProvider>
               </PersistGate>
             </QueryClientProvider>
           </Provider>
