@@ -422,7 +422,10 @@ Language: ${language}`;
     language: string = "english",
     updateText?: string
   ): MealAnalysisResult {
-    console.log("🔄 Generating intelligent fallback analysis...");
+    console.log("⚠️ Using fallback analysis - OpenAI not available or failed");
+    console.log(
+      "💡 To enable real AI analysis, ensure OPENAI_API_KEY is set in environment"
+    );
 
     const baseMeal = {
       name: language === "hebrew" ? "ארוחה מעורבת" : "Mixed Meal",
@@ -461,8 +464,28 @@ Language: ${language}`;
           : "Healthy and balanced meal",
     };
 
+    // Apply user comment modifications more intelligently
     if (updateText) {
       const lowerUpdate = updateText.toLowerCase();
+
+      // Analyze comment for specific foods
+      if (lowerUpdate.includes("toast") || lowerUpdate.includes("bread")) {
+        baseMeal.carbs += 20;
+        baseMeal.calories += 80;
+        baseMeal.name =
+          language === "hebrew" ? "ארוחה עם לחם" : "Meal with Bread";
+      }
+
+      if (lowerUpdate.includes("butter") || lowerUpdate.includes("oil")) {
+        baseMeal.fat += 10;
+        baseMeal.calories += 90;
+      }
+
+      if (lowerUpdate.includes("cheese") || lowerUpdate.includes("dairy")) {
+        baseMeal.protein += 8;
+        baseMeal.fat += 6;
+        baseMeal.calories += 80;
+      }
 
       if (
         lowerUpdate.includes("big") ||
@@ -522,16 +545,29 @@ Language: ${language}`;
       }
     }
 
+    // Generate more realistic ingredients based on comment
     const ingredients = [
       {
-        name: language === "hebrew" ? "רכיב עיקרי" : "Main ingredient",
+        name: updateText?.includes("toast")
+          ? language === "hebrew"
+            ? "לחם טוסט"
+            : "Toast bread"
+          : language === "hebrew"
+          ? "רכיב עיקרי"
+          : "Main ingredient",
         calories: Math.floor(baseMeal.calories * 0.4),
         protein_g: Math.floor(baseMeal.protein * 0.6),
         carbs_g: Math.floor(baseMeal.carbs * 0.5),
         fats_g: Math.floor(baseMeal.fat * 0.4),
       },
       {
-        name: language === "hebrew" ? "רכיב משני" : "Secondary ingredient",
+        name: updateText?.includes("butter")
+          ? language === "hebrew"
+            ? "חמאה"
+            : "Butter"
+          : language === "hebrew"
+          ? "רכיב משני"
+          : "Secondary ingredient",
         calories: Math.floor(baseMeal.calories * 0.3),
         protein_g: Math.floor(baseMeal.protein * 0.25),
         carbs_g: Math.floor(baseMeal.carbs * 0.3),

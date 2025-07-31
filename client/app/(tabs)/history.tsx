@@ -448,6 +448,7 @@ export default function HistoryScreen() {
                   {Math.round(meal.calories || 0)}
                 </Text>
                 <Text style={styles.nutritionLabel}>Calories</Text>
+                {t("meals.calories") || "Calories"}
               </View>
               <View style={styles.nutritionCard}>
                 <Zap size={16} color="#8b5cf6" />
@@ -455,6 +456,7 @@ export default function HistoryScreen() {
                   {Math.round(meal.protein || meal.protein_g || 0)}g
                 </Text>
                 <Text style={styles.nutritionLabel}>Protein</Text>
+                {t("meals.protein") || "Protein"}
               </View>
               <View style={styles.nutritionCard}>
                 <Target size={16} color="#f59e0b" />
@@ -462,6 +464,7 @@ export default function HistoryScreen() {
                   {Math.round(meal.carbs || meal.carbs_g || 0)}g
                 </Text>
                 <Text style={styles.nutritionLabel}>Carbs</Text>
+                {t("meals.carbs") || "Carbs"}
               </View>
               <View style={styles.nutritionCard}>
                 <Droplets size={16} color="#06b6d4" />
@@ -469,6 +472,7 @@ export default function HistoryScreen() {
                   {Math.round(meal.fat || meal.fats_g || 0)}g
                 </Text>
                 <Text style={styles.nutritionLabel}>Fat</Text>
+                {t("meals.fat") || "Fat"}
               </View>
             </View>
           </View>
@@ -476,11 +480,15 @@ export default function HistoryScreen() {
           {/* Ratings Display */}
           {(meal.taste_rating || meal.satiety_rating || meal.energy_rating) && (
             <View style={styles.ratingsDisplay}>
-              <Text style={styles.ratingsTitle}>Your Ratings</Text>
+              <Text style={styles.ratingsTitle}>
+                {t("history.your_ratings") || "Your Ratings"}
+              </Text>
               <View style={styles.ratingsGrid}>
                 {meal.taste_rating > 0 && (
                   <View style={styles.ratingItem}>
-                    <Text style={styles.ratingLabel}>Taste</Text>
+                    <Text style={styles.ratingLabel}>
+                      {t("history.taste") || "Taste"}
+                    </Text>
                     <View style={styles.ratingStars}>
                       {[1, 2, 3, 4, 5].map((star) => (
                         <Star
@@ -501,7 +509,9 @@ export default function HistoryScreen() {
                 )}
                 {meal.satiety_rating > 0 && (
                   <View style={styles.ratingItem}>
-                    <Text style={styles.ratingLabel}>Satiety</Text>
+                    <Text style={styles.ratingLabel}>
+                      {t("history.satiety") || "Satiety"}
+                    </Text>
                     <View style={styles.ratingStars}>
                       {[1, 2, 3, 4, 5].map((star) => (
                         <Star
@@ -522,7 +532,9 @@ export default function HistoryScreen() {
                 )}
                 {meal.energy_rating > 0 && (
                   <View style={styles.ratingItem}>
-                    <Text style={styles.ratingLabel}>Energy</Text>
+                    <Text style={styles.ratingLabel}>
+                      {t("history.energy") || "Energy"}
+                    </Text>
                     <View style={styles.ratingStars}>
                       {[1, 2, 3, 4, 5].map((star) => (
                         <Star
@@ -552,7 +564,9 @@ export default function HistoryScreen() {
               onPress={() => handleRateMeal(meal)}
             >
               <Star size={16} color="#fbbf24" />
-              <Text style={styles.cardActionText}>Rate</Text>
+              <Text style={styles.cardActionText}>
+                {t("history.rate") || "Rate"}
+              </Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -560,7 +574,9 @@ export default function HistoryScreen() {
               onPress={() => handleDuplicateMeal(meal)}
             >
               <Copy size={16} color="#10b981" />
-              <Text style={styles.cardActionText}>Duplicate</Text>
+              <Text style={styles.cardActionText}>
+                {t("history.duplicate") || "Duplicate"}
+              </Text>
             </TouchableOpacity>
           </View>
         </LinearGradient>

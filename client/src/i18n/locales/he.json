@@ -105,7 +105,13 @@
     "meal_feedback": "משוב על הארוחה",
     "duplicate_meal": "שכפול ארוחה",
     "favorite": "מועדפים",
-    "rating_scale": "סולם דירוג (1-5 על בסיס היעדים התזונתיים שלך)"
+    "rating_scale": "סולם דירוג (1-5 על בסיס היעדים התזונתיים שלך)",
+    "your_ratings": "הדירוגים שלך",
+    "rate": "דרג",
+    "duplicate": "שכפל",
+    "taste": "טעם",
+    "satiety": "שובע",
+    "energy": "אנרגיה"
   },
   "camera": {
     "title": "סורק מזון",

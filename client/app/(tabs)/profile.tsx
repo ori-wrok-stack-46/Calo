@@ -62,6 +62,15 @@ export default function ProfileScreen() {
   const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [notifications, setNotifications] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
+  const [notificationSettings, setNotificationSettings] = useState({
+    pushNotifications: true,
+    emailNotifications: false,
+    mealReminders: true,
+    exerciseReminders: true,
+    waterReminders: false,
+    weeklyReports: true,
+    promotionalEmails: false,
+  });
 
   const handleSignOut = () => {
     Alert.alert(
@@ -78,6 +87,25 @@ export default function ProfileScreen() {
         },
       ]
     );
+  };
+
+  const handleNotificationToggle = (key: string) => {
+    setNotificationSettings((prev) => ({
+      ...prev,
+      [key]: !prev[key as keyof typeof prev],
+    }));
+    // Here you would typically save to AsyncStorage or send to server
+    console.log(
+      "🔔 Notification setting changed:",
+      key,
+      !notificationSettings[key as keyof typeof notificationSettings]
+    );
+  };
+
+  const handleDarkModeToggle = (value: boolean) => {
+    setDarkMode(value);
+    // Here you would typically apply the theme change
+    console.log("🌙 Dark mode toggled:", value);
   };
 
   const handleMenuPress = (itemId: string) => {
@@ -117,10 +145,14 @@ export default function ProfileScreen() {
           icon: <Bell size={20} color="#2C3E50" />,
           rightComponent: (
             <Switch
-              value={notifications}
-              onValueChange={setNotifications}
+              value={notificationSettings.pushNotifications}
+              onValueChange={() =>
+                handleNotificationToggle("pushNotifications")
+              }
               trackColor={{ false: "#E9ECEF", true: "#16A085" }}
-              thumbColor={notifications ? "#FFFFFF" : "#FFFFFF"}
+              thumbColor={
+                notificationSettings.pushNotifications ? "#FFFFFF" : "#FFFFFF"
+              }
             />
           ),
         },
@@ -131,7 +163,7 @@ export default function ProfileScreen() {
           rightComponent: (
             <Switch
               value={darkMode}
-              onValueChange={setDarkMode}
+              onValueChange={handleDarkModeToggle}
               trackColor={{ false: "#E9ECEF", true: "#16A085" }}
               thumbColor={darkMode ? "#FFFFFF" : "#FFFFFF"}
             />
@@ -193,9 +225,64 @@ export default function ProfileScreen() {
       case "editProfile":
         return <EditProfile onClose={() => setActiveSection(null)} />;
       case "notifications":
-        return <NotificationSettings onClose={() => setActiveSection(null)} />;
+        return (
+          <View style={styles.sectionContent}>
+            <Text style={styles.sectionContentTitle}>
+              Notification Settings
+            </Text>
+            {Object.entries(notificationSettings).map(([key, value]) => (
+              <View key={key} style={styles.notificationItem}>
+                <Text style={styles.notificationLabel}>
+                  {key
+                    .replace(/([A-Z])/g, " $1")
+                    .replace(/^./, (str) => str.toUpperCase())}
+                </Text>
+                <Switch
+                  value={value}
+                  onValueChange={() => handleNotificationToggle(key)}
+                  trackColor={{ false: "#E9ECEF", true: "#16A085" }}
+                  thumbColor={value ? "#FFFFFF" : "#FFFFFF"}
+                />
+              </View>
+            ))}
+          </View>
+        );
       case "privacy":
         return <PrivacySettings onClose={() => setActiveSection(null)} />;
+      case "support":
+        return (
+          <View style={styles.sectionContent}>
+            <Text style={styles.sectionContentTitle}>Help & Support</Text>
+            <Text style={styles.sectionContentText}>
+              Welcome to your nutrition tracking app! Here are some helpful
+              tips:
+              {"\n\n"}• Use the camera to scan your meals for automatic
+              nutrition analysis
+              {"\n"}• Track your daily water intake to stay hydrated
+              {"\n"}• View your progress in the statistics tab
+              {"\n"}• Set up your profile in the questionnaire for personalized
+              recommendations
+            </Text>
+          </View>
+        );
+      case "about":
+        return (
+          <View style={styles.sectionContent}>
+            <Text style={styles.sectionContentTitle}>About This App</Text>
+            <Text style={styles.sectionContentText}>
+              Nutrition Tracker v1.0.0
+              {"\n\n"}A comprehensive nutrition tracking application that helps
+              you monitor your daily food intake, track your health goals, and
+              maintain a balanced diet.
+              {"\n\n"}
+              Features:
+              {"\n"}• AI-powered meal analysis
+              {"\n"}• Comprehensive nutrition tracking
+              {"\n"}• Goal setting and progress monitoring
+              {"\n"}• Personalized recommendations
+            </Text>
+          </View>
+        );
       default:
         return null;
     }
@@ -645,5 +732,29 @@ const styles = StyleSheet.create({
     backgroundColor: "#f8f9fa",
     borderTopWidth: 1,
     borderTopColor: "#e9ecef",
+  },
+  sectionContentTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#2C3E50",
+    marginBottom: 16,
+  },
+  sectionContentText: {
+    fontSize: 14,
+    color: "#6b7280",
+    lineHeight: 20,
+  },
+  notificationItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e5e7eb",
+  },
+  notificationLabel: {
+    fontSize: 16,
+    color: "#374151",
+    flex: 1,
   },
 });

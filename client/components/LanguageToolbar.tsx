@@ -35,6 +35,7 @@ const LanguageToolbar: React.FC<LanguageToolbarProps> = ({ helpContent }) => {
   };
 
   const handleHelpPress = () => {
+    console.log("🔍 Help button pressed, helpContent:", helpContent);
     setShowHelp(true);
   };
 
@@ -78,6 +79,12 @@ const LanguageToolbar: React.FC<LanguageToolbarProps> = ({ helpContent }) => {
     inputRange: [0, 0.3, 1],
     outputRange: [0.7, 0.7, 1],
   });
+
+  console.log(
+    "🔍 LanguageToolbar render - helpContent available:",
+    !!helpContent
+  );
+  console.log("🔍 showHelp state:", showHelp);
 
   return (
     <>
@@ -159,7 +166,7 @@ const LanguageToolbar: React.FC<LanguageToolbarProps> = ({ helpContent }) => {
       </View>
 
       <Modal
-        visible={showHelp && !!helpContent}
+        visible={showHelp}
         animationType="fade"
         transparent={true}
         onRequestClose={handleCloseHelp}

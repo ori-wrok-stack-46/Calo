@@ -50,7 +50,7 @@ I18nManager.allowRTL(true);
 
 const { width } = Dimensions.get("window");
 
-// Define emerald color constants to fix the undefined error
+// Define color constants to fix the undefined error
 const COLORS = {
   emerald: {
     50: "#ecfdf5",
@@ -76,6 +76,10 @@ const COLORS = {
     800: "#1f2937",
     900: "#111827",
   },
+  white: "#ffffff",
+  success: "#10b981",
+  error: "#ef4444",
+  warning: "#f59e0b",
 };
 
 interface UserStats {

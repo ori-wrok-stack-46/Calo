@@ -54,15 +54,24 @@ export class NutritionService {
     const user = await prisma.user.findUnique({ where: { user_id } });
     if (!user) throw new Error("User not found");
 
-    // const permissions = await checkDailyLimit(user);
+    console.log("🚀 Starting meal analysis for user:", user_id);
+    console.log("🔑 OpenAI API Key available:", !!process.env.OPENAI_API_KEY);
+    console.log("💬 Update text provided:", !!data.updateText);
 
-    console.log("🚀 Starting meal analysis - NO RESTRICTIONS!");
-
-    // Always attempt analysis - never fail
+    // Attempt real AI analysis first, fallback only on failure
     const analysis = await OpenAIService.analyzeMealImage(
       cleanBase64,
-      language
+      language,
+      data.updateText
     );
+
+    console.log("✅ Analysis completed successfully");
+    console.log("📊 Analysis result:", {
+      name: analysis.name,
+      calories: analysis.calories,
+      confidence: analysis.confidence,
+      ingredients_count: analysis.ingredients?.length || 0,
+    });
 
     // Update request count
     await prisma.user.update({
