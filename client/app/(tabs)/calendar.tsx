@@ -425,7 +425,7 @@ export default function CalendarScreen() {
   };
 
   const renderGamificationSection = () => {
-    if (!statistics || !statistics.gamificationBadges?.length) return null;
+    if (!badges || badges.length === 0) return null;
 
     return (
       <View style={styles.section}>
@@ -436,19 +436,34 @@ export default function CalendarScreen() {
           >
             <View style={styles.gamificationHeader}>
               <Text style={styles.gamificationTitle}>
-                {t("calendar.recentAchievements")}
+                {t("calendar.recentAchievements") || "Recent Achievements"}
               </Text>
               <TouchableOpacity onPress={() => setShowBadgesModal(true)}>
-                <Text style={styles.seeAllText}>{t("calendar.seeAll")}</Text>
+                <Text style={styles.seeAllText}>
+                  {t("calendar.seeAll") || "See All"}
+                </Text>
               </TouchableOpacity>
             </View>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-              {statistics.gamificationBadges.slice(0, 5).map((badge) => (
+              {badges.slice(0, 5).map((badge) => (
                 <View key={badge.id} style={styles.badgeItem}>
-                  <View style={styles.badgeIcon}>
+                  <View
+                    style={[
+                      styles.badgeIcon,
+                      { opacity: badge.earned ? 1 : 0.5 },
+                    ]}
+                  >
                     <Text style={styles.badgeIconText}>{badge.icon}</Text>
                   </View>
-                  <Text style={styles.badgeName}>{badge.name}</Text>
+                  <Text
+                    style={[
+                      styles.badgeName,
+                      { color: badge.earned ? "#16A085" : "#999" },
+                    ]}
+                  >
+                    {badge.name}
+                  </Text>
+                  {badge.earned && <Text style={styles.badgeStatus}>✅</Text>}
                 </View>
               ))}
             </ScrollView>
@@ -536,37 +551,72 @@ export default function CalendarScreen() {
   useEffect(() => {
     const loadBadges = async () => {
       try {
-        // Simulate fetching user achievements
-        const userStats = {
-          daysTracked: 10,
-          currentStreak: 7,
-          healthyMealsCount: 12,
-        };
+        console.log("🏆 Loading real badge data...");
 
-        const calculatedBadges = [
-          {
-            id: 1,
-            name: t("calendar.badges.firstWeek"),
-            icon: "🏆",
-            earned: userStats?.daysTracked >= 7,
-            description: t("calendar.badges.firstWeekDesc"),
-          },
-          {
-            id: 2,
-            name: t("calendar.badges.streakMaster"),
-            icon: "🔥",
-            earned: userStats?.currentStreak >= 5,
-            description: t("calendar.badges.streakMasterDesc"),
-          },
-          {
-            id: 3,
-            name: t("calendar.badges.healthyChoice"),
-            icon: "🥗",
-            earned: userStats?.healthyMealsCount >= 10,
-            description: t("calendar.badges.healthyChoiceDesc"),
-          },
-        ];
-        setBadges(calculatedBadges);
+        // Load real badge data from statistics
+        if (
+          statistics?.gamificationBadges &&
+          statistics.gamificationBadges.length > 0
+        ) {
+          const realBadges = statistics.gamificationBadges.map(
+            (badge, index) => ({
+              id: badge.id || index + 1,
+              name: badge.name,
+              icon: badge.icon || "🏆",
+              earned: true, // If it's in the array, it's earned
+              description: badge.description,
+              achievedAt: badge.achieved_at,
+            })
+          );
+          setBadges(realBadges);
+        } else {
+          // Fallback with calculated badges based on real stats
+          const monthStats = calculateMonthStats();
+          const calculatedBadges = [
+            {
+              id: 1,
+              name: t("calendar.badges.firstWeek") || "First Week",
+              icon: "🏆",
+              earned: monthStats.totalDays >= 7,
+              description:
+                t("calendar.badges.firstWeekDesc") ||
+                "Complete 7 days of tracking",
+            },
+            {
+              id: 2,
+              name: t("calendar.badges.streakMaster") || "Streak Master",
+              icon: "🔥",
+              earned: monthStats.currentStreak >= 5,
+              description:
+                t("calendar.badges.streakMasterDesc") ||
+                "Maintain a 5-day streak",
+            },
+            {
+              id: 3,
+              name: t("calendar.badges.healthyChoice") || "Healthy Choice",
+              icon: "🥗",
+              earned: monthStats.successfulDays >= 10,
+              description:
+                t("calendar.badges.healthyChoiceDesc") ||
+                "Complete 10 successful days",
+            },
+            {
+              id: 4,
+              name: "Goal Crusher",
+              icon: "🎯",
+              earned: monthStats.averageCompletion >= 90,
+              description: "Maintain 90%+ average completion",
+            },
+            {
+              id: 5,
+              name: "Consistency King",
+              icon: "👑",
+              earned: monthStats.bestStreak >= 14,
+              description: "Achieve a 14-day streak",
+            },
+          ];
+          setBadges(calculatedBadges);
+        }
       } catch (error) {
         console.error("Failed to load badges:", error);
         setBadges([]);
@@ -574,7 +624,7 @@ export default function CalendarScreen() {
     };
 
     loadBadges();
-  }, [t]);
+  }, [t, statistics]);
 
   if (isLoading) {
     return <LoadingScreen text={t("calendar.loading")} />;
@@ -1227,6 +1277,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: "#666",
     textAlign: "center",
+  },
+  badgeStatus: {
+    fontSize: 10,
+    textAlign: "center",
+    marginTop: 2,
   },
   calendarHeader: {
     flexDirection: "row",

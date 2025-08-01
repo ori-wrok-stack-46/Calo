@@ -46,36 +46,18 @@ import {
   Trash2,
   MoreHorizontal,
   Camera,
+  Wheat,
+  Apple,
+  Beaker,
+  TreePine,
+  Candy,
+  Dumbbell,
 } from "lucide-react-native";
 import LoadingScreen from "@/components/LoadingScreen";
-import {
-  Swipeable,
-  GestureHandlerRootView,
-} from "react-native-gesture-handler";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
+import Swipeable from "react-native-gesture-handler/Swipeable";
 
 const { width } = Dimensions.get("window");
-
-interface Meal {
-  id: string;
-  meal_id: number;
-  name: string;
-  calories: number;
-  protein: number;
-  carbs: number;
-  fat: number;
-  fiber?: number;
-  sugar?: number;
-  created_at: string;
-  image_url?: string;
-  is_favorite?: boolean;
-  taste_rating?: number;
-  satiety_rating?: number;
-  energy_rating?: number;
-  heaviness_rating?: number;
-  food_category?: string;
-  health_score?: number;
-  ingredients?: any[];
-}
 
 interface FilterOptions {
   category: string;
@@ -100,6 +82,17 @@ const DATE_RANGES = [
   { key: "week", label: "This Week" },
   { key: "month", label: "This Month" },
 ];
+
+// Nutrition icons mapping
+const NUTRITION_ICONS = {
+  calories: { icon: Flame, name: "Calories", color: "#f59e0b" },
+  protein: { icon: Dumbbell, name: "Protein", color: "#3b82f6" },
+  carbs: { icon: Wheat, name: "Carbohydrates", color: "#10b981" },
+  fat: { icon: Droplets, name: "Total Fat", color: "#ef4444" },
+  fiber: { icon: TreePine, name: "Dietary Fiber", color: "#8b5cf6" },
+  sugar: { icon: Candy, name: "Sugars", color: "#f97316" },
+  sodium: { icon: Beaker, name: "Sodium", color: "#6b7280" },
+};
 
 // Compact Meal Card component
 const CompactMealCard = ({
@@ -126,6 +119,21 @@ const CompactMealCard = ({
     energy_rating: meal.energy_rating || 0,
     heaviness_rating: meal.heaviness_rating || 0,
   });
+
+  // Update ratings when meal data changes
+  useEffect(() => {
+    setRatings({
+      taste_rating: meal.taste_rating || 0,
+      satiety_rating: meal.satiety_rating || 0,
+      energy_rating: meal.energy_rating || 0,
+      heaviness_rating: meal.heaviness_rating || 0,
+    });
+  }, [
+    meal.taste_rating,
+    meal.satiety_rating,
+    meal.energy_rating,
+    meal.heaviness_rating,
+  ]);
 
   const handleRatingChange = (key: string, value: number) => {
     setRatings((prev) => ({ ...prev, [key]: value }));
@@ -161,23 +169,27 @@ const CompactMealCard = ({
   };
 
   const renderLeftActions = () => (
-    <TouchableOpacity
-      style={[styles.swipeAction, { backgroundColor: colors.emerald }]}
-      onPress={() => onDuplicate(meal.id || meal.meal_id?.toString())}
-    >
-      <Copy size={20} color="#fff" />
-      <Text style={styles.swipeActionText}>Duplicate</Text>
-    </TouchableOpacity>
+    <View style={styles.swipeActionContainer}>
+      <TouchableOpacity
+        style={[styles.swipeAction, { backgroundColor: colors.emerald }]}
+        onPress={() => onDuplicate(meal.id || meal.meal_id?.toString())}
+      >
+        <Copy size={20} color="#fff" />
+        <Text style={styles.swipeActionText}>Duplicate</Text>
+      </TouchableOpacity>
+    </View>
   );
 
   const renderRightActions = () => (
-    <TouchableOpacity
-      style={[styles.swipeAction, { backgroundColor: colors.error }]}
-      onPress={() => onDelete(meal.id || meal.meal_id?.toString())}
-    >
-      <Trash2 size={20} color="#fff" />
-      <Text style={styles.swipeActionText}>Delete</Text>
-    </TouchableOpacity>
+    <View style={styles.swipeActionContainer}>
+      <TouchableOpacity
+        style={[styles.swipeAction, styles.deleteAction]}
+        onPress={() => onDelete(meal.id || meal.meal_id?.toString())}
+      >
+        <Trash2 size={20} color="#fff" />
+        <Text style={styles.swipeActionText}>Delete</Text>
+      </TouchableOpacity>
+    </View>
   );
 
   const renderStarRating = (
@@ -202,6 +214,44 @@ const CompactMealCard = ({
       </View>
     );
   };
+
+  // Get nutrition values with proper fallbacks
+  const getNutritionValue = (key: string) => {
+    switch (key) {
+      case "calories":
+        return Math.round(meal.calories || 0);
+      case "protein":
+        return Math.round(meal.protein_g || meal.protein || 0);
+      case "carbs":
+        return Math.round(meal.carbs_g || meal.carbs || 0);
+      case "fat":
+        return Math.round(meal.fats_g || meal.fat || 0);
+      case "fiber":
+        return Math.round(meal.fiber_g || meal.fiber || 0);
+      case "sugar":
+        return Math.round(meal.sugar_g || meal.sugar || 0);
+      case "sodium":
+        return Math.round(meal.sodium_mg || meal.sodium || 0);
+      default:
+        return 0;
+    }
+  };
+
+  // Parse ingredients safely
+  const getIngredients = () => {
+    if (!meal.ingredients) return [];
+    if (Array.isArray(meal.ingredients)) return meal.ingredients;
+    if (typeof meal.ingredients === "string") {
+      try {
+        return JSON.parse(meal.ingredients);
+      } catch {
+        return [];
+      }
+    }
+    return [];
+  };
+
+  const ingredients = getIngredients();
 
   return (
     <Swipeable
@@ -262,10 +312,19 @@ const CompactMealCard = ({
                 >
                   <Heart
                     size={16}
-                    color={meal.is_favorite ? colors.error : colors.icon}
-                    fill={meal.is_favorite ? colors.error : "transparent"}
+                    color={meal.is_favorite ? "#ef4444" : colors.icon}
+                    fill={meal.is_favorite ? "#ef4444" : "transparent"}
                   />
                 </TouchableOpacity>
+                {/* Rating display */}
+                {(meal.taste_rating || 0) > 0 && (
+                  <View style={styles.ratingDisplay}>
+                    <Star size={12} color="#fbbf24" fill="#fbbf24" />
+                    <Text style={[styles.ratingText, { color: colors.text }]}>
+                      {meal.taste_rating}
+                    </Text>
+                  </View>
+                )}
                 {isExpanded ? (
                   <ChevronUp size={16} color={colors.icon} />
                 ) : (
@@ -280,32 +339,33 @@ const CompactMealCard = ({
               ).toLocaleDateString()}
             </Text>
 
-            {/* Compact Nutrition Info */}
+            {/* Enhanced Nutrition Info with Icons */}
             <View style={styles.nutritionCompact}>
-              <View style={styles.nutritionItem}>
-                <Flame size={12} color={colors.warning} />
-                <Text style={[styles.nutritionText, { color: colors.text }]}>
-                  {Math.round(meal.calories || 0)}
-                </Text>
-              </View>
-              <View style={styles.nutritionItem}>
-                <Zap size={12} color={colors.primary} />
-                <Text style={[styles.nutritionText, { color: colors.text }]}>
-                  {Math.round(meal.protein_g || meal.protein || 0)}g
-                </Text>
-              </View>
-              <View style={styles.nutritionItem}>
-                <Droplets size={12} color={colors.info} />
-                <Text style={[styles.nutritionText, { color: colors.text }]}>
-                  {Math.round(meal.carbs_g || meal.carbs || 0)}g
-                </Text>
-              </View>
-              <View style={styles.nutritionItem}>
-                <Target size={12} color={colors.success} />
-                <Text style={[styles.nutritionText, { color: colors.text }]}>
-                  {Math.round(meal.fats_g || meal.fat || 0)}g
-                </Text>
-              </View>
+              {Object.entries(NUTRITION_ICONS)
+                .slice(0, 4)
+                .map(([key, config]) => {
+                  const IconComponent = config.icon;
+                  const value = getNutritionValue(key);
+                  const unit =
+                    key === "calories" ? "" : key === "sodium" ? "mg" : "g";
+
+                  return (
+                    <View key={key} style={styles.nutritionItem}>
+                      <IconComponent size={12} color={config.color} />
+                      <Text
+                        style={[styles.nutritionLabel, { color: colors.icon }]}
+                      >
+                        {config.name}
+                      </Text>
+                      <Text
+                        style={[styles.nutritionValue, { color: colors.text }]}
+                      >
+                        {value}
+                        {unit}
+                      </Text>
+                    </View>
+                  );
+                })}
             </View>
           </View>
         </TouchableOpacity>
@@ -318,8 +378,47 @@ const CompactMealCard = ({
               { borderTopColor: isDark ? "#333" : "#e5e5e5" },
             ]}
           >
+            {/* Complete Nutrition Info */}
+            <View style={styles.nutritionSection}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                Nutrition Information
+              </Text>
+              <View style={styles.nutritionGrid}>
+                {Object.entries(NUTRITION_ICONS).map(([key, config]) => {
+                  const IconComponent = config.icon;
+                  const value = getNutritionValue(key);
+                  const unit =
+                    key === "calories" ? "kcal" : key === "sodium" ? "mg" : "g";
+
+                  return (
+                    <View key={key} style={styles.nutritionGridItem}>
+                      <View style={styles.nutritionItemHeader}>
+                        <IconComponent size={16} color={config.color} />
+                        <Text
+                          style={[
+                            styles.nutritionItemName,
+                            { color: colors.text },
+                          ]}
+                        >
+                          {config.name}
+                        </Text>
+                      </View>
+                      <Text
+                        style={[
+                          styles.nutritionItemValue,
+                          { color: colors.text },
+                        ]}
+                      >
+                        {value} {unit}
+                      </Text>
+                    </View>
+                  );
+                })}
+              </View>
+            </View>
+
             {/* Ingredients Section */}
-            {meal.ingredients && meal.ingredients.length > 0 && (
+            {ingredients && ingredients.length > 0 && (
               <View style={styles.ingredientsSection}>
                 <Text style={[styles.sectionTitle, { color: colors.text }]}>
                   Ingredients
@@ -329,7 +428,7 @@ const CompactMealCard = ({
                   showsHorizontalScrollIndicator={false}
                   style={styles.ingredientsScroll}
                 >
-                  {meal.ingredients.map((ingredient: any, index: number) => (
+                  {ingredients.map((ingredient: any, index: number) => (
                     <View
                       key={index}
                       style={[
@@ -763,11 +862,7 @@ export default function HistoryScreen() {
           <FlatList
             data={listData}
             keyExtractor={(item, index) =>
-              item.type === "insights"
-                ? "insights"
-                : item.data.id ||
-                  item.data.meal_id?.toString() ||
-                  index.toString()
+              item.type === "insights" ? "insights" : index.toString()
             }
             renderItem={renderItem}
             contentContainerStyle={styles.mealsList}
@@ -1064,23 +1159,32 @@ const styles = StyleSheet.create({
   mealsList: {
     paddingBottom: 20,
   },
+  swipeActionContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
   swipeAction: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    marginHorizontal: 16,
-    marginBottom: 1,
-    minWidth: 80,
+    paddingHorizontal: 16,
+    minWidth: "100%",
   },
+
+  deleteAction: {
+    backgroundColor: "#ef4444",
+  },
+
   swipeActionText: {
     color: "#fff",
     fontSize: 12,
     fontWeight: "600",
     marginTop: 4,
   },
+
   mealCard: {
-    marginHorizontal: 16,
-    marginBottom: 1,
     borderTopWidth: 1,
     shadowOpacity: 0,
   },
@@ -1126,6 +1230,15 @@ const styles = StyleSheet.create({
   favoriteButton: {
     padding: 4,
   },
+  ratingDisplay: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+  },
+  ratingText: {
+    fontSize: 11,
+    fontWeight: "500",
+  },
   mealTime: {
     fontSize: 12,
     marginBottom: 6,
@@ -1133,20 +1246,54 @@ const styles = StyleSheet.create({
   nutritionCompact: {
     flexDirection: "row",
     gap: 12,
+    flexWrap: "wrap",
   },
   nutritionItem: {
-    flexDirection: "row",
     alignItems: "center",
-    gap: 4,
+    gap: 2,
   },
-  nutritionText: {
-    fontSize: 12,
+  nutritionLabel: {
+    fontSize: 9,
     fontWeight: "500",
+  },
+  nutritionValue: {
+    fontSize: 11,
+    fontWeight: "600",
   },
   expandedContent: {
     paddingHorizontal: 12,
     paddingBottom: 12,
     borderTopWidth: 1,
+  },
+  nutritionSection: {
+    marginBottom: 16,
+  },
+  nutritionGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  nutritionGridItem: {
+    flex: 1,
+    minWidth: "30%",
+    backgroundColor: "rgba(16, 185, 129, 0.1)",
+    padding: 8,
+    borderRadius: 8,
+    alignItems: "center",
+  },
+  nutritionItemHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginBottom: 4,
+  },
+  nutritionItemName: {
+    fontSize: 11,
+    fontWeight: "500",
+  },
+  nutritionItemValue: {
+    fontSize: 12,
+    fontWeight: "600",
   },
   ingredientsSection: {
     marginBottom: 16,
@@ -1202,7 +1349,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   saveRatingsText: {
-    color: "#007AFF",
+    color: "#fff",
     fontSize: 14,
     fontWeight: "600",
   },

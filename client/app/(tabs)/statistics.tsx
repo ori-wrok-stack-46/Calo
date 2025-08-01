@@ -296,15 +296,19 @@ export default function StatisticsScreen() {
       console.log(`📊 Fetching statistics for period: ${period}`);
       const response = await api.get(`/statistics?period=${period}`);
 
-      if (response.data.success) {
+      console.log("📊 Raw statistics response:", response.data);
+
+      if (response.data.success && response.data.data) {
         setStatisticsData(response.data.data);
-        console.log(`✅ Statistics loaded successfully`);
+        console.log(`✅ Statistics loaded successfully:`, response.data.data);
       } else {
-        setError(response.data.message || "Failed to load statistics");
+        console.warn("⚠️ Statistics response unsuccessful or no data");
+        setError(response.data.message || "No statistics data available");
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("❌ Error fetching statistics:", err);
-      setError("Failed to load statistics data");
+      console.error("❌ Error details:", err.response?.data);
+      setError(err.response?.data?.message || "Failed to load statistics data");
     } finally {
       setIsLoading(false);
     }
@@ -317,7 +321,12 @@ export default function StatisticsScreen() {
 
   // Generate nutrition data from real API response
   const generateNutritionMetrics = (): NutritionMetric[] => {
-    if (!statisticsData) return [];
+    if (!statisticsData) {
+      console.warn("⚠️ No statistics data available for metrics generation");
+      return [];
+    }
+
+    console.log("📊 Generating nutrition metrics from data:", statisticsData);
 
     const calculateTrend = (
       current: number,

@@ -305,6 +305,7 @@ const HomeScreen = React.memo(() => {
     async (cups: number) => {
       if (!user?.user_id) return;
 
+      setWaterLoading(true);
       setWaterCups(cups);
 
       try {
@@ -314,19 +315,35 @@ const HomeScreen = React.memo(() => {
         });
 
         if (response.data.success) {
+          console.log("✅ Water intake updated successfully");
+
+          // Show XP reward
+          if (response.data.xpAwarded && response.data.xpAwarded > 0) {
+            console.log(`🎉 XP earned: ${response.data.xpAwarded}`);
+            // You could show a toast or modal here
+          }
+
+          // Show badge reward
           if (response.data.badgeAwarded) {
-            console.log("Badge earned: Scuba Diver! 🤿");
+            console.log("🏆 Badge earned:", response.data.badgeAwarded);
+            // You could show a badge notification here
           }
-          if (response.data.xpAwarded > 0) {
-            console.log(`XP earned: ${response.data.xpAwarded}`);
-          }
+
+          // Refresh user stats to reflect XP/level changes
+          await loadUserStats();
+
+          // Refresh all data to ensure consistency
+          await loadAllData(true);
         }
       } catch (error) {
-        console.error("Error updating water intake:", error);
+        console.error("💥 Error updating water intake:", error);
+        // Revert on error
         loadWaterIntake();
+      } finally {
+        setWaterLoading(false);
       }
     },
-    [user?.user_id, loadWaterIntake]
+    [user?.user_id, loadWaterIntake, loadUserStats, loadAllData]
   );
 
   const incrementWater = useCallback(() => {
@@ -670,7 +687,13 @@ const HomeScreen = React.memo(() => {
                   {t("home.remaining") || "remaining"}
                 </Text>
                 <Text style={styles.waterXP}>
-                  {waterCups >= 8 ? "+50 XP" : ""}
+                  {waterCups >= 8
+                    ? "🎉 +50 XP"
+                    : waterCups >= 4
+                    ? "⭐ +25 XP"
+                    : waterCups > 0
+                    ? "💧 +10 XP"
+                    : ""}
                 </Text>
               </View>
             </LinearGradient>

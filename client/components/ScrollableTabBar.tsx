@@ -25,7 +25,10 @@ import {
   BarChart3,
 } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  useSafeAreaInsets,
+  SafeAreaView,
+} from "react-native-safe-area-context";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 const MAX_ICONS_VISIBLE = 5;
@@ -54,7 +57,7 @@ const tabConfig = [
   { name: "index", title: "בית", icon: Home },
   { name: "history", title: "היסטוריה", icon: ClipboardList },
   { name: "camera", title: "מצלמה", icon: Camera, isSpecial: true },
-  { name: "ai-chat", title: "צ'אט AI", icon: User },
+  { name: "ai-chat", title: "צ'אט AI", icon: Bot },
   { name: "statistics", title: "התקדמות", icon: BarChart3 },
   { name: "calendar", title: "יעדים", icon: TrendingUp },
   { name: "devices", title: "מכשירים", icon: Watch },
@@ -89,6 +92,10 @@ export function ScrollableTabBar({
   // Track scroll position
   const scrollX = useRef(new Animated.Value(0)).current;
   const currentScrollX = useRef(0);
+
+  // Calculate proper tab bar height with safe area
+  const baseTabHeight = 60; // Base height for tab content
+  const totalTabBarHeight = baseTabHeight + Math.max(insets.bottom, 10); // Ensure minimum bottom padding
 
   // Memoize calculations with enhanced scrolling logic
   const tabCalculations = useMemo(() => {
@@ -229,8 +236,6 @@ export function ScrollableTabBar({
     animateToTab(tabCalculations);
   }, [tabCalculations, animateToTab]);
 
-  const tabContainerHeight = Platform.OS === "ios" ? 90 : 70;
-
   // Enhanced scroll event handler with bounds checking
   const handleScroll = useCallback(
     (event: any) => {
@@ -367,186 +372,187 @@ export function ScrollableTabBar({
   };
 
   return (
-    <View style={styles.wrapper}>
-      <View
-        style={[
-          styles.container,
-          {
-            height: tabContainerHeight,
-            paddingBottom: insets.bottom,
-          },
-        ]}
-      >
-        {/* Active tab indicator - positioned relative to scroll content with bounds checking */}
-        <Animated.View
+    <SafeAreaView edges={["bottom"]} style={styles.safeAreaWrapper}>
+      <View style={styles.wrapper}>
+        <View
           style={[
-            styles.indicator,
+            styles.container,
             {
-              width: tabCalculations.tabItemWidth * 0.8,
-              transform: [
-                {
-                  translateX: tabCalculations.shouldScroll
-                    ? Animated.add(
-                        indicatorTranslateX,
-                        Animated.multiply(scrollX, -1)
-                      )
-                    : indicatorTranslateX,
-                },
-              ],
+              height: baseTabHeight, // Use base height, SafeAreaView handles bottom
             },
           ]}
-        />
-
-        <ScrollView
-          ref={scrollViewRef}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={[
-            styles.scrollViewContent,
-            {
-              width: tabCalculations.totalContentWidth,
-              minWidth: SCREEN_WIDTH, // Ensure minimum width
-            },
-            !tabCalculations.shouldScroll && {
-              flexGrow: 1,
-              justifyContent: "space-around", // Distribute tabs evenly when not scrolling
-            },
-          ]}
-          decelerationRate="fast"
-          bounces={true}
-          bouncesZoom={false}
-          alwaysBounceHorizontal={tabCalculations.shouldScroll}
-          onScroll={handleScroll}
-          onMomentumScrollEnd={handleScrollEnd}
-          onScrollEndDrag={handleScrollEnd}
-          scrollEventThrottle={16}
-          style={styles.scrollView}
         >
-          {state.routes.map((route: any, index: number) => {
-            const { options } = descriptors[route.key];
-            const tabInfo = tabConfig.find((tab) => tab.name === route.name);
-
-            const label =
-              options.tabBarLabel !== undefined
-                ? options.tabBarLabel
-                : options.title !== undefined
-                ? options.title
-                : tabInfo?.title || route.name;
-
-            const isFocused = state.index === index;
-            const isDisabled = options.tabBarButton === null;
-            const IconComponent =
-              tabInfo?.icon ||
-              iconMap[route.name as keyof typeof iconMap] ||
-              Home;
-
-            const onPress = () => {
-              if (isDisabled) return;
-
-              const event = navigation.emit({
-                type: "tabPress",
-                target: route.key,
-                canPreventDefault: true,
-              });
-
-              if (!isFocused && !event.defaultPrevented) {
-                navigation.navigate(route.name);
-              }
-            };
-
-            const onLongPress = () => {
-              if (isDisabled) return;
-              navigation.emit({
-                type: "tabLongPress",
-                target: route.key,
-              });
-            };
-
-            // Skip rendering camera tab here since it's rendered as floating button
-            if (tabInfo?.isSpecial) {
-              return (
-                <View
-                  key={route.key}
-                  style={[
-                    styles.tabButton,
-                    styles.cameraPlaceholder,
-                    {
-                      width: tabCalculations.tabItemWidth,
-                    },
-                  ]}
-                />
-              );
-            }
-
-            return (
-              <TouchableOpacity
-                key={route.key}
-                accessibilityRole="tab"
-                accessibilityState={{
-                  selected: isFocused,
-                  disabled: isDisabled,
-                }}
-                onPress={onPress}
-                onLongPress={onLongPress}
-                style={[
-                  styles.tabButton,
+          {/* Active tab indicator - positioned relative to scroll content with bounds checking */}
+          <Animated.View
+            style={[
+              styles.indicator,
+              {
+                width: tabCalculations.tabItemWidth * 0.8,
+                transform: [
                   {
-                    width: tabCalculations.tabItemWidth,
-                    opacity: isDisabled ? 0.4 : 1,
+                    translateX: tabCalculations.shouldScroll
+                      ? Animated.add(
+                          indicatorTranslateX,
+                          Animated.multiply(scrollX, -1)
+                        )
+                      : indicatorTranslateX,
                   },
-                ]}
-                activeOpacity={0.7}
-                disabled={isDisabled}
-              >
-                <Animated.View
-                  style={[
-                    styles.iconContainer,
-                    {
-                      transform: [
-                        { scale: iconScales[index] },
-                        { translateY: iconTranslateY[index] },
-                      ],
-                    },
-                  ]}
-                >
-                  <IconComponent
-                    color={isFocused ? "#16A085" : "#7F8C8D"}
-                    size={TAB_ICON_SIZE}
-                    strokeWidth={isFocused ? 2.2 : 1.8}
-                  />
-                </Animated.View>
+                ],
+              },
+            ]}
+          />
 
-                <Animated.View
-                  style={[
-                    styles.labelContainer,
-                    {
-                      opacity: isFocused ? 1 : 0.7,
-                    },
-                  ]}
-                >
-                  <Text
+          <ScrollView
+            ref={scrollViewRef}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={[
+              styles.scrollViewContent,
+              {
+                width: tabCalculations.totalContentWidth,
+                minWidth: SCREEN_WIDTH, // Ensure minimum width
+              },
+              !tabCalculations.shouldScroll && {
+                flexGrow: 1,
+                justifyContent: "space-around", // Distribute tabs evenly when not scrolling
+              },
+            ]}
+            decelerationRate="fast"
+            bounces={true}
+            bouncesZoom={false}
+            alwaysBounceHorizontal={tabCalculations.shouldScroll}
+            onScroll={handleScroll}
+            onMomentumScrollEnd={handleScrollEnd}
+            onScrollEndDrag={handleScrollEnd}
+            scrollEventThrottle={16}
+            style={styles.scrollView}
+          >
+            {state.routes.map((route: any, index: number) => {
+              const { options } = descriptors[route.key];
+              const tabInfo = tabConfig.find((tab) => tab.name === route.name);
+
+              const label =
+                options.tabBarLabel !== undefined
+                  ? options.tabBarLabel
+                  : options.title !== undefined
+                  ? options.title
+                  : tabInfo?.title || route.name;
+
+              const isFocused = state.index === index;
+              const isDisabled = options.tabBarButton === null;
+              const IconComponent =
+                tabInfo?.icon ||
+                iconMap[route.name as keyof typeof iconMap] ||
+                Home;
+
+              const onPress = () => {
+                if (isDisabled) return;
+
+                const event = navigation.emit({
+                  type: "tabPress",
+                  target: route.key,
+                  canPreventDefault: true,
+                });
+
+                if (!isFocused && !event.defaultPrevented) {
+                  navigation.navigate(route.name);
+                }
+              };
+
+              const onLongPress = () => {
+                if (isDisabled) return;
+                navigation.emit({
+                  type: "tabLongPress",
+                  target: route.key,
+                });
+              };
+
+              // Skip rendering camera tab here since it's rendered as floating button
+              if (tabInfo?.isSpecial) {
+                return (
+                  <View
+                    key={route.key}
                     style={[
-                      styles.label,
+                      styles.tabButton,
+                      styles.cameraPlaceholder,
                       {
-                        color: isFocused ? "#16A085" : "#7F8C8D",
-                        fontWeight: isFocused ? "700" : "500",
+                        width: tabCalculations.tabItemWidth,
                       },
                     ]}
-                    numberOfLines={1}
-                    allowFontScaling={false}
-                  >
-                    {label}
-                  </Text>
-                </Animated.View>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
+                  />
+                );
+              }
 
-        {/* Floating Camera Button */}
-        {renderFloatingCameraButton()}
+              return (
+                <TouchableOpacity
+                  key={route.key}
+                  accessibilityRole="tab"
+                  accessibilityState={{
+                    selected: isFocused,
+                    disabled: isDisabled,
+                  }}
+                  onPress={onPress}
+                  onLongPress={onLongPress}
+                  style={[
+                    styles.tabButton,
+                    {
+                      width: tabCalculations.tabItemWidth,
+                      opacity: isDisabled ? 0.4 : 1,
+                    },
+                  ]}
+                  activeOpacity={0.7}
+                  disabled={isDisabled}
+                >
+                  <Animated.View
+                    style={[
+                      styles.iconContainer,
+                      {
+                        transform: [
+                          { scale: iconScales[index] },
+                          { translateY: iconTranslateY[index] },
+                        ],
+                      },
+                    ]}
+                  >
+                    <IconComponent
+                      color={isFocused ? "#16A085" : "#7F8C8D"}
+                      size={TAB_ICON_SIZE}
+                      strokeWidth={isFocused ? 2.2 : 1.8}
+                    />
+                  </Animated.View>
+
+                  <Animated.View
+                    style={[
+                      styles.labelContainer,
+                      {
+                        opacity: isFocused ? 1 : 0.7,
+                      },
+                    ]}
+                  >
+                    <Text
+                      style={[
+                        styles.label,
+                        {
+                          color: isFocused ? "#16A085" : "#7F8C8D",
+                          fontWeight: isFocused ? "700" : "500",
+                        },
+                      ]}
+                      numberOfLines={1}
+                      allowFontScaling={false}
+                    >
+                      {label}
+                    </Text>
+                  </Animated.View>
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+
+          {/* Floating Camera Button */}
+          {renderFloatingCameraButton()}
+        </View>
       </View>
-    </View>
+    </SafeAreaView>
   );
 }
 
@@ -572,6 +578,9 @@ export default function TabLayout() {
 }
 
 const styles = StyleSheet.create({
+  safeAreaWrapper: {
+    backgroundColor: "#ffffff",
+  },
   wrapper: {
     backgroundColor: "transparent",
     position: "relative",
@@ -612,7 +621,7 @@ const styles = StyleSheet.create({
     flexDirection: "column",
     justifyContent: "center",
     alignItems: "center",
-    paddingVertical: 12,
+    paddingVertical: 8,
     paddingHorizontal: 8,
     zIndex: 2,
   },
@@ -621,16 +630,16 @@ const styles = StyleSheet.create({
     opacity: 0,
   },
   iconContainer: {
-    marginBottom: 6,
+    marginBottom: 4,
     justifyContent: "center",
     alignItems: "center",
-    height: 32,
-    width: 32,
+    height: 28,
+    width: 28,
   },
   labelContainer: {
     justifyContent: "center",
     alignItems: "center",
-    minHeight: 16,
+    minHeight: 14,
   },
   label: {
     fontSize: TAB_LABEL_FONT_SIZE,
