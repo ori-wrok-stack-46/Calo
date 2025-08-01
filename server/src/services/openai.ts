@@ -121,62 +121,148 @@ export class OpenAIService {
     updateText?: string,
     editedIngredients?: any[]
   ): Promise<MealAnalysisResult> {
+    console.log("🤖 Starting meal image analysis...");
+    console.log("🥗 Edited ingredients count:", editedIngredients?.length || 0);
+
+    // Validate and clean the image data
+    let cleanBase64: string;
     try {
-      console.log("🤖 Starting meal image analysis...");
-      console.log(
-        "🥗 Edited ingredients count:",
-        editedIngredients?.length || 0
-      );
+      cleanBase64 = validateAndCleanBase64(imageBase64);
+    } catch (validationError: any) {
+      console.log("⚠️ Image validation failed:", validationError.message);
+      throw new Error(`Invalid image data: ${validationError.message}`);
+    }
 
-      // Validate and clean the image data
-      let cleanBase64: string;
-      try {
-        cleanBase64 = validateAndCleanBase64(imageBase64);
-      } catch (validationError: any) {
-        console.log("⚠️ Image validation failed:", validationError.message);
-        console.log("🔄 Using intelligent fallback analysis...");
-        return this.getIntelligentFallbackAnalysis(
-          language,
-          updateText,
-          editedIngredients
-        );
-      }
+    // Check if OpenAI API key is available
+    if (!process.env.OPENAI_API_KEY || !this.openai) {
+      throw new Error("OpenAI API key not configured. Please contact support.");
+    }
 
-      // Try OpenAI analysis if available
-      if (process.env.OPENAI_API_KEY && this.openai) {
-        try {
-          console.log("🚀 Attempting OpenAI analysis...");
-          return await this.callOpenAIForAnalysis(
-            cleanBase64,
-            language,
-            updateText,
-            editedIngredients
-          );
-        } catch (openaiError: any) {
-          console.log("⚠️ OpenAI failed:", openaiError.message);
-          // Always use fallback on OpenAI failure
-          return this.getIntelligentFallbackAnalysis(
-            language,
-            updateText,
-            editedIngredients
-          );
-        }
-      } else {
-        console.log("⚠️ No OpenAI API key, using intelligent fallback");
-        return this.getIntelligentFallbackAnalysis(
-          language,
-          updateText,
-          editedIngredients
-        );
-      }
-    } catch (error: any) {
-      console.log("💥 Main analysis failed:", error.message);
-      // Always return fallback - NEVER throw error
-      return this.getIntelligentFallbackAnalysis(
+    try {
+      console.log("🚀 Attempting OpenAI analysis...");
+      return await this.callOpenAIForAnalysis(
+        cleanBase64,
         language,
         updateText,
         editedIngredients
       );
+    } catch (openaiError: any) {
+      console.log("⚠️ OpenAI analysis failed:", openaiError.message);
+
+      // If it's a quota/billing issue, throw specific error
+      if (
+        openaiError.message.includes("quota") ||
+        openaiError.message.includes("billing")
+      ) {
+        throw new Error("AI analysis quota exceeded. Please try again later.");
+      }
+
+      // If it's a network/API issue, throw specific error
+      if (
+        openaiError.message.includes("network") ||
+        openaiError.message.includes("timeout")
+      ) {
+        throw new Error(
+          "AI service temporarily unavailable. Please try again."
+        );
+      }
+
+      // For other errors, throw generic error
+      throw new Error(`AI analysis failed: ${openaiError.message}`);
+    }
+  }
+
+  private static extractPartialJSON(content: string): any | null {
+    try {
+      // Extract visible values from the partial response
+      const extractValue = (key: string, defaultValue: any = 0) => {
+        const patterns = [
+          new RegExp(`"${key}"\\s*:\\s*([^,}\\n]+)`, "i"),
+          new RegExp(`${key}[:"'\\s]*([^,}\\n]+)`, "i"),
+        ];
+
+        for (const pattern of patterns) {
+          const match = content.match(pattern);
+          if (match) {
+            let value = match[1].trim().replace(/[",]/g, "");
+            if (
+              key.includes("_g") ||
+              key === "calories" ||
+              key.includes("_mg")
+            ) {
+              const num = parseFloat(value);
+              return isNaN(num) ? defaultValue : num;
+            }
+            return value || defaultValue;
+          }
+        }
+        return defaultValue;
+      };
+
+      // Build a basic meal analysis from partial content
+      return {
+        meal_name: extractValue("meal_name", "Analyzed Meal"),
+        calories: extractValue("calories", 250),
+        protein_g: extractValue("protein_g", 15),
+        carbs_g: extractValue("carbs_g", 30),
+        fats_g: extractValue("fats_g", 10),
+        fiber_g: extractValue("fiber_g", 5),
+        sugar_g: extractValue("sugar_g", 8),
+        sodium_mg: extractValue("sodium_mg", 400),
+        saturated_fats_g: 3,
+        polyunsaturated_fats_g: 2,
+        monounsaturated_fats_g: 4,
+        omega_3_g: 0.5,
+        omega_6_g: 1.5,
+        soluble_fiber_g: 2,
+        insoluble_fiber_g: 3,
+        cholesterol_mg: 20,
+        alcohol_g: 0,
+        caffeine_mg: 0,
+        liquids_ml: 0,
+        serving_size_g: 200,
+        allergens_json: { possible_allergens: [] },
+        vitamins_json: {
+          vitamin_a_mcg: 100,
+          vitamin_c_mg: 10,
+          vitamin_d_mcg: 1,
+          vitamin_e_mg: 2,
+          vitamin_k_mcg: 20,
+          vitamin_b12_mcg: 0.5,
+          folate_mcg: 40,
+          niacin_mg: 3,
+          thiamin_mg: 0.2,
+          riboflavin_mg: 0.3,
+          pantothenic_acid_mg: 0.8,
+          vitamin_b6_mg: 0.4,
+        },
+        micronutrients_json: {
+          iron_mg: 2,
+          magnesium_mg: 50,
+          zinc_mg: 1.5,
+          calcium_mg: 80,
+          potassium_mg: 200,
+          phosphorus_mg: 100,
+          selenium_mcg: 10,
+          copper_mg: 0.2,
+          manganese_mg: 0.5,
+        },
+        glycemic_index: 55,
+        insulin_index: 45,
+        food_category: "Mixed",
+        processing_level: "Minimally processed",
+        cooking_method: "Mixed",
+        additives_json: { observed_additives: [] },
+        health_risk_notes: "Generally healthy meal",
+        confidence: 0.7,
+        ingredients: ["Mixed ingredients"],
+        servingSize: "1 serving",
+        cookingMethod: "Mixed preparation",
+        healthNotes: "Nutritious meal",
+      };
+    } catch (error) {
+      console.log("💥 Partial JSON extraction failed:", error.message);
+      return null;
     }
   }
 
@@ -331,34 +417,105 @@ Language: ${language}`;
 
     console.log("🤖 OpenAI response received successfully!");
 
-    const cleanJSON = extractCleanJSON(content);
-    const parsed = JSON.parse(cleanJSON);
+    // Check if response is JSON or text
+    let parsed;
+    try {
+      const cleanJSON = extractCleanJSON(content);
+      parsed = JSON.parse(cleanJSON);
+      console.log("✅ Successfully parsed JSON response");
+    } catch (parseError) {
+      console.log("⚠️ JSON parsing failed:", parseError.message);
+      console.log("📄 Content sample:", content.substring(0, 200) + "...");
 
-    // If edited ingredients were provided, merge them with AI analysis
-    let finalIngredients = parsed.ingredients || [];
+      // Try to extract partial JSON and fill missing fields
+      if (
+        content.includes("meal_name") ||
+        content.includes("calories") ||
+        content.includes("{")
+      ) {
+        console.log("🔧 Attempting to parse partial JSON...");
+        try {
+          const partialJson = this.extractPartialJSON(content);
+          if (partialJson) {
+            parsed = partialJson;
+            console.log("✅ Successfully recovered partial JSON");
+          } else {
+            throw new Error("Could not recover JSON from partial response");
+          }
+        } catch (recoveryError) {
+          console.log("💥 Recovery failed:", recoveryError.message);
+
+          // If OpenAI is clearly unable to analyze the image
+          if (
+            content.toLowerCase().includes("sorry") ||
+            content.toLowerCase().includes("cannot") ||
+            content.toLowerCase().includes("unable") ||
+            content.toLowerCase().includes("can't")
+          ) {
+            throw new Error(
+              `The AI couldn't analyze this image. Please try a clearer photo with better lighting and make sure the food is clearly visible.`
+            );
+          }
+
+          // For other parsing errors, provide intelligent fallback
+          throw new Error(
+            `AI service returned an incomplete response. Please try again.`
+          );
+        }
+      } else {
+        // If OpenAI is clearly unable to analyze the image
+        if (
+          content.toLowerCase().includes("sorry") ||
+          content.toLowerCase().includes("cannot") ||
+          content.toLowerCase().includes("unable") ||
+          content.toLowerCase().includes("can't")
+        ) {
+          throw new Error(
+            `The AI couldn't analyze this image. Please try a clearer photo with better lighting and make sure the food is clearly visible.`
+          );
+        }
+
+        // For completely invalid responses
+        throw new Error(
+          `AI service returned an invalid response format. Please try again.`
+        );
+      }
+    }
+
+    // If edited ingredients were provided, properly recalculate the entire meal
     if (editedIngredients && editedIngredients.length > 0) {
-      console.log("🔄 Merging edited ingredients with AI analysis");
-      finalIngredients = editedIngredients.map((editedIng: any) => ({
-        name: editedIng.name,
-        calories: editedIng.calories || 0,
-        protein_g: editedIng.protein || 0,
-        carbs_g: editedIng.carbs || 0,
-        fats_g: editedIng.fat || 0,
-        fiber_g: editedIng.fiber || 0,
-        sugar_g: editedIng.sugar || 0,
-        sodium_mg: editedIng.sodium_mg || 0,
-      }));
+      console.log("🥗 Recalculating meal with edited ingredients");
 
-      // Recalculate totals based on edited ingredients
-      const totals = finalIngredients.reduce(
-        (acc: any, ing: any) => ({
-          calories: acc.calories + (ing.calories || 0),
-          protein: acc.protein + (ing.protein_g || 0),
-          carbs: acc.carbs + (ing.carbs_g || 0),
-          fat: acc.fat + (ing.fats_g || 0),
-          fiber: acc.fiber + (ing.fiber_g || 0),
-          sugar: acc.sugar + (ing.sugar_g || 0),
-          sodium: acc.sodium + (ing.sodium_mg || 0),
+      // Calculate totals from all ingredients
+      const totals = editedIngredients.reduce(
+        (acc: any, ingredient: any) => ({
+          calories: acc.calories + (Number(ingredient.calories) || 0),
+          protein: acc.protein + (Number(ingredient.protein) || 0),
+          carbs: acc.carbs + (Number(ingredient.carbs) || 0),
+          fat: acc.fat + (Number(ingredient.fat) || 0),
+          fiber: acc.fiber + (Number(ingredient.fiber) || 0),
+          sugar: acc.sugar + (Number(ingredient.sugar) || 0),
+          sodium: acc.sodium + (Number(ingredient.sodium_mg) || 0),
+          saturated_fats_g:
+            acc.saturated_fats_g + (Number(ingredient.saturated_fats_g) || 0),
+          polyunsaturated_fats_g:
+            acc.polyunsaturated_fats_g +
+            (Number(ingredient.polyunsaturated_fats_g) || 0),
+          monounsaturated_fats_g:
+            acc.monounsaturated_fats_g +
+            (Number(ingredient.monounsaturated_fats_g) || 0),
+          omega_3_g: acc.omega_3_g + (Number(ingredient.omega_3_g) || 0),
+          omega_6_g: acc.omega_6_g + (Number(ingredient.omega_6_g) || 0),
+          soluble_fiber_g:
+            acc.soluble_fiber_g + (Number(ingredient.soluble_fiber_g) || 0),
+          insoluble_fiber_g:
+            acc.insoluble_fiber_g + (Number(ingredient.insoluble_fiber_g) || 0),
+          cholesterol_mg:
+            acc.cholesterol_mg + (Number(ingredient.cholesterol_mg) || 0),
+          alcohol_g: acc.alcohol_g + (Number(ingredient.alcohol_g) || 0),
+          caffeine_mg: acc.caffeine_mg + (Number(ingredient.caffeine_mg) || 0),
+          serving_size_g:
+            acc.serving_size_g + (Number(ingredient.serving_size_g) || 0),
         }),
         {
           calories: 0,
@@ -368,17 +525,113 @@ Language: ${language}`;
           fiber: 0,
           sugar: 0,
           sodium: 0,
+          saturated_fats_g: 0,
+          polyunsaturated_fats_g: 0,
+          monounsaturated_fats_g: 0,
+          omega_3_g: 0,
+          omega_6_g: 0,
+          soluble_fiber_g: 0,
+          insoluble_fiber_g: 0,
+          cholesterol_mg: 0,
+          alcohol_g: 0,
+          caffeine_mg: 0,
+          serving_size_g: 0,
         }
       );
 
-      // Update parsed values with recalculated totals
-      parsed.calories = totals.calories;
-      parsed.protein_g = totals.protein;
-      parsed.carbs_g = totals.carbs;
-      parsed.fats_g = totals.fat;
-      parsed.fiber_g = totals.fiber;
-      parsed.sugar_g = totals.sugar;
-      parsed.sodium_mg = totals.sodium;
+      // Generate meaningful meal name based on ingredients
+      const ingredientNames = editedIngredients
+        .map((ing: any) => ing.name)
+        .filter(Boolean);
+      const mealName =
+        ingredientNames.length > 0
+          ? language === "hebrew"
+            ? `ארוחה עם ${ingredientNames.slice(0, 2).join(" ו")}`
+            : `Meal with ${ingredientNames.slice(0, 2).join(" and ")}`
+          : language === "hebrew"
+          ? "ארוחה מותאמת"
+          : "Custom Meal";
+
+      // Generate health notes based on nutritional content
+      let healthNotes = "";
+      if (language === "hebrew") {
+        if (totals.protein > 25) healthNotes += "עשיר בחלבון. ";
+        if (totals.fiber > 10) healthNotes += "עשיר בסיבים תזונתיים. ";
+        if (totals.sodium > 800) healthNotes += "רמת נתרן גבוהה. ";
+        if (!healthNotes) healthNotes = "ארוחה מאוזנת מבוססת רכיבים מותאמים.";
+      } else {
+        if (totals.protein > 25) healthNotes += "High in protein. ";
+        if (totals.fiber > 10) healthNotes += "Good source of fiber. ";
+        if (totals.sodium > 800) healthNotes += "High sodium content. ";
+        if (!healthNotes)
+          healthNotes = "Balanced meal based on custom ingredients.";
+      }
+
+      return {
+        name: mealName,
+        description:
+          language === "hebrew"
+            ? "ארוחה מחושבת מחדש עם רכיבים מותאמים"
+            : "Recalculated meal with custom ingredients",
+        calories: Math.round(totals.calories),
+        protein: Math.round(totals.protein * 10) / 10,
+        carbs: Math.round(totals.carbs * 10) / 10,
+        fat: Math.round(totals.fat * 10) / 10,
+        fiber: Math.round(totals.fiber * 10) / 10,
+        sugar: Math.round(totals.sugar * 10) / 10,
+        sodium: Math.round(totals.sodium),
+        saturated_fats_g: Math.round(totals.saturated_fats_g * 10) / 10,
+        polyunsaturated_fats_g:
+          Math.round(totals.polyunsaturated_fats_g * 10) / 10,
+        monounsaturated_fats_g:
+          Math.round(totals.monounsaturated_fats_g * 10) / 10,
+        omega_3_g: Math.round(totals.omega_3_g * 10) / 10,
+        omega_6_g: Math.round(totals.omega_6_g * 10) / 10,
+        soluble_fiber_g: Math.round(totals.soluble_fiber_g * 10) / 10,
+        insoluble_fiber_g: Math.round(totals.insoluble_fiber_g * 10) / 10,
+        cholesterol_mg: Math.round(totals.cholesterol_mg),
+        alcohol_g: Math.round(totals.alcohol_g * 10) / 10,
+        caffeine_mg: Math.round(totals.caffeine_mg),
+        serving_size_g: Math.round(totals.serving_size_g),
+        confidence: 95, // High confidence for user-edited ingredients
+        ingredients: editedIngredients.map((ing: any) => ({
+          name: ing.name || "Unknown ingredient",
+          calories: Number(ing.calories) || 0,
+          protein_g: Number(ing.protein) || 0,
+          carbs_g: Number(ing.carbs) || 0,
+          fats_g: Number(ing.fat) || 0,
+          fiber_g: Number(ing.fiber) || 0,
+          sugar_g: Number(ing.sugar) || 0,
+          sodium_mg: Number(ing.sodium_mg) || 0,
+          saturated_fats_g: Number(ing.saturated_fats_g) || 0,
+          polyunsaturated_fats_g: Number(ing.polyunsaturated_fats_g) || 0,
+          monounsaturated_fats_g: Number(ing.monounsaturated_fats_g) || 0,
+          omega_3_g: Number(ing.omega_3_g) || 0,
+          omega_6_g: Number(ing.omega_6_g) || 0,
+          soluble_fiber_g: Number(ing.soluble_fiber_g) || 0,
+          insoluble_fiber_g: Number(ing.insoluble_fiber_g) || 0,
+          cholesterol_mg: Number(ing.cholesterol_mg) || 0,
+          alcohol_g: Number(ing.alcohol_g) || 0,
+          caffeine_mg: Number(ing.caffeine_mg) || 0,
+          serving_size_g: Number(ing.serving_size_g) || 0,
+          glycemic_index: ing.glycemic_index || null,
+          insulin_index: ing.insulin_index || null,
+          vitamins_json: ing.vitamins_json || {},
+          micronutrients_json: ing.micronutrients_json || {},
+          allergens_json: ing.allergens_json || {},
+        })),
+        servingSize:
+          totals.serving_size_g > 0 ? `${totals.serving_size_g}g` : "1 serving",
+        cookingMethod: "Custom preparation",
+        healthNotes: healthNotes,
+        vitamins_json: this.aggregateVitamins(editedIngredients),
+        micronutrients_json: this.aggregateMicronutrients(editedIngredients),
+        allergens_json: this.aggregateAllergens(editedIngredients),
+        glycemic_index: this.calculateAverageGI(editedIngredients),
+        insulin_index: this.calculateAverageII(editedIngredients),
+        food_category: "Mixed ingredients",
+        processing_level: "Varies by ingredient",
+      };
     }
     const analysisResult: MealAnalysisResult = {
       name: parsed.meal_name || "AI Analyzed Meal",
@@ -446,8 +699,13 @@ Language: ${language}`;
         100,
         Math.max(0, Number(parsed.confidence) * 100 || 85)
       ),
-      ingredients: Array.isArray(finalIngredients)
-        ? finalIngredients.map((ing: any) => {
+      ingredients: (() => {
+        // Use parsed ingredients, ingredients_list, or parsed.ingredients as fallback
+        const sourceIngredients =
+          parsed.ingredients || parsed.ingredients_list || [];
+
+        if (Array.isArray(sourceIngredients)) {
+          return sourceIngredients.map((ing: any) => {
             if (typeof ing === "string") {
               return {
                 name: ing,
@@ -482,18 +740,20 @@ Language: ${language}`;
                 ? Math.max(0, Number(ing.sodium_mg))
                 : undefined,
             };
-          })
-        : typeof finalIngredients === "string"
-        ? [
+          });
+        } else if (typeof sourceIngredients === "string") {
+          return [
             {
-              name: finalIngredients,
+              name: sourceIngredients,
               calories: 0,
               protein_g: 0,
               carbs_g: 0,
               fats_g: 0,
             },
-          ]
-        : [],
+          ];
+        }
+        return [];
+      })(),
       servingSize: parsed.servingSize || "1 serving",
       cookingMethod: parsed.cookingMethod || "Unknown",
       healthNotes: parsed.healthNotes || "",
@@ -1476,5 +1736,68 @@ Please provide breakfast, lunch, and dinner with detailed ingredients and nutrit
     }
 
     return content;
+  }
+
+  private static aggregateVitamins(ingredients: any[]): any {
+    return ingredients.reduce((acc, ing) => {
+      if (ing.vitamins_json) {
+        for (const vitamin in ing.vitamins_json) {
+          if (acc[vitamin] === undefined) {
+            acc[vitamin] = 0;
+          }
+          acc[vitamin] += Number(ing.vitamins_json[vitamin]) || 0;
+        }
+      }
+      return acc;
+    }, {});
+  }
+
+  private static aggregateMicronutrients(ingredients: any[]): any {
+    return ingredients.reduce((acc, ing) => {
+      if (ing.micronutrients_json) {
+        for (const micronutrient in ing.micronutrients_json) {
+          if (acc[micronutrient] === undefined) {
+            acc[micronutrient] = 0;
+          }
+          acc[micronutrient] +=
+            Number(ing.micronutrients_json[micronutrient]) || 0;
+        }
+      }
+      return acc;
+    }, {});
+  }
+
+  private static aggregateAllergens(ingredients: any[]): any {
+    return ingredients.reduce(
+      (acc, ing) => {
+        if (ing.allergens_json && ing.allergens_json.possible_allergens) {
+          ing.allergens_json.possible_allergens.forEach((allergen) => {
+            if (!acc.possible_allergens.includes(allergen)) {
+              acc.possible_allergens.push(allergen);
+            }
+          });
+        }
+        return acc;
+      },
+      { possible_allergens: [] }
+    );
+  }
+
+  private static calculateAverageGI(ingredients: any[]): number | null {
+    const validGIs = ingredients
+      .map((ing) => ing.glycemic_index)
+      .filter((gi) => typeof gi === "number");
+    if (validGIs.length === 0) return null;
+    const totalGI = validGIs.reduce((sum, gi) => sum + gi, 0);
+    return totalGI / validGIs.length;
+  }
+
+  private static calculateAverageII(ingredients: any[]): number | null {
+    const validIIs = ingredients
+      .map((ing) => ing.insulin_index)
+      .filter((ii) => typeof ii === "number");
+    if (validIIs.length === 0) return null;
+    const totalII = validIIs.reduce((sum, ii) => sum + ii, 0);
+    return totalII / validIIs.length;
   }
 }

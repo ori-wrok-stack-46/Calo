@@ -62,7 +62,7 @@ export class NutritionService {
       data.editedIngredients?.length || 0
     );
 
-    // Attempt real AI analysis first, fallback only on failure
+    // Perform real AI analysis - no fallbacks
     const analysis = await OpenAIService.analyzeMealImage(
       cleanBase64,
       language,
@@ -85,66 +85,54 @@ export class NutritionService {
     });
 
     // Enhanced ingredient mapping with better error handling
-    const items = (analysis.ingredients || []).map((ingredient, index) => {
-      // Handle both string and object ingredients
-      const ingredientData =
-        typeof ingredient === "string"
-          ? { name: ingredient, calories: 0, protein: 0, carbs: 0, fat: 0 }
-          : ingredient;
+    const ingredients = (analysis.ingredients || []).map(
+      (ingredient, index) => {
+        // Handle both string and object ingredients
+        const ingredientData =
+          typeof ingredient === "string"
+            ? {
+                name: ingredient,
+                calories: 0,
+                protein_g: 0,
+                carbs_g: 0,
+                fats_g: 0,
+              }
+            : ingredient;
 
-      return {
-        id: index,
-        name: ingredientData.name || `Item ${index + 1}`,
-        calories: (ingredientData.calories || 0).toString(),
-        protein: (
-          ingredientData.protein_g ||
-          ingredientData.protein ||
-          0
-        ).toString(),
-        protein_g: Number(
-          ingredientData.protein_g || ingredientData.protein || 0
-        ),
-        carbs: (ingredientData.carbs_g || ingredientData.carbs || 0).toString(),
-        carbs_g: Number(ingredientData.carbs_g || ingredientData.carbs || 0),
-        fat: (ingredientData.fats_g || ingredientData.fat || 0).toString(),
-        fats_g: Number(ingredientData.fats_g || ingredientData.fat || 0),
-        fiber: Number(ingredientData.fiber_g ?? 0),
-        fiber_g: Number(ingredientData.fiber_g ?? 0),
-        sugar: Number(ingredientData.sugar_g ?? 0),
-        sugar_g: Number(ingredientData.sugar_g ?? 0),
-        sodium_mg: Number(ingredientData.sodium_mg ?? 0),
-        cholesterol_mg: Number(ingredientData.cholesterol_mg ?? 0),
-
-        // Detailed fats
-        saturated_fats_g: Number(ingredientData.saturated_fats_g ?? 0),
-        polyunsaturated_fats_g: Number(
-          ingredientData.polyunsaturated_fats_g ?? 0
-        ),
-        monounsaturated_fats_g: Number(
-          ingredientData.monounsaturated_fats_g ?? 0
-        ),
-        omega_3_g: Number(ingredientData.omega_3_g ?? 0),
-        omega_6_g: Number(ingredientData.omega_6_g ?? 0),
-
-        // Detailed fiber
-        soluble_fiber_g: Number(ingredientData.soluble_fiber_g ?? 0),
-        insoluble_fiber_g: Number(ingredientData.insoluble_fiber_g ?? 0),
-
-        // Additional nutrients
-        alcohol_g: Number(ingredientData.alcohol_g ?? 0),
-        caffeine_mg: Number(ingredientData.caffeine_mg ?? 0),
-        serving_size_g: Number(ingredientData.serving_size_g ?? 0),
-
-        // Analysis data
-        glycemic_index: ingredientData.glycemic_index ?? null,
-        insulin_index: ingredientData.insulin_index ?? null,
-
-        // JSON fields
-        vitamins_json: ingredientData.vitamins_json ?? {},
-        micronutrients_json: ingredientData.micronutrients_json ?? {},
-        allergens_json: ingredientData.allergens_json ?? {},
-      };
-    });
+        return {
+          name: ingredientData.name || `Item ${index + 1}`,
+          calories: Number(ingredientData.calories || 0),
+          protein: Number(
+            ingredientData.protein_g || ingredientData.protein || 0
+          ),
+          carbs: Number(ingredientData.carbs_g || ingredientData.carbs || 0),
+          fat: Number(ingredientData.fats_g || ingredientData.fat || 0),
+          fiber: Number(ingredientData.fiber_g || 0),
+          sugar: Number(ingredientData.sugar_g || 0),
+          sodium_mg: Number(ingredientData.sodium_mg || 0),
+          cholesterol_mg: Number(ingredientData.cholesterol_mg || 0),
+          saturated_fats_g: Number(ingredientData.saturated_fats_g || 0),
+          polyunsaturated_fats_g: Number(
+            ingredientData.polyunsaturated_fats_g || 0
+          ),
+          monounsaturated_fats_g: Number(
+            ingredientData.monounsaturated_fats_g || 0
+          ),
+          omega_3_g: Number(ingredientData.omega_3_g || 0),
+          omega_6_g: Number(ingredientData.omega_6_g || 0),
+          soluble_fiber_g: Number(ingredientData.soluble_fiber_g || 0),
+          insoluble_fiber_g: Number(ingredientData.insoluble_fiber_g || 0),
+          alcohol_g: Number(ingredientData.alcohol_g || 0),
+          caffeine_mg: Number(ingredientData.caffeine_mg || 0),
+          serving_size_g: Number(ingredientData.serving_size_g || 0),
+          glycemic_index: ingredientData.glycemic_index || null,
+          insulin_index: ingredientData.insulin_index || null,
+          vitamins_json: ingredientData.vitamins_json || {},
+          micronutrients_json: ingredientData.micronutrients_json || {},
+          allergens_json: ingredientData.allergens_json || {},
+        };
+      }
+    );
 
     const mappedMeal = mapMealDataToPrismaFields(
       analysis,
@@ -171,7 +159,7 @@ export class NutritionService {
       success: true,
       data: {
         ...mappedMeal,
-        items,
+        ingredients,
         healthScore: Math.max(analysis.confidence || 75, 60).toString(),
         recommendations:
           analysis.healthNotes ||

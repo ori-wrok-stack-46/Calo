@@ -855,7 +855,7 @@ export default function HistoryScreen() {
             </View>
 
             <Text style={styles.ratingMealName}>
-              {selectedMeal?.name || selectedMeal?.meal_name}
+              {selectedMeal?.name || selectedMeal?.name}
             </Text>
 
             <View style={styles.ratingCategories}>

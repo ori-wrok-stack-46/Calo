@@ -147,7 +147,7 @@ export class NotificationService {
   static async cancelNotificationsByType(type: string): Promise<void> {
     const notifications =
       await Notifications.getAllScheduledNotificationsAsync();
-    const toCancel = notifications
+    const toCancel = notifications 
       .filter(
         (n: { content: { data: { type: string } } }) =>
           n.content.data?.type === type

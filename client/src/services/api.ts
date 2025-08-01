@@ -1476,5 +1476,59 @@ export const mealAPI = {
   updateMeal: (mealId: number, updates: any) =>
     api.put(`/nutrition/meals/${mealId}`, updates),
 
-  deleteMeal: (mealId: number) => api.delete(`/nutrition/meals/${mealId}`),
+  deleteMeal: async (mealId: string) => {
+    try {
+      console.log("🗑️ Making delete meal API request...");
+      console.log("🗑️ Meal ID:", mealId);
+
+      const response = await api.delete(`/nutrition/meals/${mealId}`);
+
+      console.log("✅ Delete meal response:", response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error("💥 Delete meal API error:", error);
+      throw error;
+    }
+  },
+
+  getMealHistory: async (period: string = "week") => {
+    try {
+      console.log("📋 Making get meal history API request...");
+      console.log("📊 Period:", period);
+
+      const response = await api.get(`/nutrition/meals/history`, {
+        params: { period },
+      });
+
+      console.log("🎯 RAW MEAL HISTORY API RESPONSE:");
+      console.log("=====================================");
+      console.log("📋 Full Response:", JSON.stringify(response.data, null, 2));
+      console.log("=====================================");
+
+      if (response.data.success) {
+        const meals = response.data.data || [];
+        console.log("🔄 Transforming", meals.length, "meal history items...");
+
+        // Transform each meal to match our interface
+        const transformedMeals = meals.map((meal: any) =>
+          transformMealData(meal)
+        );
+
+        console.log("✅ Transformed meal history:", transformedMeals.length);
+        return { success: true, data: transformedMeals };
+      } else {
+        throw new Error(response.data.error || "Failed to fetch meal history");
+      }
+    } catch (error: any) {
+      console.error("💥 Get meal history API error:", error);
+
+      if (error.response?.data?.error) {
+        throw new Error(error.response.data.error);
+      } else if (error.message) {
+        throw new Error(error.message);
+      } else {
+        throw new Error("Failed to fetch meal history");
+      }
+    }
+  },
 };

@@ -28,7 +28,6 @@ export default function TabLayout() {
       "ai-chat",
       "food-scanner",
       "profile",
-      "questionnaire",
     ],
     []
   );
@@ -147,15 +146,7 @@ export default function TabLayout() {
             ),
           }}
         />
-        <Tabs.Screen
-          name="questionnaire"
-          options={{
-            title: t("tabs.questionnaire"),
-            tabBarIcon: ({ color }) => (
-              <IconSymbol size={28} name="doc.text.fill" color={color} />
-            ),
-          }}
-        />
+
         <Tabs.Screen
           name="food-scanner"
           options={{

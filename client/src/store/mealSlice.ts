@@ -260,7 +260,7 @@ export const analyzeMeal = createAsyncThunk(
         return pendingMeal;
       } else {
         const errorMessage =
-          response?.error || "Analysis failed - no data returned";
+          response?.error || "Analysis failed - no data returned from server";
         console.error("Analysis failed:", errorMessage);
         return rejectWithValue(errorMessage);
       }
@@ -274,12 +274,22 @@ export const analyzeMeal = createAsyncThunk(
         errorMessage = error;
       }
 
-      // Enhanced error handling
+      // Enhanced error handling with specific AI service messages
       if (
         errorMessage.includes("Network Error") ||
         errorMessage.includes("ERR_NETWORK")
       ) {
         errorMessage = "Network error - please check your connection";
+      } else if (
+        errorMessage.includes("quota") ||
+        errorMessage.includes("billing")
+      ) {
+        errorMessage =
+          "AI analysis temporarily unavailable - please try again later";
+      } else if (errorMessage.includes("Invalid image data")) {
+        errorMessage = "Invalid image - please try a different photo";
+      } else if (errorMessage.includes("OpenAI API key not configured")) {
+        errorMessage = "AI service not available - please contact support";
       } else if (errorMessage.includes("400")) {
         errorMessage = "Invalid image data - please try a different image";
       } else if (errorMessage.includes("401") || errorMessage.includes("403")) {

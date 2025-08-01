@@ -224,16 +224,55 @@ export default function CameraScreen() {
 
       // Set editable ingredients from analysis
       if (result.analysis?.ingredients) {
-        setEditableIngredients(result.analysis.ingredients);
+        setEditableIngredients(
+          result.analysis.ingredients.map((ing: any) => ({
+            name: ing.name || "Unknown ingredient",
+            calories: ing.calories || 0,
+            protein: ing.protein_g || ing.protein || 0,
+            carbs: ing.carbs_g || ing.carbs || 0,
+            fat: ing.fats_g || ing.fat || 0,
+            fiber: ing.fiber_g || ing.fiber || 0,
+            sugar: ing.sugar_g || ing.sugar || 0,
+          }))
+        );
       }
 
       setShowCommentModal(false);
     } catch (error: any) {
       console.error("💥 Analysis error:", error);
-      Alert.alert(
-        t("camera.analysis_failed"),
-        error.message || "Failed to analyze image"
-      );
+
+      let userMessage = "Failed to analyze image";
+
+      if (
+        error.message?.includes("couldn't analyze") ||
+        error.message?.includes("cannot analyze")
+      ) {
+        userMessage =
+          "The AI couldn't analyze this image. Please try a clearer photo with better lighting and make sure the food is clearly visible.";
+      } else if (
+        error.message?.includes("Invalid response format") ||
+        error.message?.includes("not valid JSON")
+      ) {
+        userMessage =
+          "AI service is having technical issues. Please try again in a moment.";
+      } else if (
+        error.message?.includes("quota") ||
+        error.message?.includes("temporarily unavailable")
+      ) {
+        userMessage =
+          "AI analysis is temporarily unavailable. Please try again later.";
+      } else if (
+        error.message?.includes("network") ||
+        error.message?.includes("timeout")
+      ) {
+        userMessage =
+          "Network connection issue. Please check your internet and try again.";
+      } else if (error.message?.includes("Invalid image")) {
+        userMessage =
+          "Please try a different image. Make sure it's a clear photo of food.";
+      }
+
+      Alert.alert(t("camera.analysis_failed"), userMessage);
     }
   };
 
@@ -246,7 +285,19 @@ export default function CameraScreen() {
         editableIngredients
       );
 
-      // Create ingredient description for AI
+      // Map ingredients to the format expected by backend
+      const mappedIngredients = editableIngredients.map((ing) => ({
+        name: ing.name,
+        calories: ing.calories,
+        protein: ing.protein,
+        carbs: ing.carbs,
+        fat: ing.fat,
+        fiber: ing.fiber || 0,
+        sugar: ing.sugar || 0,
+        sodium_mg: 0, // Default values for fields not in the interface
+      }));
+
+      // Create detailed ingredient description for AI
       const ingredientDescription = editableIngredients
         .map(
           (ing) =>
@@ -254,24 +305,42 @@ export default function CameraScreen() {
         )
         .join("; ");
 
-      const updateText =
-        `Custom ingredients: ${ingredientDescription}. ${userComment}`.trim();
+      const updateText = userComment
+        ? `User modifications: ${ingredientDescription}. Additional notes: ${userComment}`
+        : `User modifications: ${ingredientDescription}`;
 
       const result = await dispatch(
         analyzeMeal({
           imageBase64: pendingMeal.image_base_64,
           updateText,
+          editedIngredients: mappedIngredients,
           language: isRTL ? "he" : "en",
         })
       ).unwrap();
 
       console.log("✅ Re-analysis completed:", result);
       setShowIngredientsEditor(false);
+
+      // Update editable ingredients with new analysis results
+      if (result.analysis?.ingredients) {
+        setEditableIngredients(
+          result.analysis.ingredients.map((ing: any) => ({
+            name: ing.name,
+            calories: ing.calories || 0,
+            protein: ing.protein_g || ing.protein || 0,
+            carbs: ing.carbs_g || ing.carbs || 0,
+            fat: ing.fats_g || ing.fat || 0,
+            fiber: ing.fiber_g || ing.fiber || 0,
+            sugar: ing.sugar_g || ing.sugar || 0,
+          }))
+        );
+      }
     } catch (error: any) {
       console.error("💥 Re-analysis error:", error);
       Alert.alert(
-        t("camera.re_analysis_failed"),
-        error.message || "Failed to re-analyze"
+        "Re-analysis Failed",
+        error.message ||
+          "Failed to re-analyze. Please check your connection and try again."
       );
     }
   };
@@ -787,8 +856,18 @@ export default function CameraScreen() {
                           { backgroundColor: colors.primary + "15" },
                         ]}
                         onPress={() => {
+                          const ingredients =
+                            pendingMeal.analysis?.ingredients || [];
                           setEditableIngredients(
-                            pendingMeal.analysis?.ingredients || []
+                            ingredients.map((ing: any) => ({
+                              name: ing.name || "Unknown ingredient",
+                              calories: ing.calories || 0,
+                              protein: ing.protein_g || ing.protein || 0,
+                              carbs: ing.carbs_g || ing.carbs || 0,
+                              fat: ing.fats_g || ing.fat || 0,
+                              fiber: ing.fiber_g || ing.fiber || 0,
+                              sugar: ing.sugar_g || ing.sugar || 0,
+                            }))
                           );
                           setShowIngredientsEditor(true);
                         }}
@@ -826,21 +905,48 @@ export default function CameraScreen() {
                             >
                               {typeof ingredient === "string"
                                 ? ingredient
-                                : ingredient.name}
+                                : ingredient.name || "Unknown ingredient"}
                             </Text>
                             {typeof ingredient !== "string" && (
-                              <Text
-                                style={[
-                                  styles.ingredientNutrition,
-                                  { color: colors.textSecondary },
-                                ]}
-                              >
-                                {ingredient.calories || 0} cal •{" "}
-                                {ingredient.protein_g ||
-                                  ingredient.protein ||
-                                  0}
-                                g protein
-                              </Text>
+                              <View>
+                                <Text
+                                  style={[
+                                    styles.ingredientNutrition,
+                                    { color: colors.textSecondary },
+                                  ]}
+                                >
+                                  {ingredient.calories || 0} cal •{" "}
+                                  {ingredient.protein || 0}g protein
+                                </Text>
+                                <Text
+                                  style={[
+                                    styles.ingredientNutrition,
+                                    { color: colors.textSecondary },
+                                  ]}
+                                >
+                                  {ingredient.carbs || 0}g carbs •{" "}
+                                  {ingredient.fat || 0}g fat
+                                </Text>
+                                {(ingredient.fiber > 0 ||
+                                  ingredient.sugar > 0) && (
+                                  <Text
+                                    style={[
+                                      styles.ingredientNutrition,
+                                      { color: colors.textLight, fontSize: 11 },
+                                    ]}
+                                  >
+                                    {ingredient.fiber
+                                      ? `${ingredient.fiber}g fiber`
+                                      : ""}
+                                    {ingredient.fiber && ingredient.sugar
+                                      ? " • "
+                                      : ""}
+                                    {ingredient.sugar
+                                      ? `${ingredient.sugar}g sugar`
+                                      : ""}
+                                  </Text>
+                                )}
+                              </View>
                             )}
                           </View>
                         )
@@ -1096,107 +1202,172 @@ export default function CameraScreen() {
                       </TouchableOpacity>
                     </View>
 
-                    <View style={styles.nutritionInputs}>
-                      <View style={styles.nutritionInput}>
-                        <Text
-                          style={[
-                            styles.inputLabel,
-                            { color: colors.textSecondary },
-                          ]}
-                        >
-                          Calories
-                        </Text>
-                        <TextInput
-                          style={[
-                            styles.numberInput,
-                            {
-                              backgroundColor: colors.card,
-                              borderColor: colors.border,
-                              color: colors.text,
-                            },
-                          ]}
-                          value={(ingredient.calories ?? 0).toString()}
-                          onChangeText={(text) =>
-                            updateIngredient(index, "calories", text)
-                          }
-                          keyboardType="numeric"
-                        />
+                    <View style={styles.nutritionInputsGrid}>
+                      <View style={styles.nutritionInputRow}>
+                        <View style={styles.nutritionInput}>
+                          <Text
+                            style={[
+                              styles.inputLabel,
+                              { color: colors.textSecondary },
+                            ]}
+                          >
+                            Calories
+                          </Text>
+                          <TextInput
+                            style={[
+                              styles.numberInput,
+                              {
+                                backgroundColor: colors.card,
+                                borderColor: colors.border,
+                                color: colors.text,
+                              },
+                            ]}
+                            value={(ingredient.calories ?? 0).toString()}
+                            onChangeText={(text) =>
+                              updateIngredient(index, "calories", text)
+                            }
+                            keyboardType="numeric"
+                            placeholder="0"
+                          />
+                        </View>
+                        <View style={styles.nutritionInput}>
+                          <Text
+                            style={[
+                              styles.inputLabel,
+                              { color: colors.textSecondary },
+                            ]}
+                          >
+                            Protein (g)
+                          </Text>
+                          <TextInput
+                            style={[
+                              styles.numberInput,
+                              {
+                                backgroundColor: colors.card,
+                                borderColor: colors.border,
+                                color: colors.text,
+                              },
+                            ]}
+                            value={(ingredient.protein ?? 0).toString()}
+                            onChangeText={(text) =>
+                              updateIngredient(index, "protein", text)
+                            }
+                            keyboardType="numeric"
+                            placeholder="0"
+                          />
+                        </View>
                       </View>
-                      <View style={styles.nutritionInput}>
-                        <Text
-                          style={[
-                            styles.inputLabel,
-                            { color: colors.textSecondary },
-                          ]}
-                        >
-                          Protein (g)
-                        </Text>
-                        <TextInput
-                          style={[
-                            styles.numberInput,
-                            {
-                              backgroundColor: colors.card,
-                              borderColor: colors.border,
-                              color: colors.text,
-                            },
-                          ]}
-                          value={(ingredient.protein ?? 0).toString()}
-                          onChangeText={(text) =>
-                            updateIngredient(index, "protein", text)
-                          }
-                          keyboardType="numeric"
-                        />
+                      <View style={styles.nutritionInputRow}>
+                        <View style={styles.nutritionInput}>
+                          <Text
+                            style={[
+                              styles.inputLabel,
+                              { color: colors.textSecondary },
+                            ]}
+                          >
+                            Carbs (g)
+                          </Text>
+                          <TextInput
+                            style={[
+                              styles.numberInput,
+                              {
+                                backgroundColor: colors.card,
+                                borderColor: colors.border,
+                                color: colors.text,
+                              },
+                            ]}
+                            value={(ingredient.carbs ?? 0).toString()}
+                            onChangeText={(text) =>
+                              updateIngredient(index, "carbs", text)
+                            }
+                            keyboardType="numeric"
+                            placeholder="0"
+                          />
+                        </View>
+                        <View style={styles.nutritionInput}>
+                          <Text
+                            style={[
+                              styles.inputLabel,
+                              { color: colors.textSecondary },
+                            ]}
+                          >
+                            Fat (g)
+                          </Text>
+                          <TextInput
+                            style={[
+                              styles.numberInput,
+                              {
+                                backgroundColor: colors.card,
+                                borderColor: colors.border,
+                                color: colors.text,
+                              },
+                            ]}
+                            value={(ingredient.fat ?? 0).toString()}
+                            onChangeText={(text) =>
+                              updateIngredient(index, "fat", text)
+                            }
+                            keyboardType="numeric"
+                            placeholder="0"
+                          />
+                        </View>
                       </View>
-                      <View style={styles.nutritionInput}>
-                        <Text
-                          style={[
-                            styles.inputLabel,
-                            { color: colors.textSecondary },
-                          ]}
-                        >
-                          Carbs (g)
-                        </Text>
-                        <TextInput
-                          style={[
-                            styles.numberInput,
-                            {
-                              backgroundColor: colors.card,
-                              borderColor: colors.border,
-                              color: colors.text,
-                            },
-                          ]}
-                          value={(ingredient.carbs ?? 0).toString()}
-                          onChangeText={(text) =>
-                            updateIngredient(index, "carbs", text)
-                          }
-                          keyboardType="numeric"
-                        />
-                      </View>
-                      <View style={styles.nutritionInput}>
-                        <Text
-                          style={[
-                            styles.inputLabel,
-                            { color: colors.textSecondary },
-                          ]}
-                        >
-                          Fat (g)
-                        </Text>
-                        <TextInput
-                          style={[
-                            styles.numberInput,
-                            {
-                              backgroundColor: colors.card,
-                              borderColor: colors.border,
-                              color: colors.text,
-                            },
-                          ]}
-                          value={(ingredient.fat ?? 0).toString()}
-                          onChangeText={(text) =>
-                            updateIngredient(index, "fat", text)
-                          }
-                          keyboardType="numeric"
-                        />
-                      </View>
+                      {(ingredient.fiber !== undefined ||
+                        ingredient.sugar !== undefined) && (
+                        <View style={styles.nutritionInputRow}>
+                          <View style={styles.nutritionInput}>
+                            <Text
+                              style={[
+                                styles.inputLabel,
+                                { color: colors.textSecondary },
+                              ]}
+                            >
+                              Fiber (g)
+                            </Text>
+                            <TextInput
+                              style={[
+                                styles.numberInput,
+                                {
+                                  backgroundColor: colors.card,
+                                  borderColor: colors.border,
+                                  color: colors.text,
+                                },
+                              ]}
+                              value={(ingredient.fiber ?? 0).toString()}
+                              onChangeText={(text) =>
+                                updateIngredient(index, "fiber", text)
+                              }
+                              keyboardType="numeric"
+                              placeholder="0"
+                            />
+                          </View>
+                          <View style={styles.nutritionInput}>
+                            <Text
+                              style={[
+                                styles.inputLabel,
+                                { color: colors.textSecondary },
+                              ]}
+                            >
+                              Sugar (g)
+                            </Text>
+                            <TextInput
+                              style={[
+                                styles.numberInput,
+                                {
+                                  backgroundColor: colors.card,
+                                  borderColor: colors.border,
+                                  color: colors.text,
+                                },
+                              ]}
+                              value={(ingredient.sugar ?? 0).toString()}
+                              onChangeText={(text) =>
+                                updateIngredient(index, "sugar", text)
+                              }
+                              keyboardType="numeric"
+                              placeholder="0"
+                            />
+                          </View>
+                        </View>
+                      )}
                     </View>
                   </View>
                 ))}
@@ -1817,7 +1988,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  nutritionInputs: {
+  nutritionInputsGrid: {
+    gap: 12,
+  },
+  nutritionInputRow: {
     flexDirection: "row",
     gap: 8,
   },
