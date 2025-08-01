@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useLanguage } from "../src/i18n/context/LanguageContext";
+import { useTheme } from "../src/context/ThemeContext";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface HelpContent {
@@ -18,12 +19,13 @@ interface HelpContent {
   description: string;
 }
 
-interface LanguageToolbarProps {
+interface ToolBarProps {
   helpContent?: HelpContent;
 }
 
-const LanguageToolbar: React.FC<LanguageToolbarProps> = ({ helpContent }) => {
+const ToolBar: React.FC<ToolBarProps> = ({ helpContent }) => {
   const { language, changeLanguage, isRTL } = useLanguage();
+  const { isDark, toggleTheme, colors } = useTheme();
   const [showHelp, setShowHelp] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [expandAnimation] = useState(new Animated.Value(0));
@@ -57,7 +59,7 @@ const LanguageToolbar: React.FC<LanguageToolbarProps> = ({ helpContent }) => {
 
   const expandedWidth = expandAnimation.interpolate({
     inputRange: [0, 1],
-    outputRange: [40, helpContent ? 140 : 100],
+    outputRange: [40, helpContent ? 180 : 140],
   });
 
   const translateX = expandAnimation.interpolate({
@@ -104,18 +106,20 @@ const LanguageToolbar: React.FC<LanguageToolbarProps> = ({ helpContent }) => {
             {
               width: expandedWidth,
               transform: [{ translateX }],
+              backgroundColor: colors.background,
+              borderColor: colors.border,
             },
           ]}
         >
           <TouchableOpacity
-            style={styles.gearButton}
+            style={[styles.gearButton, { backgroundColor: colors.card }]}
             onPress={toggleExpanded}
             accessibilityLabel="Settings"
             accessibilityRole="button"
             activeOpacity={0.7}
           >
             <Animated.View style={{ transform: [{ rotate: gearRotation }] }}>
-              <Ionicons name="settings-outline" size={18} color="#333" />
+              <Ionicons name="settings-outline" size={18} color={colors.text} />
             </Animated.View>
           </TouchableOpacity>
 
@@ -130,7 +134,10 @@ const LanguageToolbar: React.FC<LanguageToolbarProps> = ({ helpContent }) => {
               }}
             >
               <TouchableOpacity
-                style={styles.languageButton}
+                style={[
+                  styles.languageButton,
+                  { backgroundColor: colors.primary },
+                ]}
                 onPress={handleLanguageToggle}
                 accessibilityLabel="Change Language"
                 accessibilityRole="button"
@@ -139,6 +146,31 @@ const LanguageToolbar: React.FC<LanguageToolbarProps> = ({ helpContent }) => {
                 <Text style={styles.languageText}>
                   {language === "he" ? "EN" : "עב"}
                 </Text>
+              </TouchableOpacity>
+            </Animated.View>
+
+            <Animated.View
+              style={{
+                opacity: buttonOpacity,
+                transform: [{ scale: buttonScale }],
+                marginHorizontal: 4,
+              }}
+            >
+              <TouchableOpacity
+                style={[
+                  styles.themeButton,
+                  { backgroundColor: colors.card, borderColor: colors.border },
+                ]}
+                onPress={toggleTheme}
+                accessibilityLabel="Toggle Theme"
+                accessibilityRole="button"
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name={isDark ? "sunny-outline" : "moon-outline"}
+                  size={16}
+                  color={colors.primary}
+                />
               </TouchableOpacity>
             </Animated.View>
 
@@ -151,13 +183,23 @@ const LanguageToolbar: React.FC<LanguageToolbarProps> = ({ helpContent }) => {
                 }}
               >
                 <TouchableOpacity
-                  style={styles.helpButton}
+                  style={[
+                    styles.helpButton,
+                    {
+                      backgroundColor: colors.card,
+                      borderColor: colors.border,
+                    },
+                  ]}
                   onPress={handleHelpPress}
                   accessibilityLabel="Help"
                   accessibilityRole="button"
                   activeOpacity={0.7}
                 >
-                  <Ionicons name="help-circle-outline" size={16} color="#333" />
+                  <Ionicons
+                    name="help-circle-outline"
+                    size={16}
+                    color={colors.text}
+                  />
                 </TouchableOpacity>
               </Animated.View>
             )}
@@ -172,23 +214,30 @@ const LanguageToolbar: React.FC<LanguageToolbarProps> = ({ helpContent }) => {
         onRequestClose={handleCloseHelp}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>
+          <View
+            style={[
+              styles.modalContent,
+              { backgroundColor: colors.background },
+            ]}
+          >
+            <View
+              style={[styles.modalHeader, { borderBottomColor: colors.border }]}
+            >
+              <Text style={[styles.modalTitle, { color: colors.text }]}>
                 {helpContent?.title || "Help"}
               </Text>
               <TouchableOpacity
                 onPress={handleCloseHelp}
-                style={styles.closeButton}
+                style={[styles.closeButton, { backgroundColor: colors.card }]}
                 accessibilityLabel="Close"
                 accessibilityRole="button"
                 activeOpacity={0.7}
               >
-                <Ionicons name="close" size={20} color="#666" />
+                <Ionicons name="close" size={20} color={colors.text} />
               </TouchableOpacity>
             </View>
             <ScrollView style={styles.modalBody}>
-              <Text style={styles.modalText}>
+              <Text style={[styles.modalText, { color: colors.text }]}>
                 {helpContent?.description || "No help content available."}
               </Text>
             </ScrollView>
@@ -251,6 +300,16 @@ const styles = StyleSheet.create({
     width: 32,
     height: 24,
     borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  themeButton: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "#f8f8f8",
+    borderWidth: 0.5,
+    borderColor: "#ccc",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -325,4 +384,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default LanguageToolbar;
+export default ToolBar;

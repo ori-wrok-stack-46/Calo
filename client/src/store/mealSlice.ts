@@ -497,11 +497,10 @@ export const toggleMealFavorite = createAsyncThunk(
 export const duplicateMeal = createAsyncThunk(
   "meal/duplicateMeal",
   async (
-    { mealId, newDate }: { mealId: string; newDate?: string },
+    { mealId, newDate }: { mealId: string; newDate: string },
     { rejectWithValue }
   ) => {
     try {
-      console.log("📋 Duplicating meal...");
       const response = await nutritionAPI.duplicateMeal(mealId, newDate);
       console.log("✅ Meal duplicated successfully");
 
@@ -513,6 +512,19 @@ export const duplicateMeal = createAsyncThunk(
     } catch (error) {
       console.error("💥 Duplicate meal error:", error);
       return rejectWithValue("Failed to duplicate meal");
+    }
+  }
+);
+
+export const removeMeal = createAsyncThunk(
+  "meal/removeMeal",
+  async (mealId: string, { rejectWithValue }) => {
+    try {
+      await nutritionAPI.removeMeal(mealId);
+      return mealId;
+    } catch (error: any) {
+      console.error("Remove meal error:", error);
+      return rejectWithValue(error.message || "Failed to remove meal");
     }
   }
 );
@@ -589,6 +601,9 @@ const mealSlice = createSlice({
         timestamp: Date.now(),
         meal_id: action.payload.meal_id,
       };
+    },
+    updateMealLocally: (state, action) => {
+      state.meals = action.payload;
     },
   },
   extraReducers: (builder) => {
@@ -671,6 +686,17 @@ const mealSlice = createSlice({
         state.error = null;
       })
       .addCase(fetchMeals.rejected, (state, action) => {
+        state.isLoading = false;
+        state.error = action.payload as string;
+      })
+      .addCase(removeMeal.pending, (state) => {
+        state.isLoading = true;
+      })
+      .addCase(removeMeal.fulfilled, (state, action) => {
+        state.isLoading = false;
+        state.meals = state.meals.filter((meal) => meal.id !== action.payload);
+      })
+      .addCase(removeMeal.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload as string;
       })
@@ -760,7 +786,7 @@ export const deleteMeal = createAsyncThunk(
   "meals/delete",
   async (mealId: string, { rejectWithValue, dispatch }) => {
     try {
-      await mealAPI.deleteMeal(mealId);
+      await mealAPI.removeMeal(mealId);
 
       // Refresh all meal-related data after deletion
       dispatch(fetchMeals());
@@ -779,5 +805,6 @@ export const {
   clearPendingMeal,
   setPendingMeal,
   setPendingMealForUpdate,
+  updateMealLocally,
 } = mealSlice.actions;
 export default mealSlice.reducer;

@@ -1,5 +1,9 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useDispatch } from "react-redux";
+import { useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import type { AppDispatch, RootState } from "@/src/store";
+import { PushNotificationService } from "@/src/services/pushNotifications";
+import NotificationService from "@/src/services/notificationService";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTranslation } from "react-i18next";
 
@@ -11,9 +15,10 @@ interface AppInitializationState {
 }
 
 export const useAppInitialization = (): AppInitializationState => {
-  const dispatch = useDispatch();
+  const dispatch = useDispatch<AppDispatch>();
   const { i18n } = useTranslation();
   const queryClient = useQueryClient();
+  const { user } = useSelector((state: RootState) => state.auth);
 
   // Initialize app settings
   const { data: appSettings, isLoading: settingsLoading } = useQuery({
@@ -57,6 +62,54 @@ export const useAppInitialization = (): AppInitializationState => {
     enabled: !!appSettings?.isAuthenticated,
     staleTime: 10 * 60 * 1000,
   });
+
+  useEffect(() => {
+    const initializeApp = async () => {
+      console.log("App initialized");
+
+      // Show user online notification if app is properly initialized
+      if (appSettings?.isAuthenticated || user) {
+        NotificationService.showUserOnline();
+      }
+
+      // Register for push notifications
+      const token =
+        await PushNotificationService.registerForPushNotifications();
+
+      if (token && user) {
+        // Send token to backend if needed
+        console.log("Push notification token:", token);
+
+        // Schedule notifications based on user's questionnaire data
+        try {
+          // You'll need to fetch user questionnaire data from your backend
+          const response = await fetch(
+            `${process.env.EXPO_PUBLIC_API_URL}/api/questionnaire/user`,
+            {
+              headers: {
+                Authorization: `Bearer `,
+              },
+            }
+          );
+
+          if (response.ok) {
+            const questionnaire = await response.json();
+            await PushNotificationService.scheduleMealReminders(
+              questionnaire.data
+            );
+            await PushNotificationService.scheduleWaterReminder();
+            await PushNotificationService.scheduleWeeklyProgress();
+          }
+        } catch (error) {
+          console.error("Error setting up notifications:", error);
+        }
+      }
+    };
+
+    if (appSettings && !settingsLoading) {
+      initializeApp();
+    }
+  }, [dispatch, user, appSettings, settingsLoading]);
 
   return {
     isLoading: settingsLoading || profileLoading,

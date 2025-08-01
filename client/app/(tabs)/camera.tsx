@@ -84,20 +84,17 @@ export default function CameraScreen() {
   const dispatch = useDispatch<AppDispatch>();
   const { refreshAllMealData } = useMealDataRefresh();
 
-  const {
-    pendingMeal,
-    isAnalyzing,
-    isPosting,
-    isUpdating,
-    error,
-  } = useSelector((state: RootState) => state.meal);
+  const { pendingMeal, isAnalyzing, isPosting, isUpdating, error } =
+    useSelector((state: RootState) => state.meal);
 
   // Local state
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [userComment, setUserComment] = useState("");
   const [editedIngredients, setEditedIngredients] = useState<Ingredient[]>([]);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [editingIngredient, setEditingIngredient] = useState<Ingredient | null>(null);
+  const [editingIngredient, setEditingIngredient] = useState<Ingredient | null>(
+    null
+  );
   const [editingIndex, setEditingIndex] = useState<number>(-1);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null);
@@ -117,10 +114,10 @@ export default function CameraScreen() {
       setAnalysisData(pendingMeal.analysis);
       setEditedIngredients(pendingMeal.analysis.ingredients || []);
       setHasBeenAnalyzed(true);
-      
+
       // Convert base64 to display format if needed
       if (pendingMeal.image_base_64) {
-        const imageUri = pendingMeal.image_base_64.startsWith('data:')
+        const imageUri = pendingMeal.image_base_64.startsWith("data:")
           ? pendingMeal.image_base_64
           : `data:image/jpeg;base64,${pendingMeal.image_base_64}`;
         setSelectedImage(imageUri);
@@ -161,7 +158,8 @@ export default function CameraScreen() {
 
   const handleSelectFromGallery = async () => {
     try {
-      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      const { status } =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== "granted") {
         Alert.alert(
           t("camera.permission"),
@@ -208,10 +206,10 @@ export default function CameraScreen() {
 
     try {
       console.log("🔍 Starting initial meal analysis...");
-      
+
       // Process image to get base64
       const base64Image = await processImage(selectedImage);
-      
+
       const analysisParams = {
         imageBase64: base64Image,
         language: isRTL ? "hebrew" : "english",
@@ -222,7 +220,7 @@ export default function CameraScreen() {
       }
 
       const result = await dispatch(analyzeMeal(analysisParams));
-      
+
       if (analyzeMeal.fulfilled.match(result)) {
         console.log("✅ Initial analysis completed successfully");
         scrollViewRef.current?.scrollTo({ y: 0, animated: true });
@@ -230,8 +228,8 @@ export default function CameraScreen() {
         console.error("❌ Analysis failed:", result.payload);
         Alert.alert(
           t("camera.analysis_failed"),
-          typeof result.payload === "string" 
-            ? result.payload 
+          typeof result.payload === "string"
+            ? result.payload
             : "Failed to analyze meal. Please try again."
         );
       }
@@ -253,9 +251,9 @@ export default function CameraScreen() {
 
     try {
       console.log("🔄 Starting re-analysis with edits...");
-      
+
       const base64Image = await processImage(selectedImage);
-      
+
       const reAnalysisParams = {
         imageBase64: base64Image,
         language: isRTL ? "hebrew" : "english",
@@ -264,7 +262,7 @@ export default function CameraScreen() {
       };
 
       const result = await dispatch(analyzeMeal(reAnalysisParams));
-      
+
       if (analyzeMeal.fulfilled.match(result)) {
         console.log("✅ Re-analysis completed successfully");
         Alert.alert(
@@ -275,8 +273,8 @@ export default function CameraScreen() {
         console.error("❌ Re-analysis failed:", result.payload);
         Alert.alert(
           t("camera.re_analysis_failed"),
-          typeof result.payload === "string" 
-            ? result.payload 
+          typeof result.payload === "string"
+            ? result.payload
             : "Failed to re-analyze meal. Please try again."
         );
       }
@@ -298,34 +296,30 @@ export default function CameraScreen() {
 
     try {
       console.log("💾 Saving meal to database...");
-      
+
       const result = await dispatch(postMeal());
-      
+
       if (postMeal.fulfilled.match(result)) {
         console.log("✅ Meal saved successfully");
-        
+
         // Refresh meal data
         await refreshAllMealData();
-        
-        Alert.alert(
-          t("camera.save_success"),
-          "Meal saved successfully!",
-          [
-            {
-              text: t("common.ok"),
-              onPress: () => {
-                resetAnalysisState();
-                setSelectedImage(null);
-              },
+
+        Alert.alert(t("camera.save_success"), "Meal saved successfully!", [
+          {
+            text: t("common.ok"),
+            onPress: () => {
+              resetAnalysisState();
+              setSelectedImage(null);
             },
-          ]
-        );
+          },
+        ]);
       } else {
         console.error("❌ Save failed:", result.payload);
         Alert.alert(
           t("camera.save_failed"),
-          typeof result.payload === "string" 
-            ? result.payload 
+          typeof result.payload === "string"
+            ? result.payload
             : "Failed to save meal. Please try again."
         );
       }
@@ -345,15 +339,12 @@ export default function CameraScreen() {
 
   const confirmDeleteMeal = () => {
     console.log("🗑️ Deleting meal analysis...");
-    
+
     resetAnalysisState();
     setSelectedImage(null);
     setShowDeleteConfirm(false);
-    
-    Alert.alert(
-      t("common.success"),
-      "Meal analysis deleted successfully"
-    );
+
+    Alert.alert(t("common.success"), "Meal analysis deleted successfully");
   };
 
   // Ingredient editing functions
@@ -391,7 +382,7 @@ export default function CameraScreen() {
     }
 
     const updatedIngredients = [...editedIngredients];
-    
+
     if (editingIndex >= 0) {
       // Update existing ingredient
       updatedIngredients[editingIndex] = editingIngredient;
@@ -399,7 +390,7 @@ export default function CameraScreen() {
       // Add new ingredient
       updatedIngredients.push(editingIngredient);
     }
-    
+
     setEditedIngredients(updatedIngredients);
     setShowEditModal(false);
     setEditingIngredient(null);
@@ -418,7 +409,15 @@ export default function CameraScreen() {
         sugar: totals.sugar + (ingredient.sugar || 0),
         sodium: totals.sodium + (ingredient.sodium_mg || 0),
       }),
-      { calories: 0, protein: 0, carbs: 0, fat: 0, fiber: 0, sugar: 0, sodium: 0 }
+      {
+        calories: 0,
+        protein: 0,
+        carbs: 0,
+        fat: 0,
+        fiber: 0,
+        sugar: 0,
+        sodium: 0,
+      }
     );
   };
 
@@ -434,7 +433,9 @@ export default function CameraScreen() {
           <Text style={[styles.imageSelectionTitle, isRTL && styles.rtlText]}>
             {t("camera.smart_analysis")}
           </Text>
-          <Text style={[styles.imageSelectionSubtitle, isRTL && styles.rtlText]}>
+          <Text
+            style={[styles.imageSelectionSubtitle, isRTL && styles.rtlText]}
+          >
             {t("camera.analysis_subtitle")}
           </Text>
         </View>
@@ -489,7 +490,7 @@ export default function CameraScreen() {
   const renderSelectedImage = () => (
     <View style={styles.selectedImageContainer}>
       <Image source={{ uri: selectedImage! }} style={styles.selectedImage} />
-      
+
       <View style={styles.imageActions}>
         <TouchableOpacity
           style={styles.imageActionButton}
@@ -536,7 +537,9 @@ export default function CameraScreen() {
           disabled={isAnalyzing}
         >
           <LinearGradient
-            colors={isAnalyzing ? ["#9ca3af", "#6b7280"] : ["#10b981", "#059669"]}
+            colors={
+              isAnalyzing ? ["#9ca3af", "#6b7280"] : ["#10b981", "#059669"]
+            }
             style={styles.analyzeButtonGradient}
           >
             {isAnalyzing ? (
@@ -589,23 +592,39 @@ export default function CameraScreen() {
             <Text style={[styles.sectionTitle, isRTL && styles.rtlText]}>
               {t("camera.nutritional_info")}
             </Text>
-            
+
             <View style={styles.nutritionGrid}>
               <View style={styles.nutritionCard}>
-                <Text style={styles.nutritionValue}>{Math.round(totalNutrition.calories)}</Text>
-                <Text style={styles.nutritionLabel}>{t("meals.calories")}</Text>
+                <Text style={styles.nutritionValue}>
+                  {Math.round(totalNutrition.calories)}
+                </Text>
+                <Text style={styles.nutritionLabel}>
+                  {t("meals.calories") || "Calories"}
+                </Text>
               </View>
               <View style={styles.nutritionCard}>
-                <Text style={styles.nutritionValue}>{Math.round(totalNutrition.protein)}g</Text>
-                <Text style={styles.nutritionLabel}>{t("meals.protein")}</Text>
+                <Text style={styles.nutritionValue}>
+                  {Math.round(totalNutrition.protein)}g
+                </Text>
+                <Text style={styles.nutritionLabel}>
+                  {t("meals.protein") || "Protein"}
+                </Text>
               </View>
               <View style={styles.nutritionCard}>
-                <Text style={styles.nutritionValue}>{Math.round(totalNutrition.carbs)}g</Text>
-                <Text style={styles.nutritionLabel}>{t("meals.carbs")}</Text>
+                <Text style={styles.nutritionValue}>
+                  {Math.round(totalNutrition.carbs)}g
+                </Text>
+                <Text style={styles.nutritionLabel}>
+                  {t("meals.carbs") || "Carbs"}
+                </Text>
               </View>
               <View style={styles.nutritionCard}>
-                <Text style={styles.nutritionValue}>{Math.round(totalNutrition.fat)}g</Text>
-                <Text style={styles.nutritionLabel}>{t("meals.fat")}</Text>
+                <Text style={styles.nutritionValue}>
+                  {Math.round(totalNutrition.fat)}g
+                </Text>
+                <Text style={styles.nutritionLabel}>
+                  {t("meals.fat") || "Fat"}
+                </Text>
               </View>
             </View>
 
@@ -613,20 +632,32 @@ export default function CameraScreen() {
               <View style={styles.additionalNutrition}>
                 {totalNutrition.fiber > 0 && (
                   <View style={styles.additionalNutritionItem}>
-                    <Text style={styles.additionalNutritionLabel}>{t("camera.fiber")}:</Text>
-                    <Text style={styles.additionalNutritionValue}>{Math.round(totalNutrition.fiber)}g</Text>
+                    <Text style={styles.additionalNutritionLabel}>
+                      {t("camera.fiber")}:
+                    </Text>
+                    <Text style={styles.additionalNutritionValue}>
+                      {Math.round(totalNutrition.fiber)}g
+                    </Text>
                   </View>
                 )}
                 {totalNutrition.sugar > 0 && (
                   <View style={styles.additionalNutritionItem}>
-                    <Text style={styles.additionalNutritionLabel}>{t("camera.sugar")}:</Text>
-                    <Text style={styles.additionalNutritionValue}>{Math.round(totalNutrition.sugar)}g</Text>
+                    <Text style={styles.additionalNutritionLabel}>
+                      {t("camera.sugar")}:
+                    </Text>
+                    <Text style={styles.additionalNutritionValue}>
+                      {Math.round(totalNutrition.sugar)}g
+                    </Text>
                   </View>
                 )}
                 {totalNutrition.sodium > 0 && (
                   <View style={styles.additionalNutritionItem}>
-                    <Text style={styles.additionalNutritionLabel}>{t("camera.sodium")}:</Text>
-                    <Text style={styles.additionalNutritionValue}>{Math.round(totalNutrition.sodium)}mg</Text>
+                    <Text style={styles.additionalNutritionLabel}>
+                      {t("camera.sodium")}:
+                    </Text>
+                    <Text style={styles.additionalNutritionValue}>
+                      {Math.round(totalNutrition.sodium)}mg
+                    </Text>
                   </View>
                 )}
               </View>
@@ -648,35 +679,59 @@ export default function CameraScreen() {
               </TouchableOpacity>
             </View>
 
-            {editedIngredients.map((ingredient, index) => (
-              <View key={index} style={styles.ingredientCard}>
-                <View style={styles.ingredientInfo}>
-                  <Text style={[styles.ingredientName, isRTL && styles.rtlText]}>
-                    {ingredient.name}
-                  </Text>
-                  <View style={styles.ingredientNutrition}>
-                    <Text style={styles.ingredientNutritionText}>
-                      {Math.round(ingredient.calories)} {t("meals.kcal")} • {Math.round(ingredient.protein)}g {t("meals.protein")}
+            {editedIngredients.length > 0 ? (
+              editedIngredients.map((ingredient, index) => (
+                <View key={index} style={styles.ingredientCard}>
+                  <View style={styles.ingredientInfo}>
+                    <Text
+                      style={[styles.ingredientName, isRTL && styles.rtlText]}
+                    >
+                      {ingredient.name || `Ingredient ${index + 1}`}
                     </Text>
+                    <View style={styles.ingredientNutrition}>
+                      <Text style={styles.ingredientNutritionText}>
+                        {Math.round(ingredient.calories || 0)}{" "}
+                        {t("meals.kcal") || "kcal"} •{" "}
+                        {Math.round(ingredient.protein || 0)}g{" "}
+                        {t("meals.protein") || "protein"}
+                      </Text>
+                      {(ingredient.carbs || 0) > 0 && (
+                        <Text style={styles.ingredientNutritionText}>
+                          • {Math.round(ingredient.carbs)}g{" "}
+                          {t("meals.carbs") || "carbs"}
+                        </Text>
+                      )}
+                      {(ingredient.fat || 0) > 0 && (
+                        <Text style={styles.ingredientNutritionText}>
+                          • {Math.round(ingredient.fat)}g{" "}
+                          {t("meals.fat") || "fat"}
+                        </Text>
+                      )}
+                    </View>
+                  </View>
+
+                  <View style={styles.ingredientActions}>
+                    <TouchableOpacity
+                      style={styles.ingredientActionButton}
+                      onPress={() => handleEditIngredient(ingredient, index)}
+                    >
+                      <Edit3 size={16} color="#6b7280" />
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.ingredientActionButton}
+                      onPress={() => handleRemoveIngredient(index)}
+                    >
+                      <Trash2 size={16} color="#ef4444" />
+                    </TouchableOpacity>
                   </View>
                 </View>
-                
-                <View style={styles.ingredientActions}>
-                  <TouchableOpacity
-                    style={styles.ingredientActionButton}
-                    onPress={() => handleEditIngredient(ingredient, index)}
-                  >
-                    <Edit3 size={16} color="#6b7280" />
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.ingredientActionButton}
-                    onPress={() => handleRemoveIngredient(index)}
-                  >
-                    <Trash2 size={16} color="#ef4444" />
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ))}
+              ))
+            ) : (
+              <Text style={styles.noIngredientsText}>
+                {t("camera.no_ingredients_found") ||
+                  "No ingredients identified"}
+              </Text>
+            )}
           </View>
 
           {/* Additional Information */}
@@ -685,7 +740,7 @@ export default function CameraScreen() {
               <Text style={[styles.sectionTitle, isRTL && styles.rtlText]}>
                 {t("camera.additional_info")}
               </Text>
-              
+
               {analysisData.cooking_method && (
                 <View style={styles.infoItem}>
                   <Text style={[styles.infoLabel, isRTL && styles.rtlText]}>
@@ -696,7 +751,7 @@ export default function CameraScreen() {
                   </Text>
                 </View>
               )}
-              
+
               {analysisData.recommendations && (
                 <View style={styles.infoItem}>
                   <Text style={[styles.infoLabel, isRTL && styles.rtlText]}>
@@ -723,7 +778,10 @@ export default function CameraScreen() {
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={[styles.secondaryButton, isUpdating && styles.buttonDisabled]}
+              style={[
+                styles.secondaryButton,
+                isUpdating && styles.buttonDisabled,
+              ]}
               onPress={handleReAnalyze}
               disabled={isUpdating}
             >
@@ -733,7 +791,9 @@ export default function CameraScreen() {
                 <RefreshCw size={20} color="#10b981" />
               )}
               <Text style={styles.secondaryButtonText}>
-                {isUpdating ? t("camera.updating_analysis") : t("camera.re_analyze")}
+                {isUpdating
+                  ? t("camera.updating_analysis")
+                  : t("camera.re_analyze")}
               </Text>
             </TouchableOpacity>
 
@@ -743,7 +803,9 @@ export default function CameraScreen() {
               disabled={isPosting}
             >
               <LinearGradient
-                colors={isPosting ? ["#9ca3af", "#6b7280"] : ["#10b981", "#059669"]}
+                colors={
+                  isPosting ? ["#9ca3af", "#6b7280"] : ["#10b981", "#059669"]
+                }
                 style={styles.primaryButtonGradient}
               >
                 {isPosting ? (
@@ -776,7 +838,8 @@ export default function CameraScreen() {
         <View style={styles.modalContent}>
           <View style={styles.modalHeader}>
             <Text style={styles.modalTitle}>
-              {editingIndex >= 0 ? t("common.edit") : t("common.add")} Ingredient
+              {editingIndex >= 0 ? t("common.edit") : t("common.add")}{" "}
+              Ingredient
             </Text>
             <TouchableOpacity onPress={() => setShowEditModal(false)}>
               <X size={24} color="#6b7280" />
@@ -790,7 +853,9 @@ export default function CameraScreen() {
                 style={styles.modalInput}
                 value={editingIngredient?.name || ""}
                 onChangeText={(text) =>
-                  setEditingIngredient(prev => prev ? { ...prev, name: text } : null)
+                  setEditingIngredient((prev) =>
+                    prev ? { ...prev, name: text } : null
+                  )
                 }
                 placeholder="Enter ingredient name"
                 textAlign={isRTL ? "right" : "left"}
@@ -804,10 +869,14 @@ export default function CameraScreen() {
                   style={styles.modalInput}
                   value={editingIngredient?.calories?.toString() || "0"}
                   onChangeText={(text) =>
-                    setEditingIngredient(prev => prev ? { 
-                      ...prev, 
-                      calories: parseFloat(text) || 0 
-                    } : null)
+                    setEditingIngredient((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            calories: parseFloat(text) || 0,
+                          }
+                        : null
+                    )
                   }
                   keyboardType="numeric"
                   placeholder="0"
@@ -820,10 +889,14 @@ export default function CameraScreen() {
                   style={styles.modalInput}
                   value={editingIngredient?.protein?.toString() || "0"}
                   onChangeText={(text) =>
-                    setEditingIngredient(prev => prev ? { 
-                      ...prev, 
-                      protein: parseFloat(text) || 0 
-                    } : null)
+                    setEditingIngredient((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            protein: parseFloat(text) || 0,
+                          }
+                        : null
+                    )
                   }
                   keyboardType="numeric"
                   placeholder="0"
@@ -838,10 +911,14 @@ export default function CameraScreen() {
                   style={styles.modalInput}
                   value={editingIngredient?.carbs?.toString() || "0"}
                   onChangeText={(text) =>
-                    setEditingIngredient(prev => prev ? { 
-                      ...prev, 
-                      carbs: parseFloat(text) || 0 
-                    } : null)
+                    setEditingIngredient((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            carbs: parseFloat(text) || 0,
+                          }
+                        : null
+                    )
                   }
                   keyboardType="numeric"
                   placeholder="0"
@@ -854,10 +931,14 @@ export default function CameraScreen() {
                   style={styles.modalInput}
                   value={editingIngredient?.fat?.toString() || "0"}
                   onChangeText={(text) =>
-                    setEditingIngredient(prev => prev ? { 
-                      ...prev, 
-                      fat: parseFloat(text) || 0 
-                    } : null)
+                    setEditingIngredient((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            fat: parseFloat(text) || 0,
+                          }
+                        : null
+                    )
                   }
                   keyboardType="numeric"
                   placeholder="0"
@@ -872,10 +953,14 @@ export default function CameraScreen() {
                   style={styles.modalInput}
                   value={editingIngredient?.fiber?.toString() || "0"}
                   onChangeText={(text) =>
-                    setEditingIngredient(prev => prev ? { 
-                      ...prev, 
-                      fiber: parseFloat(text) || 0 
-                    } : null)
+                    setEditingIngredient((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            fiber: parseFloat(text) || 0,
+                          }
+                        : null
+                    )
                   }
                   keyboardType="numeric"
                   placeholder="0"
@@ -888,10 +973,14 @@ export default function CameraScreen() {
                   style={styles.modalInput}
                   value={editingIngredient?.sugar?.toString() || "0"}
                   onChangeText={(text) =>
-                    setEditingIngredient(prev => prev ? { 
-                      ...prev, 
-                      sugar: parseFloat(text) || 0 
-                    } : null)
+                    setEditingIngredient((prev) =>
+                      prev
+                        ? {
+                            ...prev,
+                            sugar: parseFloat(text) || 0,
+                          }
+                        : null
+                    )
                   }
                   keyboardType="numeric"
                   placeholder="0"
@@ -905,10 +994,14 @@ export default function CameraScreen() {
                 style={styles.modalInput}
                 value={editingIngredient?.sodium_mg?.toString() || "0"}
                 onChangeText={(text) =>
-                  setEditingIngredient(prev => prev ? { 
-                    ...prev, 
-                    sodium_mg: parseFloat(text) || 0 
-                  } : null)
+                  setEditingIngredient((prev) =>
+                    prev
+                      ? {
+                          ...prev,
+                          sodium_mg: parseFloat(text) || 0,
+                        }
+                      : null
+                  )
                 }
                 keyboardType="numeric"
                 placeholder="0"
@@ -923,7 +1016,7 @@ export default function CameraScreen() {
             >
               <Text style={styles.modalCancelText}>{t("common.cancel")}</Text>
             </TouchableOpacity>
-            
+
             <TouchableOpacity
               style={styles.modalSaveButton}
               onPress={handleSaveIngredient}
@@ -946,13 +1039,11 @@ export default function CameraScreen() {
       <View style={styles.modalOverlay}>
         <View style={styles.confirmModalContent}>
           <AlertTriangle size={48} color="#ef4444" />
-          <Text style={styles.confirmTitle}>
-            {t("camera.delete_analysis")}
-          </Text>
+          <Text style={styles.confirmTitle}>{t("camera.delete_analysis")}</Text>
           <Text style={styles.confirmMessage}>
             {t("camera.delete_confirmation")}
           </Text>
-          
+
           <View style={styles.confirmActions}>
             <TouchableOpacity
               style={styles.confirmCancelButton}
@@ -960,7 +1051,7 @@ export default function CameraScreen() {
             >
               <Text style={styles.confirmCancelText}>{t("common.cancel")}</Text>
             </TouchableOpacity>
-            
+
             <TouchableOpacity
               style={styles.confirmDeleteButton}
               onPress={confirmDeleteMeal}
@@ -980,9 +1071,7 @@ export default function CameraScreen() {
     return (
       <View style={styles.errorContainer}>
         <AlertTriangle size={20} color="#ef4444" />
-        <Text style={[styles.errorText, isRTL && styles.rtlText]}>
-          {error}
-        </Text>
+        <Text style={[styles.errorText, isRTL && styles.rtlText]}>{error}</Text>
         <TouchableOpacity
           style={styles.errorDismiss}
           onPress={() => dispatch(clearError())}

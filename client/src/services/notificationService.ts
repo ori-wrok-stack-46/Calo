@@ -1,4 +1,4 @@
-import { Alert, ToastAndroid, Platform } from "react-native";
+import { Alert, Platform, ToastAndroid } from "react-native";
 
 export enum NotificationType {
   SUCCESS = "success",
@@ -7,24 +7,21 @@ export enum NotificationType {
   INFO = "info",
 }
 
-export interface NotificationConfig {
+interface NotificationConfig {
+  type: NotificationType;
   title?: string;
   message: string;
-  type: NotificationType;
-  duration?: number;
   action?: {
     text: string;
     onPress: () => void;
   };
 }
 
-export class NotificationService {
+class NotificationService {
   static show(config: NotificationConfig) {
     if (Platform.OS === "android") {
-      // Use Android Toast for simple notifications
       ToastAndroid.show(config.message, ToastAndroid.LONG);
     } else {
-      // Use Alert for iOS and complex notifications
       const buttons = [
         {
           text: "OK",
@@ -34,7 +31,7 @@ export class NotificationService {
 
       if (config.action) {
         buttons.unshift({
-          text: "ביטול",
+          text: "Cancel",
           style: "cancel" as const,
           onPress: () => {},
         });
@@ -56,7 +53,7 @@ export class NotificationService {
   ) {
     this.show({
       type: NotificationType.SUCCESS,
-      title: title || "הצלחה!",
+      title: title || "Success!",
       message,
       action,
     });
@@ -69,7 +66,7 @@ export class NotificationService {
   ) {
     this.show({
       type: NotificationType.ERROR,
-      title: title || "שגיאה",
+      title: title || "Error",
       message,
       action,
     });
@@ -82,7 +79,7 @@ export class NotificationService {
   ) {
     this.show({
       type: NotificationType.WARNING,
-      title: title || "אזהרה",
+      title: title || "Warning",
       message,
       action,
     });
@@ -95,24 +92,33 @@ export class NotificationService {
   ) {
     this.show({
       type: NotificationType.INFO,
-      title: title || "מידע",
+      title: title || "Info",
       message,
       action,
     });
   }
 
+  static showUserOnline() {
+    this.success(
+      "You are now connected and ready to track your nutrition!",
+      "Welcome! 🟢 User Online"
+    );
+  }
+
   private static getDefaultTitle(type: NotificationType): string {
     switch (type) {
       case NotificationType.SUCCESS:
-        return "הצלחה!";
+        return "Success!";
       case NotificationType.ERROR:
-        return "שגיאה";
+        return "Error";
       case NotificationType.WARNING:
-        return "אזהרה";
+        return "Warning";
       case NotificationType.INFO:
-        return "מידע";
+        return "Info";
       default:
         return "";
     }
   }
 }
+
+export default NotificationService;

@@ -832,6 +832,43 @@ export const nutritionAPI = {
       throw error;
     }
   },
+
+  removeMeal: async (mealId: string): Promise<void> => {
+    try {
+      console.log("🗑️ Making remove meal API request...");
+      console.log("🆔 Meal ID:", mealId);
+
+      const response = await api.delete(`/nutrition/meals/${mealId}`);
+
+      console.log("✅ Remove meal response:", response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error("💥 Remove meal API error:", error);
+      console.error("💥 Error details:", {
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        data: error.response?.data,
+        url: error.config?.url,
+        method: error.config?.method,
+      });
+      throw error;
+    }
+  },
+
+  deleteMeal: async (mealId: string): Promise<void> => {
+    try {
+      console.log("🗑️ Making delete meal API request...");
+      console.log("🆔 Meal ID:", mealId);
+
+      const response = await api.delete(`/nutrition/meals/${mealId}`);
+
+      console.log("✅ Delete meal response:", response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error("💥 Delete meal API error:", error);
+      throw error;
+    }
+  },
 };
 
 // NEW CALENDAR API
@@ -1490,19 +1527,14 @@ export const mealAPI = {
   updateMeal: (mealId: number, updates: any) =>
     api.put(`/nutrition/meals/${mealId}`, updates),
 
-  deleteMeal: async (mealId: string) => {
-    try {
-      console.log("🗑️ Making delete meal API request...");
-      console.log("🗑️ Meal ID:", mealId);
+  toggleFavorite: async (mealId: string): Promise<void> => {
+    const response = await api.put(`/nutrition/meals/${mealId}/favorite`);
+    return response.data;
+  },
 
-      const response = await api.delete(`/nutrition/meals/${mealId}`);
-
-      console.log("✅ Delete meal response:", response.data);
-      return response.data;
-    } catch (error: any) {
-      console.error("💥 Delete meal API error:", error);
-      throw error;
-    }
+  deleteMeal: async (mealId: string): Promise<void> => {
+    const response = await api.delete(`/nutrition/meals/${mealId}`);
+    return response.data;
   },
 
   getMealHistory: async (period: string = "week") => {

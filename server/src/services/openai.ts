@@ -1771,7 +1771,7 @@ Please provide breakfast, lunch, and dinner with detailed ingredients and nutrit
     return ingredients.reduce(
       (acc, ing) => {
         if (ing.allergens_json && ing.allergens_json.possible_allergens) {
-          ing.allergens_json.possible_allergens.forEach((allergen) => {
+          ing.allergens_json.possible_allergens.forEach((allergen: any) => {
             if (!acc.possible_allergens.includes(allergen)) {
               acc.possible_allergens.push(allergen);
             }

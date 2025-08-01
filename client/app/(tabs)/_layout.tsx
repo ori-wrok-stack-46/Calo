@@ -1,6 +1,7 @@
 import { Tabs } from "expo-router";
 import React, { useCallback, useMemo } from "react";
-import { Platform } from "react-native";
+import { Platform, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useLanguage } from "@/src/i18n/context/LanguageContext";
 import { router } from "expo-router";
@@ -9,12 +10,14 @@ import { IconSymbol } from "@/components/ui/IconSymbol";
 import { Colors } from "@/constants/Colors";
 import { useColorScheme } from "@/hooks/useColorScheme";
 import { ScrollableTabBar } from "@/components/ScrollableTabBar";
-import SwipeNavigationWrapper from "@/components/SwipeNavigationWrapper";
+import LanguageToolbar from "@/components/ToolBar";
+import { useTheme } from "@/src/context/ThemeContext";
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const { t } = useTranslation();
   const { isRTL } = useLanguage();
+  const { colors } = useTheme();
 
   const routes = useMemo(
     () => [
@@ -41,11 +44,13 @@ export default function TabLayout() {
   }, []);
 
   return (
-    <SwipeNavigationWrapper
-      onSwipeLeft={handleSwipeLeft}
-      onSwipeRight={handleSwipeRight}
-      threshold={120}
-    >
+    <View style={{ flex: 1, backgroundColor: colors.background }}>
+      <SafeAreaView
+        edges={["top"]}
+        style={{ backgroundColor: colors.background }}
+      >
+        <LanguageToolbar />
+      </SafeAreaView>
       <Tabs
         screenOptions={{
           tabBarActiveTintColor: Colors[colorScheme ?? "light"].tint,
@@ -166,6 +171,6 @@ export default function TabLayout() {
           }}
         />
       </Tabs>
-    </SwipeNavigationWrapper>
+    </View>
   );
 }

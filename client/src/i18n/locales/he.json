@@ -111,7 +111,8 @@
     "duplicate": "שכפל",
     "taste": "טעם",
     "satiety": "שובע",
-    "energy": "אנרגיה"
+    "energy": "אנרגיה",
+    "remove":"מחק מנה"
   },
   "camera": {
     "title": "סורק מזון",

@@ -143,7 +143,8 @@
     "vitamins_minerals": "Vitamins & Minerals",
     "allergens": "Allergens",
     "health_warnings": "Health Warnings",
-    "meal_analysis": "Meal Analysis"
+    "meal_analysis": "Meal Analysis",
+    "remove": "Delete"
   },
   "camera": {
     "title": "Food Scanner",

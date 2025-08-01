@@ -21,8 +21,9 @@ import "react-native-reanimated";
 import { I18nextProvider } from "react-i18next";
 import i18n from "@/src/i18n";
 import { User } from "@/src/types";
-import LanguageToolbar from "@/components/LanguageToolbar";
+import LanguageToolbar from "@/components/ToolBar";
 import { NotificationService } from "@/src/services/notifications";
+import React from "react";
 
 SplashScreen.preventAutoHideAsync();
 

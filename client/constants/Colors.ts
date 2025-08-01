@@ -10,11 +10,16 @@ export const Colors = {
   light: {
     text: "#000",
     background: "#fff",
-    tint: "#2f95dc",
+    tint: tintColorLight,
     icon: "#ccc",
     tabIconDefault: "#ccc",
-    tabIconSelected: "#2f95dc",
-    tabInactive: "#999", // Add this
+    tabIconSelected: tintColorLight,
+    tabInactive: "#999",
+    emerald: "#10b981",
+    emerald50: "#ecfdf5",
+    emerald500: "#10b981",
+    emerald600: "#059669",
+    emerald700: "#047857",
   },
   dark: {
     text: "#ECEDEE",
@@ -23,5 +28,11 @@ export const Colors = {
     icon: "#9BA1A6",
     tabIconDefault: "#9BA1A6",
     tabIconSelected: tintColorDark,
+    tabInactive: "#4B5563",
+    emerald: "#10b981",
+    emerald50: "#064e3b",
+    emerald500: "#10b981",
+    emerald600: "#059669",
+    emerald700: "#047857",
   },
 };
