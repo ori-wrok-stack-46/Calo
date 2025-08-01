@@ -118,12 +118,6 @@ export class AuthService {
   ) {
     try {
       console.log("📧 EMAIL_USER:", process.env.EMAIL_USER);
-      console.log(
-        "🔑 EMAIL_PASSWORD:",
-        process.env.EMAIL_PASSWORD
-          ? `✅ Loaded (${process.env.EMAIL_PASSWORD.length} chars)`
-          : "❌ Missing"
-      );
       console.log("🔑 EMAIL_PASSWORD value:", process.env.EMAIL_PASSWORD); // Temporary debug
       const nodemailer = require("nodemailer");
 
@@ -314,6 +308,260 @@ export class AuthService {
       // Don't throw error - let the signup continue even if email fails
       return true;
     }
+  }
+
+  static async sendPasswordResetEmail(email: string) {
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: {
+        user_id: true,
+        email: true,
+        name: true,
+        email_verified: true,
+      },
+    });
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    if (!user.email_verified) {
+      throw new Error("Please verify your email address first");
+    }
+
+    // Generate secure reset token
+    const resetToken = crypto.randomBytes(32).toString("hex");
+    const resetTokenExpires = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
+
+    // Store reset token in database
+    await prisma.user.update({
+      where: { email },
+      data: {
+        password_reset_token: resetToken,
+        password_reset_expires: resetTokenExpires,
+      },
+    });
+
+    try {
+      const nodemailer = require("nodemailer");
+
+      const transporter = nodemailer.createTransport({
+        host: "smtp.gmail.com",
+        port: 587,
+        secure: false,
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASSWORD,
+        },
+      });
+
+      const mailOptions = {
+        from: `"Calo Fitness & Diet" <${process.env.EMAIL_USER}>`,
+        to: email,
+        subject: "Reset Your Password - Calo",
+        html: `
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Password Reset - Calo</title>
+        </head>
+        <body style="margin: 0; padding: 0; background-color: #f8f9fa; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;">
+          <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f8f9fa;">
+            <tr>
+              <td align="center" style="padding: 40px 20px;">
+                
+                <!-- Main Container -->
+                <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width: 600px; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08); overflow: hidden;">
+                  
+                  <!-- Header Section -->
+                  <tr>
+                    <td style="background: linear-gradient(135deg, #4ECDC4 0%, #44A08D 100%); padding: 40px 32px; text-align: center;">
+                      <div style="background-color: rgba(255, 255, 255, 0.1); width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; border: 3px solid rgba(255, 255, 255, 0.2);">
+                        <div style="width: 40px; height: 40px; background-color: white; border-radius: 50%; position: relative;">
+                          <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 20px; height: 20px; background: linear-gradient(135deg, #4ECDC4 0%, #44A08D 100%); border-radius: 50%;"></div>
+                        </div>
+                      </div>
+                      <h1 style="color: #ffffff; font-size: 28px; font-weight: 700; margin: 0; letter-spacing: -0.5px;">Calo</h1>
+                      <p style="color: rgba(255, 255, 255, 0.9); font-size: 16px; margin: 8px 0 0 0; font-weight: 400;">Fitness & Diet</p>
+                    </td>
+                  </tr>
+                  
+                  <!-- Content Section -->
+                  <tr>
+                    <td style="padding: 48px 32px 32px;">
+                      
+                      <!-- Greeting -->
+                      <h2 style="color: #1a1a1a; font-size: 24px; font-weight: 600; margin: 0 0 24px 0; line-height: 1.3;">
+                        Password Reset Request 🔒
+                      </h2>
+                      
+                      <p style="color: #4a5568; font-size: 16px; line-height: 1.6; margin: 0 0 32px 0;">
+                        Hi ${user.name || "there"},<br><br>
+                        We received a request to reset your password for your Calo account. Use the secure token below to reset your password.
+                      </p>
+                      
+                      <!-- Reset Token Container -->
+                      <div style="background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%); border: 2px dashed #f87171; border-radius: 12px; padding: 32px; text-align: center; margin: 32px 0;">
+                        <p style="color: #dc2626; font-size: 14px; margin: 0 0 16px 0; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px;">
+                          Password Reset Token
+                        </p>
+                        <div style="font-family: 'Courier New', monospace; font-size: 16px; font-weight: 700; color: #991b1b; word-break: break-all; margin: 16px 0; text-align: center; background: white; padding: 16px; border-radius: 8px;">
+                          ${resetToken}
+                        </div>
+                        <p style="color: #dc2626; font-size: 13px; margin: 16px 0 0 0;">
+                          This token expires in <strong>30 minutes</strong>
+                        </p>
+                      </div>
+                      
+                      <!-- Instructions -->
+                      <div style="background-color: #f0f9ff; border-left: 4px solid #3b82f6; padding: 20px; margin: 32px 0; border-radius: 0 8px 8px 0;">
+                        <h3 style="color: #1e40af; font-size: 16px; font-weight: 600; margin: 0 0 8px 0;">
+                          📱 How to reset your password:
+                        </h3>
+                        <ol style="color: #1e40af; font-size: 14px; line-height: 1.5; margin: 0; padding-left: 20px;">
+                          <li>Open the Calo app</li>
+                          <li>Go to the password reset screen</li>
+                          <li>Enter your email address</li>
+                          <li>Copy and paste the token above</li>
+                          <li>Create your new password</li>
+                        </ol>
+                      </div>
+                      
+                      <!-- Security Notice -->
+                      <div style="background-color: #fef2f2; border-left: 4px solid #ef4444; padding: 20px; margin: 32px 0; border-radius: 0 8px 8px 0;">
+                        <h3 style="color: #dc2626; font-size: 16px; font-weight: 600; margin: 0 0 8px 0;">
+                          ⚠️ Security Notice
+                        </h3>
+                        <p style="color: #dc2626; font-size: 14px; line-height: 1.5; margin: 0;">
+                          If you didn't request a password reset, please ignore this email. Your password will remain unchanged. Never share your reset token with anyone.
+                        </p>
+                      </div>
+                      
+                    </td>
+                  </tr>
+                  
+                  <!-- Footer Section -->
+                  <tr>
+                    <td style="background-color: #f8f9fa; padding: 32px; text-align: center; border-top: 1px solid #e2e8f0;">
+                      
+                      <!-- Company Info -->
+                      <p style="color: #1a1a1a; font-size: 16px; font-weight: 600; margin: 0 0 8px 0;">
+                        Calo - Fitness & Diet
+                      </p>
+                      <p style="color: #718096; font-size: 14px; margin: 0 0 16px 0; line-height: 1.5;">
+                        Your Personal Nutrition & Fitness Assistant
+                      </p>
+                      
+                      <!-- Copyright -->
+                      <p style="color: #a0aec0; font-size: 12px; margin: 20px 0 0 0;">
+                        © 2025 Calo. All rights reserved.
+                      </p>
+                      
+                    </td>
+                  </tr>
+                  
+                </table>
+                
+              </td>
+            </tr>
+          </table>
+        </body>
+        </html>
+        `,
+      };
+
+      const result = await transporter.sendMail(mailOptions);
+      console.log(`✅ Password reset email sent to ${email}`);
+      console.log("📧 Message ID:", result.messageId);
+
+      // Log to console for development
+      if (process.env.NODE_ENV !== "production") {
+        console.log(`📧 Password reset email for ${email}`);
+        console.log(`👤 Name: ${user.name}`);
+        console.log(`🔑 Reset Token: ${resetToken}`);
+        console.log(`⏰ Token expires in 30 minutes`);
+      }
+
+      return true;
+    } catch (error: any) {
+      console.error("❌ Failed to send password reset email:", error, {
+        email,
+      });
+
+      // Fallback to console logging if email fails
+      console.log(`📧 FALLBACK - Password reset email for ${email}`);
+      console.log(`👤 Name: ${user.name}`);
+      console.log(`🔑 Reset Token: ${resetToken}`);
+      console.log(`⏰ Token expires in 30 minutes`);
+
+      // Don't throw error - let the process continue even if email fails
+      return true;
+    }
+  }
+
+  static async resetPassword(
+    token: string,
+    email: string,
+    newPassword: string
+  ) {
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: {
+        user_id: true,
+        email: true,
+        password_reset_token: true,
+        password_reset_expires: true,
+        email_verified: true,
+      },
+    });
+
+    if (!user) {
+      throw new Error("User not found");
+    }
+
+    if (!user.email_verified) {
+      throw new Error("Please verify your email address first");
+    }
+
+    if (!user.password_reset_token || !user.password_reset_expires) {
+      throw new Error("No password reset request found");
+    }
+
+    if (user.password_reset_expires < new Date()) {
+      throw new Error("Password reset token has expired");
+    }
+
+    if (user.password_reset_token !== token) {
+      throw new Error("Invalid password reset token");
+    }
+
+    // Validate new password strength
+    if (newPassword.length < 8) {
+      throw new Error("Password must be at least 8 characters long");
+    }
+
+    // Hash new password
+    const hashedPassword = await bcrypt.hash(newPassword, 12);
+
+    // Update password and clear reset token
+    await prisma.user.update({
+      where: { email },
+      data: {
+        password_hash: hashedPassword,
+        password_reset_token: null,
+        password_reset_expires: null,
+      },
+    });
+
+    // Invalidate all existing sessions for security
+    await prisma.session.deleteMany({
+      where: { user_id: user.user_id },
+    });
+
+    console.log(`✅ Password reset successful for ${email}`);
+    return true;
   }
 
   static async verifyEmail(email: string, code: string) {

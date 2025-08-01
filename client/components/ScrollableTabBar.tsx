@@ -93,9 +93,9 @@ export function ScrollableTabBar({
   const scrollX = useRef(new Animated.Value(0)).current;
   const currentScrollX = useRef(0);
 
-  // Calculate proper tab bar height with safe area
-  const baseTabHeight = 60; // Base height for tab content
-  const totalTabBarHeight = baseTabHeight + Math.max(insets.bottom, 10); // Ensure minimum bottom padding
+  // Calculate proper tab bar height with safe area - FIXED
+  const baseTabHeight = 70; // Increased base height for tab content
+  const totalTabBarHeight = baseTabHeight + Math.max(insets.bottom, 20); // Increased minimum bottom padding
 
   // Memoize calculations with enhanced scrolling logic
   const tabCalculations = useMemo(() => {
@@ -372,13 +372,14 @@ export function ScrollableTabBar({
   };
 
   return (
-    <SafeAreaView edges={["bottom"]} style={styles.safeAreaWrapper}>
-      <View style={styles.wrapper}>
+    <View style={styles.safeAreaWrapper}>
+      <SafeAreaView edges={["bottom"]} style={styles.wrapper}>
         <View
           style={[
             styles.container,
             {
-              height: baseTabHeight, // Use base height, SafeAreaView handles bottom
+              height: totalTabBarHeight, // Use total height including safe area
+              paddingBottom: Math.max(insets.bottom, 20), // Ensure proper bottom padding
             },
           ]}
         >
@@ -551,8 +552,8 @@ export function ScrollableTabBar({
           {/* Floating Camera Button */}
           {renderFloatingCameraButton()}
         </View>
-      </View>
-    </SafeAreaView>
+      </SafeAreaView>
+    </View>
   );
 }
 
@@ -579,10 +580,11 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
   safeAreaWrapper: {
+    flex: 1,
     backgroundColor: "#ffffff",
   },
   wrapper: {
-    backgroundColor: "transparent",
+    backgroundColor: "#ffffff",
     position: "relative",
   },
   container: {
@@ -597,8 +599,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 12,
     elevation: 12,
-    paddingTop: 8,
+    paddingTop: 12, // Increased top padding
     position: "relative",
+    minHeight: 80, // Ensure minimum height
   },
   indicator: {
     position: "absolute",
@@ -614,16 +617,17 @@ const styles = StyleSheet.create({
   scrollViewContent: {
     flexDirection: "row",
     alignItems: "center",
-    height: "100%",
+    minHeight: 60, // Ensure minimum content height
     paddingHorizontal: 0,
   },
   tabButton: {
     flexDirection: "column",
     justifyContent: "center",
     alignItems: "center",
-    paddingVertical: 8,
+    paddingVertical: 12, // Increased vertical padding
     paddingHorizontal: 8,
     zIndex: 2,
+    minHeight: 60, // Ensure minimum button height
   },
   cameraPlaceholder: {
     // Invisible placeholder to maintain proper spacing
@@ -639,7 +643,7 @@ const styles = StyleSheet.create({
   labelContainer: {
     justifyContent: "center",
     alignItems: "center",
-    minHeight: 14,
+    minHeight: 16, // Increased label container height
   },
   label: {
     fontSize: TAB_LABEL_FONT_SIZE,
@@ -649,10 +653,10 @@ const styles = StyleSheet.create({
   },
   floatingCameraButton: {
     position: "absolute",
-    top: -28, // Float above the tab bar
+    top: -32, // Float higher above the tab bar
     left: 0, // Use transform for positioning instead
     width: CAMERA_BUTTON_SIZE,
-    height: CAMERA_BUTTON_SIZE + 30, // Extra height for label
+    height: CAMERA_BUTTON_SIZE + 35, // Extra height for label
     justifyContent: "flex-start",
     alignItems: "center",
     zIndex: 10, // High z-index to ensure it's above everything
@@ -680,7 +684,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.4,
     shadowRadius: 12,
     // Add white border for better separation
-    borderWidth: 3,
+    borderWidth: 4, // Increased border width
     borderColor: "#ffffff",
   },
   cameraLabel: {

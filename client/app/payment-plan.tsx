@@ -7,12 +7,15 @@ import {
   Alert,
   ActivityIndicator,
   ScrollView,
+  TextInput,
+  Modal,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch, RootState } from "@/src/store";
 import { userAPI } from "@/src/services/api";
 import { Ionicons } from "@expo/vector-icons";
+import { CreditCard, Lock, X, Check } from "lucide-react-native";
 
 type PlanType = "FREE" | "PREMIUM" | "GOLD";
 
@@ -73,18 +76,112 @@ const plans: Plan[] = [
 export default function PaymentPlan() {
   const [selectedPlan, setSelectedPlan] = useState<PlanType | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [paymentData, setPaymentData] = useState({
+    cardNumber: "",
+    expiryDate: "",
+    cvv: "",
+    cardholderName: "",
+  });
+  const [cardType, setCardType] = useState("");
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
   const { user } = useSelector((state: RootState) => state.auth);
 
-  const handlePlanSelection = async (planId: PlanType) => {
-    // Prevent multiple simultaneous requests
-    if (isLoading) return;
+  const detectCardType = (cardNumber: string) => {
+    const number = cardNumber.replace(/\s/g, "");
+
+    if (number.startsWith("4")) return "Visa";
+    if (
+      number.startsWith("5") ||
+      (number.startsWith("2") &&
+        number.length >= 2 &&
+        parseInt(number.substring(0, 2)) >= 22 &&
+        parseInt(number.substring(0, 2)) <= 27)
+    )
+      return "Mastercard";
+    if (number.startsWith("3")) return "American Express";
+    if (number.startsWith("6")) return "Discover";
+
+    return "";
+  };
+
+  const formatCardNumber = (text: string) => {
+    const cleaned = text.replace(/\s/g, "");
+    const match = cleaned.match(/.{1,4}/g);
+    return match ? match.join(" ") : cleaned;
+  };
+
+  const formatExpiryDate = (text: string) => {
+    const cleaned = text.replace(/\D/g, "");
+    if (cleaned.length >= 2) {
+      return cleaned.substring(0, 2) + "/" + cleaned.substring(2, 4);
+    }
+    return cleaned;
+  };
+
+  const validatePaymentData = () => {
+    const { cardNumber, expiryDate, cvv, cardholderName } = paymentData;
+
+    if (!cardNumber || cardNumber.replace(/\s/g, "").length < 13) {
+      Alert.alert("שגיאה", "מספר כרטיס אשראי לא תקין");
+      return false;
+    }
+
+    if (!expiryDate || expiryDate.length !== 5) {
+      Alert.alert("שגיאה", "תאריך תפוגה לא תקין");
+      return false;
+    }
+
+    if (!cvv || cvv.length < 3) {
+      Alert.alert("שגיאה", "קוד CVV לא תקין");
+      return false;
+    }
+
+    if (!cardholderName.trim()) {
+      Alert.alert("שגיאה", "שם בעל הכרטיס נדרש");
+      return false;
+    }
+
+    return true;
+  };
+
+  const handlePayment = async (planId: PlanType) => {
+    if (planId === "FREE") {
+      return handlePlanSelection(planId);
+    }
+
+    setSelectedPlan(planId);
+    setShowPaymentModal(true);
+  };
+
+  const processPayment = async () => {
+    if (!validatePaymentData() || !selectedPlan) return;
 
     try {
       setIsLoading(true);
-      setSelectedPlan(planId);
 
+      // Simulate payment processing
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      // Process the plan selection
+      await handlePlanSelection(selectedPlan);
+
+      setShowPaymentModal(false);
+      setPaymentData({
+        cardNumber: "",
+        expiryDate: "",
+        cvv: "",
+        cardholderName: "",
+      });
+    } catch (error) {
+      Alert.alert("שגיאה", "התשלום נכשל. אנא נסה שוב.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  const handlePlanSelection = async (planId: PlanType) => {
+    try {
       // Check if user is authenticated
       if (!user) {
         throw new Error("User not authenticated");
@@ -116,9 +213,6 @@ export default function PaymentPlan() {
     } catch (error: any) {
       console.error("Plan selection error:", error);
       Alert.alert("שגיאה", error.message || "נכשל בעדכון התוכנית");
-    } finally {
-      setIsLoading(false);
-      setSelectedPlan(null);
     }
   };
 
@@ -151,24 +245,159 @@ export default function PaymentPlan() {
       </View>
 
       <TouchableOpacity
-        style={[
-          styles.selectButton,
-          { backgroundColor: plan.color },
-          selectedPlan === plan.id && isLoading && styles.loadingButton,
-        ]}
-        onPress={() => handlePlanSelection(plan.id)}
-        disabled={isLoading}
+        style={[styles.selectButton, { backgroundColor: plan.color }]}
+        onPress={() => handlePayment(plan.id)}
         accessibilityLabel={`Select ${plan.name} plan`}
       >
-        {selectedPlan === plan.id && isLoading ? (
-          <ActivityIndicator color="white" />
-        ) : (
-          <Text style={styles.selectButtonText}> {plan.id}בחר תוכנית זו</Text>
-        )}
+        <Text style={styles.selectButtonText}>בחר תוכנית {plan.id}</Text>
       </TouchableOpacity>
     </View>
   );
 
+  const renderPaymentModal = () => (
+    <Modal
+      visible={showPaymentModal}
+      transparent
+      animationType="slide"
+      onRequestClose={() => setShowPaymentModal(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.paymentModal}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>פרטי תשלום</Text>
+            <TouchableOpacity onPress={() => setShowPaymentModal(false)}>
+              <X size={24} color="#666" />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.modalContent}>
+            <View style={styles.planSummary}>
+              <Text style={styles.summaryTitle}>
+                תוכנית נבחרת: {plans.find((p) => p.id === selectedPlan)?.name}
+              </Text>
+              <Text style={styles.summaryPrice}>
+                {plans.find((p) => p.id === selectedPlan)?.price}
+              </Text>
+            </View>
+
+            <View style={styles.paymentForm}>
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>מספר כרטיס אשראי</Text>
+                <View style={styles.cardInputContainer}>
+                  <TextInput
+                    style={styles.cardInput}
+                    value={paymentData.cardNumber}
+                    onChangeText={(text) => {
+                      const formatted = formatCardNumber(text);
+                      if (formatted.replace(/\s/g, "").length <= 16) {
+                        setPaymentData({
+                          ...paymentData,
+                          cardNumber: formatted,
+                        });
+                        setCardType(detectCardType(formatted));
+                      }
+                    }}
+                    placeholder="1234 5678 9012 3456"
+                    keyboardType="numeric"
+                    maxLength={19}
+                  />
+                  {cardType && (
+                    <View style={styles.cardTypeBadge}>
+                      <Text style={styles.cardTypeText}>{cardType}</Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+
+              <View style={styles.inputRow}>
+                <View
+                  style={[styles.inputContainer, { flex: 1, marginRight: 12 }]}
+                >
+                  <Text style={styles.inputLabel}>תאריך תפוגה</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={paymentData.expiryDate}
+                    onChangeText={(text) => {
+                      const formatted = formatExpiryDate(text);
+                      if (formatted.length <= 5) {
+                        setPaymentData({
+                          ...paymentData,
+                          expiryDate: formatted,
+                        });
+                      }
+                    }}
+                    placeholder="MM/YY"
+                    keyboardType="numeric"
+                    maxLength={5}
+                  />
+                </View>
+
+                <View style={[styles.inputContainer, { flex: 1 }]}>
+                  <Text style={styles.inputLabel}>CVV</Text>
+                  <TextInput
+                    style={styles.input}
+                    value={paymentData.cvv}
+                    onChangeText={(text) => {
+                      if (text.length <= 4) {
+                        setPaymentData({ ...paymentData, cvv: text });
+                      }
+                    }}
+                    placeholder="123"
+                    keyboardType="numeric"
+                    maxLength={4}
+                    secureTextEntry
+                  />
+                </View>
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>שם בעל הכרטיס</Text>
+                <TextInput
+                  style={styles.input}
+                  value={paymentData.cardholderName}
+                  onChangeText={(text) =>
+                    setPaymentData({ ...paymentData, cardholderName: text })
+                  }
+                  placeholder="שם מלא כפי שמופיע על הכרטיס"
+                  autoCapitalize="words"
+                />
+              </View>
+
+              <View style={styles.securityNotice}>
+                <Lock size={16} color="#10b981" />
+                <Text style={styles.securityText}>
+                  התשלום מאובטח ומוצפן ברמה הגבוהה ביותר
+                </Text>
+              </View>
+            </View>
+          </ScrollView>
+
+          <View style={styles.modalActions}>
+            <TouchableOpacity
+              style={styles.cancelPaymentButton}
+              onPress={() => setShowPaymentModal(false)}
+            >
+              <Text style={styles.cancelPaymentText}>ביטול</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.payButton, isLoading && styles.loadingButton]}
+              onPress={processPayment}
+              disabled={isLoading}
+            >
+              {isLoading ? (
+                <ActivityIndicator color="white" size="small" />
+              ) : (
+                <>
+                  <CreditCard size={16} color="#ffffff" />
+                  <Text style={styles.payButtonText}>שלם עכשיו</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
   return (
     <ScrollView
       style={styles.container}
@@ -194,6 +423,8 @@ export default function PaymentPlan() {
           ניתן לשנות או לבטל את המנוי בכל עת מהגדרות החשבון
         </Text>
       </View>
+
+      {renderPaymentModal()}
     </ScrollView>
   );
 }
@@ -314,5 +545,156 @@ const styles = StyleSheet.create({
     color: "#888",
     textAlign: "center",
     lineHeight: 18,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  paymentModal: {
+    backgroundColor: "white",
+    borderRadius: 16,
+    width: "90%",
+    maxHeight: "80%",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f0f0f0",
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#333",
+  },
+  modalContent: {
+    flex: 1,
+    padding: 20,
+  },
+  planSummary: {
+    backgroundColor: "#f8f9fa",
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 24,
+    alignItems: "center",
+  },
+  summaryTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 8,
+  },
+  summaryPrice: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#2196F3",
+  },
+  paymentForm: {
+    gap: 16,
+  },
+  inputContainer: {
+    marginBottom: 16,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 8,
+  },
+  cardInputContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    position: "relative",
+  },
+  cardInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    backgroundColor: "#fff",
+  },
+  cardTypeBadge: {
+    position: "absolute",
+    right: 12,
+    backgroundColor: "#f0f0f0",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  cardTypeText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#666",
+  },
+  input: {
+    borderWidth: 1,
+    borderColor: "#ddd",
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    backgroundColor: "#fff",
+  },
+  inputRow: {
+    flexDirection: "row",
+  },
+  securityNotice: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f0fdf4",
+    padding: 12,
+    borderRadius: 8,
+    gap: 8,
+  },
+  securityText: {
+    fontSize: 12,
+    color: "#10b981",
+    flex: 1,
+  },
+  modalActions: {
+    flexDirection: "row",
+    padding: 20,
+    borderTopWidth: 1,
+    borderTopColor: "#f0f0f0",
+    gap: 12,
+  },
+  cancelPaymentButton: {
+    flex: 1,
+    padding: 16,
+    borderRadius: 8,
+    backgroundColor: "#f8f9fa",
+    borderWidth: 1,
+    borderColor: "#ddd",
+    alignItems: "center",
+  },
+  cancelPaymentText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#666",
+  },
+  payButton: {
+    flex: 2,
+    flexDirection: "row",
+    padding: 16,
+    borderRadius: 8,
+    backgroundColor: "#10b981",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  payButtonText: {
+    fontSize: 16,
+    fontWeight: "bold",
+    color: "white",
   },
 });

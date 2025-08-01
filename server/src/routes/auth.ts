@@ -250,8 +250,78 @@ router.post(
   }
 );
 
-export { router as authRoutes };
-  function next(error: unknown) {
-    throw new Error("Function not implemented.");
-  }
+// Forgot password endpoint
+router.post("/forgot-password", async (req, res) => {
+  try {
+    const { email } = req.body;
 
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        error: "Email is required",
+      });
+    }
+
+    console.log("🔄 Processing forgot password request for:", email);
+
+    const result = await AuthService.sendPasswordResetEmail(email);
+
+    res.json({
+      success: true,
+      message: "Password reset email sent successfully",
+    });
+  } catch (error) {
+    console.error("💥 Forgot password error:", error);
+    if (error instanceof Error) {
+      res.status(400).json({
+        success: false,
+        error: error.message,
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: "Failed to send password reset email",
+      });
+    }
+  }
+});
+
+// Reset password endpoint
+router.post("/reset-password", async (req, res) => {
+  try {
+    const { token, email, newPassword } = req.body;
+
+    if (!token || !email || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        error: "Token, email, and new password are required",
+      });
+    }
+
+    console.log("🔄 Processing password reset for:", email);
+
+    const result = await AuthService.resetPassword(token, email, newPassword);
+
+    res.json({
+      success: true,
+      message: "Password reset successfully",
+    });
+  } catch (error) {
+    console.error("💥 Reset password error:", error);
+    if (error instanceof Error) {
+      res.status(400).json({
+        success: false,
+        error: error.message,
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: "Failed to reset password",
+      });
+    }
+  }
+});
+export { router as authRoutes };
+function next(error: unknown) {
+  throw new Error("Function not implemented.");
+}

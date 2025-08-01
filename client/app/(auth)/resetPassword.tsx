@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -8,26 +8,28 @@ import {
   Alert,
   ActivityIndicator,
   Animated,
-  Dimensions,
 } from "react-native";
-import { Link, router } from "expo-router";
+import { useRouter, useLocalSearchParams, Link } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useLanguage } from "@/src/i18n/context/LanguageContext";
-import { Mail, ArrowLeft, CheckCircle } from "lucide-react-native";
+import { Lock, Eye, EyeOff } from "lucide-react-native";
 import { api } from "@/src/services/api";
 
-const { width } = Dimensions.get("window");
-
-export default function ForgotPasswordScreen() {
+export default function ResetPasswordScreen() {
   const { t } = useTranslation();
   const { isRTL } = useLanguage();
-  const [email, setEmail] = useState("");
+  const router = useRouter();
+  const { token, email } = useLocalSearchParams();
+
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [emailSent, setEmailSent] = useState(false);
   const [fadeAnim] = useState(new Animated.Value(0));
   const [slideAnim] = useState(new Animated.Value(50));
 
-  React.useEffect(() => {
+  useEffect(() => {
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 1,
@@ -42,104 +44,58 @@ export default function ForgotPasswordScreen() {
     ]).start();
   }, []);
 
-  const validateEmail = (email: string) => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return emailRegex.test(email);
+  const validatePassword = (password: string) => {
+    return password.length >= 8;
   };
 
-  const handleSendResetEmail = async () => {
-    if (!email || !validateEmail(email)) {
-      Alert.alert(t("common.error"), "Please enter a valid email address");
+  const handleResetPassword = async () => {
+    if (!password || !confirmPassword) {
+      Alert.alert(t("common.error"), "Please fill in all fields");
+      return;
+    }
+
+    if (!validatePassword(password)) {
+      Alert.alert(t("common.error"), "Password must be at least 8 characters");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      Alert.alert(t("common.error"), "Passwords do not match");
       return;
     }
 
     try {
       setIsLoading(true);
-      console.log("🔄 Sending password reset email to:", email);
+      console.log("🔄 Resetting password...");
 
-      const response = await api.post("/auth/forgot-password", { email });
+      const response = await api.post("/auth/reset-password", {
+        token,
+        email,
+        newPassword: password,
+      });
 
       if (response.data.success) {
-        setEmailSent(true);
-        Alert.alert(
-          "Email Sent!",
-          "Please check your email for password reset instructions",
-          [{ text: "OK" }]
-        );
+        Alert.alert("Success!", "Your password has been reset successfully", [
+          {
+            text: "Sign In",
+            onPress: () => router.replace("/(auth)/signin"),
+          },
+        ]);
       } else {
-        throw new Error(response.data.error || "Failed to send reset email");
+        throw new Error(response.data.error || "Failed to reset password");
       }
     } catch (error: any) {
-      console.error("💥 Forgot password error:", error);
+      console.error("💥 Reset password error:", error);
       Alert.alert(
         t("common.error"),
         error.response?.data?.error ||
           error.message ||
-          "Failed to send reset email"
+          "Failed to reset password"
       );
     } finally {
       setIsLoading(false);
     }
   };
-
-  const handleResendEmail = async () => {
-    setEmailSent(false);
-    await handleSendResetEmail();
-  };
-
-  if (emailSent) {
-    return (
-      <View style={[styles.container, isRTL && styles.containerRTL]}>
-        <View style={styles.backgroundAccent} />
-
-        <Animated.View
-          style={[
-            styles.content,
-            {
-              opacity: fadeAnim,
-              transform: [{ translateY: slideAnim }],
-            },
-          ]}
-        >
-          <View style={styles.header}>
-            <View style={styles.iconContainer}>
-              <CheckCircle size={60} color="#10B981" />
-            </View>
-            <Text style={[styles.title, isRTL && styles.titleRTL]}>
-              Email Sent!
-            </Text>
-            <Text style={[styles.subtitle, isRTL && styles.subtitleRTL]}>
-              We've sent password reset instructions to:
-            </Text>
-            <Text style={[styles.emailText, isRTL && styles.emailTextRTL]}>
-              {email}
-            </Text>
-            <Text style={[styles.subtitle, isRTL && styles.subtitleRTL]}>
-              Please check your email (including spam folder)
-            </Text>
-          </View>
-
-          <View style={styles.form}>
-            <TouchableOpacity
-              style={styles.resendButton}
-              onPress={handleResendEmail}
-              disabled={isLoading}
-            >
-              <Text style={styles.resendButtonText}>Resend Email</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={() => router.push("/(auth)/signin")}
-            >
-              <ArrowLeft size={20} color="#10B981" />
-              <Text style={styles.backButtonText}>Back to Sign In</Text>
-            </TouchableOpacity>
-          </View>
-        </Animated.View>
-      </View>
-    );
-  }
 
   return (
     <View style={[styles.container, isRTL && styles.containerRTL]}>
@@ -156,14 +112,13 @@ export default function ForgotPasswordScreen() {
       >
         <View style={styles.header}>
           <View style={styles.iconContainer}>
-            <Mail size={48} color="#10B981" />
+            <Lock size={48} color="#10B981" />
           </View>
           <Text style={[styles.title, isRTL && styles.titleRTL]}>
-            Forgot Password?
+            Reset Password
           </Text>
           <Text style={[styles.subtitle, isRTL && styles.subtitleRTL]}>
-            Enter your email address and we'll send you instructions to reset
-            your password
+            Enter your new password below
           </Text>
         </View>
 
@@ -171,26 +126,58 @@ export default function ForgotPasswordScreen() {
           <View style={styles.inputContainer}>
             <TextInput
               style={[styles.input, isRTL && styles.inputRTL]}
-              placeholder="Enter your email address"
+              placeholder="New Password"
               placeholderTextColor="#10B981"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
+              value={password}
+              onChangeText={setPassword}
+              secureTextEntry={!showPassword}
               textAlign={isRTL ? "right" : "left"}
               editable={!isLoading}
             />
+            <TouchableOpacity
+              style={styles.eyeButton}
+              onPress={() => setShowPassword(!showPassword)}
+            >
+              {showPassword ? (
+                <EyeOff size={20} color="#10B981" />
+              ) : (
+                <Eye size={20} color="#10B981" />
+              )}
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.inputContainer}>
+            <TextInput
+              style={[styles.input, isRTL && styles.inputRTL]}
+              placeholder="Confirm New Password"
+              placeholderTextColor="#10B981"
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              secureTextEntry={!showConfirmPassword}
+              textAlign={isRTL ? "right" : "left"}
+              editable={!isLoading}
+            />
+            <TouchableOpacity
+              style={styles.eyeButton}
+              onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+            >
+              {showConfirmPassword ? (
+                <EyeOff size={20} color="#10B981" />
+              ) : (
+                <Eye size={20} color="#10B981" />
+              )}
+            </TouchableOpacity>
           </View>
 
           <TouchableOpacity
-            style={[styles.sendButton, isLoading && styles.buttonDisabled]}
-            onPress={handleSendResetEmail}
+            style={[styles.resetButton, isLoading && styles.buttonDisabled]}
+            onPress={handleResetPassword}
             disabled={isLoading}
           >
             {isLoading ? (
               <ActivityIndicator size="small" color="#ffffff" />
             ) : (
-              <Text style={styles.sendButtonText}>Send Reset Email</Text>
+              <Text style={styles.resetButtonText}>Reset Password</Text>
             )}
           </TouchableOpacity>
 
@@ -270,43 +257,34 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: "#6b7280",
     textAlign: "center",
-    marginBottom: 8,
     fontWeight: "500",
     lineHeight: 22,
   },
   subtitleRTL: {
     textAlign: "right",
   },
-  emailText: {
-    fontSize: 16,
-    color: "#10B981",
-    fontWeight: "700",
-    marginBottom: 8,
-    textAlign: "center",
-  },
-  emailTextRTL: {
-    textAlign: "right",
-  },
   form: {
     flex: 1,
-    maxHeight: 300,
+    maxHeight: 400,
   },
   inputContainer: {
-    marginBottom: 32,
+    marginBottom: 20,
     shadowColor: "#10B981",
     shadowOffset: {
       width: 0,
-      height: 4,
+      height: 2,
     },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 6,
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+    position: "relative",
   },
   input: {
     borderWidth: 2,
     borderColor: "#d1fae5",
     borderRadius: 16,
-    padding: 20,
+    padding: 18,
+    paddingRight: 50,
     fontSize: 16,
     backgroundColor: "#ffffff",
     color: "#065f46",
@@ -314,13 +292,21 @@ const styles = StyleSheet.create({
   },
   inputRTL: {
     textAlign: "right",
+    paddingLeft: 50,
+    paddingRight: 18,
   },
-  sendButton: {
+  eyeButton: {
+    position: "absolute",
+    right: 18,
+    top: "50%",
+    transform: [{ translateY: -10 }],
+  },
+  resetButton: {
     backgroundColor: "#10B981",
     borderRadius: 16,
     padding: 18,
     alignItems: "center",
-    marginBottom: 24,
+    marginTop: 24,
     shadowColor: "#10B981",
     shadowOffset: {
       width: 0,
@@ -328,50 +314,16 @@ const styles = StyleSheet.create({
     },
     shadowOpacity: 0.3,
     shadowRadius: 8,
-    elevation: 8,
+    elevation: 6,
   },
   buttonDisabled: {
     opacity: 0.7,
   },
-  sendButtonText: {
+  resetButtonText: {
     color: "#ffffff",
     fontSize: 18,
     fontWeight: "700",
     letterSpacing: 0.5,
-  },
-  resendButton: {
-    alignItems: "center",
-    padding: 16,
-    borderRadius: 16,
-    backgroundColor: "#ffffff",
-    borderWidth: 2,
-    borderColor: "#d1fae5",
-    shadowColor: "#10B981",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 3,
-    marginBottom: 16,
-  },
-  resendButtonText: {
-    color: "#10B981",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  backButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 16,
-    gap: 8,
-  },
-  backButtonText: {
-    color: "#10B981",
-    fontSize: 16,
-    fontWeight: "600",
   },
   footer: {
     flexDirection: "row",

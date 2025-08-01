@@ -71,12 +71,12 @@ export default function TabLayout() {
               left: 0,
               right: 0,
               height:
-                Platform.OS === "ios" ? 49 + insets.bottom : 60 + insets.bottom,
+                Platform.OS === "ios" ? 80 + insets.bottom : 90 + insets.bottom,
               backgroundColor: colors.background,
               borderTopWidth: 1,
               borderTopColor: colors.border || "#E5E5E5",
-              paddingBottom: insets.bottom,
-              paddingTop: 8,
+              paddingBottom: Math.max(insets.bottom, 20),
+              paddingTop: 12,
               elevation: 10, // Android shadow
               shadowColor: "#000", // iOS shadow
               shadowOffset: { width: 0, height: -2 },
@@ -87,14 +87,14 @@ export default function TabLayout() {
               fontSize: 11,
               fontWeight: "500",
               marginTop: 2,
-              marginBottom: Platform.OS === "ios" ? 0 : 4,
+              marginBottom: Platform.OS === "ios" ? 4 : 8,
             },
             tabBarIconStyle: {
               marginBottom: 2,
             },
             tabBarItemStyle: {
-              paddingVertical: 4,
-              height: 49, // Fixed height for consistency
+              paddingVertical: 8,
+              height: 60, // Increased height for better spacing
             },
             ...(isRTL
               ? {
@@ -118,6 +118,7 @@ export default function TabLayout() {
                 shadowOffset: { width: 0, height: -2 },
                 shadowOpacity: 0.1,
                 shadowRadius: 4,
+                minHeight: 80, // Ensure minimum height
               }}
             >
               <ScrollableTabBar {...props} />
