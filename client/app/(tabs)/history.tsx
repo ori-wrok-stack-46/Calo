@@ -520,6 +520,7 @@ const CompactMealCard = ({
 };
 
 export default function HistoryScreen() {
+  // ALL hooks must be called before any conditional logic or early returns
   const { t } = useTranslation();
   const { isRTL } = useLanguage();
   const dispatch = useDispatch<AppDispatch>();
@@ -722,12 +723,6 @@ export default function HistoryScreen() {
     [dispatch]
   );
 
-  if (isLoading && !meals.length) {
-    return (
-      <LoadingScreen text={isRTL ? "טוען היסטוריה..." : "Loading history..."} />
-    );
-  }
-
   // Prepare data with insights as header
   const listData = useMemo(() => {
     const data = [];
@@ -803,6 +798,13 @@ export default function HistoryScreen() {
       />
     );
   };
+
+  // Only show loading screen if truly loading and no meals exist
+  if (isLoading && !meals.length) {
+    return (
+      <LoadingScreen text={isRTL ? "טוען היסטוריה..." : "Loading history..."} />
+    );
+  }
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

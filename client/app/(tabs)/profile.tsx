@@ -89,6 +89,39 @@ export default function ProfileScreen() {
     );
   };
 
+  const handleChangePlan = () => {
+    router.push("/payment-plan");
+  };
+
+  const handleExitPlan = () => {
+    Alert.alert(
+      "Exit Current Plan",
+      "Are you sure you want to exit your current plan and downgrade to the Free plan? You will lose access to premium features.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Exit Plan",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await userAPI.updateSubscription("FREE");
+              dispatch({
+                type: "auth/updateSubscription",
+                payload: { subscription_type: "FREE" },
+              });
+              Alert.alert(
+                "Success",
+                "You have been downgraded to the Free plan."
+              );
+            } catch (error: any) {
+              Alert.alert("Error", error.message || "Failed to update plan");
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleNotificationToggle = (key: string) => {
     setNotificationSettings((prev) => ({
       ...prev,
@@ -134,6 +167,29 @@ export default function ProfileScreen() {
           icon: <Target size={20} color="#2C3E50" />,
           onPress: () => handleMenuPress("personalData"),
         },
+      ],
+    },
+    {
+      title: "Subscription Management",
+      items: [
+        {
+          id: "changePlan",
+          title: "Change Plan",
+          icon: <Edit size={20} color="#2C3E50" />,
+          onPress: handleChangePlan,
+          subtitle: `Current: ${user?.subscription_type || "FREE"}`,
+        },
+        ...(user?.subscription_type !== "FREE"
+          ? [
+              {
+                id: "exitPlan",
+                title: "Exit Current Plan",
+                icon: <LogOut size={20} color="#E74C3C" />,
+                onPress: handleExitPlan,
+                danger: true,
+              },
+            ]
+          : []),
       ],
     },
     {

@@ -60,12 +60,11 @@ export default function ForgotPasswordScreen() {
       const response = await api.post("/auth/forgot-password", { email });
 
       if (response.data.success) {
-        setEmailSent(true);
-        Alert.alert(
-          "Email Sent!",
-          "Please check your email for password reset instructions",
-          [{ text: "OK" }]
-        );
+        // Navigate to verification page instead of showing alert
+        router.push({
+          pathname: "/(auth)/reset-password-verify",
+          params: { email },
+        });
       } else {
         throw new Error(response.data.error || "Failed to send reset email");
       }

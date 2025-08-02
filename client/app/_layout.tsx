@@ -44,7 +44,10 @@ function useNavigationState(
     const inAuthGroup = currentPath === "(auth)";
     const inTabsGroup = currentPath === "(tabs)";
     const onPaymentPlan = currentPath === "payment-plan";
-    const onQuestionnaire = currentPath === "questionnaire";
+    const onPayment = currentPath === "payment";
+    const onQuestionnaire =
+      currentPath === "questionnaire" ||
+      (inTabsGroup && segments?.[1] === "questionnaire");
     const onEmailVerification =
       inAuthGroup && segments?.[1] === "email-verification";
 
@@ -59,13 +62,14 @@ function useNavigationState(
       }
     } else if (user?.email_verified === false && !onEmailVerification) {
       targetRoute = `/(auth)/email-verification?email=${user?.email || ""}`;
-    } else if (!user?.subscription_type && !onPaymentPlan) {
+    } else if (!user?.subscription_type && !onPaymentPlan && !onPayment) {
       targetRoute = "/payment-plan";
     } else if (
       user?.subscription_type &&
       ["PREMIUM", "GOLD"].includes(user.subscription_type) &&
       !user?.is_questionnaire_completed &&
-      !onQuestionnaire
+      !onQuestionnaire &&
+      !onPayment // Don't redirect during payment process
     ) {
       targetRoute = "/questionnaire";
     } else if (
@@ -74,7 +78,9 @@ function useNavigationState(
       user?.email_verified &&
       user?.subscription_type &&
       (user?.is_questionnaire_completed ||
-        !["PREMIUM", "GOLD"].includes(user?.subscription_type || ""))
+        !["PREMIUM", "GOLD"].includes(user?.subscription_type || "")) &&
+      !onPayment && // Don't redirect during payment
+      !onPaymentPlan // Don't redirect from payment plan
     ) {
       targetRoute = "/(tabs)";
     }
@@ -94,7 +100,7 @@ function useNavigationState(
   ]);
 }
 
-// Optimized navigation manager
+// Add a flag to temporarily disable auto-navigation during manual navigation
 function useNavigationManager(
   targetRoute: string | null,
   currentRoute: string,
@@ -104,9 +110,16 @@ function useNavigationManager(
   const router = useRouter();
   const lastNavigationRef = useRef<string | null>(null);
   const isNavigatingRef = useRef(false);
+  const segments = useSegments();
 
   useEffect(() => {
     if (!loaded || !shouldNavigate || !targetRoute || isNavigatingRef.current) {
+      return;
+    }
+
+    // Don't auto-navigate if we're on payment or payment-plan pages
+    const currentPath = segments?.[0] || "";
+    if (currentPath === "payment" || currentPath === "payment-plan") {
       return;
     }
 
@@ -136,7 +149,7 @@ function useNavigationManager(
     return () => {
       clearTimeout(resetTimeout);
     };
-  }, [loaded, shouldNavigate, targetRoute, router]);
+  }, [loaded, shouldNavigate, targetRoute, router, segments]);
 }
 
 // Memoized loading screen component
@@ -153,7 +166,10 @@ const StackScreens = () => (
     <Stack.Screen name="(auth)" />
     <Stack.Screen name="(tabs)" />
     <Stack.Screen name="payment-plan" />
+    <Stack.Screen name="payment" />
     <Stack.Screen name="questionnaire" />
+    {/* Add this if questionnaire is inside tabs */}
+    <Stack.Screen name="(tabs)/questionnaire" />
   </Stack>
 );
 

@@ -286,6 +286,43 @@ router.post("/forgot-password", async (req, res) => {
   }
 });
 
+// Verify reset code endpoint
+router.post("/verify-reset-code", async (req, res) => {
+  try {
+    const { email, code } = req.body;
+
+    if (!email || !code) {
+      return res.status(400).json({
+        success: false,
+        error: "Email and verification code are required",
+      });
+    }
+
+    console.log("🔄 Verifying reset code for:", email);
+
+    const result = await AuthService.verifyResetCode(email, code);
+
+    res.json({
+      success: true,
+      token: result.token,
+      message: "Code verified successfully",
+    });
+  } catch (error) {
+    console.error("💥 Verify reset code error:", error);
+    if (error instanceof Error) {
+      res.status(400).json({
+        success: false,
+        error: error.message,
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: "Failed to verify reset code",
+      });
+    }
+  }
+});
+
 // Reset password endpoint
 router.post("/reset-password", async (req, res) => {
   try {

@@ -151,8 +151,18 @@ export default function PaymentPlan() {
       return handlePlanSelection(planId);
     }
 
-    setSelectedPlan(planId);
-    setShowPaymentModal(true);
+    // Get plan details
+    const selectedPlan = plans.find((p) => p.id === planId);
+
+    // Navigate to payment page with plan details
+    router.push({
+      pathname: "/payment",
+      params: {
+        planType: planId,
+        planName: selectedPlan?.name || "",
+        planPrice: selectedPlan?.price || "",
+      },
+    });
   };
 
   const processPayment = async () => {
