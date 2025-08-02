@@ -40,7 +40,9 @@ import HealthStep from "@/components/questionnaire/HealthStep";
 import MeansStep from "@/components/questionnaire/MeansStep";
 import DietaryStep from "@/components/questionnaire/DietaryStep";
 import LifestyleStep from "@/components/questionnaire/LifestyleStep";
-import PreferencesStep, { COLORS } from "@/components/questionnaire/PreferencesStep";
+import PreferencesStep, {
+  COLORS,
+} from "@/components/questionnaire/PreferencesStep";
 import { QuestionnaireData } from "@/src/types/questionnaire";
 
 const { width } = Dimensions.get("window");
@@ -51,7 +53,12 @@ const STEPS = [
   { id: 3, title: "פעילות גופנית", icon: Activity, color: COLORS.emerald[600] },
   { id: 4, title: "בריאות", icon: Heart, color: COLORS.emerald[500] },
   { id: 5, title: "אמצעים ותנאים", icon: Utensils, color: COLORS.emerald[400] },
-  { id: 6, title: "העדפות תזונתיות", icon: Utensils, color: COLORS.emerald[300] },
+  {
+    id: 6,
+    title: "העדפות תזונתיות",
+    icon: Utensils,
+    color: COLORS.emerald[300],
+  },
   { id: 7, title: "אורח חיים", icon: Calendar, color: COLORS.emerald[200] },
   { id: 8, title: "הגדרות נוספות", icon: Settings, color: COLORS.gray[600] },
 ];
@@ -59,9 +66,12 @@ const STEPS = [
 export default function QuestionnaireScreen() {
   const dispatch = useDispatch<AppDispatch>();
   const { user } = useSelector((state: RootState) => state.auth);
-  const { questionnaire, isSaving, isLoading, error } = useSelector(
+  const { questionnaire, isLoading, isSaving, error } = useSelector(
     (state: RootState) => state.questionnaire
   );
+
+  // Allow access to questionnaire regardless of completion status
+  // This fixes the access issue
   const searchParams = useLocalSearchParams();
 
   const isEditMode = searchParams?.mode === "edit";
@@ -291,9 +301,8 @@ export default function QuestionnaireScreen() {
         ),
         family_medical_history: safeArray(questionnaire.family_medical_history),
         smoking_status: questionnaire.smoking_status as "YES" | "NO" | null,
-        sleep_hours_per_night: questionnaire.sleep_hours_per_night as unknown as
-          | number
-          | null,
+        sleep_hours_per_night:
+          questionnaire.sleep_hours_per_night as unknown as number | null,
       };
 
       setFormData(mappedData);

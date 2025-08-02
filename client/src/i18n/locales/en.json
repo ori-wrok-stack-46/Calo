@@ -482,5 +482,153 @@
       "generic": "Error",
       "ok": "OK"
     }
+  },
+  "privacy": {
+    "title": "Privacy Policy",
+    "intro": "This Privacy Policy and Data Protection annex is drafted with the assistance of legal counsel and constitutes an integral part of the Terms of Use of the CALO application. This policy establishes the principles of privacy protection, data security, limitations of use, international data transfers, and related legal obligations applicable to the company and its developers in relation to end users.",
+    "lastUpdated": "Last Updated",
+    "updateDate": "August 2025",
+    "sections": {
+      "regulatory_scope": {
+        "title": "Regulatory Scope and Legal Framework",
+        "content": "The CALO application is available to users both within and outside Israel, and is therefore subject to multiple regulatory regimes and international privacy laws.",
+        "subsections": [
+          {
+            "title": "International Compliance",
+            "content": "The App operates under the following regulatory frameworks:",
+            "items": [
+              "The European Union General Data Protection Regulation (GDPR)",
+              "The California Consumer Privacy Act (CCPA)",
+              "Israeli Privacy Protection Law",
+              "Any applicable privacy legislation in the user's jurisdiction"
+            ]
+          },
+          {
+            "title": "GDPR Rights Implementation",
+            "content": "In accordance with GDPR, users can exercise the following rights:",
+            "items": [
+              "Right of access to personal data",
+              "Right to rectification and erasure (right to be forgotten)",
+              "Right to data portability",
+              "Right to object and avoid automated decision-making"
+            ]
+          },
+          {
+            "title": "CCPA Compliance",
+            "content": "In compliance with CCPA, users are entitled to:",
+            "items": [
+              "Request full disclosure about the collection and use of their data",
+              "Opt-out of data selling",
+              "Request deletion and object to processing"
+            ]
+          }
+        ]
+      },
+      "sensitive_data": {
+        "title": "Sensitive Information and Health Data",
+        "content": "We handle various types of sensitive information with appropriate care and security measures.",
+        "subsections": [
+          {
+            "title": "Classification of Sensitive Data",
+            "content": "The App may process user-provided information that is considered sensitive under privacy law:",
+            "items": [
+              "Nutritional and dietary preferences",
+              "Health symptoms or conditions",
+              "Lifestyle and biometric indicators",
+              "Personal eating habits and patterns"
+            ]
+          },
+          {
+            "title": "Medical Disclaimer",
+            "content": "Important: The Service does not provide:",
+            "items": [
+              "Professional medical advice or diagnosis",
+              "Emergency or clinical services",
+              "Substitutes for medical consultations by licensed professionals"
+            ]
+          },
+          {
+            "title": "Data Processing Agreement",
+            "content": "We have signed a Data Processing Addendum (DPA) with OpenAI, implementing industry-standard safeguards:",
+            "items": [
+              "SOC 2 Type II compliance",
+              "ISO/IEC 27001 and 27701 standards",
+              "Audit trails and user data access logs"
+            ]
+          }
+        ]
+      },
+      "liability_limitation": {
+        "title": "Limitation of Liability and User Responsibilities",
+        "content": "This section outlines the limitations of our liability and your responsibilities as a user of the CALO application.",
+        "subsections": [
+          {
+            "title": "Service Warranty Disclaimer",
+            "content": "The Service is provided 'as-is' and 'as-available' without any express or implied warranty:",
+            "items": [
+              "Data accuracy or completeness",
+              "System availability or uninterrupted use",
+              "Fitness for a particular purpose"
+            ]
+          },
+          {
+            "title": "Limitation of Damages",
+            "content": "The company shall not be held liable for:",
+            "items": [
+              "Direct, indirect, or consequential damages",
+              "Loss of profits or data",
+              "Errors, delays, or system failures, except as required by applicable law"
+            ]
+          },
+          {
+            "title": "User Indemnification",
+            "content": "Users agree to indemnify and hold harmless the company against:",
+            "items": [
+              "Any claim arising from misuse of the Service",
+              "Violation of these Terms of Use",
+              "Infringement of third-party rights or breach of OpenAI's policies"
+            ]
+          }
+        ]
+      },
+      "cookies_analytics": {
+        "title": "Cookies and Analytics Tools",
+        "content": "We use various tracking technologies to improve your experience and analyze app performance. You have control over these technologies and can manage your preferences."
+      },
+      "data_storage": {
+        "title": "Data Storage, Transfers, and Encryption",
+        "content": "Your personal data may be stored and processed on servers located in Israel, the European Union, and the United States (AWS, Azure). We implement strong encryption both in transit (TLS 1.2+) and at rest (AES-256), along with access control policies, regular backups, and comprehensive security protocols."
+      },
+      "user_rights": {
+        "title": "Your Privacy Rights",
+        "content": "You have comprehensive rights regarding your personal data under applicable privacy laws.",
+        "subsections": [
+          {
+            "title": "Access and Control Rights",
+            "content": "You have the right to:",
+            "items": [
+              "Access your personal data we hold",
+              "Correct inaccurate or incomplete data",
+              "Delete your personal data (right to erasure)",
+              "Export your data in a portable format",
+              "Object to processing of your data"
+            ]
+          },
+          {
+            "title": "How to Exercise Your Rights",
+            "content": "To exercise any of these rights, please contact us using the information provided in the Contact section. We will respond to your request within 30 days."
+          }
+        ]
+      },
+      "contact_info": {
+        "title": "Contact Information",
+        "content": "If you have any questions about this Privacy Policy, your data rights, or our privacy practices, please contact our Data Protection Officer at: privacy@calo-app.com. For general inquiries, you can reach us at: support@calo-app.com."
+      }
+    },
+    "footer": {
+      "title": "External References",
+      "openai_link": "OpenAI Privacy & Security Policy",
+      "google_analytics_link": "Google Analytics Privacy Policy"
+    }
   }
 }

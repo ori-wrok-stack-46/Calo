@@ -152,6 +152,8 @@ export default function ProfileScreen() {
       setShowLanguageModal(true);
     } else if (itemId === "personalData") {
       router.push("/questionnaire?mode=edit");
+    } else if ((itemId = "privacyPolicy")) {
+      router.push("/privacyPolicy");
     } else {
       setActiveSection(activeSection === itemId ? null : itemId);
     }

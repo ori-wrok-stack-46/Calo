@@ -56,14 +56,15 @@ export default function NotFoundScreen() {
   }, []);
 
   const handleGoHome = () => {
-    router.replace("/(auth)/signin");
+    // Check if user is authenticated and redirect appropriately
+    router.replace("/(tabs)");
   };
 
   const handleGoBack = () => {
     if (router.canGoBack()) {
       router.back();
     } else {
-      router.replace("/(auth)/signup");
+      router.replace("/(tabs)");
     }
   };
 

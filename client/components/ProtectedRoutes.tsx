@@ -28,20 +28,10 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
       return;
     }
 
-    // Check if user has completed questionnaire for paid plans
-    if (requiresPaidPlan) {
-      if (user.subscription_type === "FREE") {
-        router.replace("/payment-plan");
-        return;
-      }
-
-      if (
-        !user.is_questionnaire_completed &&
-        user.subscription_type !== "FREE"
-      ) {
-        router.replace("/questionnaire");
-        return;
-      }
+    // Only check payment plan for paid features - NO QUESTIONNAIRE BLOCKING
+    if (requiresPaidPlan && user.subscription_type === "FREE") {
+      router.replace("/payment-plan");
+      return;
     }
   }, [isAuthenticated, user, requiresPaidPlan, router]);
 
@@ -57,13 +47,6 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     return null; // Will redirect to payment-plan
   }
 
-  if (
-    requiresPaidPlan &&
-    !user.is_questionnaire_completed &&
-    user.subscription_type !== "FREE"
-  ) {
-    return null; // Will redirect to questionnaire
-  }
-
+  // Allow all access - questionnaire is optional
   return <>{children}</>;
 };

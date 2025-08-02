@@ -9,13 +9,25 @@ import {
   ScrollView,
   TextInput,
   Modal,
+  Dimensions,
 } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch, RootState } from "@/src/store";
 import { userAPI } from "@/src/services/api";
 import { Ionicons } from "@expo/vector-icons";
-import { CreditCard, Lock, X, Check } from "lucide-react-native";
+import {
+  CreditCard,
+  Lock,
+  X,
+  Check,
+  Star,
+  Zap,
+  Crown,
+} from "lucide-react-native";
+import { LinearGradient } from "expo-linear-gradient";
+
+const { width: screenWidth } = Dimensions.get("window");
 
 type PlanType = "FREE" | "PREMIUM" | "GOLD";
 
@@ -25,7 +37,11 @@ interface Plan {
   price: string;
   features: string[];
   color: string;
+  gradient: string[];
+  icon: React.ComponentType<any>;
   recommended?: boolean;
+  description: string;
+  savings?: string;
 }
 
 const plans: Plan[] = [
@@ -33,6 +49,7 @@ const plans: Plan[] = [
     id: "FREE",
     name: "תוכנית חינמית",
     price: "חינם",
+    description: "מושלם להתחלה",
     features: [
       "2 ניתוחי תמונות ביום",
       "תפריט תזונתי בסיסי",
@@ -40,11 +57,14 @@ const plans: Plan[] = [
       "גישה למאגר מתכונים",
     ],
     color: "#4CAF50",
+    gradient: ["#4CAF50", "#66BB6A"],
+    icon: Check,
   },
   {
     id: "PREMIUM",
     name: "תוכנית פרימיום",
-    price: "₪49/חודש",
+    price: "₪49",
+    description: "הבחירה הפופולרית",
     features: [
       "20 ניתוחי תמונות ביום",
       "תפריט תזונתי מותאם אישית",
@@ -54,12 +74,16 @@ const plans: Plan[] = [
       "תמיכה בצ'אט",
     ],
     color: "#2196F3",
+    gradient: ["#2196F3", "#42A5F5"],
+    icon: Zap,
     recommended: true,
+    savings: "חסכון של 20% לעומת תשלום חודשי",
   },
   {
     id: "GOLD",
     name: "תוכנית זהב",
-    price: "₪99/חודש",
+    price: "₪99",
+    description: "החוויה המלאה",
     features: [
       "50 ניתוחי תמונות ביום",
       "תפריט מותאם אישית עם AI מתקדם",
@@ -70,6 +94,8 @@ const plans: Plan[] = [
       "דוחות בריאות מפורטים",
     ],
     color: "#FF9800",
+    gradient: ["#FF9800", "#FFB74D"],
+    icon: Crown,
   },
 ];
 
@@ -199,6 +225,7 @@ export default function PaymentPlan() {
       setIsLoading(false);
     }
   };
+
   const handlePlanSelection = async (planId: PlanType) => {
     try {
       // Check if user is authenticated
@@ -249,37 +276,108 @@ export default function PaymentPlan() {
       return null;
     }
 
+    const IconComponent = plan.icon;
+    const isRecommended = plan.recommended;
+
     return (
-      <View
-        key={plan.id}
-        style={[styles.planCard, plan.recommended && styles.recommendedCard]}
-      >
-        {plan.recommended && (
-          <View style={styles.recommendedBadge}>
-            <Text style={styles.recommendedText}>מומלץ</Text>
+      <View key={plan.id} style={styles.planContainer}>
+        {isRecommended && (
+          <View style={styles.popularBadge}>
+            <Star size={12} color="#FFD700" fill="#FFD700" />
+            <Text style={styles.popularText}>הכי פופולרי</Text>
           </View>
         )}
-        <Text style={styles.planName}>{plan.name}</Text>
-        <Text style={[styles.planPrice, { color: plan.color }]}>
-          {plan.price}
-        </Text>
 
-        <View style={styles.featuresContainer}>
-          {plan.features.map((feature, index) => (
-            <View key={index} style={styles.featureRow}>
-              <Text style={styles.checkmark}>✓</Text>
-              <Text style={styles.featureText}>{feature}</Text>
-            </View>
-          ))}
-        </View>
-
-        <TouchableOpacity
-          style={[styles.selectButton, { backgroundColor: plan.color }]}
-          onPress={() => handlePayment(plan.id)}
-          accessibilityLabel={`Select ${plan.name} plan`}
+        <View
+          style={[
+            styles.planCard,
+            isRecommended && styles.recommendedCard,
+            { borderColor: plan.color },
+          ]}
         >
-          <Text style={styles.selectButtonText}>בחר תוכנית {plan.id}</Text>
-        </TouchableOpacity>
+          <LinearGradient
+            colors={[plan.color + "15", plan.color + "05"]}
+            style={styles.cardGradient}
+          >
+            <View style={styles.planHeader}>
+              <View
+                style={[
+                  styles.iconContainer,
+                  { backgroundColor: plan.color + "20" },
+                ]}
+              >
+                <IconComponent size={24} color={plan.color} />
+              </View>
+              <View style={styles.planTitleContainer}>
+                <Text style={styles.planName}>{plan.name}</Text>
+                <Text style={styles.planDescription}>{plan.description}</Text>
+              </View>
+            </View>
+
+            <View style={styles.priceContainer}>
+              <Text style={[styles.planPrice, { color: plan.color }]}>
+                {plan.price}
+              </Text>
+              {plan.id !== "FREE" && (
+                <Text style={styles.priceSubtext}>/חודש</Text>
+              )}
+            </View>
+
+            {plan.savings && (
+              <View
+                style={[
+                  styles.savingsBadge,
+                  { backgroundColor: plan.color + "15" },
+                ]}
+              >
+                <Text style={[styles.savingsText, { color: plan.color }]}>
+                  {plan.savings}
+                </Text>
+              </View>
+            )}
+
+            <View style={styles.featuresContainer}>
+              {plan.features.map((feature, index) => (
+                <View key={index} style={styles.featureRow}>
+                  <View
+                    style={[
+                      styles.checkmarkContainer,
+                      { backgroundColor: plan.color + "20" },
+                    ]}
+                  >
+                    <Check size={12} color={plan.color} />
+                  </View>
+                  <Text style={styles.featureText}>{feature}</Text>
+                </View>
+              ))}
+            </View>
+
+            <TouchableOpacity
+              style={[
+                styles.selectButton,
+                isRecommended && styles.recommendedButton,
+                { backgroundColor: plan.color },
+              ]}
+              onPress={() => handlePayment(plan.id)}
+              accessibilityLabel={`Select ${plan.name} plan`}
+              activeOpacity={0.8}
+            >
+              <LinearGradient
+                colors={
+                  isRecommended
+                    ? [plan.color, plan.color + "CC"]
+                    : [plan.color, plan.color]
+                }
+                style={styles.buttonGradient}
+              >
+                <Text style={styles.selectButtonText}>
+                  {plan.id === "FREE" ? "התחל חינם" : "בחר תוכנית"}
+                </Text>
+                {isRecommended && <Zap size={16} color="white" fill="white" />}
+              </LinearGradient>
+            </TouchableOpacity>
+          </LinearGradient>
+        </View>
       </View>
     );
   };
@@ -293,168 +391,212 @@ export default function PaymentPlan() {
     >
       <View style={styles.modalOverlay}>
         <View style={styles.paymentModal}>
-          <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>פרטי תשלום</Text>
-            <TouchableOpacity onPress={() => setShowPaymentModal(false)}>
-              <X size={24} color="#666" />
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView style={styles.modalContent}>
-            <View style={styles.planSummary}>
-              <Text style={styles.summaryTitle}>
-                תוכנית נבחרת: {plans.find((p) => p.id === selectedPlan)?.name}
-              </Text>
-              <Text style={styles.summaryPrice}>
-                {plans.find((p) => p.id === selectedPlan)?.price}
-              </Text>
+          <LinearGradient
+            colors={["#f8f9fa", "#ffffff"]}
+            style={styles.modalGradient}
+          >
+            <View style={styles.modalHeader}>
+              <View style={styles.modalTitleContainer}>
+                <CreditCard size={24} color="#2196F3" />
+                <Text style={styles.modalTitle}>פרטי תשלום</Text>
+              </View>
+              <TouchableOpacity
+                onPress={() => setShowPaymentModal(false)}
+                style={styles.closeButton}
+              >
+                <X size={24} color="#666" />
+              </TouchableOpacity>
             </View>
 
-            <View style={styles.paymentForm}>
-              <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>מספר כרטיס אשראי</Text>
-                <View style={styles.cardInputContainer}>
-                  <TextInput
-                    style={styles.cardInput}
-                    value={paymentData.cardNumber}
-                    onChangeText={(text) => {
-                      const formatted = formatCardNumber(text);
-                      if (formatted.replace(/\s/g, "").length <= 16) {
-                        setPaymentData({
-                          ...paymentData,
-                          cardNumber: formatted,
-                        });
-                        setCardType(detectCardType(formatted));
-                      }
-                    }}
-                    placeholder="1234 5678 9012 3456"
-                    keyboardType="numeric"
-                    maxLength={19}
-                  />
-                  {cardType && (
-                    <View style={styles.cardTypeBadge}>
-                      <Text style={styles.cardTypeText}>{cardType}</Text>
-                    </View>
-                  )}
-                </View>
-              </View>
-
-              <View style={styles.inputRow}>
-                <View
-                  style={[styles.inputContainer, { flex: 1, marginRight: 12 }]}
+            <ScrollView
+              style={styles.modalContent}
+              showsVerticalScrollIndicator={false}
+            >
+              <View style={styles.planSummary}>
+                <LinearGradient
+                  colors={["#2196F3", "#42A5F5"]}
+                  style={styles.summaryGradient}
                 >
-                  <Text style={styles.inputLabel}>תאריך תפוגה</Text>
+                  <Text style={styles.summaryTitle}>
+                    {plans.find((p) => p.id === selectedPlan)?.name}
+                  </Text>
+                  <Text style={styles.summaryPrice}>
+                    {plans.find((p) => p.id === selectedPlan)?.price}
+                  </Text>
+                  <Text style={styles.summarySubtext}>חיוב חודשי</Text>
+                </LinearGradient>
+              </View>
+
+              <View style={styles.paymentForm}>
+                <View style={styles.inputContainer}>
+                  <Text style={styles.inputLabel}>מספר כרטיס אשראי</Text>
+                  <View style={styles.cardInputContainer}>
+                    <TextInput
+                      style={styles.cardInput}
+                      value={paymentData.cardNumber}
+                      onChangeText={(text) => {
+                        const formatted = formatCardNumber(text);
+                        if (formatted.replace(/\s/g, "").length <= 16) {
+                          setPaymentData({
+                            ...paymentData,
+                            cardNumber: formatted,
+                          });
+                          setCardType(detectCardType(formatted));
+                        }
+                      }}
+                      placeholder="1234 5678 9012 3456"
+                      keyboardType="numeric"
+                      maxLength={19}
+                    />
+                    {cardType && (
+                      <View style={styles.cardTypeBadge}>
+                        <Text style={styles.cardTypeText}>{cardType}</Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
+
+                <View style={styles.inputRow}>
+                  <View
+                    style={[
+                      styles.inputContainer,
+                      { flex: 1, marginRight: 12 },
+                    ]}
+                  >
+                    <Text style={styles.inputLabel}>תאריך תפוגה</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={paymentData.expiryDate}
+                      onChangeText={(text) => {
+                        const formatted = formatExpiryDate(text);
+                        if (formatted.length <= 5) {
+                          setPaymentData({
+                            ...paymentData,
+                            expiryDate: formatted,
+                          });
+                        }
+                      }}
+                      placeholder="MM/YY"
+                      keyboardType="numeric"
+                      maxLength={5}
+                    />
+                  </View>
+
+                  <View style={[styles.inputContainer, { flex: 1 }]}>
+                    <Text style={styles.inputLabel}>CVV</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={paymentData.cvv}
+                      onChangeText={(text) => {
+                        if (text.length <= 4) {
+                          setPaymentData({ ...paymentData, cvv: text });
+                        }
+                      }}
+                      placeholder="123"
+                      keyboardType="numeric"
+                      maxLength={4}
+                      secureTextEntry
+                    />
+                  </View>
+                </View>
+
+                <View style={styles.inputContainer}>
+                  <Text style={styles.inputLabel}>שם בעל הכרטיס</Text>
                   <TextInput
                     style={styles.input}
-                    value={paymentData.expiryDate}
-                    onChangeText={(text) => {
-                      const formatted = formatExpiryDate(text);
-                      if (formatted.length <= 5) {
-                        setPaymentData({
-                          ...paymentData,
-                          expiryDate: formatted,
-                        });
-                      }
-                    }}
-                    placeholder="MM/YY"
-                    keyboardType="numeric"
-                    maxLength={5}
+                    value={paymentData.cardholderName}
+                    onChangeText={(text) =>
+                      setPaymentData({ ...paymentData, cardholderName: text })
+                    }
+                    placeholder="שם מלא כפי שמופיע על הכרטיס"
+                    autoCapitalize="words"
                   />
                 </View>
 
-                <View style={[styles.inputContainer, { flex: 1 }]}>
-                  <Text style={styles.inputLabel}>CVV</Text>
-                  <TextInput
-                    style={styles.input}
-                    value={paymentData.cvv}
-                    onChangeText={(text) => {
-                      if (text.length <= 4) {
-                        setPaymentData({ ...paymentData, cvv: text });
-                      }
-                    }}
-                    placeholder="123"
-                    keyboardType="numeric"
-                    maxLength={4}
-                    secureTextEntry
-                  />
+                <View style={styles.securityNotice}>
+                  <Lock size={16} color="#10b981" />
+                  <Text style={styles.securityText}>
+                    התשלום מאובטח ומוצפן ברמה הגבוהה ביותר
+                  </Text>
                 </View>
               </View>
+            </ScrollView>
 
-              <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>שם בעל הכרטיס</Text>
-                <TextInput
-                  style={styles.input}
-                  value={paymentData.cardholderName}
-                  onChangeText={(text) =>
-                    setPaymentData({ ...paymentData, cardholderName: text })
-                  }
-                  placeholder="שם מלא כפי שמופיע על הכרטיס"
-                  autoCapitalize="words"
-                />
-              </View>
-
-              <View style={styles.securityNotice}>
-                <Lock size={16} color="#10b981" />
-                <Text style={styles.securityText}>
-                  התשלום מאובטח ומוצפן ברמה הגבוהה ביותר
-                </Text>
-              </View>
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.cancelPaymentButton}
+                onPress={() => setShowPaymentModal(false)}
+              >
+                <Text style={styles.cancelPaymentText}>ביטול</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.payButton, isLoading && styles.loadingButton]}
+                onPress={processPayment}
+                disabled={isLoading}
+              >
+                <LinearGradient
+                  colors={["#10b981", "#059669"]}
+                  style={styles.payButtonGradient}
+                >
+                  {isLoading ? (
+                    <ActivityIndicator color="white" size="small" />
+                  ) : (
+                    <>
+                      <CreditCard size={16} color="#ffffff" />
+                      <Text style={styles.payButtonText}>שלם עכשיו</Text>
+                    </>
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
             </View>
-          </ScrollView>
-
-          <View style={styles.modalActions}>
-            <TouchableOpacity
-              style={styles.cancelPaymentButton}
-              onPress={() => setShowPaymentModal(false)}
-            >
-              <Text style={styles.cancelPaymentText}>ביטול</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.payButton, isLoading && styles.loadingButton]}
-              onPress={processPayment}
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <ActivityIndicator color="white" size="small" />
-              ) : (
-                <>
-                  <CreditCard size={16} color="#ffffff" />
-                  <Text style={styles.payButtonText}>שלם עכשיו</Text>
-                </>
-              )}
-            </TouchableOpacity>
-          </View>
+          </LinearGradient>
         </View>
       </View>
     </Modal>
   );
+
   return (
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.contentContainer}
       keyboardShouldPersistTaps="handled"
+      showsVerticalScrollIndicator={false}
     >
-      <View>
-        <TouchableOpacity onPress={handleGoBack}>
+      <View style={styles.backButtonContainer}>
+        <TouchableOpacity onPress={handleGoBack} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#007AFF" />
         </TouchableOpacity>
       </View>
-      <View style={styles.header}>
-        <Text style={styles.title}>
-          {mode === "change" ? "שנה את התוכנית שלך" : "בחר את התוכנית שלך"}
-        </Text>
-        <Text style={styles.subtitle}>
-          {mode === "change"
-            ? "בחר תוכנית חדשה שמתאימה לך יותר"
-            : "התחל במסע התזונתי שלך עם התוכנית המתאימה לך"}
-        </Text>
-      </View>
+
+      <LinearGradient
+        colors={["#f8f9fa", "#ffffff"]}
+        style={styles.headerGradient}
+      >
+        <View style={styles.header}>
+          <Text style={styles.title}>
+            {mode === "change"
+              ? "שנה את התוכנית שלך"
+              : "בחר את התוכנית המושלמת"}
+          </Text>
+          <Text style={styles.subtitle}>
+            {mode === "change"
+              ? "בחר תוכנית חדשה שמתאימה לך יותר"
+              : "התחל במסע התזונתי שלך עם התוכנית המתאימה לך"}
+          </Text>
+        </View>
+      </LinearGradient>
 
       <View style={styles.plansContainer}>
         {availablePlans.map(renderPlan)}
       </View>
 
       <View style={styles.footer}>
+        <View style={styles.guaranteeContainer}>
+          <Check size={16} color="#10b981" />
+          <Text style={styles.guaranteeText}>
+            ללא התחייבות • ביטול בכל עת • החזר כספי מלא תוך 7 ימים
+          </Text>
+        </View>
         <Text style={styles.footerText}>
           ניתן לשנות או לבטל את המנוי בכל עת מהגדרות החשבון
         </Text>
@@ -468,182 +610,335 @@ export default function PaymentPlan() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f8f9fa",
+    backgroundColor: "#f0f2f5",
   },
   contentContainer: {
+    paddingBottom: 40,
+  },
+  backButtonContainer: {
     padding: 20,
+    paddingTop: 50,
   },
-  header: {
-    alignItems: "center",
-    marginBottom: 30,
-    marginTop: 40,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: "bold",
-    color: "#333",
-    textAlign: "center",
-    marginBottom: 10,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: "#666",
-    textAlign: "center",
-    lineHeight: 24,
-  },
-  plansContainer: {
-    gap: 20,
-  },
-  planCard: {
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     backgroundColor: "white",
-    borderRadius: 16,
-    padding: 24,
+    alignItems: "center",
+    justifyContent: "center",
     shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  headerGradient: {
+    marginHorizontal: 20,
+    borderRadius: 20,
+    marginBottom: 30,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
+  },
+  header: {
+    alignItems: "center",
+    padding: 30,
+  },
+  title: {
+    fontSize: 32,
+    fontWeight: "800",
+    color: "#1a1a1a",
+    textAlign: "center",
+    marginBottom: 12,
+    letterSpacing: -0.5,
+  },
+  subtitle: {
+    fontSize: 17,
+    color: "#666",
+    textAlign: "center",
+    lineHeight: 26,
+    paddingHorizontal: 10,
+  },
+  plansContainer: {
+    paddingHorizontal: 20,
+    gap: 20,
+  },
+  planContainer: {
     position: "relative",
   },
-  recommendedCard: {
-    borderWidth: 2,
-    borderColor: "#2196F3",
-  },
-  recommendedBadge: {
+  popularBadge: {
     position: "absolute",
-    top: -10,
+    top: -8,
+    left: 20,
     right: 20,
-    backgroundColor: "#2196F3",
+    backgroundColor: "#FFD700",
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 6,
     paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: 20,
+    zIndex: 1,
+    gap: 4,
+    shadowColor: "#FFD700",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 4,
   },
-  recommendedText: {
-    color: "white",
+  popularText: {
+    color: "#1a1a1a",
     fontSize: 12,
-    fontWeight: "bold",
+    fontWeight: "700",
+  },
+  planCard: {
+    backgroundColor: "white",
+    borderRadius: 24,
+    borderWidth: 2,
+    borderColor: "#e0e0e0",
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  recommendedCard: {
+    borderWidth: 3,
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    elevation: 12,
+  },
+  cardGradient: {
+    padding: 24,
+  },
+  planHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  iconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 16,
+  },
+  planTitleContainer: {
+    flex: 1,
   },
   planName: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#333",
-    textAlign: "center",
-    marginBottom: 8,
+    fontSize: 22,
+    fontWeight: "700",
+    color: "#1a1a1a",
+    marginBottom: 4,
+  },
+  planDescription: {
+    fontSize: 14,
+    color: "#666",
+    fontWeight: "500",
+  },
+  priceContainer: {
+    flexDirection: "row",
+    alignItems: "baseline",
+    justifyContent: "center",
+    marginBottom: 16,
   },
   planPrice: {
-    fontSize: 20,
-    fontWeight: "bold",
-    textAlign: "center",
+    fontSize: 36,
+    fontWeight: "800",
+    letterSpacing: -1,
+  },
+  priceSubtext: {
+    fontSize: 16,
+    color: "#666",
+    fontWeight: "500",
+    marginLeft: 4,
+  },
+  savingsBadge: {
+    alignSelf: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
     marginBottom: 20,
+  },
+  savingsText: {
+    fontSize: 12,
+    fontWeight: "600",
+    textAlign: "center",
   },
   featuresContainer: {
     marginBottom: 24,
+    gap: 12,
   },
   featureRow: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 12,
   },
-  checkmark: {
-    color: "#4CAF50",
-    fontSize: 16,
-    fontWeight: "bold",
+  checkmarkContainer: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: "center",
+    justifyContent: "center",
     marginRight: 12,
   },
   featureText: {
-    fontSize: 14,
-    color: "#666",
+    fontSize: 15,
+    color: "#444",
     flex: 1,
+    fontWeight: "500",
   },
   selectButton: {
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: "center",
+    borderRadius: 16,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  loadingButton: {
-    opacity: 0.7,
+  recommendedButton: {
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  buttonGradient: {
+    paddingVertical: 18,
+    paddingHorizontal: 24,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
   },
   selectButtonText: {
     color: "white",
-    fontSize: 16,
-    fontWeight: "bold",
+    fontSize: 17,
+    fontWeight: "700",
   },
   footer: {
-    marginTop: 30,
-    padding: 20,
+    marginTop: 40,
+    paddingHorizontal: 20,
     alignItems: "center",
+    gap: 16,
+  },
+  guaranteeContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#f0fdf4",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 8,
+  },
+  guaranteeText: {
+    fontSize: 13,
+    color: "#10b981",
+    fontWeight: "600",
+    flex: 1,
+    textAlign: "center",
   },
   footerText: {
     fontSize: 12,
     color: "#888",
     textAlign: "center",
     lineHeight: 18,
+    paddingHorizontal: 20,
   },
+  // Modal Styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "center",
-    alignItems: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    justifyContent: "flex-end",
   },
   paymentModal: {
-    height: "100%",
-    backgroundColor: "white",
-    borderRadius: 16,
-    width: "90%",
+    height: "95%",
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    overflow: "hidden",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowRadius: 12,
+    elevation: 12,
+  },
+  modalGradient: {
+    flex: 1,
   },
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    padding: 20,
+    padding: 24,
     borderBottomWidth: 1,
     borderBottomColor: "#f0f0f0",
   },
+  modalTitleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
   modalTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#333",
+    fontSize: 22,
+    fontWeight: "700",
+    color: "#1a1a1a",
+  },
+  closeButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#f5f5f5",
+    alignItems: "center",
+    justifyContent: "center",
   },
   modalContent: {
     flex: 1,
-    padding: 20,
+    padding: 24,
   },
   planSummary: {
-    backgroundColor: "#f8f9fa",
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 24,
+    marginBottom: 32,
+    borderRadius: 20,
+    overflow: "hidden",
+    shadowColor: "#2196F3",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  summaryGradient: {
+    padding: 24,
     alignItems: "center",
   },
   summaryTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#333",
+    fontSize: 18,
+    fontWeight: "700",
+    color: "white",
     marginBottom: 8,
   },
   summaryPrice: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#2196F3",
+    fontSize: 32,
+    fontWeight: "800",
+    color: "white",
+    marginBottom: 4,
+  },
+  summarySubtext: {
+    fontSize: 14,
+    color: "rgba(255, 255, 255, 0.8)",
+    fontWeight: "500",
   },
   paymentForm: {
-    gap: 16,
+    gap: 20,
   },
   inputContainer: {
-    marginBottom: 16,
+    marginBottom: 4,
   },
   inputLabel: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: "600",
-    color: "#333",
+    color: "#1a1a1a",
     marginBottom: 8,
   },
   cardInputContainer: {
@@ -653,20 +948,23 @@ const styles = StyleSheet.create({
   },
   cardInput: {
     flex: 1,
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 8,
-    padding: 12,
+    borderWidth: 2,
+    borderColor: "#e0e0e0",
+    borderRadius: 12,
+    padding: 16,
     fontSize: 16,
     backgroundColor: "#fff",
+    fontWeight: "500",
   },
   cardTypeBadge: {
     position: "absolute",
-    right: 12,
-    backgroundColor: "#f0f0f0",
-    paddingHorizontal: 8,
+    right: 16,
+    backgroundColor: "#f0f2f5",
+    paddingHorizontal: 10,
     paddingVertical: 4,
-    borderRadius: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#e0e0e0",
   },
   cardTypeText: {
     fontSize: 12,
@@ -674,44 +972,52 @@ const styles = StyleSheet.create({
     color: "#666",
   },
   input: {
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 8,
-    padding: 12,
+    borderWidth: 2,
+    borderColor: "#e0e0e0",
+    borderRadius: 12,
+    padding: 16,
     fontSize: 16,
     backgroundColor: "#fff",
+    fontWeight: "500",
   },
   inputRow: {
     flexDirection: "row",
+    gap: 12,
   },
   securityNotice: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#f0fdf4",
-    padding: 12,
-    borderRadius: 8,
-    gap: 8,
+    padding: 16,
+    borderRadius: 12,
+    gap: 10,
+    borderWidth: 1,
+    borderColor: "#10b981",
+    borderStyle: "dashed",
   },
   securityText: {
-    fontSize: 12,
+    fontSize: 13,
     color: "#10b981",
     flex: 1,
+    fontWeight: "600",
   },
   modalActions: {
     flexDirection: "row",
-    padding: 20,
+    padding: 24,
     borderTopWidth: 1,
     borderTopColor: "#f0f0f0",
     gap: 12,
+    backgroundColor: "white",
   },
   cancelPaymentButton: {
     flex: 1,
     padding: 16,
-    borderRadius: 8,
+    borderRadius: 12,
     backgroundColor: "#f8f9fa",
-    borderWidth: 1,
-    borderColor: "#ddd",
+    borderWidth: 2,
+    borderColor: "#e0e0e0",
     alignItems: "center",
+    justifyContent: "center",
   },
   cancelPaymentText: {
     fontSize: 16,
@@ -720,17 +1026,27 @@ const styles = StyleSheet.create({
   },
   payButton: {
     flex: 2,
+    borderRadius: 12,
+    overflow: "hidden",
+    shadowColor: "#10b981",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  loadingButton: {
+    opacity: 0.7,
+  },
+  payButtonGradient: {
     flexDirection: "row",
-    padding: 16,
-    borderRadius: 8,
-    backgroundColor: "#10b981",
+    padding: 18,
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
   },
   payButtonText: {
     fontSize: 16,
-    fontWeight: "bold",
+    fontWeight: "700",
     color: "white",
   },
 });

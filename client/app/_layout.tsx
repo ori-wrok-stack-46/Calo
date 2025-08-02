@@ -45,9 +45,7 @@ function useNavigationState(
     const inTabsGroup = currentPath === "(tabs)";
     const onPaymentPlan = currentPath === "payment-plan";
     const onPayment = currentPath === "payment";
-    const onQuestionnaire =
-      currentPath === "questionnaire" ||
-      (inTabsGroup && segments?.[1] === "questionnaire");
+    const onQuestionnaire = currentPath === "questionnaire";
     const onEmailVerification =
       inAuthGroup && segments?.[1] === "email-verification";
 
@@ -65,11 +63,13 @@ function useNavigationState(
     } else if (!user?.subscription_type && !onPaymentPlan && !onPayment) {
       targetRoute = "/payment-plan";
     } else if (
+      // Add questionnaire check here if needed for your business logic
+      // For example, if user needs to complete questionnaire before accessing tabs
       user?.subscription_type &&
-      ["PREMIUM", "GOLD"].includes(user.subscription_type) &&
       !user?.is_questionnaire_completed &&
       !onQuestionnaire &&
-      !onPayment // Don't redirect during payment process
+      !onPayment &&
+      !onPaymentPlan
     ) {
       targetRoute = "/questionnaire";
     } else if (
@@ -77,10 +77,9 @@ function useNavigationState(
       isAuthenticated &&
       user?.email_verified &&
       user?.subscription_type &&
-      (user?.is_questionnaire_completed ||
-        !["PREMIUM", "GOLD"].includes(user?.subscription_type || "")) &&
-      !onPayment && // Don't redirect during payment
-      !onPaymentPlan // Don't redirect from payment plan
+      !onPayment && 
+      !onPaymentPlan && 
+      !onQuestionnaire 
     ) {
       targetRoute = "/(tabs)";
     }
@@ -93,7 +92,7 @@ function useNavigationState(
   }, [
     user?.email_verified,
     user?.subscription_type,
-    user?.is_questionnaire_completed,
+    user?.is_questionnaire_completed, 
     user?.email,
     isAuthenticated,
     segments?.join("/") || "", // Stable string representation
@@ -117,9 +116,17 @@ function useNavigationManager(
       return;
     }
 
-    // Don't auto-navigate if we're on payment or payment-plan pages
+    // Don't auto-navigate if we're on specific pages that should not be interrupted
     const currentPath = segments?.[0] || "";
-    if (currentPath === "payment" || currentPath === "payment-plan") {
+    const currentFullPath = "/" + segments.join("/");
+
+    if (
+      currentPath === "payment" ||
+      currentPath === "payment-plan" ||
+      currentPath === "questionnaire" ||
+      currentFullPath.includes("questionnaire") ||
+      currentPath === "menu"
+    ) {
       return;
     }
 
@@ -168,8 +175,8 @@ const StackScreens = () => (
     <Stack.Screen name="payment-plan" />
     <Stack.Screen name="payment" />
     <Stack.Screen name="questionnaire" />
-    {/* Add this if questionnaire is inside tabs */}
-    <Stack.Screen name="(tabs)/questionnaire" />
+    <Stack.Screen name="menu/[id]" />
+    <Stack.Screen name="+not-found" />
   </Stack>
 );
 
@@ -181,6 +188,12 @@ function useHelpContent(): { title: string; description: string } | undefined {
     const route = "/" + segments.join("/");
 
     switch (route) {
+      case "/questionnaire":
+        return {
+          title: "Health Questionnaire",
+          description:
+            "Complete your health profile to receive personalized nutrition recommendations. This questionnaire helps us understand your goals, lifestyle, and dietary needs.",
+        };
       case "/(tabs)":
       case "/(tabs)/index":
         return {
