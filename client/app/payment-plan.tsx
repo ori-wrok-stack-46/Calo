@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   View,
   Text,
@@ -10,7 +10,7 @@ import {
   TextInput,
   Modal,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch, RootState } from "@/src/store";
 import { userAPI } from "@/src/services/api";
@@ -87,6 +87,15 @@ export default function PaymentPlan() {
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
   const { user } = useSelector((state: RootState) => state.auth);
+  const { mode, currentPlan } = useLocalSearchParams();
+
+  // Filter plans based on mode
+  const availablePlans = useMemo(() => {
+    if (mode === "change" && currentPlan) {
+      return plans.filter((plan) => plan.id !== currentPlan);
+    }
+    return plans;
+  }, [mode, currentPlan]);
 
   const detectCardType = (cardNumber: string) => {
     const number = cardNumber.replace(/\s/g, "");
@@ -227,42 +236,53 @@ export default function PaymentPlan() {
   };
 
   const handleGoBack = () => {
-    router.push("/signup");
+    if (mode === "change") {
+      router.push("/(tabs)/profile");
+    } else {
+      router.push("/signup");
+    }
   };
 
-  const renderPlan = (plan: Plan) => (
-    <View
-      key={plan.id}
-      style={[styles.planCard, plan.recommended && styles.recommendedCard]}
-    >
-      {plan.recommended && (
-        <View style={styles.recommendedBadge}>
-          <Text style={styles.recommendedText}>מומלץ</Text>
-        </View>
-      )}
-      <Text style={styles.planName}>{plan.name}</Text>
-      <Text style={[styles.planPrice, { color: plan.color }]}>
-        {plan.price}
-      </Text>
+  const renderPlan = (plan: Plan) => {
+    // Don't render current plan in change mode
+    if (mode === "change" && plan.id === currentPlan) {
+      return null;
+    }
 
-      <View style={styles.featuresContainer}>
-        {plan.features.map((feature, index) => (
-          <View key={index} style={styles.featureRow}>
-            <Text style={styles.checkmark}>✓</Text>
-            <Text style={styles.featureText}>{feature}</Text>
-          </View>
-        ))}
-      </View>
-
-      <TouchableOpacity
-        style={[styles.selectButton, { backgroundColor: plan.color }]}
-        onPress={() => handlePayment(plan.id)}
-        accessibilityLabel={`Select ${plan.name} plan`}
+    return (
+      <View
+        key={plan.id}
+        style={[styles.planCard, plan.recommended && styles.recommendedCard]}
       >
-        <Text style={styles.selectButtonText}>בחר תוכנית {plan.id}</Text>
-      </TouchableOpacity>
-    </View>
-  );
+        {plan.recommended && (
+          <View style={styles.recommendedBadge}>
+            <Text style={styles.recommendedText}>מומלץ</Text>
+          </View>
+        )}
+        <Text style={styles.planName}>{plan.name}</Text>
+        <Text style={[styles.planPrice, { color: plan.color }]}>
+          {plan.price}
+        </Text>
+
+        <View style={styles.featuresContainer}>
+          {plan.features.map((feature, index) => (
+            <View key={index} style={styles.featureRow}>
+              <Text style={styles.checkmark}>✓</Text>
+              <Text style={styles.featureText}>{feature}</Text>
+            </View>
+          ))}
+        </View>
+
+        <TouchableOpacity
+          style={[styles.selectButton, { backgroundColor: plan.color }]}
+          onPress={() => handlePayment(plan.id)}
+          accessibilityLabel={`Select ${plan.name} plan`}
+        >
+          <Text style={styles.selectButtonText}>בחר תוכנית {plan.id}</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  };
 
   const renderPaymentModal = () => (
     <Modal
@@ -420,13 +440,19 @@ export default function PaymentPlan() {
         </TouchableOpacity>
       </View>
       <View style={styles.header}>
-        <Text style={styles.title}>בחר את התוכנית שלך</Text>
+        <Text style={styles.title}>
+          {mode === "change" ? "שנה את התוכנית שלך" : "בחר את התוכנית שלך"}
+        </Text>
         <Text style={styles.subtitle}>
-          התחל במסע התזונתי שלך עם התוכנית המתאימה לך
+          {mode === "change"
+            ? "בחר תוכנית חדשה שמתאימה לך יותר"
+            : "התחל במסע התזונתי שלך עם התוכנית המתאימה לך"}
         </Text>
       </View>
 
-      <View style={styles.plansContainer}>{plans.map(renderPlan)}</View>
+      <View style={styles.plansContainer}>
+        {availablePlans.map(renderPlan)}
+      </View>
 
       <View style={styles.footer}>
         <Text style={styles.footerText}>
