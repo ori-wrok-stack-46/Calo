@@ -300,7 +300,7 @@ router.post("/reset-password", async (req, res) => {
 
     console.log("🔄 Processing password reset for:", email);
 
-    const result = await AuthService.resetPassword(token, email, newPassword);
+    await AuthService.resetPassword(token, newPassword);
 
     res.json({
       success: true,

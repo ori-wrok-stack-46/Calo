@@ -553,10 +553,10 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   paymentModal: {
+    height: "100%",
     backgroundColor: "white",
     borderRadius: 16,
     width: "90%",
-    maxHeight: "80%",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
