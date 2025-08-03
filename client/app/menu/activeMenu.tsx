@@ -36,6 +36,11 @@ import {
   AlertCircle,
   ChevronLeft,
   ChevronRight,
+  Target,
+  TrendingUp,
+  Award,
+  Plus,
+  Minus,
 } from "lucide-react-native";
 import { api } from "@/src/services/api";
 import LoadingScreen from "@/components/LoadingScreen";
@@ -44,16 +49,15 @@ const { width } = Dimensions.get("window");
 
 interface MealPlan {
   plan_id: string;
-  title: string;
+  name: string;
   description?: string;
   start_date: string;
   end_date?: string;
-  status: "active" | "completed" | "cancelled";
-  total_calories: number;
-  total_protein: number;
-  total_carbs: number;
-  total_fat: number;
-  days_count: number;
+  is_active: boolean;
+  target_calories_daily?: number;
+  target_protein_daily?: number;
+  target_carbs_daily?: number;
+  target_fats_daily?: number;
   weekly_plan: {
     [day: string]: {
       [timing: string]: PlanMeal[];
@@ -108,13 +112,18 @@ export default function ActiveMenuScreen() {
   const [mealPlan, setMealPlan] = useState<MealPlan | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [selectedDay, setSelectedDay] = useState<string>("Sunday");
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedDay, setSelectedDay] = useState(0);
   const [selectedMeal, setSelectedMeal] = useState<PlanMeal | null>(null);
   const [showMealModal, setShowMealModal] = useState(false);
   const [showSwapModal, setShowSwapModal] = useState(false);
   const [showFilterModal, setShowFilterModal] = useState(false);
   const [isSwapping, setIsSwapping] = useState(false);
   const [swapError, setSwapError] = useState<string | null>(null);
+
+  // Calendar state
+  const [currentWeekStart, setCurrentWeekStart] = useState(new Date());
+  const [weekDays, setWeekDays] = useState<Date[]>([]);
 
   // Meal interaction state
   const [mealRatings, setMealRatings] = useState<{ [key: string]: number }>({});
@@ -138,20 +147,77 @@ export default function ActiveMenuScreen() {
   const [tempComment, setTempComment] = useState("");
 
   useEffect(() => {
-    if (planId) {
-      loadMealPlan();
-    }
+    loadMealPlan();
+    initializeCalendar();
   }, [planId]);
+
+  useEffect(() => {
+    generateWeekDays();
+  }, [currentWeekStart]);
+
+  const initializeCalendar = () => {
+    const today = new Date();
+    const startOfWeek = new Date(today);
+    startOfWeek.setDate(today.getDate() - today.getDay()); // Set to Sunday
+    setCurrentWeekStart(startOfWeek);
+    setSelectedDay(today.getDay());
+    setSelectedDate(today);
+  };
+
+  const generateWeekDays = () => {
+    const days = [];
+    for (let i = 0; i < 7; i++) {
+      const day = new Date(currentWeekStart);
+      day.setDate(currentWeekStart.getDate() + i);
+      days.push(day);
+    }
+    setWeekDays(days);
+  };
 
   const loadMealPlan = async () => {
     try {
       console.log("📋 Loading meal plan:", planId);
       setIsLoading(true);
 
-      const response = await api.get(`/meal-plans/${planId}`);
+      // First try to get current meal plan if no planId
+      const endpoint = planId ? `/meal-plans/${planId}` : "/meal-plans/current";
+      console.log("🔄 Making API request to:", endpoint);
+
+      const response = await api.get(endpoint);
+      console.log("📝 API Response:", response.data);
 
       if (response.data.success && response.data.data) {
         const plan = response.data.data;
+        console.log("✅ Meal plan loaded:", plan);
+        console.log("📊 Weekly plan structure:", plan.weekly_plan);
+
+        // Ensure weekly_plan is properly structured
+        if (!plan.weekly_plan || typeof plan.weekly_plan !== "object") {
+          console.log(
+            "⚠️ Weekly plan is empty or invalid, initializing empty structure"
+          );
+          plan.weekly_plan = {};
+        }
+
+        // Log the structure of weekly_plan for debugging
+        if (plan.weekly_plan && typeof plan.weekly_plan === "object") {
+          const dayCount = Object.keys(plan.weekly_plan).length;
+          console.log(`📅 Weekly plan has ${dayCount} days`);
+
+          Object.entries(plan.weekly_plan).forEach(([day, timings]) => {
+            if (timings && typeof timings === "object") {
+              const timingCount = Object.keys(timings).length;
+              console.log(`  📅 ${day}: ${timingCount} meal timings`);
+
+              Object.entries(timings).forEach(([timing, meals]) => {
+                if (Array.isArray(meals)) {
+                  console.log(`    🍽️ ${timing}: ${meals.length} meals`);
+                }
+              });
+            }
+          });
+        }
+
         setMealPlan(plan);
 
         // Initialize local state from existing data
@@ -194,7 +260,8 @@ export default function ActiveMenuScreen() {
           ? "לא ניתן לטעון את התוכנית"
           : "Failed to load meal plan"
       );
-      router.back();
+      // Don't navigate back, show empty state instead
+      setMealPlan(null);
     } finally {
       setIsLoading(false);
     }
@@ -204,7 +271,7 @@ export default function ActiveMenuScreen() {
     setRefreshing(true);
     await loadMealPlan();
     setRefreshing(false);
-  }, []);
+  }, [planId]);
 
   const handleMealPress = (meal: PlanMeal, dayName: string, timing: string) => {
     setSelectedMeal(meal);
@@ -221,7 +288,8 @@ export default function ActiveMenuScreen() {
   const handleSaveMealInteraction = async () => {
     if (!selectedMeal || !mealPlan) return;
 
-    const key = `${selectedDay}-${selectedMeal.meal_timing}-${selectedMeal.template_id}`;
+    const dayName = getDayNames()[selectedDay];
+    const key = `${dayName}-${selectedMeal.meal_timing}-${selectedMeal.template_id}`;
 
     try {
       // Optimistically update local state
@@ -234,7 +302,7 @@ export default function ActiveMenuScreen() {
         {
           rating: tempRating,
           comments: tempComment.trim() || undefined,
-          day: selectedDay,
+          day: dayName,
           meal_timing: selectedMeal.meal_timing,
         }
       );
@@ -246,12 +314,12 @@ export default function ActiveMenuScreen() {
       // Revert optimistic update
       setMealRatings((prev) => {
         const updated = { ...prev };
-        delete updated[key];
+        if (prev[key]) delete updated[key];
         return updated;
       });
       setMealComments((prev) => {
         const updated = { ...prev };
-        delete updated[key];
+        if (prev[key]) delete updated[key];
         return updated;
       });
 
@@ -305,7 +373,6 @@ export default function ActiveMenuScreen() {
     timing: string
   ) => {
     setSelectedMeal(meal);
-    setSelectedDay(dayName);
     setSwapError(null);
     setShowSwapModal(true);
   };
@@ -317,9 +384,9 @@ export default function ActiveMenuScreen() {
     setSwapError(null);
 
     try {
-      console.log("🔄 Requesting meal swap via OpenAI...");
+      console.log("🔄 Requesting meal swap via AI...");
 
-      const response = await api.post(
+      const response = await api.put(
         `/meal-plans/${mealPlan.plan_id}/swap-meal`,
         {
           current_meal: {
@@ -350,13 +417,48 @@ export default function ActiveMenuScreen() {
           updated.weekly_plan[swapRequest.dayName] = {
             ...prev.weekly_plan[swapRequest.dayName],
           };
-          updated.weekly_plan[swapRequest.dayName][
-            swapRequest.currentMeal.meal_timing
-          ] = prev.weekly_plan[swapRequest.dayName][
-            swapRequest.currentMeal.meal_timing
-          ].map((m) =>
-            m.template_id === swapRequest.currentMeal.template_id ? newMeal : m
-          );
+
+          if (
+            updated.weekly_plan[swapRequest.dayName][
+              swapRequest.currentMeal.meal_timing
+            ]
+          ) {
+            updated.weekly_plan[swapRequest.dayName][
+              swapRequest.currentMeal.meal_timing
+            ] = prev.weekly_plan[swapRequest.dayName][
+              swapRequest.currentMeal.meal_timing
+            ].map((m) =>
+              m.template_id === swapRequest.currentMeal.template_id
+                ? {
+                    ...newMeal,
+                    template_id: newMeal.template_id,
+                    name: newMeal.name,
+                    description: newMeal.description,
+                    meal_timing: newMeal.meal_timing,
+                    dietary_category: newMeal.dietary_category,
+                    prep_time_minutes: newMeal.prep_time_minutes,
+                    difficulty_level: newMeal.difficulty_level,
+                    calories: newMeal.calories,
+                    protein_g: newMeal.protein_g,
+                    carbs_g: newMeal.carbs_g,
+                    fats_g: newMeal.fats_g,
+                    fiber_g: newMeal.fiber_g,
+                    sugar_g: newMeal.sugar_g,
+                    sodium_mg: newMeal.sodium_mg,
+                    ingredients: Array.isArray(newMeal.ingredients_json)
+                      ? newMeal.ingredients_json
+                      : [],
+                    instructions: Array.isArray(newMeal.instructions_json)
+                      ? newMeal.instructions_json
+                      : [],
+                    allergens: Array.isArray(newMeal.allergens_json)
+                      ? newMeal.allergens_json
+                      : [],
+                    image_url: newMeal.image_url,
+                  }
+                : m
+            );
+          }
 
           return updated;
         });
@@ -378,8 +480,6 @@ export default function ActiveMenuScreen() {
       const errorMessage =
         error.response?.data?.error || error.message || "Unknown error";
       setSwapError(errorMessage);
-
-      // Don't close modal, let user try again or choose manual alternative
     } finally {
       setIsSwapping(false);
     }
@@ -397,23 +497,59 @@ export default function ActiveMenuScreen() {
     ];
   };
 
-  const getEnglishDayName = (hebrewDay: string) => {
-    const mapping: { [key: string]: string } = {
-      ראשון: "Sunday",
-      שני: "Monday",
-      שלישי: "Tuesday",
-      רביעי: "Wednesday",
-      חמישי: "Thursday",
-      שישי: "Friday",
-      שבת: "Saturday",
+  const navigateWeek = (direction: "prev" | "next") => {
+    const newWeekStart = new Date(currentWeekStart);
+    newWeekStart.setDate(
+      currentWeekStart.getDate() + (direction === "next" ? 7 : -7)
+    );
+    setCurrentWeekStart(newWeekStart);
+  };
+
+  const selectDay = (dayIndex: number, date: Date) => {
+    setSelectedDay(dayIndex);
+    setSelectedDate(date);
+  };
+
+  const getDailyNutritionTotals = () => {
+    if (!mealPlan || !mealPlan.weekly_plan) return null;
+
+    const dayName = getDayNames()[selectedDay];
+    const dayMeals = mealPlan.weekly_plan[dayName];
+
+    if (!dayMeals) return null;
+
+    let totals = {
+      calories: 0,
+      protein: 0,
+      carbs: 0,
+      fats: 0,
+      fiber: 0,
     };
-    return mapping[hebrewDay] || hebrewDay;
+
+    Object.values(dayMeals).forEach((meals) => {
+      if (Array.isArray(meals)) {
+        meals.forEach((meal) => {
+          totals.calories += meal.calories || 0;
+          totals.protein += meal.protein_g || 0;
+          totals.carbs += meal.carbs_g || 0;
+          totals.fats += meal.fats_g || 0;
+          totals.fiber += meal.fiber_g || 0;
+        });
+      }
+    });
+
+    return totals;
   };
 
   const filteredMeals = useMemo(() => {
-    if (!mealPlan?.weekly_plan || !mealPlan.weekly_plan[selectedDay]) return {};
+    if (
+      !mealPlan?.weekly_plan ||
+      !mealPlan.weekly_plan[getDayNames()[selectedDay]]
+    )
+      return {};
 
-    const dayMeals = mealPlan.weekly_plan[selectedDay];
+    const dayName = getDayNames()[selectedDay];
+    const dayMeals = mealPlan.weekly_plan[dayName];
     const filtered: { [timing: string]: PlanMeal[] } = {};
 
     if (dayMeals && typeof dayMeals === "object") {
@@ -437,7 +573,7 @@ export default function ActiveMenuScreen() {
               return false;
             }
 
-            const key = `${selectedDay}-${timing}-${meal.template_id}`;
+            const key = `${dayName}-${timing}-${meal.template_id}`;
             const rating = mealRatings[key] || 0;
 
             if (rating < filters.min_rating) {
@@ -935,7 +1071,7 @@ export default function ActiveMenuScreen() {
                 onPress={() =>
                   performMealSwap({
                     currentMeal: selectedMeal!,
-                    dayName: selectedDay,
+                    dayName: getDayNames()[selectedDay],
                     mealTiming: selectedMeal!.meal_timing,
                     preferences: {
                       dietary_category: selectedMeal!.dietary_category,
@@ -970,7 +1106,7 @@ export default function ActiveMenuScreen() {
                 onPress={() =>
                   performMealSwap({
                     currentMeal: selectedMeal!,
-                    dayName: selectedDay,
+                    dayName: getDayNames()[selectedDay],
                     mealTiming: selectedMeal!.meal_timing,
                     preferences: { protein_preference: "higher" },
                   })
@@ -1000,7 +1136,7 @@ export default function ActiveMenuScreen() {
                 onPress={() =>
                   performMealSwap({
                     currentMeal: selectedMeal!,
-                    dayName: selectedDay,
+                    dayName: getDayNames()[selectedDay],
                     mealTiming: selectedMeal!.meal_timing,
                     preferences: { calorie_preference: "lower" },
                   })
@@ -1019,228 +1155,6 @@ export default function ActiveMenuScreen() {
               </TouchableOpacity>
             </View>
           </ScrollView>
-        </View>
-      </View>
-    </Modal>
-  );
-
-  const renderFilterModal = () => (
-    <Modal
-      visible={showFilterModal}
-      animationType="slide"
-      transparent={true}
-      onRequestClose={() => setShowFilterModal(false)}
-    >
-      <View style={styles.modalOverlay}>
-        <View
-          style={[styles.modalContent, { backgroundColor: colors.background }]}
-        >
-          <View
-            style={[styles.modalHeader, { borderBottomColor: colors.border }]}
-          >
-            <Text
-              style={[
-                styles.modalTitle,
-                { color: colors.text },
-                isRTL && styles.rtlText,
-              ]}
-            >
-              {language === "he" ? "סינון ארוחות" : "Filter Meals"}
-            </Text>
-            <TouchableOpacity onPress={() => setShowFilterModal(false)}>
-              <X size={24} color={colors.icon} />
-            </TouchableOpacity>
-          </View>
-
-          <ScrollView style={styles.modalBody}>
-            {/* Dietary Category Filter */}
-            <View style={styles.filterSection}>
-              <Text
-                style={[
-                  styles.filterTitle,
-                  { color: colors.text },
-                  isRTL && styles.rtlText,
-                ]}
-              >
-                {language === "he" ? "קטגוריה תזונתית" : "Dietary Category"}
-              </Text>
-              <View style={styles.filterOptions}>
-                {[
-                  "all",
-                  "BALANCED",
-                  "HIGH_PROTEIN",
-                  "LOW_CARB",
-                  "VEGAN",
-                  "VEGETARIAN",
-                ].map((category) => (
-                  <TouchableOpacity
-                    key={category}
-                    style={[
-                      styles.filterOption,
-                      { borderColor: colors.border },
-                      filters.dietary_category === category && {
-                        backgroundColor: colors.emerald500,
-                      },
-                    ]}
-                    onPress={() =>
-                      setFilters((prev) => ({
-                        ...prev,
-                        dietary_category: category,
-                      }))
-                    }
-                  >
-                    <Text
-                      style={[
-                        styles.filterOptionText,
-                        {
-                          color:
-                            filters.dietary_category === category
-                              ? "#ffffff"
-                              : colors.text,
-                        },
-                        isRTL && styles.rtlText,
-                      ]}
-                    >
-                      {category === "all"
-                        ? language === "he"
-                          ? "הכל"
-                          : "All"
-                        : category.replace("_", " ")}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            {/* Rating Filter */}
-            <View style={styles.filterSection}>
-              <Text
-                style={[
-                  styles.filterTitle,
-                  { color: colors.text },
-                  isRTL && styles.rtlText,
-                ]}
-              >
-                {language === "he" ? "דירוג מינימלי" : "Minimum Rating"}
-              </Text>
-              <View style={styles.ratingFilter}>
-                {[0, 1, 2, 3, 4, 5].map((rating) => (
-                  <TouchableOpacity
-                    key={rating}
-                    style={[
-                      styles.ratingOption,
-                      { borderColor: colors.border },
-                      filters.min_rating === rating && {
-                        backgroundColor: colors.emerald500,
-                      },
-                    ]}
-                    onPress={() =>
-                      setFilters((prev) => ({ ...prev, min_rating: rating }))
-                    }
-                  >
-                    <Text
-                      style={[
-                        styles.ratingOptionText,
-                        {
-                          color:
-                            filters.min_rating === rating
-                              ? "#ffffff"
-                              : colors.text,
-                        },
-                      ]}
-                    >
-                      {rating === 0
-                        ? language === "he"
-                          ? "הכל"
-                          : "All"
-                        : `${rating}★`}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            {/* Favorites Only Toggle */}
-            <TouchableOpacity
-              style={[
-                styles.toggleOption,
-                { backgroundColor: colors.card, borderColor: colors.border },
-              ]}
-              onPress={() =>
-                setFilters((prev) => ({
-                  ...prev,
-                  favorites_only: !prev.favorites_only,
-                }))
-              }
-            >
-              <Text
-                style={[
-                  styles.toggleText,
-                  { color: colors.text },
-                  isRTL && styles.rtlText,
-                ]}
-              >
-                {language === "he" ? "מועדפים בלבד" : "Favorites Only"}
-              </Text>
-              <View
-                style={[
-                  styles.toggle,
-                  {
-                    backgroundColor: filters.favorites_only
-                      ? colors.emerald500
-                      : colors.border,
-                  },
-                ]}
-              >
-                <View
-                  style={[
-                    styles.toggleIndicator,
-                    {
-                      backgroundColor: "#ffffff",
-                      transform: [
-                        { translateX: filters.favorites_only ? 16 : 2 },
-                      ],
-                    },
-                  ]}
-                />
-              </View>
-            </TouchableOpacity>
-          </ScrollView>
-
-          <View
-            style={[styles.modalActions, { borderTopColor: colors.border }]}
-          >
-            <TouchableOpacity
-              style={[
-                styles.modalCancelButton,
-                { backgroundColor: colors.card, borderColor: colors.border },
-              ]}
-              onPress={() => {
-                setFilters({
-                  dietary_category: "all",
-                  min_rating: 0,
-                  favorites_only: false,
-                  meal_timing: "all",
-                });
-              }}
-            >
-              <Text style={[styles.modalCancelText, { color: colors.text }]}>
-                {language === "he" ? "איפוס" : "Reset"}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.modalSaveButton,
-                { backgroundColor: colors.emerald500 },
-              ]}
-              onPress={() => setShowFilterModal(false)}
-            >
-              <Text style={styles.modalSaveText}>
-                {language === "he" ? "החל" : "Apply"}
-              </Text>
-            </TouchableOpacity>
-          </View>
         </View>
       </View>
     </Modal>
@@ -1266,6 +1180,11 @@ export default function ActiveMenuScreen() {
           <Text style={[styles.emptyTitle, { color: colors.text }]}>
             {language === "he" ? "אין תוכנית זמינה" : "No meal plan available"}
           </Text>
+          <Text style={[styles.emptySubtitle, { color: colors.icon }]}>
+            {language === "he"
+              ? "צור תוכנית ארוחות כדי להתחיל"
+              : "Create a meal plan to get started"}
+          </Text>
           <TouchableOpacity
             style={[styles.backButton, { backgroundColor: colors.emerald500 }]}
             onPress={() => router.back()}
@@ -1279,12 +1198,7 @@ export default function ActiveMenuScreen() {
     );
   }
 
-  const dayNames = getDayNames();
-  const currentDayIndex = dayNames.findIndex((day) =>
-    language === "he"
-      ? getEnglishDayName(day) === selectedDay
-      : day === selectedDay
-  );
+  const dailyTotals = getDailyNutritionTotals();
 
   return (
     <SafeAreaView
@@ -1315,7 +1229,7 @@ export default function ActiveMenuScreen() {
               isRTL && styles.rtlText,
             ]}
           >
-            {mealPlan.title}
+            {mealPlan.name}
           </Text>
           <Text
             style={[
@@ -1336,73 +1250,138 @@ export default function ActiveMenuScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Day Selector */}
-      <View style={[styles.daySelector, { backgroundColor: colors.card }]}>
-        <TouchableOpacity
-          style={styles.dayNavButton}
-          onPress={() => {
-            const newIndex =
-              currentDayIndex > 0 ? currentDayIndex - 1 : dayNames.length - 1;
-            const newDay =
-              language === "he"
-                ? getEnglishDayName(dayNames[newIndex])
-                : dayNames[newIndex];
-            setSelectedDay(newDay);
-          }}
+      {/* Enhanced Calendar Widget */}
+      <View style={[styles.calendarWidget, { backgroundColor: colors.card }]}>
+        <View
+          style={[styles.calendarHeader, { borderBottomColor: colors.border }]}
         >
-          <ChevronLeft size={20} color={colors.emerald500} />
-        </TouchableOpacity>
+          <TouchableOpacity onPress={() => navigateWeek("prev")}>
+            <ChevronLeft size={20} color={colors.emerald500} />
+          </TouchableOpacity>
+
+          <Text style={[styles.monthYear, { color: colors.text }]}>
+            {currentWeekStart.toLocaleDateString(
+              language === "he" ? "he-IL" : "en-US",
+              {
+                month: "long",
+                year: "numeric",
+              }
+            )}
+          </Text>
+
+          <TouchableOpacity onPress={() => navigateWeek("next")}>
+            <ChevronRight size={20} color={colors.emerald500} />
+          </TouchableOpacity>
+        </View>
 
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.daysScrollContent}
+          style={styles.daysContainer}
         >
-          {dayNames.map((day, index) => {
-            const englishDay = language === "he" ? getEnglishDayName(day) : day;
-            const isSelected = englishDay === selectedDay;
+          {weekDays.map((day, index) => {
+            const isSelected = selectedDay === index;
+            const isToday = day.toDateString() === new Date().toDateString();
 
             return (
               <TouchableOpacity
-                key={day}
+                key={index}
                 style={[
-                  styles.dayButton,
-                  { borderColor: colors.border },
-                  isSelected && { backgroundColor: colors.emerald500 },
+                  styles.dayCard,
+                  {
+                    backgroundColor: isSelected
+                      ? colors.emerald500
+                      : colors.surface,
+                    borderColor: isToday ? colors.emerald500 : colors.border,
+                    borderWidth: isToday ? 2 : 1,
+                  },
                 ]}
-                onPress={() => setSelectedDay(englishDay)}
+                onPress={() => selectDay(index, day)}
               >
                 <Text
                   style={[
-                    styles.dayButtonText,
+                    styles.dayName,
                     {
                       color: isSelected ? "#ffffff" : colors.text,
+                      fontWeight: isToday ? "bold" : "normal",
                     },
-                    isRTL && styles.rtlText,
                   ]}
                 >
-                  {day}
+                  {day.toLocaleDateString(
+                    language === "he" ? "he-IL" : "en-US",
+                    {
+                      weekday: "short",
+                    }
+                  )}
+                </Text>
+                <Text
+                  style={[
+                    styles.dayNumber,
+                    {
+                      color: isSelected ? "#ffffff" : colors.text,
+                      fontWeight: isToday ? "bold" : "normal",
+                    },
+                  ]}
+                >
+                  {day.getDate()}
                 </Text>
               </TouchableOpacity>
             );
           })}
         </ScrollView>
-
-        <TouchableOpacity
-          style={styles.dayNavButton}
-          onPress={() => {
-            const newIndex =
-              currentDayIndex < dayNames.length - 1 ? currentDayIndex + 1 : 0;
-            const newDay =
-              language === "he"
-                ? getEnglishDayName(dayNames[newIndex])
-                : dayNames[newIndex];
-            setSelectedDay(newDay);
-          }}
-        >
-          <ChevronRight size={20} color={colors.emerald500} />
-        </TouchableOpacity>
       </View>
+
+      {/* Daily Nutrition Summary */}
+      {dailyTotals && (
+        <View
+          style={[styles.nutritionSummary, { backgroundColor: colors.card }]}
+        >
+          <Text style={[styles.summaryTitle, { color: colors.text }]}>
+            {language === "he" ? "סיכום יומי" : "Daily Summary"}
+          </Text>
+          <View style={styles.nutritionGrid}>
+            <View style={styles.nutritionSummaryItem}>
+              <Target size={16} color="#ef4444" />
+              <Text
+                style={[styles.nutritionSummaryValue, { color: colors.text }]}
+              >
+                {dailyTotals.calories}
+              </Text>
+              <Text
+                style={[styles.nutritionSummaryLabel, { color: colors.icon }]}
+              >
+                {language === "he" ? "קלוריות" : "Calories"}
+              </Text>
+            </View>
+            <View style={styles.nutritionSummaryItem}>
+              <TrendingUp size={16} color="#3b82f6" />
+              <Text
+                style={[styles.nutritionSummaryValue, { color: colors.text }]}
+              >
+                {Math.round(dailyTotals.protein)}g
+              </Text>
+              <Text
+                style={[styles.nutritionSummaryLabel, { color: colors.icon }]}
+              >
+                {language === "he" ? "חלבון" : "Protein"}
+              </Text>
+            </View>
+            <View style={styles.nutritionSummaryItem}>
+              <Award size={16} color="#10b981" />
+              <Text
+                style={[styles.nutritionSummaryValue, { color: colors.text }]}
+              >
+                {Math.round(dailyTotals.carbs)}g
+              </Text>
+              <Text
+                style={[styles.nutritionSummaryLabel, { color: colors.icon }]}
+              >
+                {language === "he" ? "פחמימות" : "Carbs"}
+              </Text>
+            </View>
+          </View>
+        </View>
+      )}
 
       {/* Meals Content */}
       <ScrollView
@@ -1420,23 +1399,30 @@ export default function ActiveMenuScreen() {
       >
         {Object.entries(filteredMeals).map(([timing, meals]) => (
           <View key={timing} style={styles.mealTimingSection}>
-            <Text
-              style={[
-                styles.mealTimingTitle,
-                { color: colors.text },
-                isRTL && styles.rtlText,
-              ]}
-            >
-              {timing}
-            </Text>
+            <View style={styles.timingHeader}>
+              <Text
+                style={[
+                  styles.mealTimingTitle,
+                  { color: colors.text },
+                  isRTL && styles.rtlText,
+                ]}
+              >
+                {timing}
+              </Text>
+              <Text style={[styles.mealCount, { color: colors.icon }]}>
+                {meals.length} {language === "he" ? "ארוחות" : "meals"}
+              </Text>
+            </View>
 
             {meals.length > 0 ? (
-              meals.map((meal) => renderMealCard(meal, selectedDay, timing))
+              meals.map((meal) =>
+                renderMealCard(meal, getDayNames()[selectedDay], timing)
+              )
             ) : (
               <View
                 style={[
                   styles.noMealsContainer,
-                  { backgroundColor: colors.card },
+                  { backgroundColor: colors.surface },
                 ]}
               >
                 <Utensils size={24} color={colors.icon} />
@@ -1455,12 +1441,27 @@ export default function ActiveMenuScreen() {
             )}
           </View>
         ))}
+
+        {Object.keys(filteredMeals).length === 0 && (
+          <View style={styles.emptyDayState}>
+            <ChefHat size={48} color={colors.icon} />
+            <Text style={[styles.emptyDayTitle, { color: colors.text }]}>
+              {language === "he"
+                ? "אין ארוחות לתאריך זה"
+                : "No meals for this date"}
+            </Text>
+            <Text style={[styles.emptyDaySubtitle, { color: colors.icon }]}>
+              {language === "he"
+                ? "בחר תאריך אחר או צור תוכנית חדשה"
+                : "Select another date or create a new plan"}
+            </Text>
+          </View>
+        )}
       </ScrollView>
 
       {/* Modals */}
       {renderMealModal()}
       {renderSwapModal()}
-      {renderFilterModal()}
     </SafeAreaView>
   );
 }
@@ -1502,28 +1503,68 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  daySelector: {
+  calendarWidget: {
+    marginHorizontal: 20,
+    marginVertical: 12,
+    borderRadius: 12,
+    overflow: "hidden",
+  },
+  calendarHeader: {
     flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 16,
+    borderBottomWidth: 1,
+  },
+  monthYear: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  daysContainer: {
+    padding: 16,
+  },
+  dayCard: {
     alignItems: "center",
     paddingVertical: 12,
-    paddingHorizontal: 8,
-  },
-  dayNavButton: {
-    padding: 8,
-  },
-  daysScrollContent: {
-    paddingHorizontal: 8,
-    gap: 8,
-  },
-  dayButton: {
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
+    marginRight: 8,
+    borderRadius: 12,
+    minWidth: 60,
   },
-  dayButtonText: {
-    fontSize: 14,
-    fontWeight: "500",
+  dayName: {
+    fontSize: 12,
+    marginBottom: 4,
+  },
+  dayNumber: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  nutritionSummary: {
+    marginHorizontal: 20,
+    marginBottom: 12,
+    padding: 16,
+    borderRadius: 12,
+  },
+  summaryTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 12,
+  },
+  nutritionGrid: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+  },
+  nutritionSummaryItem: {
+    alignItems: "center",
+    gap: 4,
+  },
+  nutritionSummaryValue: {
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+  nutritionSummaryLabel: {
+    fontSize: 10,
+    textTransform: "uppercase",
   },
   content: {
     flex: 1,
@@ -1535,10 +1576,18 @@ const styles = StyleSheet.create({
   mealTimingSection: {
     marginBottom: 24,
   },
+  timingHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
   mealTimingTitle: {
     fontSize: 18,
     fontWeight: "600",
-    marginBottom: 12,
+  },
+  mealCount: {
+    fontSize: 12,
   },
   mealCard: {
     borderRadius: 12,
@@ -1668,7 +1717,27 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "600",
     marginTop: 16,
+    marginBottom: 8,
+  },
+  emptySubtitle: {
+    fontSize: 14,
+    textAlign: "center",
     marginBottom: 24,
+  },
+  emptyDayState: {
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 40,
+  },
+  emptyDayTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  emptyDaySubtitle: {
+    fontSize: 14,
+    textAlign: "center",
   },
   backButton: {
     paddingHorizontal: 24,
@@ -1846,66 +1915,6 @@ const styles = StyleSheet.create({
   swapOptionSecondaryText: {
     fontSize: 14,
     fontWeight: "500",
-  },
-  filterSection: {
-    marginBottom: 24,
-  },
-  filterTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    marginBottom: 12,
-  },
-  filterOptions: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  filterOption: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-  },
-  filterOptionText: {
-    fontSize: 12,
-    fontWeight: "500",
-  },
-  ratingFilter: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  ratingOption: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 16,
-    borderWidth: 1,
-  },
-  ratingOptionText: {
-    fontSize: 12,
-    fontWeight: "500",
-  },
-  toggleOption: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  toggleText: {
-    fontSize: 14,
-    fontWeight: "500",
-  },
-  toggle: {
-    width: 36,
-    height: 20,
-    borderRadius: 10,
-    justifyContent: "center",
-  },
-  toggleIndicator: {
-    width: 16,
-    height: 16,
-    borderRadius: 8,
   },
   rtlText: {
     textAlign: "right",

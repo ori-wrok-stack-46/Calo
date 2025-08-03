@@ -100,6 +100,13 @@ export default function RecommendedMenusScreen() {
   const [budget, setBudget] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedFilter, setSelectedFilter] = useState("all");
+  const [showComprehensiveModal, setShowComprehensiveModal] = useState(false);
+  const [menuName, setMenuName] = useState("");
+  const [targetCalories, setTargetCalories] = useState("");
+  const [proteinGoal, setProteinGoal] = useState("");
+  const [carbGoal, setCarbGoal] = useState("");
+  const [fatGoal, setFatGoal] = useState("");
+  const [specialRequests, setSpecialRequests] = useState("");
 
   // Animation values
   const [fadeAnim] = useState(new Animated.Value(0));
@@ -247,6 +254,82 @@ export default function RecommendedMenusScreen() {
           (language === "he"
             ? "נכשל ביצירת תפריט מותאם"
             : "Failed to generate custom menu")
+      );
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleCreateComprehensiveMenu = async () => {
+    // Implement comprehensive menu creation logic here
+    try {
+      setIsGenerating(true);
+      console.log("🤖 Creating comprehensive menu...");
+
+      // Validate input
+      if (!menuName.trim()) {
+        Alert.alert(
+          language === "he" ? "שגיאה" : "Error",
+          language === "he" ? "אנא הכנס שם תפריט" : "Please enter a menu name"
+        );
+        setIsGenerating(false);
+        return;
+      }
+
+      // Construct payload
+      const payload = {
+        name: menuName,
+        days: selectedDays,
+        mealsPerDay: selectedMealsPerDay,
+        targetCalories: targetCalories ? parseFloat(targetCalories) : undefined,
+        proteinGoal: proteinGoal ? parseFloat(proteinGoal) : undefined,
+        carbGoal: carbGoal ? parseFloat(carbGoal) : undefined,
+        fatGoal: fatGoal ? parseFloat(fatGoal) : undefined,
+        budget: budget ? parseFloat(budget) : undefined,
+        specialRequests: specialRequests.trim(),
+      };
+
+      // Make API call
+      const response = await api.post(
+        "/recommended-menus/generate-comprehensive",
+        payload
+      );
+
+      if (response.data.success) {
+        setShowComprehensiveModal(false);
+        setMenuName("");
+        setTargetCalories("");
+        setProteinGoal("");
+        setCarbGoal("");
+        setFatGoal("");
+        setBudget("");
+        setSpecialRequests("");
+
+        Alert.alert(
+          language === "he" ? "הצלחה!" : "Success!",
+          language === "he"
+            ? "תפריט מקיף נוצר והופעל בהצלחה!"
+            : "Comprehensive menu created and activated successfully!",
+          [
+            {
+              text: language === "he" ? "אישור" : "OK",
+              onPress: () => loadRecommendedMenus(),
+            },
+          ]
+        );
+      } else {
+        throw new Error(
+          response.data.error || "Failed to generate comprehensive menu"
+        );
+      }
+    } catch (error: any) {
+      console.error("💥 Error generating comprehensive menu:", error);
+      Alert.alert(
+        language === "he" ? "שגיאה" : "Error",
+        error.message ||
+          (language === "he"
+            ? "נכשל ביצירת תפריט מקיף"
+            : "Failed to generate comprehensive menu")
       );
     } finally {
       setIsGenerating(false);
@@ -727,6 +810,340 @@ export default function RecommendedMenusScreen() {
     </Modal>
   );
 
+  const renderComprehensiveModal = () => (
+    <Modal
+      visible={showComprehensiveModal}
+      transparent={true}
+      animationType="slide"
+      onRequestClose={() => setShowComprehensiveModal(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View
+          style={[
+            styles.comprehensiveModalContainer,
+            { backgroundColor: colors.background },
+          ]}
+        >
+          <View
+            style={[styles.modalHeader, { borderBottomColor: colors.border }]}
+          >
+            <Text style={[styles.modalTitle, { color: colors.text }]}>
+              {language === "he"
+                ? "צור תפריט מקיף"
+                : "Create Comprehensive Menu"}
+            </Text>
+            <TouchableOpacity onPress={() => setShowComprehensiveModal(false)}>
+              <X size={24} color={colors.icon} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView
+            style={styles.modalBody}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Menu Name */}
+            <View style={styles.inputGroup}>
+              <Text style={[styles.inputLabel, { color: colors.text }]}>
+                {language === "he" ? "שם התפריט" : "Menu Name"} *
+              </Text>
+              <TextInput
+                style={[
+                  styles.textInput,
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: colors.border,
+                    color: colors.text,
+                  },
+                ]}
+                value={menuName}
+                onChangeText={setMenuName}
+                placeholder={language === "he" ? "התפריט שלי" : "My Menu"}
+                placeholderTextColor={colors.icon}
+              />
+            </View>
+
+            {/* Duration and Meals */}
+            <View style={styles.inputRow}>
+              <View
+                style={[
+                  styles.inputGroup,
+                  {
+                    flex: 1,
+                    marginRight: isRTL ? 0 : 12,
+                    marginLeft: isRTL ? 12 : 0,
+                  },
+                ]}
+              >
+                <Text style={[styles.inputLabel, { color: colors.text }]}>
+                  {language === "he" ? "מספר ימים" : "Duration (Days)"}
+                </Text>
+                <View style={styles.daysSelector}>
+                  {[1, 3, 5, 7, 14, 21, 30].map((days) => (
+                    <TouchableOpacity
+                      key={days}
+                      style={[
+                        styles.dayOption,
+                        { borderColor: colors.border },
+                        selectedDays === days && {
+                          backgroundColor: colors.emerald500,
+                        },
+                      ]}
+                      onPress={() => setSelectedDays(days)}
+                    >
+                      <Text
+                        style={[
+                          styles.dayOptionText,
+                          {
+                            color:
+                              selectedDays === days ? "#ffffff" : colors.text,
+                          },
+                        ]}
+                      >
+                        {days}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+
+              <View style={[styles.inputGroup, { flex: 1 }]}>
+                <Text style={[styles.inputLabel, { color: colors.text }]}>
+                  {language === "he" ? "ארוחות ביום" : "Meals/Day"}
+                </Text>
+                <View style={styles.daysSelector}>
+                  {["2", "3", "4", "5"].map((meals) => (
+                    <TouchableOpacity
+                      key={meals}
+                      style={[
+                        styles.dayOption,
+                        { borderColor: colors.border },
+                        selectedMealsPerDay === meals && {
+                          backgroundColor: colors.emerald500,
+                        },
+                      ]}
+                      onPress={() => setSelectedMealsPerDay(meals)}
+                    >
+                      <Text
+                        style={[
+                          styles.dayOptionText,
+                          {
+                            color:
+                              selectedMealsPerDay === meals
+                                ? "#ffffff"
+                                : colors.text,
+                          },
+                        ]}
+                      >
+                        {meals}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            </View>
+
+            {/* Nutrition Goals */}
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              {language === "he"
+                ? "יעדים תזונתיים יומיים"
+                : "Daily Nutrition Goals"}
+            </Text>
+            <View style={styles.inputRow}>
+              <View
+                style={[
+                  styles.inputGroup,
+                  {
+                    flex: 1,
+                    marginRight: isRTL ? 0 : 12,
+                    marginLeft: isRTL ? 12 : 0,
+                  },
+                ]}
+              >
+                <Text style={[styles.inputLabel, { color: colors.text }]}>
+                  {language === "he" ? "קלוריות" : "Calories"}
+                </Text>
+                <TextInput
+                  style={[
+                    styles.textInput,
+                    {
+                      backgroundColor: colors.card,
+                      borderColor: colors.border,
+                      color: colors.text,
+                    },
+                  ]}
+                  value={targetCalories}
+                  onChangeText={setTargetCalories}
+                  placeholder="2000"
+                  placeholderTextColor={colors.icon}
+                  keyboardType="numeric"
+                />
+              </View>
+
+              <View style={[styles.inputGroup, { flex: 1 }]}>
+                <Text style={[styles.inputLabel, { color: colors.text }]}>
+                  {language === "he" ? "חלבון (ג')" : "Protein (g)"}
+                </Text>
+                <TextInput
+                  style={[
+                    styles.textInput,
+                    {
+                      backgroundColor: colors.card,
+                      borderColor: colors.border,
+                      color: colors.text,
+                    },
+                  ]}
+                  value={proteinGoal}
+                  onChangeText={setProteinGoal}
+                  placeholder="150"
+                  placeholderTextColor={colors.icon}
+                  keyboardType="numeric"
+                />
+              </View>
+            </View>
+
+            <View style={styles.inputRow}>
+              <View
+                style={[
+                  styles.inputGroup,
+                  {
+                    flex: 1,
+                    marginRight: isRTL ? 0 : 12,
+                    marginLeft: isRTL ? 12 : 0,
+                  },
+                ]}
+              >
+                <Text style={[styles.inputLabel, { color: colors.text }]}>
+                  {language === "he" ? "פחמימות (ג')" : "Carbs (g)"}
+                </Text>
+                <TextInput
+                  style={[
+                    styles.textInput,
+                    {
+                      backgroundColor: colors.card,
+                      borderColor: colors.border,
+                      color: colors.text,
+                    },
+                  ]}
+                  value={carbGoal}
+                  onChangeText={setCarbGoal}
+                  placeholder="200"
+                  placeholderTextColor={colors.icon}
+                  keyboardType="numeric"
+                />
+              </View>
+
+              <View style={[styles.inputGroup, { flex: 1 }]}>
+                <Text style={[styles.inputLabel, { color: colors.text }]}>
+                  {language === "he" ? "שומנים (ג')" : "Fats (g)"}
+                </Text>
+                <TextInput
+                  style={[
+                    styles.textInput,
+                    {
+                      backgroundColor: colors.card,
+                      borderColor: colors.border,
+                      color: colors.text,
+                    },
+                  ]}
+                  value={fatGoal}
+                  onChangeText={setFatGoal}
+                  placeholder="70"
+                  placeholderTextColor={colors.icon}
+                  keyboardType="numeric"
+                />
+              </View>
+            </View>
+
+            {/* Budget */}
+            <View style={styles.inputGroup}>
+              <Text style={[styles.inputLabel, { color: colors.text }]}>
+                {language === "he" ? "תקציב יומי (₪)" : "Daily Budget (₪)"}
+              </Text>
+              <TextInput
+                style={[
+                  styles.textInput,
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: colors.border,
+                    color: colors.text,
+                  },
+                ]}
+                value={budget}
+                onChangeText={setBudget}
+                placeholder="100"
+                placeholderTextColor={colors.icon}
+                keyboardType="numeric"
+              />
+            </View>
+
+            {/* Special Requests */}
+            <View style={styles.inputGroup}>
+              <Text style={[styles.inputLabel, { color: colors.text }]}>
+                {language === "he" ? "בקשות מיוחדות" : "Special Requests"}
+              </Text>
+              <TextInput
+                style={[
+                  styles.textArea,
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: colors.border,
+                    color: colors.text,
+                  },
+                ]}
+                multiline
+                numberOfLines={3}
+                value={specialRequests}
+                onChangeText={setSpecialRequests}
+                placeholder={
+                  language === "he"
+                    ? "בקשות נוספות לתפריט..."
+                    : "Additional menu requests..."
+                }
+                placeholderTextColor={colors.icon}
+              />
+            </View>
+          </ScrollView>
+
+          <View
+            style={[styles.modalActions, { borderTopColor: colors.border }]}
+          >
+            <TouchableOpacity
+              style={[
+                styles.modalCancelButton,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+              onPress={() => setShowComprehensiveModal(false)}
+            >
+              <Text style={[styles.modalCancelText, { color: colors.text }]}>
+                {language === "he" ? "ביטול" : "Cancel"}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.modalCreateButton,
+                { backgroundColor: colors.emerald500 },
+              ]}
+              onPress={handleCreateComprehensiveMenu}
+              disabled={isGenerating}
+            >
+              {isGenerating ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <>
+                  <Send size={16} color="#ffffff" />
+                  <Text style={styles.modalCreateText}>
+                    {language === "he" ? "צור והפעל" : "Create & Activate"}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+
   if (isLoading) {
     return (
       <LoadingScreen
@@ -769,12 +1186,13 @@ export default function RecommendedMenusScreen() {
             </Text>
           </View>
 
+          {/* Floating Action Button */}
           <TouchableOpacity
             style={[
               styles.generateButton,
               { backgroundColor: colors.emerald500 },
             ]}
-            onPress={() => setShowCustomModal(true)}
+            onPress={() => setShowComprehensiveModal(true)}
             disabled={isGenerating}
           >
             {isGenerating ? (
@@ -985,6 +1403,7 @@ export default function RecommendedMenusScreen() {
       </TouchableOpacity>
 
       {renderCustomModal()}
+      {renderComprehensiveModal()}
     </SafeAreaView>
   );
 }
@@ -1313,23 +1732,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   modalContent: {
-    width: width - 40,
-    maxHeight: "80%",
-    borderRadius: 20,
-    overflow: "hidden",
-  },
-  modalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 20,
-    borderBottomWidth: 1,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-  },
-  modalBody: {
     padding: 20,
     maxHeight: 400,
   },
@@ -1397,6 +1799,34 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     color: "#ffffff",
+  },
+  modalContainer: {
+    backgroundColor: "white",
+    marginHorizontal: 20,
+    marginVertical: 50,
+    borderRadius: 20,
+    maxHeight: "90%",
+  },
+  comprehensiveModalContainer: {
+    backgroundColor: "white",
+    marginHorizontal: 10,
+    marginVertical: 30,
+    borderRadius: 20,
+    maxHeight: "95%",
+  },
+  sectionHeader: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginTop: 20,
+    marginBottom: 12,
+  },
+  nutritionRow: {
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 12,
+  },
+  nutritionInput: {
+    flex: 1,
   },
   rtlText: {
     textAlign: "right",

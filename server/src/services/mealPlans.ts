@@ -690,6 +690,7 @@ export class MealPlanService {
   ): Promise<WeeklyMealPlan> {
     try {
       console.log("📋 Getting meal plan for user:", user_id);
+      console.log("📋 Plan ID:", plan_id);
 
       // Get the active meal plan or specific plan
       const mealPlan = await prisma.userMealPlan.findFirst({
@@ -714,6 +715,16 @@ export class MealPlanService {
       if (!mealPlan) {
         console.log("⚠️ No meal plan found for user:", user_id);
         // Return empty meal plan structure instead of throwing error
+        return {};
+      }
+
+      console.log(
+        `📋 Found meal plan with ${mealPlan.schedules.length} schedule entries`
+      );
+
+      // If no schedules, return empty structure
+      if (!mealPlan.schedules || mealPlan.schedules.length === 0) {
+        console.log("⚠️ No schedules found in meal plan");
         return {};
       }
 

@@ -53,7 +53,7 @@ const SUPPORTED_DEVICES: SupportedDevice[] = [
     name: "Google Fit",
     icon: "fitness",
     color: "#4285F4",
-    available: Platform.OS === "android",
+    available: true, // Available on all platforms via OAuth
     description:
       "Connect your Google Fit data for comprehensive activity tracking",
   },
@@ -178,6 +178,19 @@ export default function DevicesScreen() {
       return;
     }
 
+    // Special check for Google Fit configuration
+    if (deviceType === "GOOGLE_FIT") {
+      const clientSecret = process.env.EXPO_PUBLIC_GOOGLE_FIT_CLIENT_SECRET;
+      if (!clientSecret) {
+        Alert.alert(
+          "Configuration Required",
+          "Google Fit client secret is not configured. Please add EXPO_PUBLIC_GOOGLE_FIT_CLIENT_SECRET to your environment variables and restart the app.",
+          [{ text: "OK" }]
+        );
+        return;
+      }
+    }
+
     console.log("✅ About to show connection alert for:", deviceInfo.name);
 
     Alert.alert(
@@ -202,22 +215,22 @@ export default function DevicesScreen() {
               if (success) {
                 Alert.alert(
                   "Success",
-                  `${deviceInfo.name} connected successfully!`
+                  `${deviceInfo.name} connected successfully! You can now sync your health data.`
                 );
                 await loadDeviceData(); // Refresh data
               } else {
                 Alert.alert(
-                  "Failed",
-                  `Failed to connect to ${deviceInfo.name}. Please check your permissions and try again.`
+                  "Connection Failed",
+                  `Failed to connect to ${deviceInfo.name}. This could be due to:\n\n• Cancelled authorization\n• Network issues\n• Configuration problems\n\nPlease try again or check your settings.`
                 );
               }
             } catch (error) {
               console.error("💥 Connection error:", error);
+              const errorMessage =
+                error instanceof Error ? error.message : "Unknown error";
               Alert.alert(
-                "Error",
-                `Failed to connect to ${deviceInfo.name}: ${
-                  error instanceof Error ? error.message : "Unknown error"
-                }`
+                "Connection Error",
+                `Failed to connect to ${deviceInfo.name}:\n\n${errorMessage}\n\nPlease check your internet connection and try again.`
               );
             } finally {
               setConnectingDevices((prev) => {
@@ -485,7 +498,7 @@ export default function DevicesScreen() {
     );
   };
 
- if (isLoading) {
+  if (isLoading) {
     return (
       <LoadingScreen
         text={isRTL ? "טוען מכשירים חכמים..." : "Loading your smart devices..."}

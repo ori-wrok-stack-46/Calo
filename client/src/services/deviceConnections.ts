@@ -3,6 +3,9 @@ import * as WebBrowser from "expo-web-browser";
 import * as AuthSession from "expo-auth-session";
 import * as SecureStore from "expo-secure-store";
 
+// Configure WebBrowser for better OAuth handling
+WebBrowser.maybeCompleteAuthSession();
+
 // Device API configurations with REAL endpoints
 const DEVICE_CONFIGS = {
   GARMIN: {
@@ -22,9 +25,8 @@ const DEVICE_CONFIGS = {
   GOOGLE_FIT: {
     name: "Google Fit",
     clientId:
-      process.env.EXPO_PUBLIC_GOOGLE_FIT_CLIENT_ID || "your-google-client-id",
-    clientSecret:
-      process.env.EXPO_PUBLIC_GOOGLE_FIT_CLIENT_SECRET || "your-google-secret",
+      "68705076317-s2vqnmlnpu7r2qlr95bhkh4f2lbfqhg1.apps.googleusercontent.com",
+    clientSecret: process.env.EXPO_PUBLIC_GOOGLE_FIT_CLIENT_SECRET || "",
     authUrl: "https://accounts.google.com/o/oauth2/v2/auth",
     tokenUrl: "https://oauth2.googleapis.com/token",
     apiUrl: "https://www.googleapis.com/fitness/v1",
@@ -118,6 +120,7 @@ class DeviceConnectionService {
       console.log("🔐 Device tokens stored securely for", deviceType);
     } catch (error) {
       console.error("💥 Failed to store device tokens:", error);
+      throw new Error("Failed to store authentication tokens");
     }
   }
 
@@ -166,27 +169,57 @@ class DeviceConnectionService {
       console.log("🔗 Connecting to Google Fit...");
 
       const config = DEVICE_CONFIGS.GOOGLE_FIT;
-      const redirectUri = AuthSession.makeRedirectUri({ useProxy: true });
 
-      const authUrl =
-        `${config.authUrl}?` +
-        `client_id=${config.clientId}&` +
-        `redirect_uri=${encodeURIComponent(redirectUri)}&` +
-        `response_type=code&` +
-        `scope=${encodeURIComponent(config.scopes.join(" "))}&` +
-        `access_type=offline&` +
-        `prompt=consent`;
+      // Check if client secret is configured
+      if (!config.clientSecret) {
+        console.error("❌ Google Fit client secret not configured");
+        return {
+          success: false,
+          error:
+            "Google Fit client secret is not configured. Please add EXPO_PUBLIC_GOOGLE_FIT_CLIENT_SECRET to your environment variables.",
+        };
+      }
 
+      // Create redirect URI that works with your OAuth setup
+      const redirectUri = AuthSession.makeRedirectUri({
+        scheme: __DEV__ ? undefined : "com.yourapp.app", // Replace with your app scheme
+        useProxy: true,
+      });
+
+      console.log("🔄 Using redirect URI:", redirectUri);
+
+      // Build authorization URL with proper parameters
+      const authUrlParams = new URLSearchParams({
+        client_id: config.clientId,
+        redirect_uri: redirectUri,
+        response_type: "code",
+        scope: config.scopes.join(" "),
+        access_type: "offline",
+        prompt: "consent",
+        include_granted_scopes: "true",
+      });
+
+      const authUrl = `${config.authUrl}?${authUrlParams.toString()}`;
+
+      console.log("🔄 Starting auth session with URL:", authUrl);
+
+      // Start the authentication session
       const result = await AuthSession.startAsync({
         authUrl,
         returnUrl: redirectUri,
       });
 
+      console.log("🔄 Auth session result:", result);
+
       if (result.type === "success" && result.params.code) {
+        console.log("✅ Got authorization code, exchanging for token...");
+
         const tokenResponse = await this.exchangeGoogleFitCode(
           result.params.code,
           redirectUri
         );
+
+        console.log("🔄 Token exchange response received");
 
         if (tokenResponse.access_token) {
           await this.storeDeviceTokens(
@@ -195,6 +228,8 @@ class DeviceConnectionService {
             tokenResponse.refresh_token
           );
 
+          console.log("✅ Google Fit connected successfully!");
+
           return {
             success: true,
             accessToken: tokenResponse.access_token,
@@ -202,34 +237,82 @@ class DeviceConnectionService {
             expiresIn: tokenResponse.expires_in,
             deviceData: { displayName: config.name },
           };
+        } else {
+          console.error("❌ No access token received:", tokenResponse);
+          return {
+            success: false,
+            error:
+              tokenResponse.error_description ||
+              tokenResponse.error ||
+              "Failed to get access token",
+          };
         }
+      } else if (result.type === "cancel") {
+        console.log("❌ User cancelled Google Fit authorization");
+        return { success: false, error: "Authorization was cancelled by user" };
+      } else {
+        console.log("❌ Google Fit authorization failed:", result);
+        return {
+          success: false,
+          error: `Authorization failed: ${result.type}`,
+        };
       }
-
-      return { success: false, error: "Google Fit authorization cancelled" };
     } catch (error) {
       console.error("💥 Google Fit connection error:", error);
-      return { success: false, error: "Failed to connect to Google Fit" };
+      return {
+        success: false,
+        error: `Failed to connect to Google Fit: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`,
+      };
     }
   }
 
   private async exchangeGoogleFitCode(code: string, redirectUri: string) {
-    const config = DEVICE_CONFIGS.GOOGLE_FIT;
+    try {
+      const config = DEVICE_CONFIGS.GOOGLE_FIT;
 
-    const response = await fetch(config.tokenUrl, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: new URLSearchParams({
+      const body = new URLSearchParams({
         client_id: config.clientId,
         client_secret: config.clientSecret,
         code,
         grant_type: "authorization_code",
         redirect_uri: redirectUri,
-      }),
-    });
+      });
 
-    return await response.json();
+      console.log("🔄 Exchanging code for token...");
+
+      const response = await fetch(config.tokenUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          Accept: "application/json",
+        },
+        body: body.toString(),
+      });
+
+      const responseText = await response.text();
+      console.log("🔄 Token exchange response status:", response.status);
+
+      if (!response.ok) {
+        console.error("❌ Token exchange failed:", responseText);
+        throw new Error(
+          `Token exchange failed: ${response.status} ${responseText}`
+        );
+      }
+
+      const tokenData = JSON.parse(responseText);
+
+      if (tokenData.error) {
+        console.error("❌ Token exchange error:", tokenData);
+        throw new Error(tokenData.error_description || tokenData.error);
+      }
+
+      return tokenData;
+    } catch (error) {
+      console.error("💥 Error exchanging Google Fit code:", error);
+      throw error;
+    }
   }
 
   async fetchGoogleFitData(
@@ -247,9 +330,15 @@ class DeviceConnectionService {
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
+            Accept: "application/json",
           },
         }
       );
+
+      if (!stepsResponse.ok) {
+        console.error("❌ Failed to fetch steps data:", stepsResponse.status);
+        return null;
+      }
 
       const stepsData = await stepsResponse.json();
       const steps =
@@ -264,16 +353,20 @@ class DeviceConnectionService {
         {
           headers: {
             Authorization: `Bearer ${accessToken}`,
+            Accept: "application/json",
           },
         }
       );
 
-      const caloriesData = await caloriesResponse.json();
-      const calories =
-        caloriesData.point?.reduce(
-          (sum: number, point: any) => sum + (point.value?.[0]?.fpVal || 0),
-          0
-        ) || 0;
+      let calories = 0;
+      if (caloriesResponse.ok) {
+        const caloriesData = await caloriesResponse.json();
+        calories =
+          caloriesData.point?.reduce(
+            (sum: number, point: any) => sum + (point.value?.[0]?.fpVal || 0),
+            0
+          ) || 0;
+      }
 
       return {
         steps,
@@ -293,6 +386,15 @@ class DeviceConnectionService {
       console.log("🔗 Connecting to Fitbit...");
 
       const config = DEVICE_CONFIGS.FITBIT;
+
+      if (!config.clientSecret) {
+        return {
+          success: false,
+          error:
+            "Fitbit client secret is not configured. Please add EXPO_PUBLIC_FITBIT_CLIENT_SECRET to your environment variables.",
+        };
+      }
+
       const redirectUri = AuthSession.makeRedirectUri({ useProxy: true });
 
       const authUrl =
@@ -331,7 +433,7 @@ class DeviceConnectionService {
         }
       }
 
-      return { success: false, error: "Fitbit authorization cancelled" };
+      return { success: false, error: "Fitbit authorization failed" };
     } catch (error) {
       console.error("💥 Fitbit connection error:", error);
       return { success: false, error: "Failed to connect to Fitbit" };
@@ -340,7 +442,6 @@ class DeviceConnectionService {
 
   private async exchangeFitbitCode(code: string, redirectUri: string) {
     const config = DEVICE_CONFIGS.FITBIT;
-
     const credentials = btoa(`${config.clientId}:${config.clientSecret}`);
 
     const response = await fetch(config.tokenUrl, {
@@ -376,6 +477,11 @@ class DeviceConnectionService {
         }
       );
 
+      if (!response.ok) {
+        console.error("❌ Failed to fetch Fitbit data:", response.status);
+        return null;
+      }
+
       const data = await response.json();
       const summary = data.summary;
 
@@ -399,6 +505,15 @@ class DeviceConnectionService {
       console.log("🔗 Connecting to Whoop...");
 
       const config = DEVICE_CONFIGS.WHOOP;
+
+      if (!config.clientSecret) {
+        return {
+          success: false,
+          error:
+            "Whoop client secret is not configured. Please add EXPO_PUBLIC_WHOOP_CLIENT_SECRET to your environment variables.",
+        };
+      }
+
       const redirectUri = AuthSession.makeRedirectUri({ useProxy: true });
 
       const authUrl =
@@ -436,7 +551,7 @@ class DeviceConnectionService {
         }
       }
 
-      return { success: false, error: "Whoop authorization cancelled" };
+      return { success: false, error: "Whoop authorization failed" };
     } catch (error) {
       console.error("💥 Whoop connection error:", error);
       return { success: false, error: "Failed to connect to Whoop" };
@@ -483,6 +598,11 @@ class DeviceConnectionService {
         }
       );
 
+      if (!response.ok) {
+        console.error("❌ Failed to fetch Whoop data:", response.status);
+        return null;
+      }
+
       const data = await response.json();
       const cycle = data.records?.[0];
 
@@ -511,6 +631,15 @@ class DeviceConnectionService {
       console.log("🔗 Connecting to Polar...");
 
       const config = DEVICE_CONFIGS.POLAR;
+
+      if (!config.clientSecret) {
+        return {
+          success: false,
+          error:
+            "Polar client secret is not configured. Please add EXPO_PUBLIC_POLAR_CLIENT_SECRET to your environment variables.",
+        };
+      }
+
       const redirectUri = AuthSession.makeRedirectUri({ useProxy: true });
 
       const authUrl =
@@ -548,7 +677,7 @@ class DeviceConnectionService {
         }
       }
 
-      return { success: false, error: "Polar authorization cancelled" };
+      return { success: false, error: "Polar authorization failed" };
     } catch (error) {
       console.error("💥 Polar connection error:", error);
       return { success: false, error: "Failed to connect to Polar" };
@@ -592,6 +721,11 @@ class DeviceConnectionService {
         }
       );
 
+      if (!response.ok) {
+        console.error("❌ Failed to fetch Polar data:", response.status);
+        return null;
+      }
+
       const data = await response.json();
       const activity = data.data?.[0];
 
@@ -620,7 +754,6 @@ class DeviceConnectionService {
       console.log("🔗 Connecting to Garmin...");
 
       // Garmin uses OAuth 1.0a which is more complex
-      // For now, return a placeholder implementation
       Alert.alert(
         "Garmin Integration",
         "Garmin integration requires OAuth 1.0a implementation. Please contact support for setup assistance.",
@@ -789,7 +922,10 @@ class DeviceConnectionService {
       }
     } catch (error) {
       console.error("💥 Device connection error:", error);
-      return { success: false, error: "Connection failed" };
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : "Connection failed",
+      };
     }
   }
 }

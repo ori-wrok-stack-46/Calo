@@ -6,17 +6,17 @@ import { MealTiming } from "@prisma/client";
 
 const router = Router();
 
-// Get user's recommended menus
+// Get user's meal plans (for recommended menus tab)
 router.get("/recommended", authenticateToken, async (req: AuthRequest, res) => {
   try {
     const userId = req.user.user_id;
 
-    const recommendedMenus = await prisma.recommendedMenu.findMany({
+    const userMealPlans = await prisma.userMealPlan.findMany({
       where: { user_id: userId },
       include: {
-        meals: {
+        schedules: {
           include: {
-            ingredients: true,
+            template: true,
           },
         },
       },
@@ -24,11 +24,39 @@ router.get("/recommended", authenticateToken, async (req: AuthRequest, res) => {
       take: 10,
     });
 
-    // Always return success, even if no menus found
+    // Transform to match expected format
+    const formattedPlans = userMealPlans.map((plan) => ({
+      menu_id: plan.plan_id,
+      title: plan.name,
+      description: `${plan.meals_per_day} meals per day plan`,
+      total_calories: plan.target_calories_daily || 2000,
+      total_protein: plan.target_protein_daily || 150,
+      total_carbs: plan.target_carbs_daily || 200,
+      total_fat: plan.target_fats_daily || 67,
+      days_count: plan.rotation_frequency_days,
+      dietary_category: "BALANCED",
+      is_active: plan.is_active,
+      created_at: plan.created_at,
+      meals: plan.schedules.map((schedule) => ({
+        meal_id: schedule.template.template_id,
+        name: schedule.template.name,
+        meal_type: schedule.meal_timing,
+        day_number: schedule.day_of_week + 1,
+        calories: schedule.template.calories || 0,
+        protein: schedule.template.protein_g || 0,
+        carbs: schedule.template.carbs_g || 0,
+        fat: schedule.template.fats_g || 0,
+        prep_time_minutes: schedule.template.prep_time_minutes,
+        cooking_method: "Mixed",
+        instructions: schedule.template.description,
+        ingredients: [],
+      })),
+    }));
+
     res.json({
       success: true,
-      menus: recommendedMenus || [],
-      hasMenus: recommendedMenus.length > 0,
+      data: formattedPlans,
+      hasMenus: formattedPlans.length > 0,
     });
   } catch (error) {
     console.error("Get recommended menus error:", error);
@@ -457,6 +485,187 @@ router.get("/current", authenticateToken, async (req, res) => {
       planName: null,
       hasActivePlan: false,
       error: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+});
+
+// Create comprehensive menu
+router.post("/create-comprehensive", authenticateToken, async (req, res) => {
+  try {
+    console.log("🎨 Creating comprehensive menu for user:", req.user?.user_id);
+    console.log("📝 Config:", req.body);
+
+    const user_id = req.user?.user_id;
+    if (!user_id) {
+      return res.status(401).json({
+        success: false,
+        error: "User not authenticated",
+      });
+    }
+
+    const {
+      menuName,
+      days,
+      mealsPerDay,
+      dietaryPreferences,
+      excludedIngredients,
+      includedIngredients,
+      cuisineTypes,
+      cookingMethods,
+      budget,
+      targetCalories,
+      proteinGoal,
+      carbGoal,
+      fatGoal,
+      specialRequests,
+    } = req.body;
+
+    // Validate required fields
+    if (!menuName || !days || !mealsPerDay) {
+      return res.status(400).json({
+        success: false,
+        error: "Missing required fields: menuName, days, mealsPerDay",
+      });
+    }
+
+    // Create comprehensive menu using MealPlanService
+    const config = {
+      name: menuName,
+      plan_type: "WEEKLY" as const,
+      meals_per_day: parseInt(mealsPerDay) || 3,
+      snacks_per_day: 0,
+      rotation_frequency_days: parseInt(days) || 7,
+      include_leftovers: false,
+      fixed_meal_times: true,
+      dietary_preferences: dietaryPreferences || [],
+      excluded_ingredients: excludedIngredients || [],
+    };
+
+    const mealPlan = await MealPlanService.createUserMealPlan(user_id, config);
+
+    // Update user's active meal plan
+    await prisma.user.update({
+      where: { user_id },
+      data: {
+        active_meal_plan_id: mealPlan.plan_id,
+        active_menu_id: mealPlan.plan_id,
+      },
+    });
+
+    console.log("✅ Comprehensive menu created successfully");
+    res.json({
+      success: true,
+      data: mealPlan,
+      message: "Comprehensive menu created successfully",
+    });
+  } catch (error) {
+    console.error("💥 Error creating comprehensive menu:", error);
+    res.status(500).json({
+      success: false,
+      error:
+        error instanceof Error
+          ? error.message
+          : "Failed to create comprehensive menu",
+    });
+  }
+});
+
+// Activate a menu as the current active menu
+router.post("/:planId/activate", authenticateToken, async (req, res) => {
+  try {
+    console.log("🔄 Activating menu:", req.params.planId);
+
+    const user_id = req.user?.user_id;
+    if (!user_id) {
+      return res.status(401).json({
+        success: false,
+        error: "User not authenticated",
+      });
+    }
+
+    const { planId } = req.params;
+
+    // Verify the plan exists and belongs to the user
+    const mealPlan = await prisma.userMealPlan.findFirst({
+      where: {
+        plan_id: planId,
+        user_id: user_id,
+      },
+    });
+
+    if (!mealPlan) {
+      return res.status(404).json({
+        success: false,
+        error: "Meal plan not found",
+      });
+    }
+
+    // Deactivate all other plans for this user
+    await prisma.userMealPlan.updateMany({
+      where: { user_id },
+      data: { is_active: false },
+    });
+
+    // Activate the selected plan
+    await prisma.userMealPlan.update({
+      where: { plan_id: planId },
+      data: { is_active: true },
+    });
+
+    // Update user's active meal plan reference
+    await prisma.user.update({
+      where: { user_id },
+      data: {
+        active_meal_plan_id: planId,
+        active_menu_id: planId,
+      },
+    });
+
+    console.log("✅ Menu activated successfully");
+    res.json({
+      success: true,
+      message: "Menu activated successfully",
+      planId,
+    });
+  } catch (error) {
+    console.error("💥 Error activating menu:", error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to activate menu",
+    });
+  }
+});
+
+// Get user's active menu status
+router.get("/active-status", authenticateToken, async (req, res) => {
+  try {
+    const user_id = req.user?.user_id;
+    if (!user_id) {
+      return res.status(401).json({
+        success: false,
+        error: "User not authenticated",
+      });
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { user_id },
+      select: {
+        active_meal_plan_id: true,
+        active_menu_id: true,
+      },
+    });
+
+    res.json({
+      success: true,
+      hasActiveMenu: !!(user?.active_meal_plan_id || user?.active_menu_id),
+      activePlanId: user?.active_meal_plan_id,
+      activeMenuId: user?.active_menu_id,
+    });
+  } catch (error) {
+    console.error("💥 Error getting active menu status:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to get active menu status",
     });
   }
 });
