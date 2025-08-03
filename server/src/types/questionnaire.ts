@@ -162,7 +162,17 @@ export const questionnaireSchema = z.object({
   health_metrics_integration: z.boolean().optional().nullable(),
   family_medical_history: z.array(z.string()).optional().default([]),
   smoking_status: z.enum(["YES", "NO"]).optional().nullable(),
-  sleep_hours_per_night: z.number().optional().nullable(),
+  sleep_hours_per_night: z
+    .union([z.number(), z.string()])
+    .optional()
+    .nullable()
+    .transform((val) =>
+      val && val !== ""
+        ? typeof val === "string"
+          ? parseFloat(val)
+          : val
+        : null
+    ),
 });
 
 export type QuestionnaireInput = z.infer<typeof questionnaireSchema>;

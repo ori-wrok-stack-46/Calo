@@ -306,6 +306,35 @@ router.post("/", authenticateToken, async (req: AuthRequest, res) => {
       ],
       "GENERAL_HEALTH"
     );
+    questionnaireData.smoking_status = questionnaireData.smoking_status || "NO";
+
+    // Handle sleep_hours_per_night
+    questionnaireData.sleep_hours_per_night = sanitizeFloat(
+      questionnaireData.sleep_hours_per_night
+    );
+
+    questionnaireData.sport_frequency = normalizeEnum(
+      questionnaireData.sport_frequency,
+      ["NONE", "ONCE_A_WEEK", "TWO_TO_THREE", "FOUR_TO_FIVE", "MORE_THAN_FIVE"],
+      "TWO_TO_THREE"
+    );
+
+    questionnaireData.main_goal = normalizeEnum(
+      questionnaireData.main_goal,
+      [
+        "WEIGHT_LOSS",
+        "WEIGHT_MAINTENANCE",
+        "WEIGHT_GAIN",
+        "GENERAL_HEALTH",
+        "MEDICAL_CONDITION",
+        "SPORTS_PERFORMANCE",
+        "ALERTNESS",
+        "ENERGY",
+        "SLEEP_QUALITY",
+        "OTHER",
+      ],
+      "GENERAL_HEALTH"
+    );
 
     // Validate using the imported schema
     const validationResult = questionnaireSchema.safeParse(questionnaireData);
