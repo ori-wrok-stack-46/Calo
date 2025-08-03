@@ -22,6 +22,10 @@ export const Colors = {
     onSurface: "#000000",
     outline: "#e5e7eb",
     shadow: "rgba(0, 0, 0, 0.1)",
+    error: "#dc2626",
+    primaryLight: "#bae6fd",
+    textSecondary: "#6b7280",
+    success: "#16a34a",
   },
   dark: {
     text: "#ECEDEE",
@@ -43,5 +47,9 @@ export const Colors = {
     onSurface: "#ECEDEE",
     outline: "#374151",
     shadow: "rgba(0, 0, 0, 0.3)",
+    error: "#ef4444",
+    primaryLight: "#374151",
+    textSecondary: "#9ca3af",
+    success: "#22c55e",
   },
 };

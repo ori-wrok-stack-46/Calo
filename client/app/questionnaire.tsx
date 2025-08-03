@@ -9,6 +9,9 @@ import {
   Alert,
   ActivityIndicator,
   Modal,
+  Switch,
+  Dimensions,
+  StatusBar,
 } from "react-native";
 import { useDispatch, useSelector } from "react-redux";
 import { router, useLocalSearchParams } from "expo-router";
@@ -19,255 +22,585 @@ import {
   clearError,
 } from "@/src/store/questionnaireSlice";
 import { Ionicons } from "@expo/vector-icons";
-import DynamicListInput from "@/components/DynamicListInputs";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useTranslation } from "react-i18next";
 
+const { width: screenWidth } = Dimensions.get("window");
+
+// Theme Context
+interface ThemeContextType {
+  isDark: boolean;
+  colors: typeof lightColors | typeof darkColors;
+  toggleTheme: () => void;
+}
+
+const lightColors = {
+  background: "#ffffff",
+  surface: "#f8f9fa",
+  card: "#ffffff",
+  text: "#1a1a1a",
+  textSecondary: "#6b7280",
+  primary: "#3b82f6",
+  primaryLight: "#dbeafe",
+  success: "#10b981",
+  error: "#ef4444",
+  border: "#e5e7eb",
+  shadow: "rgba(0, 0, 0, 0.1)",
+  gradient: ["#3b82f6", "#1d4ed8"],
+};
+
+const darkColors = {
+  background: "#0f172a",
+  surface: "#1e293b",
+  card: "#334155",
+  text: "#f1f5f9",
+  textSecondary: "#94a3b8",
+  primary: "#60a5fa",
+  primaryLight: "#1e3a8a",
+  success: "#34d399",
+  error: "#f87171",
+  border: "#475569",
+  shadow: "rgba(0, 0, 0, 0.3)",
+  gradient: ["#60a5fa", "#3b82f6"],
+};
+
+// Language Context
+interface LanguageContextType {
+  currentLanguage: string;
+  isRTL: boolean;
+  changeLanguage: (lang: string) => void;
+}
+
+// Custom hooks for theme and language
+const useTheme = (): ThemeContextType => {
+  const [isDark, setIsDark] = useState(false);
+
+  useEffect(() => {
+    loadTheme();
+  }, []);
+
+  const loadTheme = async () => {
+    try {
+      const savedTheme = await AsyncStorage.getItem("theme");
+      if (savedTheme) {
+        setIsDark(savedTheme === "dark");
+      }
+    } catch (error) {
+      console.log("Error loading theme:", error);
+    }
+  };
+
+  const toggleTheme = async () => {
+    try {
+      const newTheme = !isDark;
+      setIsDark(newTheme);
+      await AsyncStorage.setItem("theme", newTheme ? "dark" : "light");
+    } catch (error) {
+      console.log("Error saving theme:", error);
+    }
+  };
+
+  const colors = isDark ? darkColors : lightColors;
+
+  return {
+    isDark,
+    colors,
+    toggleTheme,
+  };
+};
+
+const useLanguage = (): LanguageContextType => {
+  const { i18n } = useTranslation();
+  const [currentLanguage, setCurrentLanguage] = useState(i18n.language || "en");
+
+  const isRTL = currentLanguage === "he";
+
+  const changeLanguage = async (lang: string) => {
+    try {
+      await i18n.changeLanguage(lang);
+      setCurrentLanguage(lang);
+      await AsyncStorage.setItem("language", lang);
+    } catch (error) {
+      console.log("Error changing language:", error);
+    }
+  };
+
+  return {
+    currentLanguage,
+    isRTL,
+    changeLanguage,
+  };
+};
+
+// Components
+const ProgressIndicator: React.FC<{
+  currentStep: number;
+  totalSteps: number;
+}> = ({ currentStep, totalSteps }) => {
+  const { colors } = useTheme();
+  const { t } = useTranslation();
+  const { currentLanguage } = useLanguage();
+  const isRTL = currentLanguage === "he";
+  const progressPercentage = (currentStep / totalSteps) * 100;
+
+  return (
+    <View style={[styles.progressContainer, { backgroundColor: colors.card }]}>
+      <View style={[styles.progressBar, { backgroundColor: colors.border }]}>
+        <View
+          style={[
+            styles.progressFill,
+            {
+              width: `${progressPercentage}%`,
+              backgroundColor: colors.primary,
+            },
+          ]}
+        />
+      </View>
+      <Text
+        style={[
+          styles.progressText,
+          { color: colors.textSecondary },
+          isRTL && styles.textRTL,
+        ]}
+      >
+        {t("questionnaire.step")} {currentStep} {t("common.of")} {totalSteps} (
+        {Math.round(progressPercentage)}%)
+      </Text>
+    </View>
+  );
+};
+
+const StepContainer: React.FC<{
+  title: string;
+  description: string;
+  children: React.ReactNode;
+}> = ({ title, description, children }) => {
+  const { colors } = useTheme();
+  const { currentLanguage } = useLanguage();
+  const isRTL = currentLanguage === "he";
+
+  return (
+    <View style={styles.stepContainer}>
+      <View style={styles.stepHeader}>
+        <Text
+          style={[
+            styles.stepTitle,
+            { color: colors.text },
+            isRTL && styles.textRTL,
+          ]}
+        >
+          {title}
+        </Text>
+        <Text
+          style={[
+            styles.stepDescription,
+            { color: colors.textSecondary },
+            isRTL && styles.textRTL,
+          ]}
+        >
+          {description}
+        </Text>
+      </View>
+      {children}
+    </View>
+  );
+};
+
+const CustomTextInput: React.FC<{
+  label: string;
+  value: string;
+  onChangeText: (text: string) => void;
+  placeholder?: string;
+  keyboardType?: "default" | "numeric";
+  required?: boolean;
+}> = ({
+  label,
+  value,
+  onChangeText,
+  placeholder,
+  keyboardType = "default",
+  required = false,
+}) => {
+  const { colors } = useTheme();
+  const { currentLanguage } = useLanguage();
+  const isRTL = currentLanguage === "he";
+
+  return (
+    <View style={styles.inputGroup}>
+      <Text
+        style={[
+          styles.inputLabel,
+          { color: colors.text },
+          isRTL && styles.textRTL,
+        ]}
+      >
+        {label} {required && <Text style={{ color: colors.error }}>*</Text>}
+      </Text>
+      <View style={[styles.inputWrapper, { backgroundColor: colors.surface }]}>
+        <TextInput
+          style={[
+            styles.textInput,
+            {
+              borderColor: colors.border,
+              color: colors.text,
+              backgroundColor: colors.card,
+            },
+            isRTL && styles.textInputRTL,
+          ]}
+          value={value}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          placeholderTextColor={colors.textSecondary}
+          keyboardType={keyboardType}
+        />
+      </View>
+    </View>
+  );
+};
+
+const OptionGroup: React.FC<{
+  label: string;
+  options: { key: string; label: string }[];
+  selectedValue: string;
+  onSelect: (value: string) => void;
+  required?: boolean;
+}> = ({ label, options, selectedValue, onSelect, required = false }) => {
+  const { colors } = useTheme();
+  const { currentLanguage } = useLanguage();
+  const isRTL = currentLanguage === "he";
+
+  return (
+    <View style={styles.inputGroup}>
+      <Text
+        style={[
+          styles.inputLabel,
+          { color: colors.text },
+          isRTL && styles.textRTL,
+        ]}
+      >
+        {label} {required && <Text style={{ color: colors.error }}>*</Text>}
+      </Text>
+      <View style={styles.optionGroup}>
+        {options.map((option) => {
+          const isSelected = selectedValue === option.key;
+          return (
+            <TouchableOpacity
+              key={option.key}
+              style={[
+                styles.optionButton,
+                {
+                  borderColor: isSelected ? colors.primary : colors.border,
+                  backgroundColor: isSelected ? colors.primary : colors.card,
+                  shadowColor: colors.shadow,
+                },
+              ]}
+              onPress={() => onSelect(option.key)}
+            >
+              <Text
+                style={[
+                  styles.optionText,
+                  {
+                    color: isSelected ? "#ffffff" : colors.text,
+                  },
+                  isRTL && styles.textRTL,
+                ]}
+              >
+                {option.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    </View>
+  );
+};
+
+const CheckboxGroup: React.FC<{
+  label: string;
+  options: string[];
+  selectedValues: string[];
+  onToggle: (value: string) => void;
+}> = ({ label, options, selectedValues, onToggle }) => {
+  const { colors } = useTheme();
+  const { currentLanguage } = useLanguage();
+  const isRTL = currentLanguage === "he";
+
+  return (
+    <View style={styles.inputGroup}>
+      <Text
+        style={[
+          styles.inputLabel,
+          { color: colors.text },
+          isRTL && styles.textRTL,
+        ]}
+      >
+        {label}
+      </Text>
+      <View style={styles.checkboxGroup}>
+        {options.map((option) => {
+          const isSelected = selectedValues.includes(option);
+          return (
+            <TouchableOpacity
+              key={option}
+              style={[
+                styles.checkboxItem,
+                { backgroundColor: colors.surface },
+                isRTL && styles.checkboxItemRTL,
+              ]}
+              onPress={() => onToggle(option)}
+            >
+              <View
+                style={[
+                  styles.checkbox,
+                  {
+                    borderColor: isSelected ? colors.primary : colors.border,
+                    backgroundColor: isSelected ? colors.primary : colors.card,
+                  },
+                ]}
+              >
+                {isSelected && (
+                  <Ionicons name="checkmark" size={16} color="white" />
+                )}
+              </View>
+              <Text
+                style={[
+                  styles.checkboxLabel,
+                  { color: colors.text },
+                  isRTL && styles.textRTL,
+                ]}
+              >
+                {option}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    </View>
+  );
+};
+
+const CustomSwitch: React.FC<{
+  label: string;
+  value: boolean;
+  onValueChange: (value: boolean) => void;
+}> = ({ label, value, onValueChange }) => {
+  const { colors } = useTheme();
+  const { currentLanguage } = useLanguage();
+  const isRTL = currentLanguage === "he";
+
+  return (
+    <View style={styles.inputGroup}>
+      <View
+        style={[
+          styles.switchRow,
+          { backgroundColor: colors.surface },
+          isRTL && styles.switchRowRTL,
+        ]}
+      >
+        <Text
+          style={[
+            styles.switchLabel,
+            { color: colors.text },
+            isRTL && styles.textRTL,
+          ]}
+        >
+          {label}
+        </Text>
+        <Switch
+          value={value}
+          onValueChange={onValueChange}
+          trackColor={{ false: colors.border, true: colors.primary }}
+          thumbColor={value ? "#ffffff" : colors.textSecondary}
+        />
+      </View>
+    </View>
+  );
+};
+
+const DynamicListInput: React.FC<{
+  label: string;
+  placeholder: string;
+  items: string[];
+  onItemsChange: (items: string[]) => void;
+  maxItems?: number;
+}> = ({ label, placeholder, items, onItemsChange, maxItems = 10 }) => {
+  const { colors } = useTheme();
+  const { currentLanguage } = useLanguage();
+  const isRTL = currentLanguage === "he";
+  const [inputValue, setInputValue] = useState("");
+
+  const addItem = () => {
+    if (inputValue.trim() && items.length < maxItems) {
+      onItemsChange([...items, inputValue.trim()]);
+      setInputValue("");
+    }
+  };
+
+  const removeItem = (index: number) => {
+    onItemsChange(items.filter((_, i) => i !== index));
+  };
+
+  return (
+    <View style={styles.inputGroup}>
+      <Text
+        style={[
+          styles.inputLabel,
+          { color: colors.text },
+          isRTL && styles.textRTL,
+        ]}
+      >
+        {label}
+      </Text>
+
+      <View
+        style={[
+          styles.dynamicInputContainer,
+          isRTL && styles.dynamicInputContainerRTL,
+        ]}
+      >
+        <TextInput
+          style={[
+            styles.dynamicTextInput,
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+              color: colors.text,
+            },
+            isRTL && styles.textInputRTL,
+          ]}
+          value={inputValue}
+          onChangeText={setInputValue}
+          placeholder={placeholder}
+          placeholderTextColor={colors.textSecondary}
+        />
+        <TouchableOpacity
+          style={[
+            styles.addButton,
+            {
+              backgroundColor: colors.primary,
+              opacity: !inputValue.trim() || items.length >= maxItems ? 0.5 : 1,
+            },
+          ]}
+          onPress={addItem}
+          disabled={!inputValue.trim() || items.length >= maxItems}
+        >
+          <Ionicons name="add" size={20} color="white" />
+        </TouchableOpacity>
+      </View>
+
+      {items.map((item, index) => (
+        <View
+          key={index}
+          style={[
+            styles.dynamicItem,
+            { backgroundColor: colors.surface },
+            isRTL && styles.dynamicItemRTL,
+          ]}
+        >
+          <Text
+            style={[
+              styles.dynamicItemText,
+              { color: colors.text },
+              isRTL && styles.textRTL,
+            ]}
+          >
+            {item}
+          </Text>
+          <TouchableOpacity onPress={() => removeItem(index)}>
+            <Ionicons name="close-circle" size={20} color={colors.error} />
+          </TouchableOpacity>
+        </View>
+      ))}
+    </View>
+  );
+};
+
+// Interface
 interface QuestionnaireData {
-  // Personal data
   age: string;
   gender: string;
   height_cm: string;
   weight_kg: string;
   target_weight_kg: string | null;
-  body_fat_percentage: string | null;
   additional_personal_info: string[];
-
-  // Goals
   main_goal: string;
-  main_goal_text: string[];
-  specific_goal: string[];
   goal_timeframe_days: string | null;
   commitment_level: string;
-  most_important_outcome: string[];
-  special_personal_goal: string[];
-
-  // Physical activity
   physical_activity_level: string;
   sport_frequency: string;
-  sport_types: string[];
-  sport_duration_min: string | null;
-  workout_times: string[];
-  uses_fitness_devices: boolean;
-  fitness_device_type: string[];
-  additional_activity_info: string[];
-
-  // Health
-  medical_conditions: string[];
   medical_conditions_text: string[];
   medications: string[];
-  health_goals: string[];
-  functional_issues: string[];
-  food_related_medical_issues: string[];
-
-  // Means and conditions
   meals_per_day: string;
-  snacks_between_meals: boolean;
-  meal_times: string[];
   cooking_preference: string;
   available_cooking_methods: string[];
   daily_food_budget: string | null;
-  shopping_method: string[];
-  daily_cooking_time: string | null;
-
-  // Dietary preferences and restrictions
   kosher: boolean;
   allergies: string[];
-  allergies_text: string[];
   dietary_style: string;
-  meal_texture_preference: string[];
-  disliked_foods: string[];
-  liked_foods: string[];
-  regular_drinks: string[];
-  intermittent_fasting: boolean;
-  fasting_hours: string | null;
-
-  // Additional
-  past_diet_difficulties: string[];
-
-  // Additional schema fields
-  program_duration?: string;
-  meal_timing_restrictions?: string;
-  dietary_restrictions?: string[];
-  willingness_to_follow?: boolean;
-  upcoming_events?: string[];
-  upload_frequency?: string;
-  notifications_preference?: "DAILY" | "WEEKLY" | "NONE" | null;
-  personalized_tips?: boolean;
-  health_metrics_integration?: boolean;
-  family_medical_history?: string[];
-  smoking_status?: "YES" | "NO" | null;
-  sleep_hours_per_night?: number | null;
+  sleep_hours_per_night: string | null;
+  smoking_status: "YES" | "NO" | null;
+  program_duration: string;
+  upload_frequency: string;
+  willingness_to_follow: boolean;
+  personalized_tips: boolean;
+  notifications_preference: "DAILY" | "WEEKLY" | "NONE" | null;
 }
 
-const MAIN_GOALS = [
-  { key: "WEIGHT_LOSS", label: "ירידה במשקל" },
-  { key: "WEIGHT_GAIN", label: "עלייה במסת שריר" },
-  { key: "WEIGHT_MAINTENANCE", label: "שמירה על משקל" },
-  { key: "MEDICAL_CONDITION", label: "מטרה רפואית" },
-  { key: "ALERTNESS", label: "שיפור ערנות" },
-  { key: "ENERGY", label: "הגדלת אנרגיה" },
-  { key: "SLEEP_QUALITY", label: "איכות שינה" },
-  { key: "SPORTS_PERFORMANCE", label: "ביצועי ספורט" },
-  { key: "OTHER", label: "אחר" },
-];
-
-const PHYSICAL_ACTIVITY_LEVELS = [
-  { key: "NONE", label: "ללא פעילות" },
-  { key: "LIGHT", label: "קלה (1-2 פעמים בשבוע)" },
-  { key: "MODERATE", label: "בינונית (3-4 פעמים בשבוע)" },
-  { key: "HIGH", label: "גבוהה (5+ פעמים בשבוע)" },
-];
-
-const SPORT_FREQUENCIES = [
-  { key: "NONE", label: "ללא" },
-  { key: "ONCE_A_WEEK", label: "פעם בשבוע" },
-  { key: "TWO_TO_THREE", label: "2-3 פעמים בשבוע" },
-  { key: "FOUR_TO_FIVE", label: "4-5 פעמים בשבוע" },
-  { key: "MORE_THAN_FIVE", label: "יותר מ-5 פעמים בשבוע" },
-];
-
-const COOKING_METHODS = [
-  "מיקרוגל",
-  "תנור",
-  "כיריים",
-  "סיר לחץ",
-  "מחבת",
-  "גריל",
-  "אין אפשרויות בישול",
-];
-
-const DIETARY_STYLES = [
-  "רגיל",
-  "דל פחמימה",
-  "קטוגני",
-  "צמחוני",
-  "טבעוני",
-  "ים תיכוני",
-  "דל שומן",
-  "דל נתרן",
-  "אחר",
-];
-
-const ALLERGENS = [
-  "גלוטן",
-  "חלב",
-  "ביצים",
-  "אגוזים",
-  "בוטנים",
-  "דגים",
-  "רכיכות",
-  "סויה",
-  "אחר",
-];
-
-const REGULAR_DRINKS = [
-  "מים",
-  "קפה",
-  "תה",
-  "משקאות מתוקים",
-  "אלכוהול",
-  "משקאות ספורט",
-  "משקאות דיאט",
-];
-
-export default function QuestionnaireScreen() {
+// Main Component
+const QuestionnaireScreen: React.FC = () => {
+  const { colors, isDark } = useTheme();
+  const { t } = useTranslation();
+  const { currentLanguage } = useLanguage();
+  const isRTL = currentLanguage === "he";
   const dispatch = useDispatch<AppDispatch>();
   const { user } = useSelector((state: RootState) => state.auth);
   const { questionnaire, isSaving, isLoading, error } = useSelector(
     (state: RootState) => state.questionnaire
   );
   const searchParams = useLocalSearchParams();
-
-  // Check if we're in editing mode
   const isEditMode = searchParams?.mode === "edit";
 
   const [currentStep, setCurrentStep] = useState(1);
   const [showTip, setShowTip] = useState("");
   const [dataLoaded, setDataLoaded] = useState(false);
-
   const totalSteps = 8;
-  const progressPercentage = (currentStep / totalSteps) * 100;
 
   const [formData, setFormData] = useState<QuestionnaireData>({
-    // Initialize with empty values - data will come from questionnaire if exists
     age: "",
     gender: "",
     height_cm: "",
     weight_kg: "",
     target_weight_kg: null,
-    body_fat_percentage: null,
     additional_personal_info: [],
-
     main_goal: "",
-    main_goal_text: [],
-    specific_goal: [],
     goal_timeframe_days: null,
     commitment_level: "",
-    most_important_outcome: [],
-    special_personal_goal: [],
-
     physical_activity_level: "",
     sport_frequency: "",
-    sport_types: [],
-    sport_duration_min: null,
-    workout_times: [],
-    uses_fitness_devices: false,
-    fitness_device_type: [],
-    additional_activity_info: [],
-
-    medical_conditions: [],
     medical_conditions_text: [],
     medications: [],
-    health_goals: [],
-    functional_issues: [],
-    food_related_medical_issues: [],
-
     meals_per_day: "3",
-    snacks_between_meals: false,
-    meal_times: [],
     cooking_preference: "",
     available_cooking_methods: [],
     daily_food_budget: null,
-    shopping_method: [],
-    daily_cooking_time: null,
-
     kosher: false,
     allergies: [],
-    allergies_text: [],
     dietary_style: "",
-    meal_texture_preference: [],
-    disliked_foods: [],
-    liked_foods: [],
-    regular_drinks: [],
-    intermittent_fasting: false,
-    fasting_hours: null,
-
-    past_diet_difficulties: [],
-
-    // Additional schema fields
-    program_duration: "MEDIUM_TERM",
-    meal_timing_restrictions: "",
-    dietary_restrictions: [],
-    willingness_to_follow: true,
-    upcoming_events: [],
-    upload_frequency: "",
-    notifications_preference: null,
-    personalized_tips: true,
-    health_metrics_integration: false,
-    family_medical_history: [],
-    smoking_status: null,
     sleep_hours_per_night: null,
+    smoking_status: null,
+    program_duration: "",
+    upload_frequency: "",
+    willingness_to_follow: true,
+    personalized_tips: true,
+    notifications_preference: null,
   });
 
-  // Load existing questionnaire data if in edit mode or if user has completed questionnaire
-  React.useEffect(() => {
+  // Load existing questionnaire data
+  useEffect(() => {
     const shouldFetchData =
       isEditMode || (user?.is_questionnaire_completed && !dataLoaded);
-
     if (shouldFetchData && !isLoading) {
-      console.log("📖 Getting questionnaire...");
-      dispatch(fetchQuestionnaire()).finally(() => {
-        setDataLoaded(true);
-      });
+      dispatch(fetchQuestionnaire()).finally(() => setDataLoaded(true));
     } else if (!isEditMode && !user?.is_questionnaire_completed) {
       setDataLoaded(true);
     }
@@ -279,170 +612,70 @@ export default function QuestionnaireScreen() {
     isLoading,
   ]);
 
-  // Map questionnaire data to form when available
-  React.useEffect(() => {
+  // Map questionnaire data to form
+  useEffect(() => {
     if (questionnaire && dataLoaded) {
-      console.log("📋 Mapping questionnaire data to form:", questionnaire);
-
-      // Helper function to safely convert values
-      const safeString = (value: any) => {
-        if (value === null || value === undefined) return "";
-        return value.toString();
-      };
-      const safeArray = (value: any) => {
-        if (Array.isArray(value)) return value;
-        if (typeof value === "string") {
-          if (value.trim() === "" || value.toLowerCase() === "none") return [];
-          try {
-            return JSON.parse(value);
-          } catch {
-            return value
-              .split(",")
-              .map((item) => item.trim())
-              .filter((item) => item && item.toLowerCase() !== "none");
-          }
-        }
-        return [];
-      };
+      const safeString = (value: any) => value?.toString() || "";
+      const safeArray = (value: any) => (Array.isArray(value) ? value : []);
       const safeBoolean = (value: any) => Boolean(value);
-
-      // Parse meal_times if it's a string
-      const parseMealTimes = (mealTimes: any) => {
-        if (Array.isArray(mealTimes)) return mealTimes;
-        if (typeof mealTimes === "string") {
-          return mealTimes
-            .split(",")
-            .map((time) => time.trim())
-            .filter((time) => time);
-        }
-        return [];
+      const mapGenderToKey = (hebrewGender: string) => {
+        const genderMap: { [key: string]: string } = {
+          זכר: "male",
+          נקבה: "female",
+          אחר: "other",
+        };
+        return genderMap[hebrewGender] || hebrewGender;
       };
 
-      const mappedData: QuestionnaireData = {
-        // Personal data
+      setFormData({
         age: safeString(questionnaire.age),
-        gender: safeString(questionnaire.gender),
+        gender: mapGenderToKey(safeString(questionnaire.gender)),
         height_cm: safeString(questionnaire.height_cm),
         weight_kg: safeString(questionnaire.weight_kg),
         target_weight_kg: safeString(questionnaire.target_weight_kg),
-        body_fat_percentage: safeString(questionnaire.body_fat_percentage),
         additional_personal_info: safeArray(
           questionnaire.additional_personal_info
         ),
-
-        // Goals
         main_goal: safeString(questionnaire.main_goal),
-        main_goal_text: safeArray(questionnaire.main_goal_text),
-        specific_goal: safeArray(questionnaire.specific_goal),
         goal_timeframe_days: safeString(questionnaire.goal_timeframe_days),
         commitment_level: safeString(questionnaire.commitment_level),
-        most_important_outcome: safeArray(questionnaire.most_important_outcome),
-        special_personal_goal: safeArray(questionnaire.special_personal_goal),
-
-        // Physical activity
         physical_activity_level: safeString(
           questionnaire.physical_activity_level
         ),
         sport_frequency: safeString(questionnaire.sport_frequency),
-        sport_types: safeArray(questionnaire.sport_types),
-        sport_duration_min: safeString(questionnaire.sport_duration_min),
-        workout_times: safeArray(questionnaire.workout_times),
-        uses_fitness_devices: safeBoolean(questionnaire.uses_fitness_devices),
-        fitness_device_type: safeArray(questionnaire.fitness_device_type),
-        additional_activity_info: safeArray(
-          questionnaire.additional_activity_info
-        ),
-
-        // Health
-        medical_conditions: safeArray(questionnaire.medical_conditions),
         medical_conditions_text: safeArray(
           questionnaire.medical_conditions_text
         ),
         medications: safeArray(questionnaire.medications),
-        health_goals: safeArray(questionnaire.health_goals),
-        functional_issues: safeArray(questionnaire.functional_issues),
-        food_related_medical_issues: safeArray(
-          questionnaire.food_related_medical_issues
-        ),
-
-        // Means and conditions
         meals_per_day: safeString(questionnaire.meals_per_day) || "3",
-        snacks_between_meals: safeBoolean(questionnaire.snacks_between_meals),
-        meal_times: parseMealTimes(questionnaire.meal_times),
         cooking_preference: safeString(questionnaire.cooking_preference),
         available_cooking_methods: safeArray(
           questionnaire.available_cooking_methods
         ),
         daily_food_budget: safeString(questionnaire.daily_food_budget),
-        shopping_method: safeArray(questionnaire.shopping_method),
-        daily_cooking_time: safeString(questionnaire.daily_cooking_time),
-
-        // Dietary preferences and restrictions
         kosher: safeBoolean(questionnaire.kosher),
         allergies: safeArray(questionnaire.allergies),
-        allergies_text: safeArray(questionnaire.allergies_text),
         dietary_style: safeString(questionnaire.dietary_style),
-        meal_texture_preference: safeArray(
-          questionnaire.meal_texture_preference
-        ),
-        disliked_foods: safeArray(questionnaire.disliked_foods),
-        liked_foods: safeArray(questionnaire.liked_foods),
-        regular_drinks: safeArray(questionnaire.regular_drinks),
-        intermittent_fasting: safeBoolean(questionnaire.intermittent_fasting),
-        fasting_hours: safeString(questionnaire.fasting_hours),
-
-        // Additional
-        past_diet_difficulties: safeArray(questionnaire.past_diet_difficulties),
-
-        // Additional schema fields
+        sleep_hours_per_night: safeString(questionnaire.sleep_hours_per_night),
+        smoking_status: questionnaire.smoking_status as "YES" | "NO" | null,
         program_duration: safeString(questionnaire.program_duration),
-        meal_timing_restrictions: safeString(
-          questionnaire.meal_timing_restrictions
-        ),
-        dietary_restrictions: safeArray(questionnaire.dietary_restrictions),
+        upload_frequency: safeString(questionnaire.upload_frequency),
         willingness_to_follow:
           questionnaire.willingness_to_follow !== undefined
             ? safeBoolean(questionnaire.willingness_to_follow)
             : true,
-        upcoming_events: safeArray(questionnaire.upcoming_events),
-        upload_frequency: safeString(questionnaire.upload_frequency),
+        personalized_tips:
+          questionnaire.personalized_tips !== undefined
+            ? safeBoolean(questionnaire.personalized_tips)
+            : true,
         notifications_preference: questionnaire.notifications_preference as
           | "DAILY"
           | "WEEKLY"
           | "NONE"
           | null,
-        personalized_tips:
-          questionnaire.personalized_tips !== undefined
-            ? safeBoolean(questionnaire.personalized_tips)
-            : true,
-        health_metrics_integration: safeBoolean(
-          questionnaire.health_metrics_integration
-        ),
-        family_medical_history: safeArray(questionnaire.family_medical_history),
-        smoking_status: questionnaire.smoking_status as "YES" | "NO" | null,
-        sleep_hours_per_night: questionnaire.sleep_hours_per_night as
-          | number
-          | null,
-      };
-
-      setFormData(mappedData);
-      console.log("✅ Form data mapped successfully");
-    } else if (
-      (isEditMode || user?.is_questionnaire_completed) &&
-      !questionnaire &&
-      !isLoading &&
-      dataLoaded
-    ) {
-      // If we're in edit mode or user has completed questionnaire but no questionnaire data
-      console.log("⚠️ No questionnaire data found for editing");
+      });
     }
-  }, [
-    questionnaire,
-    dataLoaded,
-    isEditMode,
-    isLoading,
-    user?.is_questionnaire_completed,
-  ]);
+  }, [questionnaire, dataLoaded]);
 
   const handleArrayToggle = (
     array: string[],
@@ -470,46 +703,24 @@ export default function QuestionnaireScreen() {
         !formData.cooking_preference ||
         !formData.dietary_style
       ) {
-        Alert.alert("שגיאה", "אנא מלא את כל השדות הנדרשים בכל השלבים");
+        Alert.alert(t("questionnaire.error"), t("validation.requiredFields"));
         return;
       }
 
-      console.log("💾 Submitting questionnaire data:", formData);
-
-      // Clean up empty strings and convert to null for optional fields
       const cleanFormData = { ...formData };
 
-      // Convert empty strings to null for optional numeric fields
+      // Convert empty strings to null for optional fields
       if (cleanFormData.target_weight_kg === "")
         cleanFormData.target_weight_kg = null;
-      if (cleanFormData.body_fat_percentage === "")
-        cleanFormData.body_fat_percentage = null;
       if (cleanFormData.goal_timeframe_days === "")
         cleanFormData.goal_timeframe_days = null;
-      if (cleanFormData.sport_duration_min === "")
-        cleanFormData.sport_duration_min = null;
       if (cleanFormData.daily_food_budget === "")
         cleanFormData.daily_food_budget = null;
-      if (cleanFormData.daily_cooking_time === "")
-        cleanFormData.daily_cooking_time = null;
-      if (cleanFormData.fasting_hours === "")
-        cleanFormData.fasting_hours = null;
-
-      // Convert sleep_hours_per_night from string to number
-      if (
-        cleanFormData.sleep_hours_per_night === "" ||
-        cleanFormData.sleep_hours_per_night === null
-      ) {
+      if (cleanFormData.sleep_hours_per_night === "")
         cleanFormData.sleep_hours_per_night = null;
-      } else if (typeof cleanFormData.sleep_hours_per_night === "string") {
-        const parsed = parseFloat(cleanFormData.sleep_hours_per_night);
-        cleanFormData.sleep_hours_per_night = isNaN(parsed) ? null : parsed;
-      }
 
-      // For edit mode, we want to preserve the questionnaire completion status
       const dataToSubmit = {
         ...cleanFormData,
-        // Ensure we preserve the questionnaire completion status in edit mode
         isEditMode: isEditMode || user?.is_questionnaire_completed,
       };
 
@@ -517,21 +728,23 @@ export default function QuestionnaireScreen() {
 
       if (saveQuestionnaire.fulfilled.match(result)) {
         if (isEditMode || user?.is_questionnaire_completed) {
-          // In edit mode, show success message and navigate back to profile
-          Alert.alert("הצלחה!", "הנתונים שלך עודכנו בהצלחה", [
-            {
-              text: "חזור לפרופיל",
-              onPress: () => router.replace("/(tabs)/profile"),
-            },
-          ]);
-        } else {
-          // In initial completion mode, show the original message
           Alert.alert(
-            "הצלחה!",
-            "השאלון נשמר בהצלחה. אנחנו כעת בונים עבורך תוכנית תזונה מותאמת אישית.",
+            t("questionnaire.success"),
+            t("questionnaire.dataUpdated"),
             [
               {
-                text: "המשך",
+                text: t("questionnaire.backToProfile"),
+                onPress: () => router.replace("/(tabs)/profile"),
+              },
+            ]
+          );
+        } else {
+          Alert.alert(
+            t("questionnaire.success"),
+            t("questionnaire.planCreated"),
+            [
+              {
+                text: t("questionnaire.continueToApp"),
                 onPress: () => router.replace("/(tabs)"),
               },
             ]
@@ -539,1117 +752,16 @@ export default function QuestionnaireScreen() {
         }
       }
     } catch (error) {
-      Alert.alert("שגיאה", "אירעה שגיאה בשמירת השאלון");
+      Alert.alert(t("questionnaire.error"), t("questionnaire.saveError"));
     }
   };
 
-  // Simplified error handling
-  React.useEffect(() => {
+  useEffect(() => {
     if (error) {
-      Alert.alert("שגיאה", error);
+      Alert.alert(t("questionnaire.error"), error);
       dispatch(clearError());
     }
-  }, [error]);
-
-  const renderProgress = () => (
-    <View style={styles.progressContainer}>
-      <View style={styles.progressBar}>
-        <View
-          style={[styles.progressFill, { width: `${progressPercentage}%` }]}
-        />
-      </View>
-      <Text style={styles.progressText}>
-        שלב {currentStep} מתוך {totalSteps} ({Math.round(progressPercentage)}%)
-      </Text>
-    </View>
-  );
-
-  const renderPersonalDataStep = () => (
-    <View style={styles.stepContainer}>
-      <Text style={styles.stepTitle}>נתונים אישיים</Text>
-      <Text style={styles.stepDescription}>
-        נתונים אלה יעזרו לנו לחשב את הצרכים הקלוריים שלך
-      </Text>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>גיל *</Text>
-        <TextInput
-          style={styles.textInput}
-          value={formData.age.toString()}
-          onChangeText={(text) => setFormData({ ...formData, age: text })}
-          keyboardType="numeric"
-          placeholder="הכנס גיל"
-        />
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>מגדר *</Text>
-        <View style={styles.optionGroup}>
-          {["זכר", "נקבה", "אחר"].map((option) => (
-            <TouchableOpacity
-              key={option}
-              style={[
-                styles.optionButton,
-                formData.gender === option && styles.optionButtonSelected,
-              ]}
-              onPress={() => setFormData({ ...formData, gender: option })}
-            >
-              <Text
-                style={[
-                  styles.optionText,
-                  formData.gender === option && styles.optionTextSelected,
-                ]}
-              >
-                {option}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>גובה (ס"מ)</Text>
-        <TextInput
-          style={styles.textInput}
-          value={formData.height_cm}
-          onChangeText={(text) => setFormData({ ...formData, height_cm: text })}
-          keyboardType="numeric"
-          placeholder="הכנס גובה"
-        />
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>משקל נוכחי (ק"ג)</Text>
-        <TextInput
-          style={styles.textInput}
-          value={formData.weight_kg}
-          onChangeText={(text) => setFormData({ ...formData, weight_kg: text })}
-          keyboardType="numeric"
-          placeholder="הכנס משקל נוכחי"
-        />
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>משקל יעד (ק"ג)</Text>
-        <TextInput
-          style={styles.textInput}
-          value={formData.target_weight_kg || ""}
-          onChangeText={(text) =>
-            setFormData({ ...formData, target_weight_kg: text || null })
-          }
-          keyboardType="numeric"
-          placeholder="הכנס משקל יעד (אופציונלי)"
-        />
-      </View>
-
-      <DynamicListInput
-        label="פרטים נוספים"
-        placeholder="הוסף פרט נוסף..."
-        initialItems={
-          Array.isArray(formData.additional_personal_info)
-            ? formData.additional_personal_info
-            : []
-        }
-        onItemsChange={(value) =>
-          setFormData({
-            ...formData,
-            additional_personal_info: Array.isArray(value) ? value : [value],
-          })
-        }
-        maxItems={5}
-      />
-    </View>
-  );
-
-  const renderGoalsStep = () => (
-    <View style={styles.stepContainer}>
-      <Text style={styles.stepTitle}>יעדים</Text>
-      <Text style={styles.stepDescription}>
-        הגדרת יעדים ברורים תעזור לבניית תוכנית מותאמת אישית
-      </Text>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>מה המטרה העיקרית שלך? *</Text>
-        <View style={styles.optionGroup}>
-          {MAIN_GOALS.map((goal) => (
-            <TouchableOpacity
-              key={goal.key}
-              style={[
-                styles.optionButton,
-                formData.main_goal === goal.key && styles.optionButtonSelected,
-              ]}
-              onPress={() => setFormData({ ...formData, main_goal: goal.key })}
-            >
-              <Text
-                style={[
-                  styles.optionText,
-                  formData.main_goal === goal.key && styles.optionTextSelected,
-                ]}
-              >
-                {goal.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-
-      {formData.main_goal === "OTHER" && (
-        <DynamicListInput
-          label="פרט את המטרה שלך"
-          placeholder="הוסף מטרה..."
-          initialItems={
-            Array.isArray(formData.main_goal_text)
-              ? formData.main_goal_text
-              : []
-          }
-          onItemsChange={(value) =>
-            setFormData({
-              ...formData,
-              main_goal_text: Array.isArray(value) ? value : [value],
-            })
-          }
-          maxItems={3}
-        />
-      )}
-
-      <DynamicListInput
-        label="מטרות ספציפיות"
-        placeholder="הוסף מטרה ספציפית (לדוגמה: לרדת 5 ק״ג לקראת החתונה)..."
-        initialItems={
-          Array.isArray(formData.specific_goal) ? formData.specific_goal : []
-        }
-        onItemsChange={(value) =>
-          setFormData({
-            ...formData,
-            specific_goal: Array.isArray(value) ? value : [value],
-          })
-        }
-        maxItems={5}
-      />
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>
-          תוך כמה זמן תרצה להגיע ליעד? (ימים)
-        </Text>
-        <TextInput
-          style={styles.textInput}
-          value={formData.goal_timeframe_days || ""}
-          onChangeText={(text) =>
-            setFormData({ ...formData, goal_timeframe_days: text || null })
-          }
-          keyboardType="numeric"
-          placeholder="לדוגמה: 90 ימים"
-        />
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>באיזו רמת מחויבות תרצה לפעול?</Text>
-        <View style={styles.optionGroup}>
-          {["קל", "ממוצע", "קפדני"].map((level) => (
-            <TouchableOpacity
-              key={level}
-              style={[
-                styles.optionButton,
-                formData.commitment_level === level &&
-                  styles.optionButtonSelected,
-              ]}
-              onPress={() =>
-                setFormData({ ...formData, commitment_level: level })
-              }
-            >
-              <Text
-                style={[
-                  styles.optionText,
-                  formData.commitment_level === level &&
-                    styles.optionTextSelected,
-                ]}
-              >
-                {level}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-    </View>
-  );
-
-  const renderActivityStep = () => (
-    <View style={styles.stepContainer}>
-      <Text style={styles.stepTitle}>פעילות גופנית</Text>
-      <Text style={styles.stepDescription}>
-        מידע על הפעילות הגופנית שלך יעזור לחישוב הצרכים הקלוריים
-      </Text>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>רמת הפעילות הגופנית שלך</Text>
-        <View style={styles.optionGroup}>
-          {PHYSICAL_ACTIVITY_LEVELS.map((level) => (
-            <TouchableOpacity
-              key={level.key}
-              style={[
-                styles.optionButton,
-                formData.physical_activity_level === level.key &&
-                  styles.optionButtonSelected,
-              ]}
-              onPress={() =>
-                setFormData({ ...formData, physical_activity_level: level.key })
-              }
-            >
-              <Text
-                style={[
-                  styles.optionText,
-                  formData.physical_activity_level === level.key &&
-                    styles.optionTextSelected,
-                ]}
-              >
-                {level.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>תדירות ספורט</Text>
-        <View style={styles.optionGroup}>
-          {SPORT_FREQUENCIES.map((freq) => (
-            <TouchableOpacity
-              key={freq.key}
-              style={[
-                styles.optionButton,
-                formData.sport_frequency === freq.key &&
-                  styles.optionButtonSelected,
-              ]}
-              onPress={() =>
-                setFormData({ ...formData, sport_frequency: freq.key })
-              }
-            >
-              <Text
-                style={[
-                  styles.optionText,
-                  formData.sport_frequency === freq.key &&
-                    styles.optionTextSelected,
-                ]}
-              >
-                {freq.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-
-      {formData.sport_frequency !== "NONE" && (
-        <>
-          <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>משך ממוצע של כל פעילות (דקות)</Text>
-            <TextInput
-              style={styles.textInput}
-              value={formData.sport_duration_min || ""}
-              onChangeText={(text) =>
-                setFormData({ ...formData, sport_duration_min: text || null })
-              }
-              keyboardType="numeric"
-              placeholder="לדוגמה: 45"
-            />
-          </View>
-
-          <DynamicListInput
-            label="סוגי פעילות"
-            placeholder="הוסף סוג פעילות (לדוגמה: ריצה, כושר, יוגה)..."
-            initialItems={
-              Array.isArray(formData.sport_types) ? formData.sport_types : []
-            }
-            onItemsChange={(value: string[]) =>
-              setFormData({
-                ...formData,
-                sport_types: Array.isArray(value) ? value : [value],
-              })
-            }
-            maxItems={10}
-          />
-
-          <DynamicListInput
-            label="זמני אימונים מועדפים"
-            placeholder="הוסף זמן אימון (לדוגמה: בוקר, ערב)..."
-            initialItems={
-              Array.isArray(formData.workout_times)
-                ? formData.workout_times
-                : []
-            }
-            onItemsChange={(value: string[]) =>
-              setFormData({
-                ...formData,
-                workout_times: Array.isArray(value) ? value : [value],
-              })
-            }
-            maxItems={5}
-          />
-
-          <DynamicListInput
-            label="מכשירי כושר"
-            placeholder="הוסף מכשיר כושר (לדוגמה: שעון חכם, צמיד כושר)..."
-            initialItems={
-              Array.isArray(formData.fitness_device_type)
-                ? formData.fitness_device_type
-                : []
-            }
-            onItemsChange={(value: string[]) =>
-              setFormData({
-                ...formData,
-                fitness_device_type: Array.isArray(value) ? value : [value],
-              })
-            }
-            maxItems={5}
-          />
-
-          <DynamicListInput
-            label="מידע נוסף על פעילות"
-            placeholder="הוסף מידע נוסף..."
-            initialItems={
-              Array.isArray(formData.additional_activity_info)
-                ? formData.additional_activity_info
-                : []
-            }
-            onItemsChange={(value: string[]) =>
-              setFormData({
-                ...formData,
-                additional_activity_info: Array.isArray(value)
-                  ? value
-                  : [value],
-              })
-            }
-            maxItems={5}
-          />
-        </>
-      )}
-    </View>
-  );
-
-  const renderHealthStep = () => (
-    <View style={styles.stepContainer}>
-      <Text style={styles.stepTitle}>בריאות</Text>
-      <Text style={styles.stepDescription}>
-        מידע רפואי יעזור לנו להתאים את התזונה לצרכים המיוחדים שלך
-      </Text>
-
-      <DynamicListInput
-        label="בעיות רפואיות"
-        placeholder="הוסף בעיה רפואית (לדוגמה: סכרת, לחץ דם)..."
-        initialItems={
-          Array.isArray(formData.medical_conditions_text)
-            ? formData.medical_conditions_text
-            : []
-        }
-        onItemsChange={(value: string[]) =>
-          setFormData({
-            ...formData,
-            medical_conditions_text: Array.isArray(value) ? value : [value],
-          })
-        }
-        maxItems={10}
-      />
-
-      <DynamicListInput
-        label="תרופות קבועות"
-        placeholder="הוסף תרופה..."
-        initialItems={
-          Array.isArray(formData.medications) ? formData.medications : []
-        }
-        onItemsChange={(value: string[]) =>
-          setFormData({
-            ...formData,
-            medications: Array.isArray(value) ? value : [value],
-          })
-        }
-        maxItems={10}
-      />
-
-      <DynamicListInput
-        label="יעדים בריאותיים"
-        placeholder="הוסף יעד בריאותי (לדוגמה: הורדת כולסטרול)..."
-        initialItems={
-          Array.isArray(formData.health_goals) ? formData.health_goals : []
-        }
-        onItemsChange={(value: string[]) =>
-          setFormData({
-            ...formData,
-            health_goals: Array.isArray(value) ? value : [value],
-          })
-        }
-        maxItems={8}
-      />
-
-      <DynamicListInput
-        label="בעיות תפקודיות"
-        placeholder="הוסף בעיה תפקודית (לדוגמה: עייפות, חוסר ערנות)..."
-        initialItems={
-          Array.isArray(formData.functional_issues)
-            ? formData.functional_issues
-            : []
-        }
-        onItemsChange={(value: string[]) =>
-          setFormData({
-            ...formData,
-            functional_issues: Array.isArray(value) ? value : [value],
-          })
-        }
-        maxItems={8}
-      />
-
-      <DynamicListInput
-        label="בעיות תזונתיות"
-        placeholder="הוסף בעיה תזונתית..."
-        initialItems={
-          Array.isArray(formData.food_related_medical_issues)
-            ? formData.food_related_medical_issues
-            : []
-        }
-        onItemsChange={(value: string[]) =>
-          setFormData({
-            ...formData,
-            food_related_medical_issues: Array.isArray(value) ? value : [value],
-          })
-        }
-        maxItems={8}
-      />
-    </View>
-  );
-
-  const renderMeansStep = () => (
-    <View style={styles.stepContainer}>
-      <Text style={styles.stepTitle}>אמצעים ותנאים</Text>
-      <Text style={styles.stepDescription}>
-        מידע על האמצעים והזמן הזמינים לך יעזור לבניית תפריט מעשי
-      </Text>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>כמה ארוחות ביום?</Text>
-        <View style={styles.optionGroup}>
-          {["2", "3", "4", "5", "6"].map((num) => (
-            <TouchableOpacity
-              key={num}
-              style={[
-                styles.optionButton,
-                formData.meals_per_day === num && styles.optionButtonSelected,
-              ]}
-              onPress={() => setFormData({ ...formData, meals_per_day: num })}
-            >
-              <Text
-                style={[
-                  styles.optionText,
-                  formData.meals_per_day === num && styles.optionTextSelected,
-                ]}
-              >
-                {num}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>העדפת הכנה</Text>
-        <View style={styles.optionGroup}>
-          {["מבושל", "קל הכנה", "מוכן מראש", "ללא בישול"].map((pref) => (
-            <TouchableOpacity
-              key={pref}
-              style={[
-                styles.optionButton,
-                formData.cooking_preference === pref &&
-                  styles.optionButtonSelected,
-              ]}
-              onPress={() =>
-                setFormData({ ...formData, cooking_preference: pref })
-              }
-            >
-              <Text
-                style={[
-                  styles.optionText,
-                  formData.cooking_preference === pref &&
-                    styles.optionTextSelected,
-                ]}
-              >
-                {pref}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>אמצעי בישול זמינים</Text>
-        <View style={styles.checkboxGroup}>
-          {COOKING_METHODS.map((method) => (
-            <TouchableOpacity
-              key={method}
-              style={styles.checkboxItem}
-              onPress={() =>
-                handleArrayToggle(
-                  formData.available_cooking_methods,
-                  method,
-                  "available_cooking_methods"
-                )
-              }
-            >
-              <View
-                style={[
-                  styles.checkbox,
-                  formData.available_cooking_methods.includes(method) &&
-                    styles.checkboxChecked,
-                ]}
-              >
-                {formData.available_cooking_methods.includes(method) && (
-                  <Ionicons name="checkmark" size={16} color="white" />
-                )}
-              </View>
-              <Text style={styles.checkboxLabel}>{method}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>תקציב יומי לאוכל (₪)</Text>
-        <TextInput
-          style={styles.textInput}
-          value={formData.daily_food_budget || ""}
-          onChangeText={(text) =>
-            setFormData({ ...formData, daily_food_budget: text || null })
-          }
-          keyboardType="numeric"
-          placeholder="לדוגמה: 50"
-        />
-      </View>
-
-      <DynamicListInput
-        label="זמני ארוחות"
-        placeholder="הוסף זמן ארוחה (לדוגמה: 8:00, 13:00)..."
-        initialItems={
-          Array.isArray(formData.meal_times) ? formData.meal_times : []
-        }
-        onItemsChange={(value: string[]) =>
-          setFormData({
-            ...formData,
-            meal_times: Array.isArray(value) ? value : [value],
-          })
-        }
-        maxItems={6}
-      />
-
-      <DynamicListInput
-        label="שיטות קנייה"
-        placeholder="הוסף שיטת קנייה (לדוגמה: סופרמרקט, שוק)..."
-        initialItems={
-          Array.isArray(formData.shopping_method)
-            ? formData.shopping_method
-            : []
-        }
-        onItemsChange={(value: string[]) =>
-          setFormData({
-            ...formData,
-            shopping_method: Array.isArray(value) ? value : [value],
-          })
-        }
-        maxItems={5}
-      />
-    </View>
-  );
-
-  const renderLifestyleStep = () => (
-    <View style={styles.stepContainer}>
-      <Text style={styles.stepTitle}>אורח חיים ושגרה</Text>
-      <Text style={styles.stepDescription}>
-        מידע על השגרה היומית שלך יעזור לבניית תוכנית מעשית
-      </Text>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>כמה שעות שינה בלילה?</Text>
-        <TextInput
-          style={styles.textInput}
-          value={formData.sleep_hours_per_night || ""}
-          onChangeText={(text) =>
-            setFormData({ ...formData, sleep_hours_per_night: text || null })
-          }
-          keyboardType="numeric"
-          placeholder="לדוגמה: 7-8 שעות"
-        />
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>סטטוס עישון</Text>
-        <View style={styles.optionGroup}>
-          {[
-            { label: "לא מעשן", value: "NO" },
-            { label: "מעשן", value: "YES" },
-          ].map((status) => (
-            <TouchableOpacity
-              key={status.value}
-              style={[
-                styles.optionButton,
-                formData.smoking_status === status.value &&
-                  styles.optionButtonSelected,
-              ]}
-              onPress={() =>
-                setFormData({
-                  ...formData,
-                  smoking_status: status.value as "YES" | "NO",
-                })
-              }
-            >
-              <Text
-                style={[
-                  styles.optionText,
-                  formData.smoking_status === status.value &&
-                    styles.optionTextSelected,
-                ]}
-              >
-                {status.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-
-      <DynamicListInput
-        label="היסטוריה רפואית משפחתית"
-        placeholder="הוסף מחלה במשפחה (לדוגמה: סכרת, לחץ דם)..."
-        initialItems={
-          Array.isArray(formData.family_medical_history)
-            ? formData.family_medical_history
-            : []
-        }
-        onItemsChange={(value: string[]) =>
-          setFormData({
-            ...formData,
-            family_medical_history: Array.isArray(value) ? value : [value],
-          })
-        }
-        maxItems={10}
-      />
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>הגבלות זמן ארוחות</Text>
-        <TextInput
-          style={styles.textInput}
-          value={formData.meal_timing_restrictions || ""}
-          onChangeText={(text) =>
-            setFormData({ ...formData, meal_timing_restrictions: text })
-          }
-          placeholder="לדוגמה: לא יכול לאכול לפני 9:00"
-          multiline
-        />
-      </View>
-    </View>
-  );
-
-  const renderPreferencesStep = () => (
-    <View style={styles.stepContainer}>
-      <Text style={styles.stepTitle}>העדפות ומטרות נוספות</Text>
-      <Text style={styles.stepDescription}>
-        הגדרות אחרונות לתוכנית המותאמת אישית
-      </Text>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>משך התוכנית המועדף</Text>
-        <View style={styles.optionGroup}>
-          {["חודש", "3 חודשים", "6 חודשים", "שנה", "ללא הגבלה"].map(
-            (duration) => (
-              <TouchableOpacity
-                key={duration}
-                style={[
-                  styles.optionButton,
-                  formData.program_duration === duration &&
-                    styles.optionButtonSelected,
-                ]}
-                onPress={() =>
-                  setFormData({ ...formData, program_duration: duration })
-                }
-              >
-                <Text
-                  style={[
-                    styles.optionText,
-                    formData.program_duration === duration &&
-                      styles.optionTextSelected,
-                  ]}
-                >
-                  {duration}
-                </Text>
-              </TouchableOpacity>
-            )
-          )}
-        </View>
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>תדירות העלאת ארוחות</Text>
-        <View style={styles.optionGroup}>
-          {["כל ארוחה", "פעם ביום", "כמה פעמים בשבוע", "פעם בשבוע"].map(
-            (freq) => (
-              <TouchableOpacity
-                key={freq}
-                style={[
-                  styles.optionButton,
-                  formData.upload_frequency === freq &&
-                    styles.optionButtonSelected,
-                ]}
-                onPress={() =>
-                  setFormData({ ...formData, upload_frequency: freq })
-                }
-              >
-                <Text
-                  style={[
-                    styles.optionText,
-                    formData.upload_frequency === freq &&
-                      styles.optionTextSelected,
-                  ]}
-                >
-                  {freq}
-                </Text>
-              </TouchableOpacity>
-            )
-          )}
-        </View>
-      </View>
-
-      <View style={styles.inputGroup}>
-        <View style={styles.switchRow}>
-          <Text style={styles.switchLabel}>מחויבות למילוי התוכנית</Text>
-          <TouchableOpacity
-            style={[
-              styles.switch,
-              formData.willingness_to_follow && styles.switchActive,
-            ]}
-            onPress={() =>
-              setFormData({
-                ...formData,
-                willingness_to_follow: !formData.willingness_to_follow,
-              })
-            }
-          >
-            <View
-              style={[
-                styles.switchThumb,
-                formData.willingness_to_follow && styles.switchThumbActive,
-              ]}
-            />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <View style={styles.inputGroup}>
-        <View style={styles.switchRow}>
-          <Text style={styles.switchLabel}>טיפים מותאמים אישית</Text>
-          <TouchableOpacity
-            style={[
-              styles.switch,
-              formData.personalized_tips && styles.switchActive,
-            ]}
-            onPress={() =>
-              setFormData({
-                ...formData,
-                personalized_tips: !formData.personalized_tips,
-              })
-            }
-          >
-            <View
-              style={[
-                styles.switchThumb,
-                formData.personalized_tips && styles.switchThumbActive,
-              ]}
-            />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <DynamicListInput
-        label="הגבלות תזונתיות נוספות"
-        placeholder="הוסף הגבלה תזונתית..."
-        initialItems={
-          Array.isArray(formData.dietary_restrictions)
-            ? formData.dietary_restrictions
-            : []
-        }
-        onItemsChange={(value: string[]) =>
-          setFormData({
-            ...formData,
-            dietary_restrictions: Array.isArray(value) ? value : [value],
-          })
-        }
-        maxItems={10}
-      />
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>העדפות התראות</Text>
-        <View style={styles.optionGroup}>
-          {[
-            { label: "יומי", value: "DAILY" },
-            { label: "שבועי", value: "WEEKLY" },
-            { label: "ללא", value: "NONE" },
-          ].map((pref) => (
-            <TouchableOpacity
-              key={pref.value}
-              style={[
-                styles.optionButton,
-                formData.notifications_preference === pref.value &&
-                  styles.optionButtonSelected,
-              ]}
-              onPress={() =>
-                setFormData({
-                  ...formData,
-                  notifications_preference: pref.value as
-                    | "DAILY"
-                    | "WEEKLY"
-                    | "NONE",
-                })
-              }
-            >
-              <Text
-                style={[
-                  styles.optionText,
-                  formData.notifications_preference === pref.value &&
-                    styles.optionTextSelected,
-                ]}
-              >
-                {pref.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-
-      <DynamicListInput
-        label="אירועים קרובים"
-        placeholder="הוסף אירוע קרוב (לדוגמה: חתונה, חופשה)..."
-        initialItems={
-          Array.isArray(formData.upcoming_events)
-            ? formData.upcoming_events
-            : []
-        }
-        onItemsChange={(value: string[]) =>
-          setFormData({
-            ...formData,
-            upcoming_events: Array.isArray(value) ? value : [value],
-          })
-        }
-        maxItems={8}
-      />
-
-      <DynamicListInput
-        label="קשיים בדיאטות בעבר"
-        placeholder="הוסף קושי שחווית (לדוגמה: רעב, חוסר זמן)..."
-        initialItems={
-          Array.isArray(formData.past_diet_difficulties)
-            ? formData.past_diet_difficulties
-            : []
-        }
-        onItemsChange={(value: string[]) =>
-          setFormData({
-            ...formData,
-            past_diet_difficulties: Array.isArray(value) ? value : [value],
-          })
-        }
-        maxItems={10}
-      />
-    </View>
-  );
-
-  const renderDietaryStep = () => (
-    <View style={styles.stepContainer}>
-      <Text style={styles.stepTitle}>העדפות והגבלות תזונתיות</Text>
-      <Text style={styles.stepDescription}>
-        מידע על העדפותיך יעזור לבניית תפריט שתאהב לאכול
-      </Text>
-
-      <View style={styles.inputGroup}>
-        <View style={styles.switchRow}>
-          <Text style={styles.switchLabel}>שמירה על כשרות</Text>
-          <TouchableOpacity
-            style={[styles.switch, formData.kosher && styles.switchActive]}
-            onPress={() =>
-              setFormData({ ...formData, kosher: !formData.kosher })
-            }
-          >
-            <View
-              style={[
-                styles.switchThumb,
-                formData.kosher && styles.switchThumbActive,
-              ]}
-            />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>אלרגיות</Text>
-        <View style={styles.checkboxGroup}>
-          {ALLERGENS.map((allergen) => (
-            <TouchableOpacity
-              key={allergen}
-              style={styles.checkboxItem}
-              onPress={() =>
-                handleArrayToggle(formData.allergies, allergen, "allergies")
-              }
-            >
-              <View
-                style={[
-                  styles.checkbox,
-                  formData.allergies.includes(allergen) &&
-                    styles.checkboxChecked,
-                ]}
-              >
-                {formData.allergies.includes(allergen) && (
-                  <Ionicons name="checkmark" size={16} color="white" />
-                )}
-              </View>
-              <Text style={styles.checkboxLabel}>{allergen}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>סגנון תזונה מועדף</Text>
-        <View style={styles.optionGroup}>
-          {DIETARY_STYLES.map((style) => (
-            <TouchableOpacity
-              key={style}
-              style={[
-                styles.optionButton,
-                formData.dietary_style === style && styles.optionButtonSelected,
-              ]}
-              onPress={() => setFormData({ ...formData, dietary_style: style })}
-            >
-              <Text
-                style={[
-                  styles.optionText,
-                  formData.dietary_style === style && styles.optionTextSelected,
-                ]}
-              >
-                {style}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-
-      <DynamicListInput
-        label="אלרגיות נוספות"
-        placeholder="הוסף אלרגיה נוספת..."
-        initialItems={
-          Array.isArray(formData.allergies_text) ? formData.allergies_text : []
-        }
-        onItemsChange={(value: string[]) =>
-          setFormData({
-            ...formData,
-            allergies_text: Array.isArray(value) ? value : [value],
-          })
-        }
-        maxItems={10}
-      />
-
-      <DynamicListInput
-        label="העדפות מרקם"
-        placeholder="הוסף העדפת מרקם (לדוגמה: רך, פריך)..."
-        initialItems={
-          Array.isArray(formData.meal_texture_preference)
-            ? formData.meal_texture_preference
-            : []
-        }
-        onItemsChange={(value: string[]) =>
-          setFormData({
-            ...formData,
-            meal_texture_preference: Array.isArray(value) ? value : [value],
-          })
-        }
-        maxItems={5}
-      />
-
-      <DynamicListInput
-        label="מזונות שאינך אוהב"
-        placeholder="הוסף מזון שאינך אוהב (לדוגמה: דגים, ירקות ירוקים)..."
-        initialItems={
-          Array.isArray(formData.disliked_foods) ? formData.disliked_foods : []
-        }
-        onItemsChange={(value: string[]) =>
-          setFormData({
-            ...formData,
-            disliked_foods: Array.isArray(value) ? value : [value],
-          })
-        }
-        maxItems={15}
-      />
-
-      <DynamicListInput
-        label="מזונות שאתה אוהב במיוחד"
-        placeholder="הוסף מזון שאתה אוהב (לדוגמה: עוף, קינואה, אבוקדו)..."
-        initialItems={
-          Array.isArray(formData.liked_foods) ? formData.liked_foods : []
-        }
-        onItemsChange={(value: string[]) =>
-          setFormData({
-            ...formData,
-            liked_foods: Array.isArray(value) ? value : [value],
-          })
-        }
-        maxItems={15}
-      />
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>משקאות שאתה שותה בקביעות</Text>
-        <View style={styles.checkboxGroup}>
-          {REGULAR_DRINKS.map((drink) => (
-            <TouchableOpacity
-              key={drink}
-              style={styles.checkboxItem}
-              onPress={() =>
-                handleArrayToggle(
-                  formData.regular_drinks,
-                  drink,
-                  "regular_drinks"
-                )
-              }
-            >
-              <View
-                style={[
-                  styles.checkbox,
-                  formData.regular_drinks.includes(drink) &&
-                    styles.checkboxChecked,
-                ]}
-              >
-                {formData.regular_drinks.includes(drink) && (
-                  <Ionicons name="checkmark" size={16} color="white" />
-                )}
-              </View>
-              <Text style={styles.checkboxLabel}>{drink}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-    </View>
-  );
-
-  const renderCurrentStep = () => {
-    switch (currentStep) {
-      case 1:
-        return renderPersonalDataStep();
-      case 2:
-        return renderGoalsStep();
-      case 3:
-        return renderActivityStep();
-      case 4:
-        return renderHealthStep();
-      case 5:
-        return renderMeansStep();
-      case 6:
-        return renderDietaryStep();
-      case 7:
-        return renderLifestyleStep();
-      case 8:
-        return renderPreferencesStep();
-      default:
-        return renderPersonalDataStep();
-    }
-  };
+  }, [error, t, dispatch]);
 
   const canProceed = () => {
     switch (currentStep) {
@@ -1665,7 +777,7 @@ export default function QuestionnaireScreen() {
       case 3:
         return formData.physical_activity_level && formData.sport_frequency;
       case 4:
-        return true; // Health step - only dynamic inputs
+        return true;
       case 5:
         return (
           formData.cooking_preference &&
@@ -1674,9 +786,9 @@ export default function QuestionnaireScreen() {
       case 6:
         return formData.dietary_style;
       case 7:
-        return true; // Lifestyle step - only dynamic inputs
+        return true;
       case 8:
-        return true; // Preferences step - only dynamic inputs
+        return true;
       default:
         return true;
     }
@@ -1686,7 +798,6 @@ export default function QuestionnaireScreen() {
     if (currentStep > 1) {
       setCurrentStep(currentStep - 1);
     } else {
-      // Navigate based on edit mode or questionnaire completion status
       if (isEditMode || user?.is_questionnaire_completed) {
         router.back();
       } else {
@@ -1694,71 +805,574 @@ export default function QuestionnaireScreen() {
       }
     }
   };
+  const renderStep = () => {
+    const mainGoalOptions = [
+      { key: "WEIGHT_LOSS", label: t("questionnaire.loseWeight") },
+      { key: "WEIGHT_GAIN", label: t("questionnaire.gainWeight") },
+      { key: "WEIGHT_MAINTENANCE", label: t("questionnaire.maintainWeight") },
+      { key: "MEDICAL_CONDITION", label: t("questionnaire.improveHealth") },
+      { key: "ALERTNESS", label: t("questionnaire.improveHealth") },
+      { key: "ENERGY", label: t("questionnaire.improveHealth") },
+      { key: "SLEEP_QUALITY", label: t("questionnaire.improveHealth") },
+      { key: "SPORTS_PERFORMANCE", label: t("questionnaire.buildMuscle") },
+      { key: "OTHER", label: t("questionnaire.other") },
+    ];
 
-  // Show loading while fetching data in edit mode or for users with completed questionnaire
+    const activityLevels = [
+      { key: "NONE", label: t("questionnaire.sedentary") },
+      { key: "LIGHT", label: t("questionnaire.lightlyActive") },
+      { key: "MODERATE", label: t("questionnaire.moderatelyActive") },
+      { key: "HIGH", label: t("questionnaire.veryActive") },
+    ];
+
+    const sportFrequencies = [
+      { key: "NONE", label: t("questionnaire.sedentary") },
+      { key: "ONCE_A_WEEK", label: "1x " + t("common.weekly") },
+      { key: "TWO_TO_THREE", label: "2-3x " + t("common.weekly") },
+      { key: "FOUR_TO_FIVE", label: "4-5x " + t("common.weekly") },
+      { key: "MORE_THAN_FIVE", label: "5+x " + t("common.weekly") },
+    ];
+
+    const cookingPrefs = [
+      { key: "cooked", label: t("questionnaire.cooked") },
+      { key: "easy_prep", label: t("questionnaire.easyPrep") },
+      { key: "ready_made", label: t("questionnaire.readyMade") },
+      { key: "no_cooking", label: t("questionnaire.noCooking") },
+    ];
+
+    const cookingMethods = [
+      t("questionnaire.microwave"),
+      t("questionnaire.oven"),
+      t("questionnaire.stove"),
+      t("questionnaire.pressureCooker"),
+      t("questionnaire.pan"),
+      t("questionnaire.grill"),
+    ];
+
+    const allergens = [
+      t("questionnaire.gluten"),
+      t("questionnaire.dairy"),
+      t("questionnaire.eggs"),
+      t("questionnaire.nuts"),
+      t("questionnaire.peanuts"),
+      t("questionnaire.fish"),
+      t("questionnaire.shellfish"),
+      t("questionnaire.soy"),
+    ];
+
+    const dietaryStyles = [
+      { key: "regular", label: t("questionnaire.omnivore") },
+      { key: "low_carb", label: t("questionnaire.lowCarb") },
+      { key: "keto", label: t("questionnaire.keto") },
+      { key: "vegetarian", label: t("questionnaire.vegetarian") },
+      { key: "vegan", label: t("questionnaire.vegan") },
+      { key: "mediterranean", label: t("questionnaire.mediterranean") },
+      { key: "low_fat", label: t("questionnaire.lowFat") },
+      { key: "low_sodium", label: t("questionnaire.lowSodium") },
+    ];
+
+    const commitmentLevels = [
+      { key: "easy", label: t("questionnaire.easy") },
+      { key: "moderate", label: t("questionnaire.moderate") },
+      { key: "strict", label: t("questionnaire.strict") },
+    ];
+
+    const genderOptions = [
+      { key: "male", label: t("questionnaire.male") },
+      { key: "female", label: t("questionnaire.female") },
+      { key: "other", label: t("questionnaire.other") },
+    ];
+
+    const mealCounts = [
+      { key: "2", label: "2" },
+      { key: "3", label: "3" },
+      { key: "4", label: "4" },
+      { key: "5", label: "5" },
+      { key: "6", label: "6" },
+    ];
+
+    const smokingStatuses = [
+      { key: "NO", label: t("questionnaire.nonSmoker") },
+      { key: "YES", label: t("questionnaire.smoker") },
+    ];
+
+    const programDurations = [
+      { key: "month", label: t("questionnaire.month") },
+      { key: "three_months", label: t("questionnaire.threeMonths") },
+      { key: "six_months", label: t("questionnaire.sixMonths") },
+      { key: "year", label: t("questionnaire.year") },
+      { key: "unlimited", label: t("questionnaire.unlimited") },
+    ];
+
+    const uploadFreqs = [
+      { key: "every_meal", label: t("questionnaire.everyMeal") },
+      { key: "daily", label: t("questionnaire.daily") },
+      { key: "several_weekly", label: t("questionnaire.severalWeekly") },
+      { key: "weekly", label: t("questionnaire.weekly") },
+    ];
+
+    const notificationPrefs = [
+      { key: "DAILY", label: t("questionnaire.daily") },
+      { key: "WEEKLY", label: t("questionnaire.weekly") },
+      { key: "NONE", label: t("common.no") },
+    ];
+
+    switch (currentStep) {
+      case 1:
+        return (
+          <StepContainer
+            title={t("questionnaire.steps.personal.title")}
+            description={t("questionnaire.steps.personal.subtitle")}
+          >
+            <CustomTextInput
+              label={t("questionnaire.age")}
+              value={formData.age}
+              onChangeText={(text) => setFormData({ ...formData, age: text })}
+              placeholder={t("questionnaire.enterAge")}
+              keyboardType="numeric"
+              required
+            />
+            <OptionGroup
+              label={t("questionnaire.gender")}
+              options={genderOptions}
+              selectedValue={formData.gender}
+              onSelect={(value) => setFormData({ ...formData, gender: value })}
+              required
+            />
+            <CustomTextInput
+              label={t("questionnaire.height")}
+              value={formData.height_cm}
+              onChangeText={(text) =>
+                setFormData({ ...formData, height_cm: text })
+              }
+              placeholder={t("questionnaire.enterHeight")}
+              keyboardType="numeric"
+              required
+            />
+            <CustomTextInput
+              label={t("questionnaire.weight")}
+              value={formData.weight_kg}
+              onChangeText={(text) =>
+                setFormData({ ...formData, weight_kg: text })
+              }
+              placeholder={t("questionnaire.enterWeight")}
+              keyboardType="numeric"
+              required
+            />
+            <CustomTextInput
+              label={t("questionnaire.targetWeight")}
+              value={formData.target_weight_kg || ""}
+              onChangeText={(text) =>
+                setFormData({ ...formData, target_weight_kg: text || null })
+              }
+              placeholder={t("questionnaire.enterTargetWeight")}
+              keyboardType="numeric"
+            />
+            <DynamicListInput
+              label={t("questionnaire.additionalPersonalInfo")}
+              placeholder={t("questionnaire.addItem")}
+              items={formData.additional_personal_info}
+              onItemsChange={(items) =>
+                setFormData({ ...formData, additional_personal_info: items })
+              }
+              maxItems={5}
+            />
+          </StepContainer>
+        );
+
+      case 2:
+        return (
+          <StepContainer
+            title={t("questionnaire.steps.goals.title")}
+            description={t("questionnaire.steps.goals.subtitle")}
+          >
+            <OptionGroup
+              label={t("questionnaire.mainGoal")}
+              options={mainGoalOptions}
+              selectedValue={formData.main_goal}
+              onSelect={(value) =>
+                setFormData({ ...formData, main_goal: value })
+              }
+              required
+            />
+            <CustomTextInput
+              label={t("questionnaire.goalTimeframe")}
+              value={formData.goal_timeframe_days || ""}
+              onChangeText={(text) =>
+                setFormData({ ...formData, goal_timeframe_days: text || null })
+              }
+              placeholder={t("questionnaire.example90Days")}
+              keyboardType="numeric"
+            />
+            <OptionGroup
+              label={t("questionnaire.commitmentLevel")}
+              options={commitmentLevels}
+              selectedValue={formData.commitment_level}
+              onSelect={(value) =>
+                setFormData({ ...formData, commitment_level: value })
+              }
+              required
+            />
+          </StepContainer>
+        );
+
+      case 3:
+        return (
+          <StepContainer
+            title={t("questionnaire.steps.activity.title")}
+            description={t("questionnaire.steps.activity.subtitle")}
+          >
+            <OptionGroup
+              label={t("questionnaire.activityLevel")}
+              options={activityLevels}
+              selectedValue={formData.physical_activity_level}
+              onSelect={(value) =>
+                setFormData({ ...formData, physical_activity_level: value })
+              }
+              required
+            />
+            <OptionGroup
+              label={t("questionnaire.sportFrequency")}
+              options={sportFrequencies}
+              selectedValue={formData.sport_frequency}
+              onSelect={(value) =>
+                setFormData({ ...formData, sport_frequency: value })
+              }
+              required
+            />
+          </StepContainer>
+        );
+
+      case 4:
+        return (
+          <StepContainer
+            title={t("questionnaire.steps.health.title")}
+            description={t("questionnaire.steps.health.subtitle")}
+          >
+            <DynamicListInput
+              label={t("questionnaire.medicalConditions")}
+              placeholder={t("questionnaire.addItem")}
+              items={formData.medical_conditions_text}
+              onItemsChange={(items) =>
+                setFormData({ ...formData, medical_conditions_text: items })
+              }
+              maxItems={10}
+            />
+            <DynamicListInput
+              label={t("questionnaire.medications")}
+              placeholder={t("questionnaire.addItem")}
+              items={formData.medications}
+              onItemsChange={(items) =>
+                setFormData({ ...formData, medications: items })
+              }
+              maxItems={10}
+            />
+          </StepContainer>
+        );
+
+      case 5:
+        return (
+          <StepContainer
+            title={t("questionnaire.steps.means.title")}
+            description={t("questionnaire.steps.means.subtitle")}
+          >
+            <OptionGroup
+              label={t("questionnaire.mealsPerDay")}
+              options={mealCounts}
+              selectedValue={formData.meals_per_day}
+              onSelect={(value) =>
+                setFormData({ ...formData, meals_per_day: value })
+              }
+            />
+            <OptionGroup
+              label={t("questionnaire.cookingPreference")}
+              options={cookingPrefs}
+              selectedValue={formData.cooking_preference}
+              onSelect={(value) =>
+                setFormData({ ...formData, cooking_preference: value })
+              }
+              required
+            />
+            <CheckboxGroup
+              label={t("questionnaire.availableCookingMethods")}
+              options={cookingMethods}
+              selectedValues={formData.available_cooking_methods}
+              onToggle={(value) =>
+                handleArrayToggle(
+                  formData.available_cooking_methods,
+                  value,
+                  "available_cooking_methods"
+                )
+              }
+            />
+            <CustomTextInput
+              label={t("questionnaire.dailyFoodBudget")}
+              value={formData.daily_food_budget || ""}
+              onChangeText={(text) =>
+                setFormData({ ...formData, daily_food_budget: text || null })
+              }
+              placeholder={t("questionnaire.example50Budget")}
+              keyboardType="numeric"
+            />
+          </StepContainer>
+        );
+
+      case 6:
+        return (
+          <StepContainer
+            title={t("questionnaire.steps.dietary.title")}
+            description={t("questionnaire.steps.dietary.subtitle")}
+          >
+            <CustomSwitch
+              label={t("questionnaire.kosher")}
+              value={formData.kosher}
+              onValueChange={(value) =>
+                setFormData({ ...formData, kosher: value })
+              }
+            />
+            <CheckboxGroup
+              label={t("questionnaire.allergies")}
+              options={allergens}
+              selectedValues={formData.allergies}
+              onToggle={(value) =>
+                handleArrayToggle(formData.allergies, value, "allergies")
+              }
+            />
+            <OptionGroup
+              label={t("questionnaire.dietaryStyle")}
+              options={dietaryStyles}
+              selectedValue={formData.dietary_style}
+              onSelect={(value) =>
+                setFormData({ ...formData, dietary_style: value })
+              }
+              required
+            />
+          </StepContainer>
+        );
+
+      case 7:
+        return (
+          <StepContainer
+            title={t("questionnaire.steps.lifestyle.title")}
+            description={t("questionnaire.steps.lifestyle.subtitle")}
+          >
+            <CustomTextInput
+              label={t("questionnaire.sleepHours")}
+              value={formData.sleep_hours_per_night || ""}
+              onChangeText={(text) =>
+                setFormData({
+                  ...formData,
+                  sleep_hours_per_night: text || null,
+                })
+              }
+              placeholder={t("questionnaire.example7Hours")}
+              keyboardType="numeric"
+            />
+            <OptionGroup
+              label={t("questionnaire.smokingStatus")}
+              options={smokingStatuses}
+              selectedValue={formData.smoking_status || ""}
+              onSelect={(value) =>
+                setFormData({
+                  ...formData,
+                  smoking_status: value as "YES" | "NO",
+                })
+              }
+            />
+          </StepContainer>
+        );
+
+      case 8:
+        return (
+          <StepContainer
+            title={t("questionnaire.steps.preferences.title")}
+            description={t("questionnaire.steps.preferences.subtitle")}
+          >
+            <OptionGroup
+              label={t("questionnaire.programDuration")}
+              options={programDurations}
+              selectedValue={formData.program_duration}
+              onSelect={(value) =>
+                setFormData({ ...formData, program_duration: value })
+              }
+            />
+            <OptionGroup
+              label={t("questionnaire.uploadFrequency")}
+              options={uploadFreqs}
+              selectedValue={formData.upload_frequency}
+              onSelect={(value) =>
+                setFormData({ ...formData, upload_frequency: value })
+              }
+            />
+            <CustomSwitch
+              label={t("questionnaire.willingnessToFollow")}
+              value={formData.willingness_to_follow}
+              onValueChange={(value) =>
+                setFormData({ ...formData, willingness_to_follow: value })
+              }
+            />
+            <CustomSwitch
+              label={t("questionnaire.personalizedTips")}
+              value={formData.personalized_tips}
+              onValueChange={(value) =>
+                setFormData({ ...formData, personalized_tips: value })
+              }
+            />
+            <OptionGroup
+              label={t("questionnaire.notificationsPreference")}
+              options={notificationPrefs}
+              selectedValue={formData.notifications_preference || ""}
+              onSelect={(value) =>
+                setFormData({
+                  ...formData,
+                  notifications_preference: value as
+                    | "DAILY"
+                    | "WEEKLY"
+                    | "NONE",
+                })
+              }
+            />
+          </StepContainer>
+        );
+
+      default:
+        return null;
+    }
+  };
+
   if (
     (isEditMode || user?.is_questionnaire_completed) &&
     isLoading &&
     !dataLoaded
   ) {
     return (
-      <View style={[styles.container, styles.loadingContainer]}>
-        <ActivityIndicator size="large" color="#007AFF" />
-        <Text style={styles.loadingText}>טוען נתונים...</Text>
+      <View
+        style={[
+          styles.container,
+          styles.loadingContainer,
+          { backgroundColor: colors.background },
+        ]}
+      >
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+          {t("questionnaire.loading")}
+        </Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
+      <StatusBar
+        backgroundColor={colors.background}
+        barStyle={isDark ? "light-content" : "dark-content"}
+      />
+
+      <View
+        style={[
+          styles.header,
+          {
+            backgroundColor: colors.card,
+            borderBottomColor: colors.border,
+          },
+        ]}
+      >
         <TouchableOpacity style={styles.backButton} onPress={handleBack}>
-          <Ionicons name="arrow-back" size={24} color="#007AFF" />
+          <Ionicons
+            name={isRTL ? "arrow-forward" : "arrow-back"}
+            size={24}
+            color={colors.primary}
+          />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>
-          {isEditMode ? "עריכת נתונים אישיים" : "בניית תוכנית אישית"}
+        <Text
+          style={[
+            styles.headerTitle,
+            { color: colors.text },
+            isRTL && styles.textRTL,
+          ]}
+        >
+          {t("questionnaire.title")}
         </Text>
-        <View style={styles.placeholder} />
       </View>
 
-      {renderProgress()}
+      <ProgressIndicator currentStep={currentStep} totalSteps={totalSteps} />
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {renderCurrentStep()}
+      <ScrollView
+        style={styles.content}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
+      >
+        {renderStep()}
 
-        <View style={styles.additionalInfo}>
-          <Text style={styles.additionalInfoText}>
-            💡 טיפ: כל המידע שלך מוצפן ומאובטח. נוכל לעדכן את התוכנית בכל עת לפי
-            התקדמותך.
+        <View
+          style={[
+            styles.tipContainer,
+            {
+              backgroundColor: colors.primaryLight,
+              borderLeftColor: colors.primary,
+            },
+          ]}
+        >
+          <Ionicons name="bulb-outline" size={20} color={colors.primary} />
+          <Text
+            style={[
+              styles.tipText,
+              { color: colors.primary },
+              isRTL && styles.textRTL,
+            ]}
+          >
+            {t("questionnaire.tip")}
           </Text>
         </View>
       </ScrollView>
 
-      <View style={styles.navigation}>
+      <View
+        style={[
+          styles.navigation,
+          { backgroundColor: colors.card, borderTopColor: colors.border },
+        ]}
+      >
         {currentStep < totalSteps ? (
           <TouchableOpacity
             style={[
+              styles.actionButton,
               styles.nextButton,
-              !canProceed() && styles.nextButtonDisabled,
+              {
+                backgroundColor: canProceed() ? colors.primary : colors.border,
+                opacity: canProceed() ? 1 : 0.6,
+              },
             ]}
             onPress={() => setCurrentStep(currentStep + 1)}
             disabled={!canProceed()}
           >
-            <Text style={styles.nextButtonText}>המשך</Text>
-            <Ionicons name="arrow-forward" size={20} color="white" />
+            <Text style={[styles.buttonText, isRTL && styles.textRTL]}>
+              {t("common.next")}
+            </Text>
+            <Ionicons
+              name={isRTL ? "arrow-back" : "arrow-forward"}
+              size={20}
+              color="white"
+            />
           </TouchableOpacity>
         ) : (
           <TouchableOpacity
-            style={[styles.finishButton, isSaving && styles.nextButtonDisabled]}
+            style={[
+              styles.actionButton,
+              styles.finishButton,
+              {
+                backgroundColor: isSaving ? colors.border : colors.success,
+                opacity: isSaving ? 0.6 : 1,
+              },
+            ]}
             onPress={handleSubmit}
             disabled={isSaving}
           >
             {isSaving ? (
-              <ActivityIndicator color="white" />
+              <ActivityIndicator color="white" size="small" />
             ) : (
               <>
-                <Text style={styles.finishButtonText}>
-                  {isEditMode ? "שמור שינויים" : "צור תוכנית אישית"}
+                <Text style={[styles.buttonText, isRTL && styles.textRTL]}>
+                  {isEditMode ? t("common.save") : t("questionnaire.finish")}
                 </Text>
                 <Ionicons name="checkmark" size={20} color="white" />
               </>
@@ -1767,33 +1381,41 @@ export default function QuestionnaireScreen() {
         )}
       </View>
 
-      {/* Tip Modal */}
       <Modal
         visible={!!showTip}
         transparent
         animationType="fade"
         onRequestClose={() => setShowTip("")}
       >
-        <View style={styles.tipModalOverlay}>
-          <View style={styles.tipModalContent}>
-            <Text style={styles.tipText}>{showTip}</Text>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
+            <Text
+              style={[
+                styles.modalText,
+                { color: colors.text },
+                isRTL && styles.textRTL,
+              ]}
+            >
+              {showTip}
+            </Text>
             <TouchableOpacity
-              style={styles.tipCloseButton}
+              style={[styles.modalButton, { backgroundColor: colors.primary }]}
               onPress={() => setShowTip("")}
             >
-              <Text style={styles.tipCloseText}>הבנתי</Text>
+              <Text style={[styles.modalButtonText, isRTL && styles.textRTL]}>
+                {t("common.ok")}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
     </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f8f9fa",
   },
   loadingContainer: {
     justifyContent: "center",
@@ -1802,332 +1424,312 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 16,
     fontSize: 16,
-    color: "#666",
-  },
-  containerRTL: {
-    direction: "rtl",
+    fontWeight: "500",
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 20,
-    paddingTop: 50,
+    paddingTop: 10,
     paddingBottom: 20,
-    backgroundColor: "white",
     borderBottomWidth: 1,
-    borderBottomColor: "#e9ecef",
+    elevation: 3,
+    shadowColor: "rgba(0,0,0,0.1)",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
   },
   backButton: {
-    padding: 8,
+    padding: 12,
+    borderRadius: 25,
+    backgroundColor: "rgba(59, 130, 246, 0.1)",
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 22,
     fontWeight: "bold",
-    color: "#333",
-  },
-  placeholder: {
-    width: 40,
+    textAlign: "center",
   },
   progressContainer: {
     paddingHorizontal: 20,
-    paddingVertical: 15,
-    backgroundColor: "white",
+    paddingVertical: 20,
+    elevation: 2,
+    shadowColor: "rgba(0,0,0,0.05)",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
   },
   progressBar: {
     height: 6,
-    backgroundColor: "#e9ecef",
     borderRadius: 3,
-    marginBottom: 8,
+    marginBottom: 12,
+    overflow: "hidden",
   },
   progressFill: {
     height: "100%",
-    backgroundColor: "#007AFF",
     borderRadius: 3,
   },
   progressText: {
     fontSize: 14,
-    color: "#666",
     textAlign: "center",
-  },
-  progress: {
-    fontSize: 14,
-    color: "#666",
-  },
-  progressRTL: {
-    textAlign: "right",
+    fontWeight: "600",
   },
   content: {
     flex: 1,
   },
+  scrollContent: {
+    paddingBottom: 20,
+  },
   stepContainer: {
-    padding: 20,
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+  },
+  stepHeader: {
+    marginBottom: 32,
+    alignItems: "center",
   },
   stepTitle: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: "bold",
-    color: "#333",
     marginBottom: 8,
     textAlign: "center",
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#333",
-    marginBottom: 8,
-  },
-  titleRTL: {
-    textAlign: "right",
   },
   stepDescription: {
     fontSize: 16,
-    color: "#666",
     textAlign: "center",
-    marginBottom: 30,
-    lineHeight: 22,
-  },
-  questionText: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#333",
-    marginBottom: 24,
     lineHeight: 24,
-  },
-  questionTextRTL: {
-    textAlign: "right",
+    opacity: 0.8,
   },
   inputGroup: {
-    marginBottom: 25,
+    marginBottom: 28,
   },
   inputLabel: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#333",
-    marginBottom: 10,
+    marginBottom: 12,
+  },
+  inputWrapper: {
+    borderRadius: 12,
+    elevation: 1,
+    shadowColor: "rgba(0,0,0,0.05)",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
   },
   textInput: {
     borderWidth: 1,
-    borderColor: "#ddd",
     borderRadius: 12,
-    padding: 15,
+    padding: 16,
     fontSize: 16,
-    backgroundColor: "white",
+    minHeight: 52,
   },
   textInputRTL: {
     textAlign: "right",
   },
-  textArea: {
-    minHeight: 100,
-    textAlignVertical: "top",
-  },
-  optionsContainer: {
-    marginTop: 10,
+  textRTL: {
+    textAlign: "right",
   },
   optionGroup: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 10,
+    gap: 12,
   },
   optionButton: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
     paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingVertical: 14,
     borderRadius: 25,
     borderWidth: 2,
-    borderColor: "#e9ecef",
-    backgroundColor: "white",
-    marginBottom: 8,
-  },
-  optionButtonRTL: {
-    flexDirection: "row-reverse",
-  },
-  optionButtonSelected: {
-    borderColor: "#007AFF",
-    backgroundColor: "#007AFF",
-  },
-  selectedOption: {
-    borderColor: "#007AFF",
-    backgroundColor: "#f0f8ff",
+    elevation: 2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    minWidth: 80,
+    alignItems: "center",
   },
   optionText: {
     fontSize: 14,
-    color: "#333",
-    fontWeight: "500",
-  },
-  optionTextRTL: {
-    textAlign: "right",
-  },
-  optionTextSelected: {
-    color: "white",
-  },
-  selectedOptionText: {
-    color: "#007AFF",
     fontWeight: "600",
   },
   checkboxGroup: {
-    gap: 15,
+    gap: 12,
   },
   checkboxItem: {
     flexDirection: "row",
     alignItems: "center",
+    padding: 16,
+    borderRadius: 12,
+    elevation: 1,
+    shadowColor: "rgba(0,0,0,0.05)",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  checkboxItemRTL: {
+    flexDirection: "row-reverse",
   },
   checkbox: {
     width: 24,
     height: 24,
     borderWidth: 2,
-    borderColor: "#ddd",
     borderRadius: 6,
     marginRight: 12,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: "white",
-  },
-  checkboxChecked: {
-    backgroundColor: "#007AFF",
-    borderColor: "#007AFF",
   },
   checkboxLabel: {
     fontSize: 16,
-    color: "#333",
+    flex: 1,
   },
   switchRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    padding: 16,
+    borderRadius: 12,
+    elevation: 1,
+    shadowColor: "rgba(0,0,0,0.05)",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  switchRowRTL: {
+    flexDirection: "row-reverse",
   },
   switchLabel: {
     fontSize: 16,
-    color: "#333",
+    fontWeight: "500",
+    flex: 1,
   },
-  switch: {
-    width: 50,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: "#e9ecef",
-    padding: 2,
+  dynamicInputContainer: {
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 16,
+  },
+  dynamicInputContainerRTL: {
+    flexDirection: "row-reverse",
+  },
+  dynamicTextInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 14,
+    fontSize: 16,
+    minHeight: 48,
+  },
+  addButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     justifyContent: "center",
-  },
-  switchActive: {
-    backgroundColor: "#007AFF",
-  },
-  switchThumb: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    backgroundColor: "white",
-    shadowColor: "#000",
+    alignItems: "center",
+    elevation: 2,
+    shadowColor: "rgba(0,0,0,0.1)",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
+    shadowRadius: 3,
+  },
+  dynamicItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 14,
+    borderRadius: 10,
+    marginBottom: 8,
+    elevation: 1,
+    shadowColor: "rgba(0,0,0,0.05)",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
     shadowRadius: 2,
-    elevation: 2,
   },
-  switchThumbActive: {
-    alignSelf: "flex-end",
+  dynamicItemRTL: {
+    flexDirection: "row-reverse",
   },
-  additionalInfo: {
+  dynamicItemText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "500",
+  },
+  tipContainer: {
     margin: 20,
-    padding: 15,
-    backgroundColor: "#e3f2fd",
+    padding: 16,
     borderRadius: 12,
     borderLeftWidth: 4,
-    borderLeftColor: "#007AFF",
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
   },
-  additionalInfoText: {
+  tipText: {
     fontSize: 14,
-    color: "#1565c0",
     lineHeight: 20,
-  },
-  errorText: {
-    color: "#FF3B30",
-    fontSize: 14,
-    textAlign: "center",
-    marginBottom: 10,
+    fontWeight: "500",
+    flex: 1,
   },
   navigation: {
     padding: 20,
-    backgroundColor: "white",
     borderTopWidth: 1,
-    borderTopColor: "#e9ecef",
+    elevation: 3,
+    shadowColor: "rgba(0,0,0,0.1)",
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
   },
-  navigationRTL: {
-    flexDirection: "row-reverse",
-  },
-  navButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 12,
-    borderRadius: 8,
-  },
-  navButtonText: {
-    fontSize: 16,
-    color: "#007AFF",
-    marginLeft: 4,
-  },
-  nextButton: {
+  actionButton: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#007AFF",
     paddingVertical: 16,
+    paddingHorizontal: 24,
     borderRadius: 12,
     gap: 8,
+    elevation: 3,
+    shadowColor: "rgba(0,0,0,0.15)",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    minHeight: 56,
   },
-  nextButtonDisabled: {
-    backgroundColor: "#ccc",
-  },
-  nextButtonText: {
+  nextButton: {},
+  finishButton: {},
+  buttonText: {
     color: "white",
     fontSize: 18,
     fontWeight: "bold",
   },
-  finishButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#28a745",
-    paddingVertical: 16,
-    borderRadius: 12,
-    gap: 8,
-  },
-  finishButtonText: {
-    color: "white",
-    fontSize: 18,
-    fontWeight: "bold",
-  },
-  buttonDisabled: {
-    opacity: 0.6,
-  },
-  tipModalOverlay: {
+  modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.5)",
     justifyContent: "center",
     alignItems: "center",
     padding: 20,
   },
-  tipModalContent: {
-    backgroundColor: "white",
-    borderRadius: 12,
-    padding: 20,
-    maxWidth: 300,
+  modalContent: {
+    borderRadius: 16,
+    padding: 24,
+    maxWidth: 320,
+    width: "100%",
+    elevation: 8,
+    shadowColor: "rgba(0,0,0,0.25)",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
   },
-  tipText: {
+  modalText: {
     fontSize: 16,
-    color: "#333",
     textAlign: "center",
     marginBottom: 20,
-    lineHeight: 22,
+    lineHeight: 24,
   },
-  tipCloseButton: {
-    backgroundColor: "#007AFF",
+  modalButton: {
     paddingVertical: 12,
+    paddingHorizontal: 24,
     borderRadius: 8,
     alignItems: "center",
   },
-  tipCloseText: {
+  modalButtonText: {
     color: "white",
     fontSize: 16,
     fontWeight: "600",
   },
 });
+
+export default QuestionnaireScreen;

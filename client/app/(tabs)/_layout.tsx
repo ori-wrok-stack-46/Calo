@@ -67,7 +67,7 @@ export default function TabLayout() {
             options={{
               title: t("tabs.questionnaire"),
               tabBarIcon: ({ color }) => (
-                <IconSymbol size={28} name="clock.fill" color={color} />
+                <IconSymbol size={28} name="doc.text.fill" color={color} />
               ),
             }}
           />
