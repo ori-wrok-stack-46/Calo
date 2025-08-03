@@ -133,6 +133,8 @@ const HomeScreen = React.memo(() => {
   const [waterCups, setWaterCups] = useState(0);
   const [waterLoading, setWaterLoading] = useState(false);
   const [language, setLanguage] = useState<"he" | "en">("he");
+  const [pendingWaterRequests, setPendingWaterRequests] = useState(0);
+  const [waterSyncErrors, setWaterSyncErrors] = useState<string[]>([]);
 
   const { t } = useTranslation();
   const { isRTL } = useLanguage();
@@ -300,6 +302,84 @@ const HomeScreen = React.memo(() => {
       console.error("Error loading water intake:", error);
     }
   }, [user?.user_id]);
+
+  const syncWaterIntake = async (
+    cups: number,
+    retryCount = 0
+  ): Promise<void> => {
+    const maxRetries = 3;
+
+    try {
+      setPendingWaterRequests((prev) => prev + 1);
+
+      const response = await api.post("/nutrition/water-intake", {
+        cups,
+        date: new Date().toISOString().split("T")[0],
+      });
+
+      if (!response.data.success) {
+        throw new Error(response.data.error || "Failed to sync water intake");
+      }
+
+      // Remove any existing errors on success
+      setWaterSyncErrors((prev) => prev.filter((_, index) => index !== 0));
+    } catch (error: any) {
+      console.error("Error syncing water intake:", error);
+
+      if (retryCount < maxRetries) {
+        // Retry with exponential backoff
+        setTimeout(() => {
+          syncWaterIntake(cups, retryCount + 1);
+        }, Math.pow(2, retryCount) * 1000);
+        return;
+      }
+
+      // Add error to queue for user notification
+      const errorMessage =
+        language === "he"
+          ? `נכשל בסנכרון ${glasses > 0 ? "הוספת" : "הסרת"} כוס מים`
+          : `Failed to sync ${glasses > 0 ? "adding" : "removing"} water glass`;
+
+      setWaterSyncErrors((prev) => [...prev, errorMessage]);
+
+      // Revert optimistic update
+      setWaterCups((prev) => Math.max(0, prev - cups));
+    } finally {
+      setPendingWaterRequests((prev) => Math.max(0, prev - 1));
+    }
+  };
+
+  const handleAddWater = () => {
+    // Optimistic update - instant UI response
+    setWaterCups((prev) => prev + 1);
+
+    // Fire-and-forget background sync
+    syncWaterIntake(1);
+  };
+
+  const handleRemoveWater = () => {
+    if (waterCups <= 0) return;
+
+    // Optimistic update - instant UI response
+    setWaterCups((prev) => Math.max(0, prev - 1));
+
+    // Fire-and-forget background sync
+    syncWaterIntake(-1);
+  };
+
+  const handleRetryWaterSync = () => {
+    if (waterSyncErrors.length === 0) return;
+
+    // Clear errors and attempt to resync current state
+    setWaterSyncErrors([]);
+
+    // Get current water intake and sync it
+    syncWaterIntake(waterCups);
+  };
+
+  const dismissWaterErrors = () => {
+    setWaterSyncErrors([]);
+  };
 
   const updateWaterIntake = useCallback(
     async (cups: number) => {
@@ -1398,5 +1478,56 @@ const styles = StyleSheet.create({
     marginTop: 10,
     fontSize: 16,
     color: "#666",
+  },
+  waterDisplay: {
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: 60,
+    position: "relative",
+  },
+  syncIndicator: {
+    position: "absolute",
+    bottom: -4,
+    right: -4,
+  },
+  syncingText: {
+    fontSize: 10,
+    fontStyle: "italic",
+  },
+  errorNotification: {
+    marginTop: 8,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#fecaca",
+  },
+  errorContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 8,
+  },
+  errorText: {
+    fontSize: 12,
+    flex: 1,
+    lineHeight: 16,
+  },
+  errorActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  errorButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 6,
+  },
+  errorButtonText: {
+    color: "#ffffff",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  errorDismissButton: {
+    padding: 4,
   },
 });

@@ -262,6 +262,8 @@ export default function RecommendedMenusScreen() {
       );
 
       if (response.data.success) {
+        const activePlanId = response.data.data?.plan_id || menuId;
+
         Alert.alert(
           language === "he" ? "הצלחה!" : "Success!",
           language === "he"
@@ -270,6 +272,9 @@ export default function RecommendedMenusScreen() {
           [
             {
               text: language === "he" ? "אישור" : "OK",
+              onPress: () => {
+                router.push(`/menu/activeMenu?planId=${activePlanId}`);
+              },
             },
           ]
         );

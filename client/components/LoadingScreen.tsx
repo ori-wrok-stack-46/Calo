@@ -8,6 +8,7 @@ import Svg, {
   LinearGradient as SvgLinearGradient,
   Stop,
 } from "react-native-svg";
+import { useTheme } from "@/src/context/ThemeContext";
 
 const { width, height } = Dimensions.get("window");
 
@@ -137,6 +138,7 @@ export default function LoadingScreen({
   size = "large",
   appName = "GreenApp",
 }: LoadingScreenProps) {
+  const { colors, isDark } = useTheme();
   const fadeAnim = React.useRef(new Animated.Value(0)).current;
   const iconRotateAnim = React.useRef(new Animated.Value(0)).current;
   const iconScaleAnim = React.useRef(new Animated.Value(0.8)).current;
@@ -223,8 +225,10 @@ export default function LoadingScreen({
     outputRange: [0, 200],
   });
 
+  const dynamicStyles = createDynamicStyles(colors);
+
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <Animated.View
         style={[
           styles.content,
@@ -237,6 +241,7 @@ export default function LoadingScreen({
         <Animated.View
           style={[
             styles.iconContainer,
+            dynamicStyles.iconContainer,
             {
               transform: [{ scale: iconScaleAnim }, { rotate: rotation }],
             },
@@ -246,14 +251,15 @@ export default function LoadingScreen({
         </Animated.View>
 
         {/* Loading Text */}
-        <Text style={styles.loadingText}>{text}</Text>
+        <Text style={[styles.loadingText, { color: colors.text }]}>{text}</Text>
 
         {/* Progress Bar */}
         <View style={styles.progressContainer}>
-          <View style={styles.progressTrack}>
+          <View style={[styles.progressTrack, dynamicStyles.progressTrack]}>
             <Animated.View
               style={[
                 styles.progressBar,
+                dynamicStyles.progressBar,
                 {
                   width: progressWidth,
                 },
@@ -269,6 +275,7 @@ export default function LoadingScreen({
               key={index}
               style={[
                 styles.dot,
+                dynamicStyles.dot,
                 {
                   opacity: pulseAnim,
                   transform: [
@@ -289,10 +296,26 @@ export default function LoadingScreen({
   );
 }
 
+const createDynamicStyles = (colors: any) =>
+  StyleSheet.create({
+    iconContainer: {
+      backgroundColor: colors.surface,
+      shadowColor: colors.primary,
+    },
+    progressTrack: {
+      backgroundColor: colors.border,
+    },
+    progressBar: {
+      backgroundColor: colors.primary,
+    },
+    dot: {
+      backgroundColor: colors.primary,
+    },
+  });
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#ffffff",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -305,9 +328,7 @@ const styles = StyleSheet.create({
     height: 100,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "#f8fafc",
     borderRadius: 50,
-    shadowColor: "#22c55e",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 12,
@@ -316,7 +337,6 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 18,
     fontWeight: "500",
-    color: "#1f2937",
     letterSpacing: 0.5,
   },
   progressContainer: {
@@ -325,13 +345,11 @@ const styles = StyleSheet.create({
   progressTrack: {
     width: 200,
     height: 3,
-    backgroundColor: "#f1f5f9",
     borderRadius: 2,
     overflow: "hidden",
   },
   progressBar: {
     height: "100%",
-    backgroundColor: "#22c55e",
     borderRadius: 2,
   },
   dotsContainer: {
@@ -342,6 +360,5 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: "#22c55e",
   },
 });

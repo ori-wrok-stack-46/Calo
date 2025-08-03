@@ -39,6 +39,50 @@ router.get("/recommended", authenticateToken, async (req: AuthRequest, res) => {
   }
 });
 
+// Get specific recommended menu details
+router.get(
+  "/recommended/:menuId",
+  authenticateToken,
+  async (req: AuthRequest, res) => {
+    try {
+      const userId = req.user.user_id;
+      const { menuId } = req.params;
+
+      const menu = await prisma.recommendedMenu.findFirst({
+        where: {
+          menu_id: menuId,
+          user_id: userId,
+        },
+        include: {
+          meals: {
+            include: {
+              ingredients: true,
+            },
+          },
+        },
+      });
+
+      if (!menu) {
+        return res.status(404).json({
+          success: false,
+          error: "Menu not found",
+        });
+      }
+
+      res.json({
+        success: true,
+        data: menu,
+      });
+    } catch (error) {
+      console.error("Get recommended menu details error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to fetch menu details",
+      });
+    }
+  }
+);
+
 // Generate new recommended menu
 router.post(
   "/recommended/generate",
@@ -96,6 +140,149 @@ router.post(
           activityFactor = 1.725;
         } else if (questionnaire.activity_level === "extra_active") {
           activityFactor = 1.9;
+        }
+
+        // Swap meal in plan
+        router.put(
+          "/:planId/swap-meal",
+          authenticateToken,
+          async (req, res) => {
+            try {
+              const { planId } = req.params;
+              const { current_meal, day, meal_timing, preferences } = req.body;
+              const user_id = req.user?.user_id;
+
+              if (!user_id) {
+                return res
+                  .status(401)
+                  .json({ success: false, error: "User not authenticated" });
+              }
+
+              console.log("🔄 Swapping meal in plan:", planId);
+
+              const result = await MealPlanService.replaceMealInPlan(
+                user_id,
+                planId,
+                getDayNumber(day),
+                meal_timing,
+                0, // meal_order
+                preferences
+              );
+
+              res.json({
+                success: true,
+                data: result,
+                message: "Meal swapped successfully",
+              });
+            } catch (error: any) {
+              console.error("💥 Error swapping meal:", error);
+              res.status(500).json({
+                success: false,
+                error: error.message || "Failed to swap meal",
+              });
+            }
+          }
+        );
+
+        // Update meal interaction (rating, comments, favorite)
+        router.put(
+          "/:planId/meals/:templateId/interaction",
+          authenticateToken,
+          async (req, res) => {
+            try {
+              const { planId, templateId } = req.params;
+              const { rating, comments, day, meal_timing } = req.body;
+              const user_id = req.user?.user_id;
+
+              if (!user_id) {
+                return res
+                  .status(401)
+                  .json({ success: false, error: "User not authenticated" });
+              }
+
+              console.log("💝 Saving meal interaction:", {
+                templateId,
+                rating,
+                comments,
+              });
+
+              await MealPlanService.saveMealPreference(
+                user_id,
+                templateId,
+                "rating",
+                rating,
+                comments
+              );
+
+              res.json({
+                success: true,
+                message: "Meal interaction saved successfully",
+              });
+            } catch (error: any) {
+              console.error("💥 Error saving meal interaction:", error);
+              res.status(500).json({
+                success: false,
+                error: error.message || "Failed to save meal interaction",
+              });
+            }
+          }
+        );
+
+        // Toggle meal favorite
+        router.put(
+          "/:planId/meals/:templateId/favorite",
+          authenticateToken,
+          async (req, res) => {
+            try {
+              const { planId, templateId } = req.params;
+              const { is_favorite, day, meal_timing } = req.body;
+              const user_id = req.user?.user_id;
+
+              if (!user_id) {
+                return res
+                  .status(401)
+                  .json({ success: false, error: "User not authenticated" });
+              }
+
+              console.log("❤️ Toggling meal favorite:", {
+                templateId,
+                is_favorite,
+              });
+
+              await MealPlanService.saveMealPreference(
+                user_id,
+                templateId,
+                "favorite",
+                undefined,
+                undefined
+              );
+
+              res.json({
+                success: true,
+                message: "Meal favorite status updated successfully",
+              });
+            } catch (error: any) {
+              console.error("💥 Error updating meal favorite:", error);
+              res.status(500).json({
+                success: false,
+                error: error.message || "Failed to update meal favorite",
+              });
+            }
+          }
+        );
+
+        // Helper function to convert day name to number
+        function getDayNumber(dayName: string): number {
+          const dayMap: { [key: string]: number } = {
+            Sunday: 0,
+            Monday: 1,
+            Tuesday: 2,
+            Wednesday: 3,
+            Thursday: 4,
+            Friday: 5,
+            Saturday: 6,
+          };
+          return dayMap[dayName] || 0;
         }
 
         let maintenanceCalories = bmr * activityFactor;
