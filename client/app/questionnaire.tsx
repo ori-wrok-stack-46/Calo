@@ -1,27 +1,21 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  TextInput,
   Alert,
   ActivityIndicator,
   Dimensions,
 } from "react-native";
-import { useDispatch, useSelector } from "react-redux";
-import { router, useLocalSearchParams } from "expo-router";
+import { router } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
-import { RootState, AppDispatch } from "@/src/store";
-import {
-  saveQuestionnaire,
-  fetchQuestionnaire,
-  clearError,
-} from "@/src/store/questionnaireSlice";
 import {
   ChevronLeft,
-  CircleCheck as CheckCircle,
+  CheckCircle,
   User,
   Target,
   Activity,
@@ -32,20 +26,22 @@ import {
   Sparkles,
 } from "lucide-react-native";
 
-import ProgressIndicator from "@/components/questionnaire/ProgressIndicator";
-import PersonalDataStep from "@/components/questionnaire/PersonalDataStep";
-import GoalsStep from "@/components/questionnaire/GoalsStep";
-import ActivityStep from "@/components/questionnaire/ActivityStep";
-import HealthStep from "@/components/questionnaire/HealthStep";
-import MeansStep from "@/components/questionnaire/MeansStep";
-import DietaryStep from "@/components/questionnaire/DietaryStep";
-import LifestyleStep from "@/components/questionnaire/LifestyleStep";
-import PreferencesStep, {
-  COLORS,
-} from "@/components/questionnaire/PreferencesStep";
-import { QuestionnaireData } from "@/src/types/questionnaire";
-
 const { width } = Dimensions.get("window");
+
+const COLORS = {
+  emerald: {
+    200: "#a7f3d0",
+    300: "#6ee7b7",
+    400: "#34d399",
+    500: "#10b981",
+    600: "#059669",
+    700: "#047857",
+    800: "#065f46",
+  },
+  gray: {
+    600: "#4b5563",
+  },
+};
 
 const STEPS = [
   { id: 1, title: "נתונים אישיים", icon: User, color: COLORS.emerald[800] },
@@ -63,366 +59,521 @@ const STEPS = [
   { id: 8, title: "הגדרות נוספות", icon: Settings, color: COLORS.gray[600] },
 ];
 
-export default function QuestionnaireScreen() {
-  const dispatch = useDispatch<AppDispatch>();
-  const { user } = useSelector((state: RootState) => state.auth);
-  const { questionnaire, isLoading, isSaving, error } = useSelector(
-    (state: RootState) => state.questionnaire
-  );
+interface FormData {
+  // Personal Data
+  age: string;
+  gender: string;
+  height_cm: string;
+  weight_kg: string;
+  target_weight_kg: string;
 
-  // Allow access to questionnaire regardless of completion status
-  // This fixes the access issue
-  const searchParams = useLocalSearchParams();
+  // Goals
+  main_goal: string;
+  commitment_level: string;
+  goal_timeframe: string;
 
-  const isEditMode = searchParams?.mode === "edit";
+  // Activity
+  physical_activity_level: string;
+  sport_frequency: string;
+  sport_types: string[];
+
+  // Health
+  medical_conditions: string[];
+  medications: string[];
+
+  // Means
+  cooking_preference: string;
+  daily_food_budget: string;
+
+  // Dietary
+  dietary_style: string;
+  allergies: string[];
+  kosher: boolean;
+
+  // Lifestyle
+  meals_per_day: string;
+  intermittent_fasting: boolean;
+
+  // Preferences
+  notifications_preference: string;
+  personalized_tips: boolean;
+}
+
+const ProgressIndicator = ({ currentStep, totalSteps, steps }: any) => (
+  <View style={styles.progressContainer}>
+    <View style={styles.progressBar}>
+      <View
+        style={[
+          styles.progressFill,
+          { width: `${(currentStep / totalSteps) * 100}%` },
+        ]}
+      />
+    </View>
+    <Text style={styles.progressText}>
+      שלב {currentStep} מתוך {totalSteps}
+    </Text>
+  </View>
+);
+
+const StepContainer = ({
+  children,
+  title,
+}: {
+  children: React.ReactNode;
+  title: string;
+}) => (
+  <View style={styles.stepContainer}>
+    <Text style={styles.stepTitle}>{title}</Text>
+    {children}
+  </View>
+);
+
+const InputField = ({
+  label,
+  value,
+  onChangeText,
+  placeholder,
+  keyboardType = "default",
+}: any) => (
+  <View style={styles.inputContainer}>
+    <Text style={styles.inputLabel}>{label}</Text>
+    <TextInput
+      style={styles.input}
+      value={value}
+      onChangeText={onChangeText}
+      placeholder={placeholder}
+      keyboardType={keyboardType}
+      placeholderTextColor="#9ca3af"
+    />
+  </View>
+);
+
+const SelectButton = ({
+  title,
+  selected,
+  onPress,
+}: {
+  title: string;
+  selected: boolean;
+  onPress: () => void;
+}) => (
+  <TouchableOpacity
+    style={[styles.selectButton, selected && styles.selectButtonSelected]}
+    onPress={onPress}
+  >
+    <Text
+      style={[
+        styles.selectButtonText,
+        selected && styles.selectButtonTextSelected,
+      ]}
+    >
+      {title}
+    </Text>
+  </TouchableOpacity>
+);
+
+export default function Questionnaire() {
   const [currentStep, setCurrentStep] = useState(1);
-  const [dataLoaded, setDataLoaded] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
-  const totalSteps = 8;
-  const progressPercentage = (currentStep / totalSteps) * 100;
-
-  const [formData, setFormData] = useState<QuestionnaireData>({
+  const [formData, setFormData] = useState<FormData>({
     age: "",
     gender: "",
     height_cm: "",
     weight_kg: "",
-    target_weight_kg: null,
-    body_fat_percentage: null,
-    additional_personal_info: [],
-
+    target_weight_kg: "",
     main_goal: "",
-    main_goal_text: [],
-    specific_goal: [],
-    goal_timeframe_days: null,
     commitment_level: "",
-    most_important_outcome: [],
-    special_personal_goal: [],
-
+    goal_timeframe: "",
     physical_activity_level: "",
     sport_frequency: "",
     sport_types: [],
-    sport_duration_min: null,
-    workout_times: [],
-    uses_fitness_devices: false,
-    fitness_device_type: [],
-    additional_activity_info: [],
-
     medical_conditions: [],
-    medical_conditions_text: [],
     medications: [],
-    health_goals: [],
-    functional_issues: [],
-    food_related_medical_issues: [],
-
-    meals_per_day: "3",
-    snacks_between_meals: false,
-    meal_times: [],
     cooking_preference: "",
-    available_cooking_methods: [],
-    daily_food_budget: null,
-    shopping_method: [],
-    daily_cooking_time: null,
-
-    kosher: false,
-    allergies: [],
-    allergies_text: [],
+    daily_food_budget: "",
     dietary_style: "",
-    meal_texture_preference: [],
-    disliked_foods: [],
-    liked_foods: [],
-    regular_drinks: [],
+    allergies: [],
+    kosher: false,
+    meals_per_day: "3",
     intermittent_fasting: false,
-    fasting_hours: null,
-
-    past_diet_difficulties: [],
-
-    program_duration: "MEDIUM_TERM",
-    meal_timing_restrictions: "",
-    dietary_restrictions: [],
-    willingness_to_follow: true,
-    upcoming_events: [],
-    upload_frequency: "",
-    notifications_preference: null,
+    notifications_preference: "",
     personalized_tips: true,
-    health_metrics_integration: false,
-    family_medical_history: [],
-    smoking_status: null,
-    sleep_hours_per_night: null,
   });
 
-  // Load existing questionnaire data
-  useEffect(() => {
-    const shouldFetchData =
-      isEditMode || (user?.is_questionnaire_completed && !dataLoaded);
-
-    if (shouldFetchData && !isLoading) {
-      dispatch(fetchQuestionnaire()).finally(() => {
-        setDataLoaded(true);
-      });
-    } else if (!isEditMode && !user?.is_questionnaire_completed) {
-      setDataLoaded(true);
-    }
-  }, [
-    dispatch,
-    isEditMode,
-    user?.is_questionnaire_completed,
-    dataLoaded,
-    isLoading,
-  ]);
-
-  // Map questionnaire data to form
-  useEffect(() => {
-    if (questionnaire && dataLoaded) {
-      const safeString = (value: any) => {
-        if (value === null || value === undefined) return "";
-        return value.toString();
-      };
-
-      const safeArray = (value: any) => {
-        if (Array.isArray(value)) return value;
-        if (typeof value === "string") {
-          if (value.trim() === "" || value.toLowerCase() === "none") return [];
-          try {
-            return JSON.parse(value);
-          } catch {
-            return value
-              .split(",")
-              .map((item) => item.trim())
-              .filter((item) => item && item.toLowerCase() !== "none");
-          }
-        }
-        return [];
-      };
-
-      const safeBoolean = (value: any) => Boolean(value);
-
-      const parseMealTimes = (mealTimes: any) => {
-        if (Array.isArray(mealTimes)) return mealTimes;
-        if (typeof mealTimes === "string") {
-          return mealTimes
-            .split(",")
-            .map((time) => time.trim())
-            .filter((time) => time);
-        }
-        return [];
-      };
-
-      const mappedData: QuestionnaireData = {
-        age: safeString(questionnaire.age),
-        gender: safeString(questionnaire.gender),
-        height_cm: safeString(questionnaire.height_cm),
-        weight_kg: safeString(questionnaire.weight_kg),
-        target_weight_kg: safeString(questionnaire.target_weight_kg),
-        body_fat_percentage: safeString(questionnaire.body_fat_percentage),
-        additional_personal_info: safeArray(
-          questionnaire.additional_personal_info
-        ),
-
-        main_goal: safeString(questionnaire.main_goal),
-        main_goal_text: safeArray(questionnaire.main_goal_text),
-        specific_goal: safeArray(questionnaire.specific_goal),
-        goal_timeframe_days: safeString(questionnaire.goal_timeframe_days),
-        commitment_level: safeString(questionnaire.commitment_level),
-        most_important_outcome: safeArray(questionnaire.most_important_outcome),
-        special_personal_goal: safeArray(questionnaire.special_personal_goal),
-
-        physical_activity_level: safeString(
-          questionnaire.physical_activity_level
-        ),
-        sport_frequency: safeString(questionnaire.sport_frequency),
-        sport_types: safeArray(questionnaire.sport_types),
-        sport_duration_min: safeString(questionnaire.sport_duration_min),
-        workout_times: safeArray(questionnaire.workout_times),
-        uses_fitness_devices: safeBoolean(questionnaire.uses_fitness_devices),
-        fitness_device_type: safeArray(questionnaire.fitness_device_type),
-        additional_activity_info: safeArray(
-          questionnaire.additional_activity_info
-        ),
-
-        medical_conditions: safeArray(questionnaire.medical_conditions),
-        medical_conditions_text: safeArray(
-          questionnaire.medical_conditions_text
-        ),
-        medications: safeArray(questionnaire.medications),
-        health_goals: safeArray(questionnaire.health_goals),
-        functional_issues: safeArray(questionnaire.functional_issues),
-        food_related_medical_issues: safeArray(
-          questionnaire.food_related_medical_issues
-        ),
-
-        meals_per_day: safeString(questionnaire.meals_per_day) || "3",
-        snacks_between_meals: safeBoolean(questionnaire.snacks_between_meals),
-        meal_times: parseMealTimes(questionnaire.meal_times),
-        cooking_preference: safeString(questionnaire.cooking_preference),
-        available_cooking_methods: safeArray(
-          questionnaire.available_cooking_methods
-        ),
-        daily_food_budget: safeString(questionnaire.daily_food_budget),
-        shopping_method: safeArray(questionnaire.shopping_method),
-        daily_cooking_time: safeString(questionnaire.daily_cooking_time),
-
-        kosher: safeBoolean(questionnaire.kosher),
-        allergies: safeArray(questionnaire.allergies),
-        allergies_text: safeArray(questionnaire.allergies_text),
-        dietary_style: safeString(questionnaire.dietary_style),
-        meal_texture_preference: safeArray(
-          questionnaire.meal_texture_preference
-        ),
-        disliked_foods: safeArray(questionnaire.disliked_foods),
-        liked_foods: safeArray(questionnaire.liked_foods),
-        regular_drinks: safeArray(questionnaire.regular_drinks),
-        intermittent_fasting: safeBoolean(questionnaire.intermittent_fasting),
-        fasting_hours: safeString(questionnaire.fasting_hours),
-
-        past_diet_difficulties: safeArray(questionnaire.past_diet_difficulties),
-
-        program_duration: safeString(questionnaire.program_duration),
-        meal_timing_restrictions: safeString(
-          questionnaire.meal_timing_restrictions
-        ),
-        dietary_restrictions: safeArray(questionnaire.dietary_restrictions),
-        willingness_to_follow:
-          questionnaire.willingness_to_follow !== undefined
-            ? safeBoolean(questionnaire.willingness_to_follow)
-            : true,
-        upcoming_events: safeArray(questionnaire.upcoming_events),
-        upload_frequency: safeString(questionnaire.upload_frequency),
-        notifications_preference: questionnaire.notifications_preference as
-          | "DAILY"
-          | "WEEKLY"
-          | "NONE"
-          | null,
-        personalized_tips:
-          questionnaire.personalized_tips !== undefined
-            ? safeBoolean(questionnaire.personalized_tips)
-            : true,
-        health_metrics_integration: safeBoolean(
-          questionnaire.health_metrics_integration
-        ),
-        family_medical_history: safeArray(questionnaire.family_medical_history),
-        smoking_status: questionnaire.smoking_status as "YES" | "NO" | null,
-        sleep_hours_per_night:
-          questionnaire.sleep_hours_per_night as unknown as number | null,
-      };
-
-      setFormData(mappedData);
-    }
-  }, [
-    questionnaire,
-    dataLoaded,
-    isEditMode,
-    isLoading,
-    user?.is_questionnaire_completed,
-  ]);
-
-  const handleSubmit = async () => {
-    try {
-      if (
-        !formData.age ||
-        !formData.gender ||
-        !formData.height_cm ||
-        !formData.weight_kg ||
-        !formData.main_goal ||
-        !formData.commitment_level ||
-        !formData.physical_activity_level ||
-        !formData.sport_frequency ||
-        !formData.cooking_preference ||
-        !formData.dietary_style
-      ) {
-        Alert.alert("שגיאה", "אנא מלא את כל השדות הנדרשים בכל השלבים");
-        return;
-      }
-
-      const cleanFormData = { ...formData };
-
-      // Convert empty strings to null for optional fields
-      if (cleanFormData.target_weight_kg === "")
-        cleanFormData.target_weight_kg = null;
-      if (cleanFormData.body_fat_percentage === "")
-        cleanFormData.body_fat_percentage = null;
-      if (cleanFormData.goal_timeframe_days === "")
-        cleanFormData.goal_timeframe_days = null;
-      if (cleanFormData.sport_duration_min === "")
-        cleanFormData.sport_duration_min = null;
-      if (cleanFormData.daily_food_budget === "")
-        cleanFormData.daily_food_budget = null;
-      if (cleanFormData.daily_cooking_time === "")
-        cleanFormData.daily_cooking_time = null;
-      if (cleanFormData.fasting_hours === "")
-        cleanFormData.fasting_hours = null;
-
-      const dataToSubmit = {
-        ...cleanFormData,
-        isEditMode: isEditMode || user?.is_questionnaire_completed,
-      };
-
-      const result = await dispatch(saveQuestionnaire(dataToSubmit));
-
-      if (saveQuestionnaire.fulfilled.match(result)) {
-        if (isEditMode || user?.is_questionnaire_completed) {
-          Alert.alert("הצלחה!", "הנתונים שלך עודכנו בהצלחה", [
-            {
-              text: "חזור לפרופיל",
-              onPress: () => router.replace("/(tabs)/profile"),
-            },
-          ]);
-        } else {
-          Alert.alert(
-            "הצלחה!",
-            "השאלון נשמר בהצלחה. אנחנו כעת בונים עבורך תוכנית תזונה מותאמת אישית.",
-            [
-              {
-                text: "המשך",
-                onPress: () => router.replace("/(tabs)"),
-              },
-            ]
-          );
-        }
-      }
-    } catch (error) {
-      Alert.alert("שגיאה", "אירעה שגיאה בשמירת השאלון");
-    }
+  const updateFormData = (key: keyof FormData, value: any) => {
+    setFormData((prev) => ({ ...prev, [key]: value }));
   };
 
-  useEffect(() => {
-    if (error) {
-      Alert.alert("שגיאה", error);
-      dispatch(clearError());
-    }
-  }, [error]);
+  const toggleArrayValue = (key: keyof FormData, value: string) => {
+    const currentArray = formData[key] as string[];
+    const newArray = currentArray.includes(value)
+      ? currentArray.filter((item) => item !== value)
+      : [...currentArray, value];
+    updateFormData(key, newArray);
+  };
+
+  const renderPersonalDataStep = () => (
+    <StepContainer title="ספר לנו קצת על עצמך">
+      <InputField
+        label="גיל"
+        value={formData.age}
+        onChangeText={(text: string) => updateFormData("age", text)}
+        placeholder="הכנס את הגיל שלך"
+        keyboardType="numeric"
+      />
+
+      <Text style={styles.inputLabel}>מין</Text>
+      <View style={styles.buttonRow}>
+        <SelectButton
+          title="זכר"
+          selected={formData.gender === "male"}
+          onPress={() => updateFormData("gender", "male")}
+        />
+        <SelectButton
+          title="נקבה"
+          selected={formData.gender === "female"}
+          onPress={() => updateFormData("gender", "female")}
+        />
+      </View>
+
+      <InputField
+        label="גובה (ס״מ)"
+        value={formData.height_cm}
+        onChangeText={(text: string) => updateFormData("height_cm", text)}
+        placeholder="170"
+        keyboardType="numeric"
+      />
+
+      <InputField
+        label="משקל נוכחי (ק״ג)"
+        value={formData.weight_kg}
+        onChangeText={(text: string) => updateFormData("weight_kg", text)}
+        placeholder="70"
+        keyboardType="numeric"
+      />
+
+      <InputField
+        label="משקל יעד (ק״ג) - אופציונלי"
+        value={formData.target_weight_kg}
+        onChangeText={(text: string) =>
+          updateFormData("target_weight_kg", text)
+        }
+        placeholder="65"
+        keyboardType="numeric"
+      />
+    </StepContainer>
+  );
+
+  const renderGoalsStep = () => (
+    <StepContainer title="מה המטרה שלך?">
+      <Text style={styles.inputLabel}>מטרה עיקרית</Text>
+      <View style={styles.buttonColumn}>
+        {[
+          "ירידה במשקל",
+          "עלייה במשקל",
+          "שמירה על משקל",
+          "בניית שריר",
+          "שיפור בריאות",
+        ].map((goal) => (
+          <SelectButton
+            key={goal}
+            title={goal}
+            selected={formData.main_goal === goal}
+            onPress={() => updateFormData("main_goal", goal)}
+          />
+        ))}
+      </View>
+
+      <Text style={styles.inputLabel}>רמת מחויבות</Text>
+      <View style={styles.buttonColumn}>
+        {["נמוכה", "בינונית", "גבוהה", "מקסימלית"].map((level) => (
+          <SelectButton
+            key={level}
+            title={level}
+            selected={formData.commitment_level === level}
+            onPress={() => updateFormData("commitment_level", level)}
+          />
+        ))}
+      </View>
+
+      <Text style={styles.inputLabel}>זמן להשגת המטרה</Text>
+      <View style={styles.buttonColumn}>
+        {["חודש", "3 חודשים", "6 חודשים", "שנה", "ללא מגבלת זמן"].map(
+          (timeframe) => (
+            <SelectButton
+              key={timeframe}
+              title={timeframe}
+              selected={formData.goal_timeframe === timeframe}
+              onPress={() => updateFormData("goal_timeframe", timeframe)}
+            />
+          )
+        )}
+      </View>
+    </StepContainer>
+  );
+
+  const renderActivityStep = () => (
+    <StepContainer title="ספר לנו על הפעילות הגופנית שלך">
+      <Text style={styles.inputLabel}>רמת פעילות גופנית</Text>
+      <View style={styles.buttonColumn}>
+        {[
+          "אין פעילות",
+          "פעילות קלה",
+          "פעילות בינונית",
+          "פעילות גבוהה",
+          "פעילות מאוד גבוהה",
+        ].map((level) => (
+          <SelectButton
+            key={level}
+            title={level}
+            selected={formData.physical_activity_level === level}
+            onPress={() => updateFormData("physical_activity_level", level)}
+          />
+        ))}
+      </View>
+
+      <Text style={styles.inputLabel}>תדירות אימונים</Text>
+      <View style={styles.buttonColumn}>
+        {[
+          "לא מתאמן",
+          "1-2 פעמים בשבוע",
+          "3-4 פעמים בשבוע",
+          "5-6 פעמים בשבוע",
+          "כל יום",
+        ].map((freq) => (
+          <SelectButton
+            key={freq}
+            title={freq}
+            selected={formData.sport_frequency === freq}
+            onPress={() => updateFormData("sport_frequency", freq)}
+          />
+        ))}
+      </View>
+
+      <Text style={styles.inputLabel}>סוגי פעילות (ניתן לבחור כמה)</Text>
+      <View style={styles.buttonColumn}>
+        {[
+          "כושר בחדר כושר",
+          "ריצה",
+          "שחייה",
+          "יוגה",
+          "רכיבה על אופניים",
+          "הליכה",
+        ].map((sport) => (
+          <SelectButton
+            key={sport}
+            title={sport}
+            selected={formData.sport_types.includes(sport)}
+            onPress={() => toggleArrayValue("sport_types", sport)}
+          />
+        ))}
+      </View>
+    </StepContainer>
+  );
+
+  const renderHealthStep = () => (
+    <StepContainer title="מידע בריאותי">
+      <Text style={styles.inputLabel}>מצבים רפואיים (ניתן לבחור כמה)</Text>
+      <View style={styles.buttonColumn}>
+        {["אין", "סוכרת", "לחץ דם גבוה", "בעיות לב", "בעיות עיכול", "אחר"].map(
+          (condition) => (
+            <SelectButton
+              key={condition}
+              title={condition}
+              selected={formData.medical_conditions.includes(condition)}
+              onPress={() => toggleArrayValue("medical_conditions", condition)}
+            />
+          )
+        )}
+      </View>
+
+      <Text style={styles.inputLabel}>תרופות קבועות (ניתן לבחור כמה)</Text>
+      <View style={styles.buttonColumn}>
+        {["אין", "ויטמינים", "תרופות ללחץ דם", "תרופות לסוכרת", "אחר"].map(
+          (med) => (
+            <SelectButton
+              key={med}
+              title={med}
+              selected={formData.medications.includes(med)}
+              onPress={() => toggleArrayValue("medications", med)}
+            />
+          )
+        )}
+      </View>
+    </StepContainer>
+  );
+
+  const renderMeansStep = () => (
+    <StepContainer title="אמצעים ותנאים">
+      <Text style={styles.inputLabel}>העדפת בישול</Text>
+      <View style={styles.buttonColumn}>
+        {["אוהב לבשל", "בישול בסיסי", "לא אוהב לבשל", "אין זמן לבשל"].map(
+          (pref) => (
+            <SelectButton
+              key={pref}
+              title={pref}
+              selected={formData.cooking_preference === pref}
+              onPress={() => updateFormData("cooking_preference", pref)}
+            />
+          )
+        )}
+      </View>
+
+      <InputField
+        label="תקציב יומי לאוכל (ש״ח)"
+        value={formData.daily_food_budget}
+        onChangeText={(text: string) =>
+          updateFormData("daily_food_budget", text)
+        }
+        placeholder="100"
+        keyboardType="numeric"
+      />
+    </StepContainer>
+  );
+
+  const renderDietaryStep = () => (
+    <StepContainer title="העדפות תזונתיות">
+      <Text style={styles.inputLabel}>סגנון תזונה</Text>
+      <View style={styles.buttonColumn}>
+        {["רגיל", "צמחוני", "טבעוני", "כשר", "ללא גלוטן", "קטוגני"].map(
+          (style) => (
+            <SelectButton
+              key={style}
+              title={style}
+              selected={formData.dietary_style === style}
+              onPress={() => updateFormData("dietary_style", style)}
+            />
+          )
+        )}
+      </View>
+
+      <Text style={styles.inputLabel}>אלרגיות (ניתן לבחור כמה)</Text>
+      <View style={styles.buttonColumn}>
+        {["אין", "אגוזים", "חלב", "ביצים", "דגים", "גלוטן", "סויה"].map(
+          (allergy) => (
+            <SelectButton
+              key={allergy}
+              title={allergy}
+              selected={formData.allergies.includes(allergy)}
+              onPress={() => toggleArrayValue("allergies", allergy)}
+            />
+          )
+        )}
+      </View>
+
+      <View style={styles.switchContainer}>
+        <Text style={styles.inputLabel}>כשרות</Text>
+        <TouchableOpacity
+          style={[styles.switch, formData.kosher && styles.switchActive]}
+          onPress={() => updateFormData("kosher", !formData.kosher)}
+        >
+          <View
+            style={[
+              styles.switchThumb,
+              formData.kosher && styles.switchThumbActive,
+            ]}
+          />
+        </TouchableOpacity>
+      </View>
+    </StepContainer>
+  );
+
+  const renderLifestyleStep = () => (
+    <StepContainer title="אורח חיים">
+      <Text style={styles.inputLabel}>מספר ארוחות ביום</Text>
+      <View style={styles.buttonRow}>
+        {["2", "3", "4", "5", "6"].map((meals) => (
+          <SelectButton
+            key={meals}
+            title={meals}
+            selected={formData.meals_per_day === meals}
+            onPress={() => updateFormData("meals_per_day", meals)}
+          />
+        ))}
+      </View>
+
+      <View style={styles.switchContainer}>
+        <Text style={styles.inputLabel}>צום לסירוגין</Text>
+        <TouchableOpacity
+          style={[
+            styles.switch,
+            formData.intermittent_fasting && styles.switchActive,
+          ]}
+          onPress={() =>
+            updateFormData(
+              "intermittent_fasting",
+              !formData.intermittent_fasting
+            )
+          }
+        >
+          <View
+            style={[
+              styles.switchThumb,
+              formData.intermittent_fasting && styles.switchThumbActive,
+            ]}
+          />
+        </TouchableOpacity>
+      </View>
+    </StepContainer>
+  );
+
+  const renderPreferencesStep = () => (
+    <StepContainer title="הגדרות נוספות">
+      <Text style={styles.inputLabel}>תדירות התראות</Text>
+      <View style={styles.buttonColumn}>
+        {["יומית", "שבועית", "ללא התראות"].map((pref) => (
+          <SelectButton
+            key={pref}
+            title={pref}
+            selected={formData.notifications_preference === pref}
+            onPress={() => updateFormData("notifications_preference", pref)}
+          />
+        ))}
+      </View>
+
+      <View style={styles.switchContainer}>
+        <Text style={styles.inputLabel}>טיפים מותאמים אישית</Text>
+        <TouchableOpacity
+          style={[
+            styles.switch,
+            formData.personalized_tips && styles.switchActive,
+          ]}
+          onPress={() =>
+            updateFormData("personalized_tips", !formData.personalized_tips)
+          }
+        >
+          <View
+            style={[
+              styles.switchThumb,
+              formData.personalized_tips && styles.switchThumbActive,
+            ]}
+          />
+        </TouchableOpacity>
+      </View>
+    </StepContainer>
+  );
 
   const renderCurrentStep = () => {
-    const stepProps = {
-      formData,
-      setFormData,
-      onNext: () => setCurrentStep(currentStep + 1),
-    };
-
     switch (currentStep) {
       case 1:
-        return <PersonalDataStep {...stepProps} />;
+        return renderPersonalDataStep();
       case 2:
-        return <GoalsStep {...stepProps} />;
+        return renderGoalsStep();
       case 3:
-        return <ActivityStep {...stepProps} />;
+        return renderActivityStep();
       case 4:
-        return <HealthStep {...stepProps} />;
+        return renderHealthStep();
       case 5:
-        return <MeansStep {...stepProps} />;
+        return renderMeansStep();
       case 6:
-        return <DietaryStep {...stepProps} />;
+        return renderDietaryStep();
       case 7:
-        return <LifestyleStep {...stepProps} />;
+        return renderLifestyleStep();
       case 8:
-        return (
-          <PreferencesStep
-            {...stepProps}
-            onSubmit={handleSubmit}
-            isSaving={isSaving}
-          />
-        );
+        return renderPreferencesStep();
       default:
-        return <PersonalDataStep {...stepProps} />;
+        return renderPersonalDataStep();
     }
   };
 
@@ -440,60 +591,46 @@ export default function QuestionnaireScreen() {
       case 3:
         return formData.physical_activity_level && formData.sport_frequency;
       case 4:
-        return true;
+        return true; // Health step is optional
       case 5:
-        return (
-          formData.cooking_preference &&
-          formData.available_cooking_methods.length > 0
-        );
+        return formData.cooking_preference;
       case 6:
         return formData.dietary_style;
       case 7:
-        return true;
+        return true; // Lifestyle step is optional
       case 8:
-        return true;
+        return true; // Preferences step is optional
       default:
         return true;
     }
+  };
+
+  const handleSubmit = async () => {
+    setIsSaving(true);
+
+    // Simulate API call
+    setTimeout(() => {
+      setIsSaving(false);
+      Alert.alert(
+        "הצלחה!",
+        "השאלון נשמר בהצלחה. אנחנו כעת בונים עבורך תוכנית תזונה מותאמת אישית.",
+        [
+          {
+            text: "המשך",
+            onPress: () => router.replace("/"),
+          },
+        ]
+      );
+    }, 2000);
   };
 
   const handleBack = () => {
     if (currentStep > 1) {
       setCurrentStep(currentStep - 1);
     } else {
-      if (isEditMode || user?.is_questionnaire_completed) {
-        router.back();
-      } else {
-        router.replace("/payment-plan");
-      }
+      router.back();
     }
   };
-
-  if (
-    (isEditMode || user?.is_questionnaire_completed) &&
-    isLoading &&
-    !dataLoaded
-  ) {
-    return (
-      <View style={styles.loadingContainer}>
-        <LinearGradient
-          colors={["#667eea", "#764ba2"]}
-          style={styles.loadingGradient}
-        >
-          <View style={styles.loadingContent}>
-            <Sparkles size={48} color="white" />
-            <Text style={styles.loadingTitle}>טוען נתונים</Text>
-            <Text style={styles.loadingSubtitle}>אנא המתן...</Text>
-            <ActivityIndicator
-              size="large"
-              color="white"
-              style={styles.loadingSpinner}
-            />
-          </View>
-        </LinearGradient>
-      </View>
-    );
-  }
 
   const currentStepData = STEPS[currentStep - 1];
 
@@ -511,14 +648,12 @@ export default function QuestionnaireScreen() {
 
             <View style={styles.headerTitleContainer}>
               <currentStepData.icon size={24} color="white" />
-              <Text style={styles.headerTitle}>
-                {isEditMode ? "עריכת נתונים אישיים" : currentStepData.title}
-              </Text>
+              <Text style={styles.headerTitle}>{currentStepData.title}</Text>
             </View>
 
             <View style={styles.headerRight}>
               <Text style={styles.stepCounter}>
-                {currentStep}/{totalSteps}
+                {currentStep}/{STEPS.length}
               </Text>
             </View>
           </View>
@@ -527,7 +662,7 @@ export default function QuestionnaireScreen() {
 
       <ProgressIndicator
         currentStep={currentStep}
-        totalSteps={totalSteps}
+        totalSteps={STEPS.length}
         steps={STEPS}
       />
 
@@ -541,7 +676,7 @@ export default function QuestionnaireScreen() {
 
       <BlurView intensity={95} style={styles.navigationContainer}>
         <View style={styles.navigation}>
-          {currentStep < totalSteps ? (
+          {currentStep < STEPS.length ? (
             <TouchableOpacity
               style={[
                 styles.nextButton,
@@ -574,9 +709,7 @@ export default function QuestionnaireScreen() {
               ) : (
                 <>
                   <CheckCircle size={20} color="white" />
-                  <Text style={styles.finishButtonText}>
-                    {isEditMode ? "שמור שינויים" : "צור תוכנית אישית"}
-                  </Text>
+                  <Text style={styles.finishButtonText}>צור תוכנית אישית</Text>
                 </>
               )}
             </TouchableOpacity>
@@ -591,33 +724,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#f8fafc",
-  },
-  loadingContainer: {
-    flex: 1,
-  },
-  loadingGradient: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  loadingContent: {
-    alignItems: "center",
-    padding: 32,
-  },
-  loadingTitle: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "white",
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  loadingSubtitle: {
-    fontSize: 16,
-    color: "rgba(255,255,255,0.8)",
-    marginBottom: 24,
-  },
-  loadingSpinner: {
-    marginTop: 16,
   },
   header: {
     paddingTop: 50,
@@ -660,11 +766,125 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "rgba(255,255,255,0.9)",
   },
+  progressContainer: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    backgroundColor: "white",
+    borderBottomWidth: 1,
+    borderBottomColor: "#e2e8f0",
+  },
+  progressBar: {
+    height: 8,
+    backgroundColor: "#e2e8f0",
+    borderRadius: 4,
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: "100%",
+    backgroundColor: "#10b981",
+    borderRadius: 4,
+  },
+  progressText: {
+    textAlign: "center",
+    fontSize: 14,
+    color: "#6b7280",
+    marginTop: 8,
+  },
   content: {
     flex: 1,
   },
   contentContainer: {
     paddingBottom: 120,
+  },
+  stepContainer: {
+    padding: 20,
+  },
+  stepTitle: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#1f2937",
+    marginBottom: 24,
+    textAlign: "center",
+  },
+  inputContainer: {
+    marginBottom: 20,
+  },
+  inputLabel: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#374151",
+    marginBottom: 8,
+  },
+  input: {
+    borderWidth: 2,
+    borderColor: "#e5e7eb",
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+    backgroundColor: "white",
+  },
+  buttonRow: {
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 20,
+  },
+  buttonColumn: {
+    gap: 12,
+    marginBottom: 20,
+  },
+  selectButton: {
+    borderWidth: 2,
+    borderColor: "#e5e7eb",
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: "white",
+    flex: 1,
+  },
+  selectButtonSelected: {
+    borderColor: "#10b981",
+    backgroundColor: "#f0fdf4",
+  },
+  selectButtonText: {
+    textAlign: "center",
+    fontSize: 16,
+    color: "#6b7280",
+  },
+  selectButtonTextSelected: {
+    color: "#10b981",
+    fontWeight: "600",
+  },
+  switchContainer: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  switch: {
+    width: 50,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: "#e5e7eb",
+    justifyContent: "center",
+    paddingHorizontal: 2,
+  },
+  switchActive: {
+    backgroundColor: "#10b981",
+  },
+  switchThumb: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: "white",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  switchThumbActive: {
+    transform: [{ translateX: 20 }],
   },
   navigationContainer: {
     position: "absolute",

@@ -36,6 +36,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch, RootState } from "@/src/store";
 import { signOut } from "@/src/store/authSlice";
 import { router } from "expo-router";
+import { userAPI } from "@/src/services/api";
 
 // Define the interface for menu items
 interface MenuItem {
@@ -151,9 +152,14 @@ export default function ProfileScreen() {
     if (itemId === "language") {
       setShowLanguageModal(true);
     } else if (itemId === "personalData") {
-      router.push("/questionnaire?mode=edit");
-    } else if ((itemId = "privacyPolicy")) {
-      router.push("/privacyPolicy");
+      router.push("/(tabs)/questionnaire?mode=edit");
+    } else if (itemId === "privacy") {
+      // Handle privacy policy - you can implement this as a modal or external link
+      Alert.alert(
+        "Privacy Policy",
+        "Privacy policy content would be displayed here. You can implement this as a modal, web view, or external link.",
+        [{ text: "OK" }]
+      );
     } else {
       setActiveSection(activeSection === itemId ? null : itemId);
     }
@@ -312,7 +318,19 @@ export default function ProfileScreen() {
           </View>
         );
       case "privacy":
-        return <PrivacySettings onClose={() => setActiveSection(null)} />;
+        return (
+          <View style={styles.sectionContent}>
+            <Text style={styles.sectionContentTitle}>Privacy Settings</Text>
+            <Text style={styles.sectionContentText}>
+              Privacy settings and data management options would be displayed
+              here.
+              {"\n\n"}• Data export and deletion
+              {"\n"}• Privacy preferences
+              {"\n"}• Cookie settings
+              {"\n"}• Third-party data sharing
+            </Text>
+          </View>
+        );
       case "support":
         return (
           <View style={styles.sectionContent}>

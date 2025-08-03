@@ -63,6 +63,7 @@ const tabConfig = [
   { name: "devices", title: "מכשירים", icon: Watch },
   { name: "food-scanner", title: "סורק מזון", icon: Scan },
   { name: "recommended-menus", title: "תפריטים", icon: UtensilsCrossed },
+  { name: "questionnaire", title: "שאלון", icon: ClipboardList },
   { name: "profile", title: "פרופיל", icon: User },
 ];
 

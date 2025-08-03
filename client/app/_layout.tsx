@@ -33,7 +33,7 @@ const selectAuthState = (state: RootState) => ({
   user: state.auth.user,
 });
 
-// Memoized navigation state calculator
+// Update the navigation state logic:
 function useNavigationState(
   user: User | null,
   isAuthenticated: boolean,
@@ -45,7 +45,8 @@ function useNavigationState(
     const inTabsGroup = currentPath === "(tabs)";
     const onPaymentPlan = currentPath === "payment-plan";
     const onPayment = currentPath === "payment";
-    const onQuestionnaire = currentPath === "questionnaire";
+    // Update this line to check for questionnaire in tabs:
+    const onQuestionnaire = inTabsGroup && segments?.[1] === "questionnaire";
     const onEmailVerification =
       inAuthGroup && segments?.[1] === "email-verification";
 
@@ -63,23 +64,22 @@ function useNavigationState(
     } else if (!user?.subscription_type && !onPaymentPlan && !onPayment) {
       targetRoute = "/payment-plan";
     } else if (
-      // Add questionnaire check here if needed for your business logic
-      // For example, if user needs to complete questionnaire before accessing tabs
       user?.subscription_type &&
       !user?.is_questionnaire_completed &&
       !onQuestionnaire &&
       !onPayment &&
       !onPaymentPlan
     ) {
-      targetRoute = "/questionnaire";
+      // Change this to redirect to tabs questionnaire:
+      targetRoute = "/(tabs)/questionnaire";
     } else if (
       !inTabsGroup &&
       isAuthenticated &&
       user?.email_verified &&
       user?.subscription_type &&
-      !onPayment && 
-      !onPaymentPlan && 
-      !onQuestionnaire 
+      !onPayment &&
+      !onPaymentPlan &&
+      !onQuestionnaire
     ) {
       targetRoute = "/(tabs)";
     }
@@ -92,10 +92,10 @@ function useNavigationState(
   }, [
     user?.email_verified,
     user?.subscription_type,
-    user?.is_questionnaire_completed, 
+    user?.is_questionnaire_completed,
     user?.email,
     isAuthenticated,
-    segments?.join("/") || "", // Stable string representation
+    segments?.join("/") || "",
   ]);
 }
 

@@ -12,9 +12,11 @@ import {
 } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 
-const PrivacyPolicyScreen = ({ navigation }) => {
+const PrivacyPolicyScreen = () => {
   const { t, i18n } = useTranslation();
+  const router = useRouter();
   const [expandedSections, setExpandedSections] = useState({});
   const isRTL = i18n.language === "he";
 
@@ -212,7 +214,7 @@ const PrivacyPolicyScreen = ({ navigation }) => {
     <SafeAreaView style={[styles.container, isRTL && styles.containerRTL]}>
       <View style={[styles.header, isRTL && styles.headerRTL]}>
         <TouchableOpacity
-          onPress={() => navigation.goBack()}
+          onPress={() => router.back()}
           style={styles.backButton}
         >
           <Ionicons

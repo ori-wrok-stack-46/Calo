@@ -13,6 +13,7 @@ import {
   Scan,
   FileText,
 } from "lucide-react-native";
+import React from "react";
 import { StyleProp, TextStyle } from "react-native";
 
 // Add all the symbols you are actually using in TabLayout
