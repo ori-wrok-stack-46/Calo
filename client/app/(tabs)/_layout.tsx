@@ -20,6 +20,7 @@ export default function TabLayout() {
     () => [
       "index",
       "history",
+      "questionnaire",
       "camera",
       "statistics",
       "calendar",
@@ -67,7 +68,11 @@ export default function TabLayout() {
             options={{
               title: t("tabs.questionnaire"),
               tabBarIcon: ({ color }) => (
-                <IconSymbol size={28} name="doc.text.fill" color={color} />
+                <IconSymbol
+                  size={28}
+                  name="dining"
+                  color={color}
+                />
               ),
             }}
           />

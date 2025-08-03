@@ -24,10 +24,10 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useTranslation } from "react-i18next";
+import { useTheme } from "@/src/context/ThemeContext";
+import { useLanguage } from "@/src/i18n/context/LanguageContext";
 
 const { width: screenWidth } = Dimensions.get("window");
-
-// Theme Context
 interface ThemeContextType {
   isDark: boolean;
   colors: typeof lightColors | typeof darkColors;
@@ -70,67 +70,6 @@ interface LanguageContextType {
   isRTL: boolean;
   changeLanguage: (lang: string) => void;
 }
-
-// Custom hooks for theme and language
-const useTheme = (): ThemeContextType => {
-  const [isDark, setIsDark] = useState(false);
-
-  useEffect(() => {
-    loadTheme();
-  }, []);
-
-  const loadTheme = async () => {
-    try {
-      const savedTheme = await AsyncStorage.getItem("theme");
-      if (savedTheme) {
-        setIsDark(savedTheme === "dark");
-      }
-    } catch (error) {
-      console.log("Error loading theme:", error);
-    }
-  };
-
-  const toggleTheme = async () => {
-    try {
-      const newTheme = !isDark;
-      setIsDark(newTheme);
-      await AsyncStorage.setItem("theme", newTheme ? "dark" : "light");
-    } catch (error) {
-      console.log("Error saving theme:", error);
-    }
-  };
-
-  const colors = isDark ? darkColors : lightColors;
-
-  return {
-    isDark,
-    colors,
-    toggleTheme,
-  };
-};
-
-const useLanguage = (): LanguageContextType => {
-  const { i18n } = useTranslation();
-  const [currentLanguage, setCurrentLanguage] = useState(i18n.language || "en");
-
-  const isRTL = currentLanguage === "he";
-
-  const changeLanguage = async (lang: string) => {
-    try {
-      await i18n.changeLanguage(lang);
-      setCurrentLanguage(lang);
-      await AsyncStorage.setItem("language", lang);
-    } catch (error) {
-      console.log("Error changing language:", error);
-    }
-  };
-
-  return {
-    currentLanguage,
-    isRTL,
-    changeLanguage,
-  };
-};
 
 // Components
 const ProgressIndicator: React.FC<{
@@ -1731,5 +1670,195 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 });
+
+const createThemedStyles = (colors: any, isRTL: boolean) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    loadingContainer: {
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    loadingText: {
+      marginTop: 16,
+      fontSize: 16,
+      color: colors.textSecondary,
+    },
+    header: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      backgroundColor: colors.card,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+      elevation: 2,
+      shadowColor: colors.shadow,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+    },
+    backButton: {
+      padding: 8,
+      marginRight: isRTL ? 0 : 8,
+      marginLeft: isRTL ? 8 : 0,
+    },
+    headerTitle: {
+      flex: 1,
+      fontSize: 20,
+      fontWeight: "600",
+      color: colors.text,
+      textAlign: isRTL ? "right" : "left",
+    },
+    textRTL: {
+      textAlign: "right",
+    },
+    progressContainer: {
+      backgroundColor: colors.card,
+      paddingHorizontal: 20,
+      paddingVertical: 16,
+      borderBottomWidth: 1,
+      borderBottomColor: colors.border,
+    },
+    progressHeader: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 12,
+    },
+    progressText: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: colors.text,
+    },
+    progressStepText: {
+      fontSize: 12,
+      color: colors.textSecondary,
+    },
+    progressBarContainer: {
+      height: 6,
+      backgroundColor: colors.border,
+      borderRadius: 3,
+      overflow: "hidden",
+    },
+    progressBar: {
+      height: "100%",
+      backgroundColor: colors.primary,
+      borderRadius: 3,
+    },
+    content: {
+      flex: 1,
+    },
+    stepContent: {
+      flex: 1,
+      padding: 20,
+    },
+    stepTitle: {
+      fontSize: 24,
+      fontWeight: "bold",
+      color: colors.text,
+      marginBottom: 8,
+      textAlign: isRTL ? "right" : "left",
+    },
+    stepSubtitle: {
+      fontSize: 16,
+      color: colors.textSecondary,
+      marginBottom: 32,
+      lineHeight: 24,
+      textAlign: isRTL ? "right" : "left",
+    },
+    navigation: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      padding: 20,
+      backgroundColor: colors.card,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+    },
+    navButton: {
+      paddingHorizontal: 24,
+      paddingVertical: 12,
+      borderRadius: 8,
+      minWidth: 100,
+      alignItems: "center",
+    },
+    navButtonPrimary: {
+      backgroundColor: colors.primary,
+    },
+    navButtonSecondary: {
+      backgroundColor: colors.border,
+    },
+    navButtonDisabled: {
+      backgroundColor: colors.border,
+      opacity: 0.5,
+    },
+    navButtonText: {
+      fontSize: 16,
+      fontWeight: "600",
+    },
+    navButtonTextPrimary: {
+      color: colors.background,
+    },
+    navButtonTextSecondary: {
+      color: colors.text,
+    },
+    modalOverlay: {
+      flex: 1,
+      backgroundColor: "rgba(0, 0, 0, 0.5)",
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    modalContent: {
+      backgroundColor: colors.card,
+      borderRadius: 12,
+      padding: 24,
+      margin: 20,
+      maxWidth: 300,
+      width: "100%",
+    },
+    modalTitle: {
+      fontSize: 18,
+      fontWeight: "bold",
+      color: colors.text,
+      marginBottom: 16,
+      textAlign: "center",
+    },
+    modalText: {
+      fontSize: 16,
+      color: colors.textSecondary,
+      marginBottom: 24,
+      textAlign: "center",
+      lineHeight: 24,
+    },
+    modalButtons: {
+      flexDirection: "row",
+      justifyContent: "space-around",
+    },
+    modalButton: {
+      paddingHorizontal: 20,
+      paddingVertical: 10,
+      borderRadius: 8,
+      minWidth: 80,
+      alignItems: "center",
+    },
+    modalButtonPrimary: {
+      backgroundColor: colors.primary,
+    },
+    modalButtonSecondary: {
+      backgroundColor: colors.border,
+    },
+    modalButtonText: {
+      fontSize: 16,
+      fontWeight: "600",
+    },
+    modalButtonTextPrimary: {
+      color: colors.background,
+    },
+    modalButtonTextSecondary: {
+      color: colors.text,
+    },
+  });
 
 export default QuestionnaireScreen;
