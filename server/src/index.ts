@@ -21,6 +21,7 @@ import { healthRoutes } from "./routes/health";
 import { CronJobService } from "./services/cronJobs";
 import "./services/cron";
 import { dailyGoalsRoutes } from "./routes/dailyGoal";
+import achievementsRouter from "./routes/achievements";
 
 // Load environment variables
 dotenv.config();
@@ -147,6 +148,7 @@ apiRouter.use("/chat", chatRoutes);
 apiRouter.use("/food-scanner", foodScannerRoutes);
 apiRouter.use("/", statisticsRoutes);
 apiRouter.use("/daily-goals", dailyGoalsRoutes);
+apiRouter.use("/", achievementsRouter);
 
 app.use("/api", apiRouter);
 

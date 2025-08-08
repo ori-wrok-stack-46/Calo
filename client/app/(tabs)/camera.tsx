@@ -13,6 +13,7 @@ import {
   Dimensions,
   Platform,
   KeyboardAvoidingView,
+  Animated,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -45,6 +46,19 @@ import {
   X,
   Save,
   RefreshCw,
+  Heart,
+  Star,
+  Clock,
+  Flame,
+  Zap,
+  Droplets,
+  Wheat,
+  Apple,
+  Award,
+  TrendingUp,
+  Eye,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react-native";
 import { useMealDataRefresh } from "@/hooks/useMealDataRefresh";
 
@@ -78,6 +92,13 @@ interface AnalysisData {
   food_category?: string;
 }
 
+interface MealRating {
+  taste: number;
+  satisfaction: number;
+  energy: number;
+  overall: number;
+}
+
 export default function CameraScreen() {
   const { t } = useTranslation();
   const { isRTL } = useLanguage();
@@ -99,6 +120,20 @@ export default function CameraScreen() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [analysisData, setAnalysisData] = useState<AnalysisData | null>(null);
   const [hasBeenAnalyzed, setHasBeenAnalyzed] = useState(false);
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [mealRating, setMealRating] = useState<MealRating>({
+    taste: 0,
+    satisfaction: 0,
+    energy: 0,
+    overall: 0,
+  });
+  const [showNutritionDetails, setShowNutritionDetails] = useState(false);
+  const [showMetadata, setShowMetadata] = useState(false);
+
+  // Animation refs
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(50)).current;
+  const nutritionCardAnim = useRef(new Animated.Value(0)).current;
 
   // Refs
   const scrollViewRef = useRef<ScrollView>(null);
@@ -122,6 +157,26 @@ export default function CameraScreen() {
           : `data:image/jpeg;base64,${pendingMeal.image_base_64}`;
         setSelectedImage(imageUri);
       }
+
+      // Animate nutrition card appearance
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: 0,
+          duration: 600,
+          useNativeDriver: true,
+        }),
+        Animated.spring(nutritionCardAnim, {
+          toValue: 1,
+          useNativeDriver: true,
+          tension: 100,
+          friction: 8,
+        }),
+      ]).start();
     }
   }, [pendingMeal]);
 
@@ -193,8 +248,15 @@ export default function CameraScreen() {
     setEditedIngredients([]);
     setUserComment("");
     setHasBeenAnalyzed(false);
+    setIsFavorite(false);
+    setMealRating({ taste: 0, satisfaction: 0, energy: 0, overall: 0 });
     dispatch(clearPendingMeal());
     dispatch(clearError());
+
+    // Reset animations
+    fadeAnim.setValue(0);
+    slideAnim.setValue(50);
+    nutritionCardAnim.setValue(0);
   };
 
   // Initial analysis
@@ -347,6 +409,15 @@ export default function CameraScreen() {
     Alert.alert(t("common.success"), "Meal analysis deleted successfully");
   };
 
+  // Rating handlers
+  const handleRatingChange = (type: keyof MealRating, value: number) => {
+    setMealRating((prev) => ({
+      ...prev,
+      [type]: value,
+      overall: type === "overall" ? value : prev.overall,
+    }));
+  };
+
   // Ingredient editing functions
   const handleEditIngredient = (ingredient: Ingredient, index: number) => {
     setEditingIngredient({ ...ingredient });
@@ -421,6 +492,40 @@ export default function CameraScreen() {
     );
   };
 
+  // Get nutrition quality score
+  const getNutritionQuality = () => {
+    if (!analysisData) return { score: 0, label: "Unknown", color: "#9ca3af" };
+
+    const calories = analysisData.calories || 0;
+    const protein = analysisData.protein_g || 0;
+    const fiber = analysisData.fiber_g || 0;
+    const sugar = analysisData.sugar_g || 0;
+
+    let score = 50; // Base score
+
+    // Protein bonus
+    if (protein > 20) score += 20;
+    else if (protein > 10) score += 10;
+
+    // Fiber bonus
+    if (fiber > 10) score += 15;
+    else if (fiber > 5) score += 8;
+
+    // Sugar penalty
+    if (sugar > 25) score -= 15;
+    else if (sugar > 15) score -= 8;
+
+    // Calorie balance
+    if (calories > 100 && calories < 600) score += 10;
+
+    score = Math.max(0, Math.min(100, score));
+
+    if (score >= 80) return { score, label: "Excellent", color: "#10b981" };
+    if (score >= 60) return { score, label: "Good", color: "#f59e0b" };
+    if (score >= 40) return { score, label: "Fair", color: "#f97316" };
+    return { score, label: "Poor", color: "#ef4444" };
+  };
+
   // Render functions
   const renderImageSelection = () => (
     <View style={styles.imageSelectionContainer}>
@@ -487,29 +592,293 @@ export default function CameraScreen() {
     </View>
   );
 
+  const renderMealHeader = () => {
+    if (!analysisData) return null;
+
+    return (
+      <Animated.View
+        style={[
+          styles.mealHeaderContainer,
+          {
+            opacity: fadeAnim,
+            transform: [{ translateY: slideAnim }],
+          },
+        ]}
+      >
+        <LinearGradient
+          colors={["#ffffff", "#f8fafc"]}
+          style={styles.mealHeaderGradient}
+        >
+          <View style={styles.mealHeaderContent}>
+            <View style={styles.mealTitleRow}>
+              <Text style={[styles.mealTitle, isRTL && styles.rtlText]}>
+                {analysisData.meal_name}
+              </Text>
+              <TouchableOpacity
+                style={[
+                  styles.favoriteButton,
+                  isFavorite && styles.favoriteActive,
+                ]}
+                onPress={() => setIsFavorite(!isFavorite)}
+              >
+                <Heart
+                  size={24}
+                  color={isFavorite ? "#ffffff" : "#ef4444"}
+                  fill={isFavorite ? "#ef4444" : "transparent"}
+                />
+              </TouchableOpacity>
+            </View>
+
+            {analysisData.description && (
+              <Text style={[styles.mealDescription, isRTL && styles.rtlText]}>
+                {analysisData.description}
+              </Text>
+            )}
+
+            <View style={styles.mealMetaRow}>
+              <View style={styles.metaItem}>
+                <Clock size={16} color="#6b7280" />
+                <Text style={styles.metaText}>
+                  {new Date().toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </Text>
+              </View>
+
+              {analysisData.cooking_method && (
+                <View style={styles.metaItem}>
+                  <Apple size={16} color="#6b7280" />
+                  <Text style={styles.metaText}>
+                    {analysisData.cooking_method}
+                  </Text>
+                </View>
+              )}
+
+              <View style={styles.metaItem}>
+                <Eye size={16} color="#6b7280" />
+                <Text style={styles.metaText}>
+                  {Math.round(
+                    analysisData.healthScore
+                      ? parseFloat(analysisData.healthScore)
+                      : 75
+                  )}
+                  % confidence
+                </Text>
+              </View>
+            </View>
+          </View>
+        </LinearGradient>
+      </Animated.View>
+    );
+  };
+
+  const renderNutritionSummary = () => {
+    if (!analysisData) return null;
+
+    const totalNutrition = calculateTotalNutrition(editedIngredients);
+    const quality = getNutritionQuality();
+
+    return (
+      <Animated.View
+        style={[
+          styles.nutritionContainer,
+          {
+            opacity: nutritionCardAnim,
+            transform: [{ scale: nutritionCardAnim }],
+          },
+        ]}
+      >
+        <LinearGradient
+          colors={["#ffffff", "#f8fafc"]}
+          style={styles.nutritionGradient}
+        >
+          <TouchableOpacity
+            style={styles.nutritionHeader}
+            onPress={() => setShowNutritionDetails(!showNutritionDetails)}
+          >
+            <View style={styles.nutritionTitleRow}>
+              <Text style={[styles.nutritionTitle, isRTL && styles.rtlText]}>
+                {t("camera.nutritional_info")}
+              </Text>
+              <View
+                style={[
+                  styles.qualityBadge,
+                  { backgroundColor: quality.color },
+                ]}
+              >
+                <Text style={styles.qualityText}>{quality.label}</Text>
+              </View>
+            </View>
+            <ChevronDown
+              size={20}
+              color="#6b7280"
+              style={[
+                styles.chevron,
+                showNutritionDetails && styles.chevronRotated,
+              ]}
+            />
+          </TouchableOpacity>
+
+          <View style={styles.nutritionGrid}>
+            <View style={styles.nutritionCard}>
+              <Flame size={20} color="#ef4444" />
+              <Text style={styles.nutritionValue}>
+                {Math.round(totalNutrition.calories)}
+              </Text>
+              <Text style={styles.nutritionLabel}>
+                {t("meals.calories") || "Calories"}
+              </Text>
+            </View>
+
+            <View style={styles.nutritionCard}>
+              <Zap size={20} color="#3b82f6" />
+              <Text style={styles.nutritionValue}>
+                {Math.round(totalNutrition.protein)}g
+              </Text>
+              <Text style={styles.nutritionLabel}>
+                {t("meals.protein") || "Protein"}
+              </Text>
+            </View>
+
+            <View style={styles.nutritionCard}>
+              <Wheat size={20} color="#f59e0b" />
+              <Text style={styles.nutritionValue}>
+                {Math.round(totalNutrition.carbs)}g
+              </Text>
+              <Text style={styles.nutritionLabel}>
+                {t("meals.carbs") || "Carbs"}
+              </Text>
+            </View>
+
+            <View style={styles.nutritionCard}>
+              <Droplets size={20} color="#8b5cf6" />
+              <Text style={styles.nutritionValue}>
+                {Math.round(totalNutrition.fat)}g
+              </Text>
+              <Text style={styles.nutritionLabel}>
+                {t("meals.fat") || "Fat"}
+              </Text>
+            </View>
+          </View>
+
+          {showNutritionDetails && (
+            <Animated.View style={styles.detailedNutrition}>
+              {totalNutrition.fiber > 0 && (
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Fiber:</Text>
+                  <Text style={styles.detailValue}>
+                    {Math.round(totalNutrition.fiber)}g
+                  </Text>
+                </View>
+              )}
+              {totalNutrition.sugar > 0 && (
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Sugar:</Text>
+                  <Text style={styles.detailValue}>
+                    {Math.round(totalNutrition.sugar)}g
+                  </Text>
+                </View>
+              )}
+              {totalNutrition.sodium > 0 && (
+                <View style={styles.detailRow}>
+                  <Text style={styles.detailLabel}>Sodium:</Text>
+                  <Text style={styles.detailValue}>
+                    {Math.round(totalNutrition.sodium)}mg
+                  </Text>
+                </View>
+              )}
+            </Animated.View>
+          )}
+        </LinearGradient>
+      </Animated.View>
+    );
+  };
+
+  const renderRatingSection = () => {
+    if (!hasBeenAnalyzed) return null;
+
+    const renderStars = (rating: number, onPress: (value: number) => void) => (
+      <View style={styles.starsContainer}>
+        {[1, 2, 3, 4, 5].map((star) => (
+          <TouchableOpacity
+            key={star}
+            onPress={() => onPress(star)}
+            style={styles.starButton}
+          >
+            <Star
+              size={20}
+              color={star <= rating ? "#fbbf24" : "#d1d5db"}
+              fill={star <= rating ? "#fbbf24" : "transparent"}
+            />
+          </TouchableOpacity>
+        ))}
+      </View>
+    );
+
+    return (
+      <View style={styles.ratingContainer}>
+        <Text style={[styles.sectionTitle, isRTL && styles.rtlText]}>
+          Rate this meal
+        </Text>
+
+        <View style={styles.ratingGrid}>
+          <View style={styles.ratingItem}>
+            <Text style={styles.ratingLabel}>Taste</Text>
+            {renderStars(mealRating.taste, (value) =>
+              handleRatingChange("taste", value)
+            )}
+          </View>
+
+          <View style={styles.ratingItem}>
+            <Text style={styles.ratingLabel}>Satisfaction</Text>
+            {renderStars(mealRating.satisfaction, (value) =>
+              handleRatingChange("satisfaction", value)
+            )}
+          </View>
+
+          <View style={styles.ratingItem}>
+            <Text style={styles.ratingLabel}>Energy</Text>
+            {renderStars(mealRating.energy, (value) =>
+              handleRatingChange("energy", value)
+            )}
+          </View>
+
+          <View style={styles.ratingItem}>
+            <Text style={styles.ratingLabel}>Overall</Text>
+            {renderStars(mealRating.overall, (value) =>
+              handleRatingChange("overall", value)
+            )}
+          </View>
+        </View>
+      </View>
+    );
+  };
+
   const renderSelectedImage = () => (
     <View style={styles.selectedImageContainer}>
-      <Image source={{ uri: selectedImage! }} style={styles.selectedImage} />
+      <View style={styles.imageWrapper}>
+        <Image source={{ uri: selectedImage! }} style={styles.selectedImage} />
 
-      <View style={styles.imageActions}>
-        <TouchableOpacity
-          style={styles.imageActionButton}
-          onPress={() => {
-            resetAnalysisState();
-            setSelectedImage(null);
-          }}
-        >
-          <X size={20} color="#ef4444" />
-          <Text style={styles.imageActionText}>{t("camera.clear")}</Text>
-        </TouchableOpacity>
+        {/* Image overlay with quick actions */}
+        <View style={styles.imageOverlay}>
+          <TouchableOpacity
+            style={styles.overlayButton}
+            onPress={() => {
+              resetAnalysisState();
+              setSelectedImage(null);
+            }}
+          >
+            <X size={20} color="#ffffff" />
+          </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.imageActionButton}
-          onPress={handleTakePhoto}
-        >
-          <RotateCcw size={20} color="#6b7280" />
-          <Text style={styles.imageActionText}>{t("camera.retake_photo")}</Text>
-        </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.overlayButton}
+            onPress={handleTakePhoto}
+          >
+            <RotateCcw size={20} color="#ffffff" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {!hasBeenAnalyzed && (
@@ -559,267 +928,152 @@ export default function CameraScreen() {
   const renderAnalysisResults = () => {
     if (!analysisData) return null;
 
-    const totalNutrition = calculateTotalNutrition(editedIngredients);
-
     return (
       <View style={styles.analysisContainer}>
-        <LinearGradient
-          colors={["#ffffff", "#f8fafc"]}
-          style={styles.analysisGradient}
-        >
-          {/* Analysis Header */}
-          <View style={styles.analysisHeader}>
-            <CheckCircle size={24} color="#10b981" />
-            <Text style={[styles.analysisTitle, isRTL && styles.rtlText]}>
-              {t("camera.analysis_results")}
-            </Text>
-          </View>
+        {renderMealHeader()}
+        {renderNutritionSummary()}
+        {renderRatingSection()}
 
-          {/* Meal Name */}
-          <View style={styles.mealNameContainer}>
-            <Text style={[styles.mealName, isRTL && styles.rtlText]}>
-              {analysisData.meal_name}
-            </Text>
-            {analysisData.description && (
-              <Text style={[styles.mealDescription, isRTL && styles.rtlText]}>
-                {analysisData.description}
-              </Text>
-            )}
-          </View>
-
-          {/* Nutrition Summary */}
-          <View style={styles.nutritionSummary}>
+        {/* Ingredients Section */}
+        <View style={styles.ingredientsSection}>
+          <View style={styles.ingredientsHeader}>
             <Text style={[styles.sectionTitle, isRTL && styles.rtlText]}>
-              {t("camera.nutritional_info")}
+              {t("camera.identified_ingredients")}
             </Text>
-
-            <View style={styles.nutritionGrid}>
-              <View style={styles.nutritionCard}>
-                <Text style={styles.nutritionValue}>
-                  {Math.round(totalNutrition.calories)}
-                </Text>
-                <Text style={styles.nutritionLabel}>
-                  {t("meals.calories") || "Calories"}
-                </Text>
-              </View>
-              <View style={styles.nutritionCard}>
-                <Text style={styles.nutritionValue}>
-                  {Math.round(totalNutrition.protein)}g
-                </Text>
-                <Text style={styles.nutritionLabel}>
-                  {t("meals.protein") || "Protein"}
-                </Text>
-              </View>
-              <View style={styles.nutritionCard}>
-                <Text style={styles.nutritionValue}>
-                  {Math.round(totalNutrition.carbs)}g
-                </Text>
-                <Text style={styles.nutritionLabel}>
-                  {t("meals.carbs") || "Carbs"}
-                </Text>
-              </View>
-              <View style={styles.nutritionCard}>
-                <Text style={styles.nutritionValue}>
-                  {Math.round(totalNutrition.fat)}g
-                </Text>
-                <Text style={styles.nutritionLabel}>
-                  {t("meals.fat") || "Fat"}
-                </Text>
-              </View>
-            </View>
-
-            {(totalNutrition.fiber > 0 || totalNutrition.sugar > 0) && (
-              <View style={styles.additionalNutrition}>
-                {totalNutrition.fiber > 0 && (
-                  <View style={styles.additionalNutritionItem}>
-                    <Text style={styles.additionalNutritionLabel}>
-                      {t("camera.fiber")}:
-                    </Text>
-                    <Text style={styles.additionalNutritionValue}>
-                      {Math.round(totalNutrition.fiber)}g
-                    </Text>
-                  </View>
-                )}
-                {totalNutrition.sugar > 0 && (
-                  <View style={styles.additionalNutritionItem}>
-                    <Text style={styles.additionalNutritionLabel}>
-                      {t("camera.sugar")}:
-                    </Text>
-                    <Text style={styles.additionalNutritionValue}>
-                      {Math.round(totalNutrition.sugar)}g
-                    </Text>
-                  </View>
-                )}
-                {totalNutrition.sodium > 0 && (
-                  <View style={styles.additionalNutritionItem}>
-                    <Text style={styles.additionalNutritionLabel}>
-                      {t("camera.sodium")}:
-                    </Text>
-                    <Text style={styles.additionalNutritionValue}>
-                      {Math.round(totalNutrition.sodium)}mg
-                    </Text>
-                  </View>
-                )}
-              </View>
-            )}
+            <TouchableOpacity
+              style={styles.addIngredientButton}
+              onPress={handleAddIngredient}
+            >
+              <Plus size={16} color="#10b981" />
+              <Text style={styles.addIngredientText}>{t("common.add")}</Text>
+            </TouchableOpacity>
           </View>
 
-          {/* Ingredients List */}
-          <View style={styles.ingredientsSection}>
-            <View style={styles.ingredientsHeader}>
-              <Text style={[styles.sectionTitle, isRTL && styles.rtlText]}>
-                {t("camera.identified_ingredients")}
-              </Text>
-              <TouchableOpacity
-                style={styles.addIngredientButton}
-                onPress={handleAddIngredient}
-              >
-                <Plus size={16} color="#10b981" />
-                <Text style={styles.addIngredientText}>{t("common.add")}</Text>
-              </TouchableOpacity>
-            </View>
-
-            {editedIngredients.length > 0 ? (
-              editedIngredients.map((ingredient, index) => (
-                <View key={index} style={styles.ingredientCard}>
-                  <View style={styles.ingredientInfo}>
-                    <Text
-                      style={[styles.ingredientName, isRTL && styles.rtlText]}
-                    >
-                      {ingredient.name || `Ingredient ${index + 1}`}
+          {editedIngredients.length > 0 ? (
+            editedIngredients.map((ingredient, index) => (
+              <View key={index} style={styles.ingredientCard}>
+                <View style={styles.ingredientInfo}>
+                  <Text
+                    style={[styles.ingredientName, isRTL && styles.rtlText]}
+                  >
+                    {ingredient.name || `Ingredient ${index + 1}`}
+                  </Text>
+                  <View style={styles.ingredientNutrition}>
+                    <Text style={styles.ingredientNutritionText}>
+                      {Math.round(ingredient.calories || 0)}{" "}
+                      {t("meals.kcal") || "kcal"} •{" "}
+                      {Math.round(ingredient.protein || 0)}g{" "}
+                      {t("meals.protein") || "protein"}
                     </Text>
-                    <View style={styles.ingredientNutrition}>
+                    {(ingredient.carbs || 0) > 0 && (
                       <Text style={styles.ingredientNutritionText}>
-                        {Math.round(ingredient.calories || 0)}{" "}
-                        {t("meals.kcal") || "kcal"} •{" "}
-                        {Math.round(ingredient.protein || 0)}g{" "}
-                        {t("meals.protein") || "protein"}
+                        • {Math.round(ingredient.carbs)}g{" "}
+                        {t("meals.carbs") || "carbs"}
                       </Text>
-                      {(ingredient.carbs || 0) > 0 && (
-                        <Text style={styles.ingredientNutritionText}>
-                          • {Math.round(ingredient.carbs)}g{" "}
-                          {t("meals.carbs") || "carbs"}
-                        </Text>
-                      )}
-                      {(ingredient.fat || 0) > 0 && (
-                        <Text style={styles.ingredientNutritionText}>
-                          • {Math.round(ingredient.fat)}g{" "}
-                          {t("meals.fat") || "fat"}
-                        </Text>
-                      )}
-                    </View>
-                  </View>
-
-                  <View style={styles.ingredientActions}>
-                    <TouchableOpacity
-                      style={styles.ingredientActionButton}
-                      onPress={() => handleEditIngredient(ingredient, index)}
-                    >
-                      <Edit3 size={16} color="#6b7280" />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.ingredientActionButton}
-                      onPress={() => handleRemoveIngredient(index)}
-                    >
-                      <Trash2 size={16} color="#ef4444" />
-                    </TouchableOpacity>
+                    )}
+                    {(ingredient.fat || 0) > 0 && (
+                      <Text style={styles.ingredientNutritionText}>
+                        • {Math.round(ingredient.fat)}g{" "}
+                        {t("meals.fat") || "fat"}
+                      </Text>
+                    )}
                   </View>
                 </View>
-              ))
-            ) : (
-              <Text style={styles.noIngredientsText}>
-                {t("camera.no_ingredients_found") ||
-                  "No ingredients identified"}
-              </Text>
-            )}
-          </View>
 
-          {/* Additional Information */}
-          {(analysisData.cooking_method || analysisData.recommendations) && (
-            <View style={styles.additionalInfoSection}>
-              <Text style={[styles.sectionTitle, isRTL && styles.rtlText]}>
-                {t("camera.additional_info")}
-              </Text>
-
-              {analysisData.cooking_method && (
-                <View style={styles.infoItem}>
-                  <Text style={[styles.infoLabel, isRTL && styles.rtlText]}>
-                    Cooking Method:
-                  </Text>
-                  <Text style={[styles.infoValue, isRTL && styles.rtlText]}>
-                    {analysisData.cooking_method}
-                  </Text>
+                <View style={styles.ingredientActions}>
+                  <TouchableOpacity
+                    style={styles.ingredientActionButton}
+                    onPress={() => handleEditIngredient(ingredient, index)}
+                  >
+                    <Edit3 size={16} color="#6b7280" />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.ingredientActionButton}
+                    onPress={() => handleRemoveIngredient(index)}
+                  >
+                    <Trash2 size={16} color="#ef4444" />
+                  </TouchableOpacity>
                 </View>
-              )}
-
-              {analysisData.recommendations && (
-                <View style={styles.infoItem}>
-                  <Text style={[styles.infoLabel, isRTL && styles.rtlText]}>
-                    Health Notes:
-                  </Text>
-                  <Text style={[styles.infoValue, isRTL && styles.rtlText]}>
-                    {analysisData.recommendations}
-                  </Text>
-                </View>
-              )}
-            </View>
+              </View>
+            ))
+          ) : (
+            <Text style={styles.noIngredientsText}>
+              {t("camera.no_ingredients_found") || "No ingredients identified"}
+            </Text>
           )}
+        </View>
 
-          {/* Action Buttons */}
-          <View style={styles.actionButtons}>
-            <TouchableOpacity
-              style={styles.secondaryButton}
-              onPress={handleDeleteMeal}
-            >
-              <Trash2 size={20} color="#ef4444" />
-              <Text style={styles.secondaryButtonText}>
-                {t("camera.delete_analysis")}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.secondaryButton,
-                isUpdating && styles.buttonDisabled,
-              ]}
-              onPress={handleReAnalyze}
-              disabled={isUpdating}
-            >
-              {isUpdating ? (
-                <ActivityIndicator size="small" color="#10b981" />
-              ) : (
-                <RefreshCw size={20} color="#10b981" />
-              )}
-              <Text style={styles.secondaryButtonText}>
-                {isUpdating
-                  ? t("camera.updating_analysis")
-                  : t("camera.re_analyze")}
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.primaryButton, isPosting && styles.buttonDisabled]}
-              onPress={handleSaveMeal}
-              disabled={isPosting}
-            >
-              <LinearGradient
-                colors={
-                  isPosting ? ["#9ca3af", "#6b7280"] : ["#10b981", "#059669"]
-                }
-                style={styles.primaryButtonGradient}
+        {/* Recommendations Section */}
+        {analysisData.recommendations && (
+          <View style={styles.recommendationsSection}>
+            <Text style={[styles.sectionTitle, isRTL && styles.rtlText]}>
+              AI Recommendations
+            </Text>
+            <View style={styles.recommendationCard}>
+              <TrendingUp size={20} color="#10b981" />
+              <Text
+                style={[styles.recommendationText, isRTL && styles.rtlText]}
               >
-                {isPosting ? (
-                  <ActivityIndicator size="small" color="#ffffff" />
-                ) : (
-                  <Save size={20} color="#ffffff" />
-                )}
-                <Text style={styles.primaryButtonText}>
-                  {isPosting ? t("common.loading") : t("camera.save_meal")}
-                </Text>
-              </LinearGradient>
-            </TouchableOpacity>
+                {analysisData.recommendations}
+              </Text>
+            </View>
           </View>
-        </LinearGradient>
+        )}
+
+        {/* Action Buttons */}
+        <View style={styles.actionButtons}>
+          <TouchableOpacity
+            style={styles.secondaryButton}
+            onPress={handleDeleteMeal}
+          >
+            <Trash2 size={20} color="#ef4444" />
+            <Text style={styles.secondaryButtonText}>
+              {t("camera.delete_analysis")}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.secondaryButton,
+              isUpdating && styles.buttonDisabled,
+            ]}
+            onPress={handleReAnalyze}
+            disabled={isUpdating}
+          >
+            {isUpdating ? (
+              <ActivityIndicator size="small" color="#10b981" />
+            ) : (
+              <RefreshCw size={20} color="#10b981" />
+            )}
+            <Text style={styles.secondaryButtonText}>
+              {isUpdating
+                ? t("camera.updating_analysis")
+                : t("camera.re_analyze")}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.primaryButton, isPosting && styles.buttonDisabled]}
+            onPress={handleSaveMeal}
+            disabled={isPosting}
+          >
+            <LinearGradient
+              colors={
+                isPosting ? ["#9ca3af", "#6b7280"] : ["#10b981", "#059669"]
+              }
+              style={styles.primaryButtonGradient}
+            >
+              {isPosting ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <Save size={20} color="#ffffff" />
+              )}
+              <Text style={styles.primaryButtonText}>
+                {isPosting ? t("common.loading") : t("camera.save_meal")}
+              </Text>
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   };
@@ -1264,32 +1518,35 @@ const styles = StyleSheet.create({
     marginHorizontal: 24,
     marginBottom: 24,
   },
+  imageWrapper: {
+    position: "relative",
+    borderRadius: 16,
+    overflow: "hidden",
+    elevation: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+  },
   selectedImage: {
     width: "100%",
     height: 240,
-    borderRadius: 16,
     backgroundColor: "#f3f4f6",
   },
-  imageActions: {
+  imageOverlay: {
+    position: "absolute",
+    top: 12,
+    right: 12,
     flexDirection: "row",
-    justifyContent: "space-between",
-    marginTop: 12,
-  },
-  imageActionButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#ffffff",
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#e5e7eb",
     gap: 8,
   },
-  imageActionText: {
-    fontSize: 14,
-    color: "#6b7280",
-    fontWeight: "500",
+  overlayButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    justifyContent: "center",
+    alignItems: "center",
   },
   commentContainer: {
     marginTop: 16,
@@ -1337,6 +1594,11 @@ const styles = StyleSheet.create({
   // Analysis results styles
   analysisContainer: {
     marginHorizontal: 24,
+    gap: 20,
+  },
+
+  // Meal header styles
+  mealHeaderContainer: {
     borderRadius: 20,
     overflow: "hidden",
     elevation: 4,
@@ -1345,51 +1607,103 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 12,
   },
-  analysisGradient: {
+  mealHeaderGradient: {
     padding: 24,
   },
-  analysisHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 20,
+  mealHeaderContent: {
     gap: 12,
   },
-  analysisTitle: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#065f46",
+  mealTitleRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
   },
-  mealNameContainer: {
-    marginBottom: 24,
-    alignItems: "center",
-  },
-  mealName: {
+  mealTitle: {
     fontSize: 24,
     fontWeight: "bold",
     color: "#1f2937",
-    textAlign: "center",
-    marginBottom: 8,
+    flex: 1,
+    marginRight: 12,
+  },
+  favoriteButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#f3f4f6",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  favoriteActive: {
+    backgroundColor: "#ef4444",
   },
   mealDescription: {
     fontSize: 16,
     color: "#6b7280",
-    textAlign: "center",
     lineHeight: 22,
   },
-  sectionTitle: {
+  mealMetaRow: {
+    flexDirection: "row",
+    gap: 16,
+    flexWrap: "wrap",
+  },
+  metaItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  metaText: {
+    fontSize: 14,
+    color: "#6b7280",
+    fontWeight: "500",
+  },
+
+  // Nutrition summary styles
+  nutritionContainer: {
+    borderRadius: 16,
+    overflow: "hidden",
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+  },
+  nutritionGradient: {
+    padding: 20,
+  },
+  nutritionHeader: {
+    marginBottom: 16,
+  },
+  nutritionTitleRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  nutritionTitle: {
     fontSize: 18,
     fontWeight: "600",
     color: "#374151",
-    marginBottom: 16,
   },
-  nutritionSummary: {
-    marginBottom: 24,
+  qualityBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  qualityText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#ffffff",
+  },
+  chevron: {
+    alignSelf: "center",
+  },
+  chevronRotated: {
+    transform: [{ rotate: "180deg" }],
   },
   nutritionGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 12,
-    marginBottom: 16,
   },
   nutritionCard: {
     flex: 1,
@@ -1405,6 +1719,7 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: "bold",
     color: "#10b981",
+    marginTop: 8,
     marginBottom: 4,
   },
   nutritionLabel: {
@@ -1413,37 +1728,83 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     textTransform: "uppercase",
   },
-  additionalNutrition: {
-    backgroundColor: "#f8fafc",
-    borderRadius: 12,
-    padding: 16,
+  detailedNutrition: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: "#e5e7eb",
     gap: 8,
   },
-  additionalNutritionItem: {
+  detailRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
   },
-  additionalNutritionLabel: {
+  detailLabel: {
     fontSize: 14,
     color: "#6b7280",
     fontWeight: "500",
   },
-  additionalNutritionValue: {
+  detailValue: {
     fontSize: 14,
     color: "#374151",
     fontWeight: "600",
   },
 
+  // Rating styles
+  ratingContainer: {
+    backgroundColor: "#ffffff",
+    borderRadius: 16,
+    padding: 20,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+  },
+  ratingGrid: {
+    gap: 16,
+  },
+  ratingItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  ratingLabel: {
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#374151",
+    flex: 1,
+  },
+  starsContainer: {
+    flexDirection: "row",
+    gap: 4,
+  },
+  starButton: {
+    padding: 4,
+  },
+
   // Ingredients styles
   ingredientsSection: {
-    marginBottom: 24,
+    backgroundColor: "#ffffff",
+    borderRadius: 16,
+    padding: 20,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
   },
   ingredientsHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 16,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#374151",
   },
   addIngredientButton: {
     flexDirection: "row",
@@ -1464,7 +1825,7 @@ const styles = StyleSheet.create({
   ingredientCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#ffffff",
+    backgroundColor: "#f8fafc",
     borderRadius: 12,
     padding: 16,
     marginBottom: 8,
@@ -1495,28 +1856,39 @@ const styles = StyleSheet.create({
   ingredientActionButton: {
     padding: 8,
     borderRadius: 8,
-    backgroundColor: "#f9fafb",
+    backgroundColor: "#ffffff",
+  },
+  noIngredientsText: {
+    fontSize: 14,
+    color: "#9ca3af",
+    textAlign: "center",
+    fontStyle: "italic",
+    paddingVertical: 20,
   },
 
-  // Additional info styles
-  additionalInfoSection: {
-    marginBottom: 24,
+  // Recommendations styles
+  recommendationsSection: {
+    backgroundColor: "#ffffff",
+    borderRadius: 16,
+    padding: 20,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
   },
-  infoItem: {
-    backgroundColor: "#f8fafc",
+  recommendationCard: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    backgroundColor: "#f0fdf4",
     borderRadius: 12,
     padding: 16,
-    marginBottom: 8,
+    gap: 12,
   },
-  infoLabel: {
+  recommendationText: {
+    flex: 1,
     fontSize: 14,
-    fontWeight: "600",
-    color: "#374151",
-    marginBottom: 4,
-  },
-  infoValue: {
-    fontSize: 14,
-    color: "#6b7280",
+    color: "#047857",
     lineHeight: 20,
   },
 

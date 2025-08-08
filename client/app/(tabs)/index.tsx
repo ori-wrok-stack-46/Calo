@@ -17,6 +17,7 @@ import {
   Image,
   StatusBar,
   I18nManager,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useSelector, useDispatch } from "react-redux";
@@ -44,6 +45,7 @@ import { fetchMeals } from "../../src/store/mealSlice";
 import { useTranslation } from "react-i18next";
 import { useLanguage } from "@/src/i18n/context/LanguageContext";
 import LoadingScreen from "@/components/LoadingScreen";
+import XPNotification from "@/components/XPNotification";
 
 // Enable RTL support
 I18nManager.allowRTL(true);
@@ -87,6 +89,9 @@ interface UserStats {
   totalCalories: number;
   avgCaloriesPerDay: number;
   streakDays: number;
+  xp?: number;
+  level?: number;
+  bestStreak?: number;
 }
 
 interface DailyGoals {
@@ -135,6 +140,16 @@ const HomeScreen = React.memo(() => {
   const [language, setLanguage] = useState<"he" | "en">("he");
   const [pendingWaterRequests, setPendingWaterRequests] = useState(0);
   const [waterSyncErrors, setWaterSyncErrors] = useState<string[]>([]);
+  const [waterSyncInProgress, setWaterSyncInProgress] = useState(false);
+
+  // XP Notification State
+  const [showXPNotification, setShowXPNotification] = useState(false);
+  const [xpNotificationData, setXPNotificationData] = useState<{
+    xpGained: number;
+    leveledUp?: boolean;
+    newLevel?: number;
+    newAchievements?: any[];
+  }>({ xpGained: 0 });
 
   const { t } = useTranslation();
   const { isRTL } = useLanguage();
@@ -215,11 +230,8 @@ const HomeScreen = React.memo(() => {
       return;
     }
 
-    const year = new Date().getFullYear();
-    const month = new Date().getMonth() + 1;
-
     try {
-      const response = await api.get(`/calendar/statistics/${year}/${month}`);
+      const response = await api.get(`/calendar/statistics/${user.user_id}`); // Assuming user_id is needed
       if (response.data.success) {
         const stats = response.data.data;
         const summaryStats: UserStats = {
@@ -227,6 +239,9 @@ const HomeScreen = React.memo(() => {
           totalCalories: stats.totalCalories,
           avgCaloriesPerDay: stats.avgCaloriesPerDay,
           streakDays: stats.streakDays || 0,
+          xp: stats.xp,
+          level: stats.level,
+          bestStreak: stats.bestStreak,
         };
         setUserStats(summaryStats);
         lastDataLoadRef.current = now;
@@ -288,7 +303,12 @@ const HomeScreen = React.memo(() => {
     }
   }, [loadAllData, refreshing]);
 
-  // Water tracking functions
+  // Water tracking functions with optimistic updates
+  const [optimisticWaterCups, setOptimisticWaterCups] = useState(0);
+  const [pendingSyncActions, setPendingSyncActions] = useState<
+    Array<{ id: string; delta: number; timestamp: number }>
+  >([]);
+
   const loadWaterIntake = useCallback(async () => {
     if (!user?.user_id) return;
 
@@ -296,147 +316,114 @@ const HomeScreen = React.memo(() => {
       const today = new Date().toISOString().split("T")[0];
       const response = await api.get(`/nutrition/water-intake/${today}`);
       if (response.data.success) {
-        setWaterCups(response.data.data.cups_consumed || 0);
+        const serverCups = response.data.data.cups_consumed || 0;
+        setWaterCups(serverCups);
+        setOptimisticWaterCups(serverCups);
       }
     } catch (error) {
       console.error("Error loading water intake:", error);
     }
   }, [user?.user_id]);
 
-  const syncWaterIntake = async (
-    cups: number,
-    retryCount = 0
-  ): Promise<void> => {
-    const maxRetries = 3;
+  const syncWaterWithServer = async (totalCups: number, actionId: string) => {
+    if (!user?.user_id || waterSyncInProgress) return;
+
+    setWaterSyncInProgress(true);
 
     try {
-      setPendingWaterRequests((prev) => prev + 1);
-
+      const today = new Date().toISOString().split("T")[0];
       const response = await api.post("/nutrition/water-intake", {
-        cups,
-        date: new Date().toISOString().split("T")[0],
+        cups_consumed: totalCups,
+        date: today,
       });
 
-      if (!response.data.success) {
-        throw new Error(response.data.error || "Failed to sync water intake");
-      }
+      if (response.data.success) {
+        // Update server state to match
+        setWaterCups(totalCups);
 
-      // Remove any existing errors on success
-      setWaterSyncErrors((prev) => prev.filter((_, index) => index !== 0));
+        // Check for XP and achievements
+        if (
+          response.data.xpAwarded > 0 ||
+          response.data.newAchievements?.length > 0
+        ) {
+          setXPNotificationData({
+            xpGained: response.data.xpAwarded || 0,
+            leveledUp: response.data.leveledUp,
+            newLevel: response.data.newLevel,
+            newAchievements: response.data.newAchievements || [],
+          });
+          setShowXPNotification(true);
+        }
+
+        // Remove completed action from pending
+        setPendingSyncActions((prev) =>
+          prev.filter((action) => action.id !== actionId)
+        );
+
+        // Clear any previous errors for this action
+        setWaterSyncErrors((prev) =>
+          prev.filter((error) => !error.includes(actionId))
+        );
+      }
     } catch (error: any) {
       console.error("Error syncing water intake:", error);
-
-      if (retryCount < maxRetries) {
-        // Retry with exponential backoff
-        setTimeout(() => {
-          syncWaterIntake(cups, retryCount + 1);
-        }, Math.pow(2, retryCount) * 1000);
-        return;
-      }
-
-      // Add error to queue for user notification
-      const errorMessage =
-        language === "he"
-          ? `נכשל בסנכרון ${glasses > 0 ? "הוספת" : "הסרת"} כוס מים`
-          : `Failed to sync ${glasses > 0 ? "adding" : "removing"} water glass`;
-
-      setWaterSyncErrors((prev) => [...prev, errorMessage]);
-
-      // Revert optimistic update
-      setWaterCups((prev) => Math.max(0, prev - cups));
+      // Don't show sync errors to user - handle silently in background
     } finally {
-      setPendingWaterRequests((prev) => Math.max(0, prev - 1));
+      setWaterSyncInProgress(false);
     }
   };
 
-  const handleAddWater = () => {
-    // Optimistic update - instant UI response
-    setWaterCups((prev) => prev + 1);
+  const optimisticWaterUpdate = (delta: number) => {
+    // Limit water input to the goal of 10 cups (2500ml)
+    const goalMaxCups = 10;
+    if (delta > 0 && optimisticWaterCups >= goalMaxCups) return;
+    if (delta < 0 && optimisticWaterCups <= 0) return;
 
-    // Fire-and-forget background sync
-    syncWaterIntake(1);
+    const actionId = Date.now().toString();
+    const newTotal = Math.max(
+      0,
+      Math.min(goalMaxCups, optimisticWaterCups + delta)
+    );
+
+    // Immediate UI update
+    setOptimisticWaterCups(newTotal);
+
+    // Add to pending sync actions
+    setPendingSyncActions((prev) => [
+      ...prev,
+      {
+        id: actionId,
+        delta,
+        timestamp: Date.now(),
+      },
+    ]);
+
+    // Background sync (fire and forget) with slight delay to batch requests
+    setTimeout(() => {
+      syncWaterWithServer(newTotal, actionId);
+    }, 300);
   };
 
-  const handleRemoveWater = () => {
-    if (waterCups <= 0) return;
-
-    // Optimistic update - instant UI response
-    setWaterCups((prev) => Math.max(0, prev - 1));
-
-    // Fire-and-forget background sync
-    syncWaterIntake(-1);
+  const incrementWater = () => {
+    if (optimisticWaterCups >= 10) return; // Limit to goal maximum
+    optimisticWaterUpdate(1);
   };
 
-  const handleRetryWaterSync = () => {
-    if (waterSyncErrors.length === 0) return;
+  const decrementWater = useCallback(() => {
+    optimisticWaterUpdate(-1);
+  }, [optimisticWaterCups]);
 
-    // Clear errors and attempt to resync current state
+  const retryFailedSyncs = () => {
+    // Retry all pending actions
+    pendingSyncActions.forEach((action) => {
+      syncWaterWithServer(optimisticWaterCups, action.id);
+    });
     setWaterSyncErrors([]);
-
-    // Get current water intake and sync it
-    syncWaterIntake(waterCups);
   };
 
   const dismissWaterErrors = () => {
     setWaterSyncErrors([]);
   };
-
-  const updateWaterIntake = useCallback(
-    async (cups: number) => {
-      if (!user?.user_id) return;
-
-      setWaterLoading(true);
-      setWaterCups(cups);
-
-      try {
-        const response = await api.post("/nutrition/water-intake", {
-          cups,
-          date: new Date().toISOString().split("T")[0],
-        });
-
-        if (response.data.success) {
-          console.log("✅ Water intake updated successfully");
-
-          // Show XP reward
-          if (response.data.xpAwarded && response.data.xpAwarded > 0) {
-            console.log(`🎉 XP earned: ${response.data.xpAwarded}`);
-            // You could show a toast or modal here
-          }
-
-          // Show badge reward
-          if (response.data.badgeAwarded) {
-            console.log("🏆 Badge earned:", response.data.badgeAwarded);
-            // You could show a badge notification here
-          }
-
-          // Refresh user stats to reflect XP/level changes
-          await loadUserStats();
-
-          // Refresh all data to ensure consistency
-          await loadAllData(true);
-        }
-      } catch (error) {
-        console.error("💥 Error updating water intake:", error);
-        // Revert on error
-        loadWaterIntake();
-      } finally {
-        setWaterLoading(false);
-      }
-    },
-    [user?.user_id, loadWaterIntake, loadUserStats, loadAllData]
-  );
-
-  const incrementWater = useCallback(() => {
-    if (waterCups < 25 && !waterLoading) {
-      updateWaterIntake(waterCups + 1);
-    }
-  }, [waterCups, updateWaterIntake, waterLoading]);
-
-  const decrementWater = useCallback(() => {
-    if (waterCups > 0 && !waterLoading) {
-      updateWaterIntake(waterCups - 1);
-    }
-  }, [waterCups, updateWaterIntake, waterLoading]);
 
   // Goal progress data
   const goalProgress: GoalProgress[] = useMemo(
@@ -461,7 +448,7 @@ const HomeScreen = React.memo(() => {
       },
       {
         type: "water",
-        current: waterCups * 250,
+        current: optimisticWaterCups * 250,
         target: 2500,
         unit: "ml",
         color: COLORS.emerald[500],
@@ -469,7 +456,7 @@ const HomeScreen = React.memo(() => {
         label: t("home.water") || "Water",
       },
     ],
-    [dailyGoals, waterCups, t]
+    [dailyGoals, optimisticWaterCups, t]
   );
 
   // Calculate time-based progress
@@ -494,6 +481,10 @@ const HomeScreen = React.memo(() => {
       loadWaterIntake();
     }
   }, [user?.user_id, loadAllData, initialLoading, loadWaterIntake]);
+
+  useEffect(() => {
+    setOptimisticWaterCups(waterCups);
+  }, [waterCups]);
 
   useFocusEffect(
     useCallback(() => {
@@ -586,6 +577,16 @@ const HomeScreen = React.memo(() => {
         backgroundColor={COLORS.emerald[600]}
       />
 
+      <XPNotification
+        visible={showXPNotification}
+        xpGained={xpNotificationData.xpGained}
+        leveledUp={xpNotificationData.leveledUp}
+        newLevel={xpNotificationData.newLevel}
+        newAchievements={xpNotificationData.newAchievements}
+        onHide={() => setShowXPNotification(false)}
+        language={language}
+      />
+
       <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -607,6 +608,37 @@ const HomeScreen = React.memo(() => {
             <Text style={styles.subtitle}>
               {t("home.track_goals") || "Let's track your goals today"}
             </Text>
+          </View>
+        </View>
+
+        {/* User XP and Level */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>
+            {t("home.user_stats") || "Your Stats"}
+          </Text>
+          <View style={styles.statsContainer}>
+            <View style={styles.xpLevelContainer}>
+              <Text style={styles.xpText}>
+                {t("home.xp") || "XP"}: {userStats?.xp || 0}
+              </Text>
+              <Text style={styles.levelText}>
+                {t("home.level") || "Level"}: {userStats?.level || 1}
+              </Text>
+            </View>
+            <View style={styles.streakContainer}>
+              <Text style={styles.streakLabel}>
+                {t("home.current_streak") || "Current Streak"}:
+              </Text>
+              <Text style={styles.streakValue}>
+                {userStats?.streakDays || 0} days
+              </Text>
+              <Text style={styles.streakLabel}>
+                {t("home.best_streak") || "Best Streak"}:
+              </Text>
+              <Text style={styles.streakValue}>
+                {userStats?.bestStreak || 0} days
+              </Text>
+            </View>
           </View>
         </View>
 
@@ -705,17 +737,19 @@ const HomeScreen = React.memo(() => {
                 </Text>
                 <View style={styles.waterBadge}>
                   <Text style={styles.waterBadgeText}>
-                    {waterCups >= 16 ? "🏆" : "💧"}
+                    {optimisticWaterCups >= 10 ? "🏆" : "💧"}
                   </Text>
                 </View>
               </View>
 
               <View style={styles.waterTrackingContent}>
-                <Text style={styles.waterTrackingValue}>
-                  {waterCups} / 10 {t("home.cups") || "cups"}
-                </Text>
+                <View style={styles.waterValueContainer}>
+                  <Text style={styles.waterTrackingValue}>
+                    {optimisticWaterCups} / 10 {t("home.cups") || "cups"}
+                  </Text>
+                </View>
                 <Text style={styles.waterTrackingTarget}>
-                  {(waterCups * 250).toLocaleString()} ml / 2,500 ml
+                  {(optimisticWaterCups * 250).toLocaleString()} ml / 2,500 ml
                 </Text>
               </View>
 
@@ -723,10 +757,12 @@ const HomeScreen = React.memo(() => {
                 <TouchableOpacity
                   style={[
                     styles.waterButton,
-                    { opacity: waterCups <= 0 ? 0.5 : 1 },
+                    styles.waterButtonMinus,
+                    { opacity: optimisticWaterCups <= 0 ? 0.4 : 1 },
                   ]}
                   onPress={decrementWater}
-                  disabled={waterCups <= 0 || waterLoading}
+                  disabled={optimisticWaterCups <= 0}
+                  activeOpacity={0.7}
                 >
                   <Plus
                     size={24}
@@ -740,22 +776,31 @@ const HomeScreen = React.memo(() => {
                     <View
                       style={[
                         styles.waterProgressFill,
-                        { width: `${Math.min((waterCups / 10) * 100, 100)}%` },
+                        {
+                          width: `${Math.min(
+                            (optimisticWaterCups / 10) * 100,
+                            100
+                          )}%`,
+                          backgroundColor: "#FFFFFF",
+                        },
                       ]}
                     />
                   </View>
                   <Text style={styles.waterProgressText}>
-                    {Math.min((waterCups / 10) * 100, 100).toFixed(0)}%
+                    {Math.min((optimisticWaterCups / 10) * 100, 100).toFixed(0)}
+                    %
                   </Text>
                 </View>
 
                 <TouchableOpacity
                   style={[
                     styles.waterButton,
-                    { opacity: waterCups >= 25 ? 0.5 : 1 },
+                    styles.waterButtonPlus,
+                    { opacity: optimisticWaterCups >= 10 ? 0.4 : 1 },
                   ]}
                   onPress={incrementWater}
-                  disabled={waterCups >= 25 || waterLoading}
+                  disabled={optimisticWaterCups >= 10}
+                  activeOpacity={0.7}
                 >
                   <Plus size={24} color="#FFFFFF" />
                 </TouchableOpacity>
@@ -763,15 +808,16 @@ const HomeScreen = React.memo(() => {
 
               <View style={styles.waterTrackingFooter}>
                 <Text style={styles.waterTrackingRemaining}>
-                  {Math.max(10 - waterCups, 0)} {t("home.cups") || "cups"}{" "}
+                  {Math.max(10 - optimisticWaterCups, 0)}{" "}
+                  {t("home.cups") || "cups"}{" "}
                   {t("home.remaining") || "remaining"}
                 </Text>
                 <Text style={styles.waterXP}>
-                  {waterCups >= 8
+                  {optimisticWaterCups >= 8
                     ? "🎉 +50 XP"
-                    : waterCups >= 4
+                    : optimisticWaterCups >= 4
                     ? "⭐ +25 XP"
-                    : waterCups > 0
+                    : optimisticWaterCups > 0
                     ? "💧 +10 XP"
                     : ""}
                 </Text>
@@ -1021,6 +1067,48 @@ const styles = StyleSheet.create({
     color: "#1A202C",
     marginBottom: 20,
     letterSpacing: -0.3,
+  },
+
+  // User Stats Section
+  statsContainer: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  xpLevelContainer: {
+    alignItems: "flex-start",
+  },
+  xpText: {
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#2C3E50",
+    marginBottom: 4,
+  },
+  levelText: {
+    fontSize: 16,
+    fontWeight: "500",
+    color: COLORS.emerald[600],
+  },
+  streakContainer: {
+    alignItems: "flex-end",
+  },
+  streakLabel: {
+    fontSize: 13,
+    color: "#7F8C8D",
+    marginBottom: 2,
+  },
+  streakValue: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#2C3E50",
+    marginBottom: 6,
   },
 
   // Main Goal Progress
@@ -1529,5 +1617,81 @@ const styles = StyleSheet.create({
   },
   errorDismissButton: {
     padding: 4,
+  },
+
+  // Enhanced Water Tracking Styles
+  waterValueContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 8,
+  },
+  syncText: {
+    color: "rgba(255,255,255,0.9)",
+    fontSize: 12,
+    marginLeft: 4,
+    fontWeight: "500",
+  },
+  waterButtonPlus: {
+    backgroundColor: "rgba(255,255,255,0.25)",
+    borderWidth: 2,
+    borderColor: "rgba(255,255,255,0.3)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  waterButtonMinus: {
+    backgroundColor: "rgba(255,255,255,0.15)",
+    borderWidth: 2,
+    borderColor: "rgba(255,255,255,0.2)",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  waterErrorContainer: {
+    marginTop: 12,
+    padding: 12,
+    backgroundColor: "rgba(231, 76, 60, 0.1)",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "rgba(231, 76, 60, 0.3)",
+  },
+  waterErrorText: {
+    color: "rgba(255,255,255,0.9)",
+    fontSize: 13,
+    textAlign: "center",
+    marginBottom: 8,
+    fontWeight: "500",
+  },
+  waterErrorActions: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 12,
+  },
+  retryButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    backgroundColor: COLORS.emerald[600],
+    borderRadius: 6,
+  },
+  retryButtonText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  dismissButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    borderRadius: 6,
+  },
+  dismissButtonText: {
+    color: "#FFFFFF",
+    fontSize: 12,
+    fontWeight: "500",
   },
 });

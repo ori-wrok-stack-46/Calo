@@ -92,14 +92,23 @@ interface ProgressData {
 
 interface Achievement {
   id: string;
-  title: string;
-  description: string;
-  icon: React.ReactNode;
+  title: {
+    en: string;
+    he: string;
+  };
+  description: {
+    en: string;
+    he: string;
+  };
+  icon: string;
   color: string;
   progress: number;
-  maxProgress: number;
+  maxProgress?: number;
   unlocked: boolean;
-  category: "streak" | "goal" | "improvement" | "consistency";
+  category: "STREAK" | "GOAL" | "IMPROVEMENT" | "CONSISTENCY" | "MILESTONE";
+  xpReward: number;
+  rarity: "COMMON" | "RARE" | "EPIC" | "LEGENDARY";
+  unlockedDate?: string;
 }
 
 interface Badge {
@@ -579,14 +588,20 @@ export default function StatisticsScreen() {
 
     return statisticsData.achievements.map((achievement: any) => ({
       id: achievement.id,
-      title: achievement.title,
-      description: achievement.description,
-      icon: getAchievementIcon(achievement.category),
-      color: getAchievementColor(achievement.category),
-      progress: achievement.progress,
-      maxProgress: achievement.max_progress,
-      unlocked: achievement.unlocked,
-      category: achievement.category,
+      title: achievement.title || { en: "Achievement", he: "הישג" },
+      description: achievement.description || {
+        en: "Description",
+        he: "תיאור",
+      },
+      icon: achievement.icon || getAchievementIcon(achievement.category),
+      color: getRarityColor(achievement.rarity || "COMMON"),
+      progress: achievement.progress || 0,
+      maxProgress: achievement.max_progress || 1,
+      unlocked: achievement.unlocked || false,
+      category: achievement.category || "MILESTONE",
+      xpReward: achievement.xpReward || 0,
+      rarity: achievement.rarity || "COMMON",
+      unlockedDate: achievement.unlockedDate,
     }));
   };
 
@@ -608,15 +623,17 @@ export default function StatisticsScreen() {
   const getAchievementIcon = (category: string) => {
     switch (category) {
       case "STREAK":
-        return <Flame size={24} color="#E74C3C" />;
+        return "🔥";
       case "GOAL":
-        return <Target size={24} color="#16A085" />;
+        return "🎯";
       case "IMPROVEMENT":
-        return <TrendingUp size={24} color="#9B59B6" />;
+        return "📈";
       case "CONSISTENCY":
-        return <Star size={24} color="#F39C12" />;
+        return "⭐";
+      case "MILESTONE":
+        return "🏆";
       default:
-        return <Award size={24} color="#95A5A6" />;
+        return "🏅";
     }
   };
 
@@ -770,14 +787,14 @@ export default function StatisticsScreen() {
   };
 
   const getRarityColor = (rarity: string) => {
-    switch (rarity) {
-      case "common":
+    switch (rarity?.toUpperCase()) {
+      case "COMMON":
         return "#95A5A6";
-      case "rare":
+      case "RARE":
         return "#3498DB";
-      case "epic":
+      case "EPIC":
         return "#9B59B6";
-      case "legendary":
+      case "LEGENDARY":
         return "#F39C12";
       default:
         return "#95A5A6";
@@ -1187,34 +1204,65 @@ export default function StatisticsScreen() {
                             },
                           ]}
                         >
-                          {achievement.icon}
+                          <Text style={{ fontSize: 20 }}>
+                            {achievement.icon}
+                          </Text>
                         </View>
                         <View style={styles.achievementInfo}>
                           <Text style={styles.achievementTitle}>
-                            {achievement.title}
+                            {typeof achievement.title === "object"
+                              ? achievement.title[language] ||
+                                achievement.title.en
+                              : achievement.title}
                           </Text>
                           <Text style={styles.achievementDescription}>
-                            {achievement.description}
+                            {typeof achievement.description === "object"
+                              ? achievement.description[language] ||
+                                achievement.description.en
+                              : achievement.description}
                           </Text>
-                          <View style={styles.achievementProgress}>
-                            <View style={styles.achievementProgressBg}>
-                              <View
-                                style={[
-                                  styles.achievementProgressFill,
-                                  {
-                                    width: `${
-                                      (achievement.progress /
-                                        achievement.maxProgress) *
-                                      100
-                                    }%`,
-                                    backgroundColor: achievement.color,
-                                  },
-                                ]}
-                              />
+                          <View style={styles.achievementMeta}>
+                            <View style={styles.achievementProgress}>
+                              <View style={styles.achievementProgressBg}>
+                                <View
+                                  style={[
+                                    styles.achievementProgressFill,
+                                    {
+                                      width: `${
+                                        achievement.unlocked
+                                          ? 100
+                                          : (achievement.progress /
+                                              (achievement.maxProgress || 1)) *
+                                            100
+                                      }%`,
+                                      backgroundColor: achievement.color,
+                                    },
+                                  ]}
+                                />
+                              </View>
+                              <Text style={styles.achievementProgressText}>
+                                {achievement.progress}/
+                                {achievement.maxProgress || 1}
+                              </Text>
                             </View>
-                            <Text style={styles.achievementProgressText}>
-                              {achievement.progress}/{achievement.maxProgress}
-                            </Text>
+                            <View style={styles.achievementReward}>
+                              <Text
+                                style={[
+                                  styles.xpReward,
+                                  { color: achievement.color },
+                                ]}
+                              >
+                                +{achievement.xpReward} XP
+                              </Text>
+                              <Text
+                                style={[
+                                  styles.rarityText,
+                                  { color: achievement.color },
+                                ]}
+                              >
+                                {achievement.rarity}
+                              </Text>
+                            </View>
                           </View>
                         </View>
                         {achievement.unlocked && (
@@ -1951,6 +1999,23 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "500",
     color: "#7F8C8D",
+  },
+  achievementMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  achievementReward: {
+    alignItems: "flex-end",
+  },
+  xpReward: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  rarityText: {
+    fontSize: 10,
+    fontWeight: "500",
+    textTransform: "uppercase",
   },
   achievementBadge: {
     width: 32,

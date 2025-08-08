@@ -46,9 +46,13 @@ model User {
   // Food scanner relationship
   foodProducts FoodProduct[]
 
-  level        Int? @default(1)
-  total_points Int? @default(0)
-  current_xp   Int? @default(0)
+  level               Int?      @default(1)
+  total_points        Int?      @default(0)
+  current_xp          Int?      @default(0)
+  current_streak      Int?      @default(0)
+  best_streak         Int?      @default(0)
+  total_complete_days Int?      @default(0)
+  last_complete_date  DateTime?
 
   created_at DateTime @default(now())
 
@@ -581,18 +585,23 @@ model UserBadge {
 }
 
 model Achievement {
-  id             String              @id @default(cuid())
+  id             String   @id
+  key            String   @unique
   title          String
   description    String
-  category       AchievementCategory
-  max_progress   Int
-  points_awarded Int
-  requirements   Json?
-  created_at     DateTime            @default(now())
+  category       String
+  max_progress   Int      @default(1)
+  points_awarded Int      @default(0)
+  icon           String?
+  rarity         String   @default("COMMON")
+  is_active      Boolean  @default(true)
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
 
-  // Relations
+  // 👇 This line fixes the error:
   userAchievements UserAchievement[]
 }
+
 
 model UserAchievement {
   id             String    @id @default(cuid())

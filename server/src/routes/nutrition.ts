@@ -4,11 +4,13 @@ import { prisma } from "../lib/database";
 import { z } from "zod";
 import { mealAnalysisSchema, mealUpdateSchema } from "../types/nutrition";
 import { NutritionService } from "../services/nutrition";
+import { StatisticsService } from "../services/statistics";
+import { AchievementService } from "../services/achievements";
 
 const router = Router();
 
 const waterIntakeSchema = z.object({
-  cups: z.number().min(1).max(25),
+  cups_consumed: z.number().min(0).max(25),
   date: z.string().optional(),
 });
 
@@ -20,13 +22,32 @@ router.post(
     const userId = req.user?.user_id;
 
     if (!userId) {
-      return res.status(401).json({ error: "User not authenticated" });
+      return res
+        .status(401)
+        .json({ success: false, error: "User not authenticated" });
     }
 
     try {
-      const { cups, date } = waterIntakeSchema.parse(req.body);
+      console.log("💧 Water intake request:", req.body);
+
+      const validationResult = waterIntakeSchema.safeParse(req.body);
+      if (!validationResult.success) {
+        console.error("❌ Validation error:", validationResult.error);
+        return res.status(400).json({
+          success: false,
+          error:
+            "Invalid request data: " +
+            validationResult.error.errors.map((e) => e.message).join(", "),
+        });
+      }
+
+      const { cups_consumed, date } = validationResult.data;
       const trackingDate = date ? new Date(date) : new Date();
-      const milliliters = cups * 250;
+
+      // Limit water intake to maximum goal (10 cups/2500ml)
+      const maxCups = 10;
+      const limitedCups = Math.min(cups_consumed, maxCups);
+      const limitedMilliliters = limitedCups * 250;
 
       // Set date to start of day for consistent comparison
       const startOfDay = new Date(
@@ -51,104 +72,139 @@ router.post(
         },
       });
 
-      let waterRecord;
-      let xpAwarded = 0;
-      let badgeAwarded = null;
-
-      if (existingRecord) {
-        waterRecord = await prisma.waterIntake.update({
-          where: { id: existingRecord.id },
-          data: {
-            cups_consumed: cups,
-            milliliters_consumed: milliliters,
-            updated_at: new Date(),
-          },
-        });
-      } else {
-        waterRecord = await prisma.waterIntake.create({
-          data: {
+      // Use upsert to handle potential race conditions
+      const waterRecord = await prisma.waterIntake.upsert({
+        where: {
+          user_id_date: {
             user_id: userId,
             date: startOfDay,
-            cups_consumed: cups,
-            milliliters_consumed: milliliters,
           },
-        });
-      }
+        },
+        update: {
+          cups_consumed: limitedCups,
+          milliliters_consumed: limitedMilliliters,
+          updated_at: new Date(),
+        },
+        create: {
+          user_id: userId,
+          date: startOfDay,
+          cups_consumed: limitedCups,
+          milliliters_consumed: limitedMilliliters,
+        },
+      });
 
-      // Award XP and badge if 16+ cups (only if not already awarded today)
-      if (cups >= 16) {
-        // Check if user already has scuba diver badge for today
-        const todayBadgeCount = await prisma.userBadge.count({
-          where: {
-            user_id: userId,
-            badge_id: "scuba_diver",
-            earned_date: {
-              gte: startOfDay,
-              lt: endOfDay,
-            },
-          },
-        });
+      // Cap XP at 25 for water intake challenge
+      let xpAwarded = 0;
+      const waterGoalComplete = limitedCups >= 8;
 
-        if (todayBadgeCount === 0) {
-          // Create scuba diver badge if it doesn't exist
-          await prisma.badge.upsert({
-            where: { id: "scuba_diver" },
-            update: {},
-            create: {
-              id: "scuba_diver",
-              name: "Scuba Diver",
-              description: "Drank 16+ cups of water in a day",
-              icon: "🤿",
-              rarity: "RARE",
-              points_awarded: 100,
-              category: "hydration",
-            },
-          });
-
-          // Award badge to user (create new entry each time they achieve it)
-          await prisma.userBadge.create({
-            data: {
-              user_id: userId,
-              badge_id: "scuba_diver",
-              earned_date: new Date(),
-            },
-          });
-
-          // Update user level and XP
-          const currentUser = await prisma.user.findUnique({
-            where: { user_id: userId },
-            select: { current_xp: true, total_points: true, level: true },
-          });
-
-          const newTotalPoints = (currentUser?.total_points || 0) + 100;
-          const newCurrentXP = (currentUser?.current_xp || 0) + 100;
-          const newLevel = Math.floor(newTotalPoints / 1000) + 1;
-          const finalXP =
-            newCurrentXP >= 1000 ? newCurrentXP - 1000 : newCurrentXP;
-
-          await prisma.user.update({
-            where: { user_id: userId },
-            data: {
-              current_xp: finalXP,
-              total_points: newTotalPoints,
-              level: newLevel,
-            },
-          });
-
-          xpAwarded = 100;
-          badgeAwarded = "scuba_diver";
+      if (waterGoalComplete) {
+        // Award XP based on cups consumed, capped at 25
+        if (limitedCups >= 8) {
+          xpAwarded = Math.min(25, 25); // 25 XP for completing 8+ cups goal
+        } else if (limitedCups >= 4) {
+          xpAwarded = Math.min(15, 25); // 15 XP for partial progress
+        } else if (limitedCups > 0) {
+          xpAwarded = Math.min(5, 25); // 5 XP for any progress
         }
       }
 
-      res.json({
-        success: true,
-        data: waterRecord,
-        xpAwarded,
-        badgeAwarded,
-      });
+      // Check for achievements and XP after successful save
+      try {
+        console.log(
+          `🎯 Water goal complete: ${waterGoalComplete}, XP awarded: ${xpAwarded}`
+        );
+
+        const achievementResult = await AchievementService.updateUserProgress(
+          userId,
+          false,
+          waterGoalComplete,
+          false,
+          xpAwarded // Pass the capped XP
+        );
+
+        // Check for complete day
+        if (waterGoalComplete) {
+          const today = new Date();
+          const startOfDayToday = new Date(
+            today.getFullYear(),
+            today.getMonth(),
+            today.getDate()
+          );
+          const endOfDayToday = new Date(
+            today.getFullYear(),
+            today.getMonth(),
+            today.getDate(),
+            23,
+            59,
+            59
+          );
+
+          const todayMeals = await prisma.meal.findMany({
+            where: {
+              user_id: userId,
+              created_at: {
+                gte: startOfDayToday,
+                lte: endOfDayToday,
+              },
+            },
+          });
+
+          const todayCalories = todayMeals.reduce(
+            (sum, meal) => sum + (meal.calories || 0),
+            0
+          );
+          const calorieGoalComplete = todayCalories >= 1800;
+
+          if (calorieGoalComplete) {
+            const completeDayResult =
+              await AchievementService.updateUserProgress(
+                userId,
+                true,
+                false,
+                false,
+                achievementResult.xpGained // Add XP from calorie goal to existing XP
+              );
+
+            achievementResult.newAchievements.push(
+              ...completeDayResult.newAchievements
+            );
+            achievementResult.xpGained += completeDayResult.xpGained;
+
+            if (completeDayResult.leveledUp) {
+              achievementResult.leveledUp = completeDayResult.leveledUp;
+              achievementResult.newLevel = completeDayResult.newLevel;
+            }
+          }
+        }
+
+        res.json({
+          success: true,
+          data: waterRecord,
+          xpAwarded: achievementResult.xpGained || 0,
+          leveledUp: achievementResult.leveledUp || false,
+          newLevel: achievementResult.newLevel,
+          newAchievements: achievementResult.newAchievements || [],
+        });
+      } catch (achievementError) {
+        console.warn(
+          "⚠️ Achievement processing failed, but water intake saved:",
+          achievementError
+        );
+        res.json({
+          success: true,
+          data: waterRecord,
+          xpAwarded: xpAwarded, // Use the capped XP here too
+          leveledUp: false,
+          newAchievements: [],
+        });
+      }
     } catch (error) {
-      console.error("Error tracking water intake:", error);
-      res.status(500).json({ error: "Failed to track water intake" });
+      console.error("💥 Error tracking water intake:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to track water intake",
+        details: error instanceof Error ? error.message : "Unknown error",
+      });
     }
   }
 );

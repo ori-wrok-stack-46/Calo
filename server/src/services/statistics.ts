@@ -1,4 +1,5 @@
 import { prisma } from "../lib/database";
+import { AchievementService } from "./achievements";
 
 export interface StatisticsData {
   level: number;
@@ -119,7 +120,9 @@ export class StatisticsService {
       const levelData = await this.calculateUserLevel(userId);
 
       // Get achievements and badges
-      const achievements = await this.getAchievements(userId);
+      const achievementData = await AchievementService.getUserAchievements(
+        userId
+      );
       const badges = await this.getBadges(userId);
 
       // Calculate wellbeing metrics
@@ -148,7 +151,10 @@ export class StatisticsService {
         averageSugar: averages.sugar,
         averageSodium: averages.sodium,
         averageFluids: averages.fluids,
-        achievements,
+        achievements: [
+          ...achievementData.unlockedAchievements,
+          ...achievementData.lockedAchievements,
+        ],
         badges,
         dailyBreakdown,
         successfulDays: streaks.successfulDays,
@@ -330,28 +336,28 @@ export class StatisticsService {
     bestStreak: number;
   }> {
     try {
-      // Get all water intake records for streak calculation
+      // Get user streak data from database
+      const user = await prisma.user.findUnique({
+        where: { user_id: userId },
+        select: {
+          current_streak: true,
+          best_streak: true,
+          total_complete_days: true,
+        },
+      });
+
+      // Get all water intake records for completion calculation
       const allWaterIntakes = await prisma.waterIntake.findMany({
         where: { user_id: userId },
         orderBy: { date: "desc" },
       });
 
-      let currentStreak = 0;
-      let bestStreak = 0;
-      let tempStreak = 0;
       let perfectDays = 0;
       let successfulDays = 0;
       let totalCompletion = 0;
 
-      // Calculate streaks based on water intake (8+ cups = successful day)
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      for (let i = 0; i < allWaterIntakes.length; i++) {
-        const waterRecord = allWaterIntakes[i];
-        const waterDate = new Date(waterRecord.date);
-        waterDate.setHours(0, 0, 0, 0);
-
+      // Calculate completion metrics
+      for (const waterRecord of allWaterIntakes) {
         const cups = waterRecord.cups_consumed || 0;
         const completion = Math.min(100, (cups / 8) * 100);
         totalCompletion += completion;
@@ -361,23 +367,11 @@ export class StatisticsService {
           if (cups >= 12) {
             perfectDays++;
           }
-
-          tempStreak++;
-          if (i === 0) {
-            currentStreak = tempStreak;
-          }
-        } else {
-          if (tempStreak > bestStreak) {
-            bestStreak = tempStreak;
-          }
-          tempStreak = 0;
         }
       }
 
-      if (tempStreak > bestStreak) {
-        bestStreak = tempStreak;
-      }
-
+      const currentStreak = user?.current_streak || 0;
+      const bestStreak = user?.best_streak || 0;
       const weeklyStreak = Math.floor(currentStreak / 7);
       const averageCompletion =
         allWaterIntakes.length > 0
