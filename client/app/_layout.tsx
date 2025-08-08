@@ -24,6 +24,7 @@ import { User } from "@/src/types";
 import LanguageToolbar from "@/components/ToolBar";
 import { NotificationService } from "@/src/services/notifications";
 import React from "react";
+import FloatingChatButton from "@/components/FloatingChatButton";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -322,11 +323,14 @@ const AppContent = () => {
 // Fixed main component with proper help content integration
 const MainApp = () => {
   const helpContent = useHelpContent();
+  const authState = useSelector(selectAuthState);
+  const { isAuthenticated = false, user = null } = authState || {};
 
   return (
     <View style={styles.container}>
       <LanguageToolbar helpContent={helpContent} />
       <AppContent />
+      {isAuthenticated && <FloatingChatButton />}
     </View>
   );
 };

@@ -49,11 +49,12 @@ const ANIMATIONS = {
   },
 } as const;
 
-// Glassmorphism colors
+// Updated colors with emerald
 const COLORS = {
-  glass: "rgba(0, 0, 0, 0.25)",
+  glass: "rgba(16, 185, 129, 0.3)", // emerald with transparency
   glassStroke: "rgba(255, 255, 255, 0.3)",
-  backdrop: "rgba(0, 0, 0, 0.1)",
+  backdrop: "rgba(6, 78, 59, 0.1)", // dark emerald
+  emerald: "#10b981", // emerald-500
   white: "#ffffff",
   gray50: "#f9fafb",
   gray100: "#f3f4f6",
@@ -246,7 +247,7 @@ export default function FloatingChatButton() {
             </TouchableOpacity>
 
             <View style={styles.headerTitle}>
-              <MessageCircle size={20} color="#3b82f6" strokeWidth={2} />
+              <MessageCircle size={20} color={COLORS.emerald} strokeWidth={2} />
               <Text style={styles.headerTitleText}>Chat</Text>
             </View>
 

@@ -2,6 +2,7 @@ import { Router, Response } from "express";
 import { authenticateToken, AuthRequest } from "../middleware/auth"; // Import your AuthRequest type here
 import { StatisticsService } from "../services/statistics";
 import { z } from "zod";
+import { AchievementService } from "../services/achievements";
 
 const router = Router();
 
@@ -47,6 +48,70 @@ router.get(
 
       res.status(500).json({
         error: "Failed to fetch statistics",
+        message: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  }
+);
+
+// Get detailed achievements data
+router.get(
+  "/achievements",
+  authenticateToken,
+  async (req: AuthRequest, res: Response) => {
+    const userId = req.user?.user_id?.toString();
+
+    if (!userId) {
+      return res.status(401).json({ error: "User not authenticated" });
+    }
+
+    try {
+      console.log(`🏆 Achievements request for user: ${userId}`);
+
+      const achievementData = await AchievementService.getUserAchievements(
+        userId
+      );
+
+      console.log(`✅ Achievements fetched successfully for user: ${userId}`);
+      res.json({
+        success: true,
+        data: achievementData,
+      });
+    } catch (error) {
+      console.error("❌ Error fetching achievements:", error);
+      res.status(500).json({
+        error: "Failed to fetch achievements",
+        message: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  }
+);
+
+// Check and award new achievements
+router.post(
+  "/achievements/check",
+  authenticateToken,
+  async (req: AuthRequest, res: Response) => {
+    const userId = req.user?.user_id?.toString();
+
+    if (!userId) {
+      return res.status(401).json({ error: "User not authenticated" });
+    }
+
+    try {
+      console.log(`🔄 Checking achievements for user: ${userId}`);
+
+      const result = await AchievementService.checkAndAwardAchievements(userId);
+
+      console.log(`✅ Achievement check completed for user: ${userId}`);
+      res.json({
+        success: true,
+        data: result,
+      });
+    } catch (error) {
+      console.error("❌ Error checking achievements:", error);
+      res.status(500).json({
+        error: "Failed to check achievements",
         message: error instanceof Error ? error.message : "Unknown error",
       });
     }

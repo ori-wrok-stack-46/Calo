@@ -40,7 +40,6 @@ import {
 } from "lucide-react-native";
 import { api } from "@/src/services/api";
 import { RootState, AppDispatch } from "@/src/store";
-import FloatingChatButton from "@/components/FloatingChatButton";
 import { fetchMeals } from "../../src/store/mealSlice";
 import { useTranslation } from "react-i18next";
 import { useLanguage } from "@/src/i18n/context/LanguageContext";
@@ -1009,8 +1008,6 @@ const HomeScreen = React.memo(() => {
           </View>
         </View>
       </ScrollView>
-
-      <FloatingChatButton />
     </SafeAreaView>
   );
 });

@@ -101,8 +101,24 @@ export class AchievementService {
         return Math.min(userStats.totalWaterGoals, 7);
       case "aqua_master":
         return Math.min(userStats.totalWaterGoals, 30);
+      case "water_warrior":
+        return Math.min(userStats.totalWaterGoals, 10);
+      case "hydration_habit":
+        return Math.min(userStats.totalWaterGoals, 7);
+      case "aqua_master":
+        return Math.min(userStats.totalWaterGoals, 30);
       case "first_complete_day":
         return Math.min(userStats.totalCompleteDays, 1);
+      case "total_5_days":
+        return Math.min(userStats.totalCompleteDays, 5);
+      case "total_10_days":
+        return Math.min(userStats.totalCompleteDays, 10);
+      case "total_25_days":
+        return Math.min(userStats.totalCompleteDays, 25);
+      case "total_50_days":
+        return Math.min(userStats.totalCompleteDays, 50);
+      case "total_100_days":
+        return Math.min(userStats.totalCompleteDays, 100);
       case "total_5_days":
         return Math.min(userStats.totalCompleteDays, 5);
       case "total_10_days":
@@ -117,6 +133,20 @@ export class AchievementService {
         return Math.min(userStats.currentStreak, 3);
       case "streak_7_days":
         return Math.min(userStats.currentStreak, 7);
+      case "streak_14_days":
+        return Math.min(userStats.currentStreak, 14);
+      case "streak_30_days":
+        return Math.min(userStats.currentStreak, 30);
+      case "streak_100_days":
+        return Math.min(userStats.currentStreak, 100);
+      case "level_5":
+        return Math.min(userStats.level, 5);
+      case "level_10":
+        return Math.min(userStats.level, 10);
+      case "level_25":
+        return Math.min(userStats.level, 25);
+      case "level_50":
+        return Math.min(userStats.level, 50);
       case "streak_14_days":
         return Math.min(userStats.currentStreak, 14);
       case "streak_30_days":
@@ -347,7 +377,7 @@ export class AchievementService {
       });
 
       const mealDays = await prisma.meal.groupBy({
-        by: ["upload_time"],
+        by: ["created_at"],
         where: { user_id: userId },
         _sum: { calories: true },
         having: {
@@ -397,6 +427,9 @@ export class AchievementService {
               | "SPECIAL",
             xpReward: achievement.points_awarded,
             icon: this.getIconForKey(achievement.key, achievement.category),
+            icon:
+              achievement.icon ||
+              this.getIconForKey(achievement.key, achievement.category),
             rarity: achievement.rarity as
               | "COMMON"
               | "UNCOMMON"
@@ -429,7 +462,9 @@ export class AchievementService {
               | "LEVEL"
               | "SPECIAL",
             xpReward: achievement.points_awarded,
-            icon: this.getIconForKey(achievement.key, achievement.category),
+            icon:
+              achievement.icon ||
+              this.getIconForKey(achievement.key, achievement.category),
             rarity: achievement.rarity as
               | "COMMON"
               | "UNCOMMON"

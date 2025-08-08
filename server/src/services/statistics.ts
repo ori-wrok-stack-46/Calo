@@ -1,6 +1,21 @@
 import { prisma } from "../lib/database";
 import { AchievementService } from "./achievements";
 
+export interface Achievement {
+  id: string;
+  key: string;
+  title: string;
+  description: string;
+  category: string;
+  xpReward: number;
+  icon: string;
+  rarity: string;
+  progress: number;
+  maxProgress: number;
+  unlocked: boolean;
+  unlockedDate?: string;
+}
+
 export interface StatisticsData {
   level: number;
   currentXP: number;
@@ -28,6 +43,17 @@ export interface StatisticsData {
   highEnergyDays: number;
   satisfiedDays: number;
   averageMealQuality: number;
+}
+
+interface UserStats {
+  currentStreak: number;
+  bestStreak: number;
+  totalCompleteDays: number;
+  level: number;
+  totalWaterGoals: number;
+  totalCalorieGoals: number;
+  totalXP: number;
+  aiRequestsCount: number;
 }
 
 export class StatisticsService {
@@ -63,13 +89,27 @@ export class StatisticsService {
       const meals = await prisma.meal.findMany({
         where: {
           user_id: userId,
-          upload_time: {
+          created_at: {
             gte: startDate,
             lte: now,
           },
         },
         orderBy: {
-          upload_time: "desc",
+          created_at: "desc",
+        },
+      });
+
+      // Get user data for level and XP
+      const user = await prisma.user.findUnique({
+        where: { user_id: userId },
+        select: {
+          level: true,
+          current_xp: true,
+          total_points: true,
+          current_streak: true,
+          best_streak: true,
+          total_complete_days: true,
+          ai_requests_count: true,
         },
       });
 
@@ -113,17 +153,43 @@ export class StatisticsService {
       // Calculate averages
       const averages = this.calculateAverages(meals);
 
-      // Calculate streaks and achievements
-      const streaks = await this.calculateStreaks(userId, dailyGoals);
+      // Get water intake count for achievements
+      const waterIntakeCount = await prisma.waterIntake.count({
+        where: {
+          user_id: userId,
+          cups_consumed: { gte: 8 },
+        },
+      });
 
-      // Calculate user level and XP
-      const levelData = await this.calculateUserLevel(userId);
+      // Get calorie goal completions
+      const mealDays = await prisma.meal.groupBy({
+        by: ["created_at"],
+        where: { user_id: userId },
+        _sum: { calories: true },
+        having: {
+          calories: { _sum: { gte: 1800 } },
+        },
+      });
+
+      const userStats: UserStats = {
+        currentStreak: user?.current_streak || 0,
+        bestStreak: user?.best_streak || 0,
+        totalCompleteDays: user?.total_complete_days || 0,
+        level: user?.level || 1,
+        totalWaterGoals: waterIntakeCount,
+        totalCalorieGoals: mealDays.length,
+        totalXP: user?.total_points || 0,
+        aiRequestsCount: user?.ai_requests_count || 0,
+      };
+
+      // Calculate streaks and achievements
+      const streaks = await this.calculateStreaks(userId, userStats);
 
       // Get achievements and badges
-      const achievementData = await AchievementService.getUserAchievements(
-        userId
+      const achievementData = await this.getDetailedAchievements(
+        userId,
+        userStats
       );
-      const badges = await this.getBadges(userId);
 
       // Calculate wellbeing metrics
       const wellbeingMetrics = await this.calculateWellbeingMetrics(
@@ -133,12 +199,12 @@ export class StatisticsService {
       );
 
       const statisticsData: StatisticsData = {
-        level: levelData.level,
-        currentXP: levelData.currentXP,
-        totalPoints: levelData.totalPoints,
-        currentStreak: streaks.currentStreak,
-        weeklyStreak: streaks.weeklyStreak,
-        perfectDays: streaks.perfectDays,
+        level: user?.level || 1,
+        currentXP: user?.current_xp || 0,
+        totalPoints: user?.total_points || 0,
+        currentStreak: userStats.currentStreak,
+        weeklyStreak: Math.floor(userStats.currentStreak / 7),
+        perfectDays: wellbeingMetrics.perfectDays,
         dailyGoalDays: dailyGoals.length,
         totalDays: Math.ceil(
           (now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
@@ -151,15 +217,11 @@ export class StatisticsService {
         averageSugar: averages.sugar,
         averageSodium: averages.sodium,
         averageFluids: averages.fluids,
-        achievements: [
-          ...achievementData.unlockedAchievements,
-          ...achievementData.lockedAchievements,
-        ],
-        badges,
+        achievements: achievementData,
         dailyBreakdown,
         successfulDays: streaks.successfulDays,
         averageCompletion: streaks.averageCompletion,
-        bestStreak: streaks.bestStreak,
+        bestStreak: userStats.bestStreak,
         happyDays: wellbeingMetrics.happyDays,
         highEnergyDays: wellbeingMetrics.highEnergyDays,
         satisfiedDays: wellbeingMetrics.satisfiedDays,
@@ -171,6 +233,106 @@ export class StatisticsService {
     } catch (error) {
       console.error("❌ Error getting statistics:", error);
       throw error;
+    }
+  }
+
+  private static async getDetailedAchievements(
+    userId: string,
+    userStats: UserStats
+  ): Promise<Achievement[]> {
+    try {
+      // Get all achievements from database
+      const allAchievements = await prisma.achievement.findMany({
+        where: { is_active: true },
+        orderBy: { points_awarded: "asc" },
+      });
+
+      // Get user's achievement progress
+      const userAchievements = await prisma.userAchievement.findMany({
+        where: { user_id: userId },
+      });
+
+      const userAchievementMap = new Map(
+        userAchievements.map((ua) => [ua.achievement_id, ua])
+      );
+
+      return allAchievements.map((achievement) => {
+        const userAchievement = userAchievementMap.get(achievement.id);
+        const currentProgress = this.calculateAchievementProgress(
+          achievement,
+          userStats
+        );
+
+        return {
+          id: achievement.id,
+          key: achievement.key,
+          title: achievement.title,
+          description: achievement.description,
+          category: achievement.category,
+          xpReward: achievement.points_awarded,
+          icon: achievement.icon || "trophy",
+          rarity: achievement.rarity,
+          progress: userAchievement?.unlocked
+            ? achievement.max_progress
+            : currentProgress,
+          maxProgress: achievement.max_progress,
+          unlocked: userAchievement?.unlocked || false,
+          unlockedDate: userAchievement?.unlocked_date?.toISOString(),
+        };
+      });
+    } catch (error) {
+      console.error("Error getting detailed achievements:", error);
+      return [];
+    }
+  }
+
+  private static calculateAchievementProgress(
+    achievement: any,
+    userStats: UserStats
+  ): number {
+    switch (achievement.key) {
+      case "first_scan":
+        return Math.min(userStats.aiRequestsCount, 1);
+      case "first_water_goal":
+        return Math.min(userStats.totalWaterGoals, 1);
+      case "water_warrior":
+        return Math.min(userStats.totalWaterGoals, 10);
+      case "hydration_habit":
+        return Math.min(userStats.totalWaterGoals, 7);
+      case "aqua_master":
+        return Math.min(userStats.totalWaterGoals, 30);
+      case "first_complete_day":
+        return Math.min(userStats.totalCompleteDays, 1);
+      case "total_5_days":
+        return Math.min(userStats.totalCompleteDays, 5);
+      case "total_10_days":
+        return Math.min(userStats.totalCompleteDays, 10);
+      case "total_25_days":
+        return Math.min(userStats.totalCompleteDays, 25);
+      case "total_50_days":
+        return Math.min(userStats.totalCompleteDays, 50);
+      case "total_100_days":
+        return Math.min(userStats.totalCompleteDays, 100);
+      case "streak_3_days":
+        return Math.min(userStats.currentStreak, 3);
+      case "streak_7_days":
+        return Math.min(userStats.currentStreak, 7);
+      case "streak_14_days":
+        return Math.min(userStats.currentStreak, 14);
+      case "streak_30_days":
+        return Math.min(userStats.currentStreak, 30);
+      case "streak_100_days":
+        return Math.min(userStats.currentStreak, 100);
+      case "level_5":
+        return Math.min(userStats.level, 5);
+      case "level_10":
+        return Math.min(userStats.level, 10);
+      case "level_25":
+        return Math.min(userStats.level, 25);
+      case "level_50":
+        return Math.min(userStats.level, 50);
+      default:
+        return 0;
     }
   }
 
@@ -187,7 +349,7 @@ export class StatisticsService {
     while (currentDate <= endDate) {
       const dateStr = currentDate.toISOString().split("T")[0];
       const dayMeals = meals.filter(
-        (meal) => meal.upload_time.toISOString().split("T")[0] === dateStr
+        (meal) => meal.created_at.toISOString().split("T")[0] === dateStr
       );
 
       const dayGoal = dailyGoals.find(
@@ -326,7 +488,7 @@ export class StatisticsService {
 
   private static async calculateStreaks(
     userId: string,
-    dailyGoals: any[]
+    userStats: UserStats
   ): Promise<{
     currentStreak: number;
     weeklyStreak: number;
@@ -336,16 +498,6 @@ export class StatisticsService {
     bestStreak: number;
   }> {
     try {
-      // Get user streak data from database
-      const user = await prisma.user.findUnique({
-        where: { user_id: userId },
-        select: {
-          current_streak: true,
-          best_streak: true,
-          total_complete_days: true,
-        },
-      });
-
       // Get all water intake and meal data for comprehensive analysis
       const allWaterIntakes = await prisma.waterIntake.findMany({
         where: { user_id: userId },
@@ -355,12 +507,13 @@ export class StatisticsService {
       const allMeals = await prisma.meal.findMany({
         where: { user_id: userId },
         orderBy: { upload_time: "desc" },
+        orderBy: { created_at: "desc" },
       });
 
       // Group meals by date
       const mealsByDate = new Map<string, any[]>();
       allMeals.forEach((meal) => {
-        const date = meal.upload_time.toISOString().split("T")[0];
+        const date = meal.created_at.toISOString().split("T")[0];
         if (!mealsByDate.has(date)) {
           mealsByDate.set(date, []);
         }
@@ -401,8 +554,8 @@ export class StatisticsService {
         }
       }
 
-      const currentStreak = user?.current_streak || 0;
-      const bestStreak = user?.best_streak || 0;
+      const currentStreak = userStats.currentStreak;
+      const bestStreak = userStats.bestStreak;
       const weeklyStreak = Math.floor(currentStreak / 7);
       const averageCompletion =
         allWaterIntakes.length > 0
@@ -430,89 +583,6 @@ export class StatisticsService {
     }
   }
 
-  private static async calculateUserLevel(userId: string): Promise<{
-    level: number;
-    currentXP: number;
-    totalPoints: number;
-  }> {
-    try {
-      // Get user's current data
-      const user = await prisma.user.findUnique({
-        where: { user_id: userId },
-        select: {
-          level: true,
-          current_xp: true,
-          total_points: true,
-        },
-      });
-
-      if (!user) {
-        return { level: 1, currentXP: 0, totalPoints: 0 };
-      }
-
-      const level = user.level || 1;
-      const currentXP = user.current_xp || 0;
-      const totalPoints = user.total_points || 0;
-
-      return { level, currentXP, totalPoints };
-    } catch (error) {
-      console.error("Error calculating user level:", error);
-      return { level: 1, currentXP: 0, totalPoints: 0 };
-    }
-  }
-
-  private static async getAchievements(userId: string): Promise<any[]> {
-    try {
-      // First ensure some basic achievements exist
-      await this.ensureBasicAchievements();
-
-      // Get user's achievements from database
-      const achievements = await prisma.userAchievement.findMany({
-        where: { user_id: userId },
-        include: {
-          achievement: true,
-        },
-      });
-
-      return achievements.map((userAchievement) => ({
-        id: userAchievement.achievement.id,
-        title: userAchievement.achievement.title,
-        description: userAchievement.achievement.description,
-        category: userAchievement.achievement.category,
-        progress: userAchievement.progress,
-        max_progress: userAchievement.achievement.max_progress,
-        unlocked: userAchievement.unlocked,
-        unlocked_at: userAchievement.unlocked_date,
-      }));
-    } catch (error) {
-      console.error("Error getting achievements:", error);
-      return [];
-    }
-  }
-
-  private static async getBadges(userId: string): Promise<any[]> {
-    try {
-      // Get user's badges from database
-      const badges = await prisma.userBadge.findMany({
-        where: { user_id: userId },
-        include: {
-          badge: true,
-        },
-      });
-
-      return badges.map((userBadge) => ({
-        id: userBadge.badge.id,
-        name: userBadge.badge.name,
-        description: userBadge.badge.description,
-        rarity: userBadge.badge.rarity,
-        earned_date: userBadge.earned_date,
-      }));
-    } catch (error) {
-      console.error("Error getting badges:", error);
-      return [];
-    }
-  }
-
   private static async calculateWellbeingMetrics(
     userId: string,
     startDate: Date,
@@ -522,13 +592,14 @@ export class StatisticsService {
     highEnergyDays: number;
     satisfiedDays: number;
     averageMealQuality: number;
+    perfectDays: number;
   }> {
     try {
       // Calculate wellbeing based on nutrition completion
       const meals = await prisma.meal.findMany({
         where: {
           user_id: userId,
-          upload_time: { gte: startDate, lte: endDate },
+          created_at: { gte: startDate, lte: endDate },
         },
       });
 
@@ -552,7 +623,7 @@ export class StatisticsService {
 
       // Process meals
       meals.forEach((meal) => {
-        const date = meal.upload_time.toISOString().split("T")[0];
+        const date = meal.created_at.toISOString().split("T")[0];
         if (!dailyData.has(date)) {
           dailyData.set(date, {
             calories: 0,
@@ -595,6 +666,7 @@ export class StatisticsService {
       let satisfiedDays = 0;
       let totalQuality = 0;
       let qualityDays = 0;
+      let perfectDays = 0;
 
       // Analyze each day
       dailyData.forEach((day) => {
@@ -613,6 +685,17 @@ export class StatisticsService {
           satisfiedDays++;
         }
 
+        // Perfect days: excellent nutrition + hydration + meal frequency
+        if (
+          day.calories >= 1600 &&
+          day.calories <= 2200 &&
+          day.water >= 8 &&
+          day.mealCount >= 3 &&
+          day.quality >= 4
+        ) {
+          perfectDays++;
+        }
+
         if (day.quality > 0) {
           totalQuality += day.quality;
           qualityDays++;
@@ -624,6 +707,7 @@ export class StatisticsService {
         highEnergyDays,
         satisfiedDays,
         averageMealQuality: qualityDays > 0 ? totalQuality / qualityDays : 3,
+        perfectDays,
       };
     } catch (error) {
       console.error("Error calculating wellbeing metrics:", error);
@@ -632,21 +716,8 @@ export class StatisticsService {
         highEnergyDays: 0,
         satisfiedDays: 0,
         averageMealQuality: 3,
+        perfectDays: 0,
       };
-    }
-  }
-
-  private static async ensureBasicAchievements(): Promise<void> {
-    try {
-      for (const achievement of basicAchievements) {
-        await prisma.achievement.upsert({
-          where: { id: achievement.id },
-          update: {},
-          create: achievement,
-        });
-      }
-    } catch (error) {
-      console.error("Error ensuring basic achievements:", error);
     }
   }
 
@@ -700,3 +771,5 @@ export class StatisticsService {
     }
   }
 }
+
+// Remove the basicAchievements array since we're using the database
