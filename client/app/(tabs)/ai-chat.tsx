@@ -523,49 +523,6 @@ export default function AIChatScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Profile Card - Only show if user has profile data */}
-      {(userProfile.allergies.length > 0 ||
-        userProfile.medicalConditions.length > 0) && (
-        <View style={styles.profileCard}>
-          <View style={styles.profileHeader}>
-            <Shield size={18} color="#16A085" />
-            <Text style={styles.profileTitle}>
-              {language === "he" ? "פרופיל בטיחות" : "Safety Profile"}
-            </Text>
-          </View>
-          <View style={styles.profileContent}>
-            {userProfile.allergies.length > 0 && (
-              <View style={styles.profileSection}>
-                <Text style={styles.profileLabel}>
-                  {language === "he" ? "אלרגיות:" : "Allergies:"}
-                </Text>
-                <View style={styles.tagContainer}>
-                  {userProfile.allergies.map((allergy, index) => (
-                    <View key={index} style={styles.allergyTag}>
-                      <Text style={styles.allergyTagText}>{allergy}</Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
-            )}
-            {userProfile.medicalConditions.length > 0 && (
-              <View style={styles.profileSection}>
-                <Text style={styles.profileLabel}>
-                  {language === "he" ? "מצבים רפואיים:" : "Medical:"}
-                </Text>
-                <View style={styles.tagContainer}>
-                  {userProfile.medicalConditions.map((condition, index) => (
-                    <View key={index} style={styles.medicalTag}>
-                      <Text style={styles.medicalTagText}>{condition}</Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
-            )}
-          </View>
-        </View>
-      )}
-
       {/* Messages */}
       <ScrollView
         ref={scrollViewRef}
@@ -573,6 +530,48 @@ export default function AIChatScreen() {
         contentContainerStyle={styles.messagesContent}
         showsVerticalScrollIndicator={false}
       >
+        {/* Profile Card - Only show if user has profile data */}
+        {(userProfile.allergies.length > 0 ||
+          userProfile.medicalConditions.length > 0) && (
+          <View style={styles.profileCard}>
+            <View style={styles.profileHeader}>
+              <Shield size={18} color="#16A085" />
+              <Text style={styles.profileTitle}>
+                {language === "he" ? "פרופיל בטיחות" : "Safety Profile"}
+              </Text>
+            </View>
+            <View style={styles.profileContent}>
+              {userProfile.allergies.length > 0 && (
+                <View style={styles.profileSection}>
+                  <Text style={styles.profileLabel}>
+                    {language === "he" ? "אלרגיות:" : "Allergies:"}
+                  </Text>
+                  <View style={styles.tagContainer}>
+                    {userProfile.allergies.map((allergy, index) => (
+                      <View key={index} style={styles.allergyTag}>
+                        <Text style={styles.allergyTagText}>{allergy}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
+              {userProfile.medicalConditions.length > 0 && (
+                <View style={styles.profileSection}>
+                  <Text style={styles.profileLabel}>
+                    {language === "he" ? "מצבים רפואיים:" : "Medical:"}
+                  </Text>
+                  <View style={styles.tagContainer}>
+                    {userProfile.medicalConditions.map((condition, index) => (
+                      <View key={index} style={styles.medicalTag}>
+                        <Text style={styles.medicalTagText}>{condition}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
+            </View>
+          </View>
+        )}
         {messages.map(renderMessage)}
 
         {isTyping && (
@@ -684,7 +683,8 @@ const styles = StyleSheet.create({
   profileCard: {
     backgroundColor: "#FFFFFF",
     marginHorizontal: 20,
-    marginTop: 16,
+    marginTop: 10,
+    marginBottom: 15,
     borderRadius: 16,
     padding: 20,
     shadowColor: "#000",

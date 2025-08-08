@@ -47,6 +47,14 @@ import {
   Frown,
   Battery,
   X,
+  Medal,
+  Waves,
+  Mountain,
+  Sunrise,
+  Moon,
+  Dumbbell,
+  Gem,
+  Muscle,
 } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
 import { useLanguage } from "@/src/i18n/context/LanguageContext";
@@ -153,6 +161,98 @@ interface StatisticsData {
   satisfiedDays: number;
   averageMealQuality: number;
 }
+
+// Helper function to get the appropriate Lucide icon component
+const getAchievementIcon = (
+  iconName: string,
+  size: number = 20,
+  color: string = "#16A085"
+) => {
+  const iconProps = { size, color };
+
+  switch (iconName) {
+    case "target":
+      return <Target {...iconProps} />;
+    case "sparkles":
+      return <Sparkles {...iconProps} />;
+    case "star":
+      return <Star {...iconProps} />;
+    case "medal":
+      return <Medal {...iconProps} />;
+    case "trophy":
+      return <Trophy {...iconProps} />;
+    case "crown":
+      return <Crown {...iconProps} />;
+    case "droplets":
+      return <Droplets {...iconProps} />;
+    case "waves":
+      return <Waves {...iconProps} />;
+    case "droplet":
+      return <Droplets {...iconProps} />;
+    case "mountain-snow":
+      return <Mountain {...iconProps} />;
+    case "flame":
+      return <Flame {...iconProps} />;
+    case "calendar":
+      return <Calendar {...iconProps} />;
+    case "muscle":
+      return <Muscle {...iconProps} />;
+    case "sunrise":
+      return <Sunrise {...iconProps} />;
+    case "moon":
+      return <Moon {...iconProps} />;
+    case "bar-chart-3":
+      return <BarChart3 {...iconProps} />;
+    case "apple":
+      return <Apple {...iconProps} />;
+    case "dumbbell":
+      return <Dumbbell {...iconProps} />;
+    case "scale":
+      return <Scale {...iconProps} />;
+    case "wheat":
+      return <Wheat {...iconProps} />;
+    case "gem":
+      return <Gem {...iconProps} />;
+    case "zap":
+      return <Zap {...iconProps} />;
+    case "award":
+    default:
+      return <Award {...iconProps} />;
+  }
+};
+
+// Helper functions for achievement styling
+const getAchievementGradientColors = (rarity: string) => {
+  switch (rarity.toUpperCase()) {
+    case "LEGENDARY":
+      return ["#FF6B6B", "#4ECDC4"];
+    case "EPIC":
+      return ["#9B59B6", "#E74C3C"];
+    case "RARE":
+      return ["#3498DB", "#2ECC71"];
+    case "UNCOMMON":
+      return ["#F39C12", "#E67E22"];
+    case "COMMON":
+    default:
+      return ["#16A085", "#27AE60"];
+  }
+};
+
+const getRarityColor = (rarity: string) => {
+  switch (rarity.toUpperCase()) {
+    case "LEGENDARY":
+      return "#FF6B6B";
+    case "EPIC":
+      return "#9B59B6";
+    case "RARE":
+      return "#3498DB";
+    case "UNCOMMON":
+      return "#F39C12";
+    case "COMMON":
+    default:
+      return "#16A085";
+  }
+};
 
 export default function StatisticsScreen() {
   const { t } = useTranslation();
@@ -619,39 +719,7 @@ export default function StatisticsScreen() {
     }));
   };
 
-  // Helper functions for icons and colors
-  const getAchievementIcon = (category: string) => {
-    switch (category) {
-      case "STREAK":
-        return "🔥";
-      case "GOAL":
-        return "🎯";
-      case "IMPROVEMENT":
-        return "📈";
-      case "CONSISTENCY":
-        return "⭐";
-      case "MILESTONE":
-        return "🏆";
-      default:
-        return "🏅";
-    }
-  };
-
-  const getAchievementColor = (category: string) => {
-    switch (category) {
-      case "STREAK":
-        return "#E74C3C";
-      case "GOAL":
-        return "#16A085";
-      case "IMPROVEMENT":
-        return "#9B59B6";
-      case "CONSISTENCY":
-        return "#F39C12";
-      default:
-        return "#95A5A6";
-    }
-  };
-
+  // Helper functions for icons and colors (existing ones)
   const getBadgeIcon = (name: string) => {
     if (
       name.toLowerCase().includes("water") ||
@@ -783,21 +851,6 @@ export default function StatisticsScreen() {
         return <Battery size={16} color="#E74C3C" />;
       default:
         return <Battery size={16} color="#95A5A6" />;
-    }
-  };
-
-  const getRarityColor = (rarity: string) => {
-    switch (rarity?.toUpperCase()) {
-      case "COMMON":
-        return "#95A5A6";
-      case "RARE":
-        return "#3498DB";
-      case "EPIC":
-        return "#9B59B6";
-      case "LEGENDARY":
-        return "#F39C12";
-      default:
-        return "#95A5A6";
     }
   };
 
@@ -1188,7 +1241,7 @@ export default function StatisticsScreen() {
                     <LinearGradient
                       colors={
                         achievement.unlocked
-                          ? [`${achievement.color}15`, `${achievement.color}05`]
+                          ? getAchievementGradientColors(achievement.rarity)
                           : ["#E9ECEF15", "#E9ECEF05"]
                       }
                       style={styles.achievementGradient}
@@ -1204,9 +1257,11 @@ export default function StatisticsScreen() {
                             },
                           ]}
                         >
-                          <Text style={{ fontSize: 20 }}>
-                            {achievement.icon}
-                          </Text>
+                          {getAchievementIcon(
+                            achievement.icon,
+                            24,
+                            achievement.color
+                          )}
                         </View>
                         <View style={styles.achievementInfo}>
                           <Text style={styles.achievementTitle}>
@@ -1651,7 +1706,7 @@ export default function StatisticsScreen() {
                   <LinearGradient
                     colors={
                       achievement.unlocked
-                        ? [`${achievement.color}15`, `${achievement.color}05`]
+                        ? getAchievementGradientColors(achievement.rarity)
                         : ["#E9ECEF15", "#E9ECEF05"]
                     }
                     style={styles.achievementGradient}
@@ -1667,14 +1722,24 @@ export default function StatisticsScreen() {
                           },
                         ]}
                       >
-                        {achievement.icon}
+                        {getAchievementIcon(
+                          achievement.icon,
+                          24,
+                          achievement.color
+                        )}
                       </View>
                       <View style={styles.achievementInfo}>
                         <Text style={styles.achievementTitle}>
-                          {achievement.title}
+                          {typeof achievement.title === "object"
+                            ? achievement.title[language] ||
+                              achievement.title.en
+                            : achievement.title}
                         </Text>
                         <Text style={styles.achievementDescription}>
-                          {achievement.description}
+                          {typeof achievement.description === "object"
+                            ? achievement.description[language] ||
+                              achievement.description.en
+                            : achievement.description}
                         </Text>
                         <View style={styles.achievementProgress}>
                           <View style={styles.achievementProgressBg}>

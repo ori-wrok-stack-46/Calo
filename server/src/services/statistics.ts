@@ -346,25 +346,56 @@ export class StatisticsService {
         },
       });
 
-      // Get all water intake records for completion calculation
+      // Get all water intake and meal data for comprehensive analysis
       const allWaterIntakes = await prisma.waterIntake.findMany({
         where: { user_id: userId },
         orderBy: { date: "desc" },
+      });
+
+      const allMeals = await prisma.meal.findMany({
+        where: { user_id: userId },
+        orderBy: { upload_time: "desc" },
+      });
+
+      // Group meals by date
+      const mealsByDate = new Map<string, any[]>();
+      allMeals.forEach((meal) => {
+        const date = meal.upload_time.toISOString().split("T")[0];
+        if (!mealsByDate.has(date)) {
+          mealsByDate.set(date, []);
+        }
+        mealsByDate.get(date)!.push(meal);
       });
 
       let perfectDays = 0;
       let successfulDays = 0;
       let totalCompletion = 0;
 
-      // Calculate completion metrics
+      // Calculate completion metrics based on both water and nutrition
       for (const waterRecord of allWaterIntakes) {
-        const cups = waterRecord.cups_consumed || 0;
-        const completion = Math.min(100, (cups / 8) * 100);
-        totalCompletion += completion;
+        const date = waterRecord.date.toISOString().split("T")[0];
+        const dayMeals = mealsByDate.get(date) || [];
 
-        if (cups >= 8) {
+        const cups = waterRecord.cups_consumed || 0;
+        const dailyCalories = dayMeals.reduce(
+          (sum, meal) => sum + (meal.calories || 0),
+          0
+        );
+
+        // Water completion (40% weight)
+        const waterCompletion = Math.min(100, (cups / 8) * 100);
+
+        // Nutrition completion (60% weight)
+        const nutritionCompletion = Math.min(100, (dailyCalories / 1800) * 100);
+
+        // Overall completion
+        const overallCompletion =
+          waterCompletion * 0.4 + nutritionCompletion * 0.6;
+        totalCompletion += overallCompletion;
+
+        if (overallCompletion >= 80) {
           successfulDays++;
-          if (cups >= 12) {
+          if (overallCompletion >= 95 && cups >= 10 && dailyCalories >= 1600) {
             perfectDays++;
           }
         }
@@ -493,16 +524,106 @@ export class StatisticsService {
     averageMealQuality: number;
   }> {
     try {
-      // For now, return mock data since we don't have mood tracking yet
-      const totalDays = Math.ceil(
-        (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
-      );
+      // Calculate wellbeing based on nutrition completion
+      const meals = await prisma.meal.findMany({
+        where: {
+          user_id: userId,
+          upload_time: { gte: startDate, lte: endDate },
+        },
+      });
+
+      const waterIntakes = await prisma.waterIntake.findMany({
+        where: {
+          user_id: userId,
+          date: { gte: startDate, lte: endDate },
+        },
+      });
+
+      // Group by date for daily analysis
+      const dailyData = new Map<
+        string,
+        {
+          calories: number;
+          water: number;
+          mealCount: number;
+          quality: number;
+        }
+      >();
+
+      // Process meals
+      meals.forEach((meal) => {
+        const date = meal.upload_time.toISOString().split("T")[0];
+        if (!dailyData.has(date)) {
+          dailyData.set(date, {
+            calories: 0,
+            water: 0,
+            mealCount: 0,
+            quality: 0,
+          });
+        }
+        const day = dailyData.get(date)!;
+        day.calories += meal.calories || 0;
+        day.mealCount += 1;
+
+        // Calculate meal quality based on nutritional completeness
+        const proteinScore = Math.min(1, (meal.protein_g || 0) / 30); // 30g per meal target
+        const fiberScore = Math.min(1, (meal.fiber_g || 0) / 8); // 8g per meal target
+        const calorieScore =
+          meal.calories >= 300 && meal.calories <= 800 ? 1 : 0.5;
+        day.quality = Math.max(
+          day.quality,
+          ((proteinScore + fiberScore + calorieScore) / 3) * 5
+        );
+      });
+
+      // Process water intake
+      waterIntakes.forEach((water) => {
+        const date = water.date.toISOString().split("T")[0];
+        if (!dailyData.has(date)) {
+          dailyData.set(date, {
+            calories: 0,
+            water: 0,
+            mealCount: 0,
+            quality: 3,
+          });
+        }
+        dailyData.get(date)!.water = water.cups_consumed || 0;
+      });
+
+      let happyDays = 0;
+      let highEnergyDays = 0;
+      let satisfiedDays = 0;
+      let totalQuality = 0;
+      let qualityDays = 0;
+
+      // Analyze each day
+      dailyData.forEach((day) => {
+        // Happy days: good calorie intake + adequate water
+        if (day.calories >= 1500 && day.calories <= 2200 && day.water >= 6) {
+          happyDays++;
+        }
+
+        // High energy days: balanced nutrition + good hydration
+        if (day.calories >= 1600 && day.water >= 8 && day.mealCount >= 3) {
+          highEnergyDays++;
+        }
+
+        // Satisfied days: met calorie goals + reasonable meal frequency
+        if (day.calories >= 1400 && day.mealCount >= 2) {
+          satisfiedDays++;
+        }
+
+        if (day.quality > 0) {
+          totalQuality += day.quality;
+          qualityDays++;
+        }
+      });
 
       return {
-        happyDays: Math.floor(totalDays * 0.7),
-        highEnergyDays: Math.floor(totalDays * 0.6),
-        satisfiedDays: Math.floor(totalDays * 0.8),
-        averageMealQuality: 3.5,
+        happyDays,
+        highEnergyDays,
+        satisfiedDays,
+        averageMealQuality: qualityDays > 0 ? totalQuality / qualityDays : 3,
       };
     } catch (error) {
       console.error("Error calculating wellbeing metrics:", error);
@@ -517,34 +638,6 @@ export class StatisticsService {
 
   private static async ensureBasicAchievements(): Promise<void> {
     try {
-      // Create basic achievements if they don't exist
-      const basicAchievements = [
-        {
-          id: "first_scan",
-          title: "First Scan",
-          description: "Scan your first food item",
-          category: "STREAK",
-          max_progress: 1,
-          points_awarded: 50,
-        },
-        {
-          id: "water_warrior",
-          title: "Water Warrior",
-          description: "Drink 8 cups of water in a day",
-          category: "GOAL",
-          max_progress: 1,
-          points_awarded: 100,
-        },
-        {
-          id: "week_streak",
-          title: "Week Streak",
-          description: "Maintain a 7-day water intake streak",
-          category: "STREAK",
-          max_progress: 7,
-          points_awarded: 200,
-        },
-      ];
-
       for (const achievement of basicAchievements) {
         await prisma.achievement.upsert({
           where: { id: achievement.id },
