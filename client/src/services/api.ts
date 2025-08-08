@@ -280,12 +280,24 @@ api.interceptors.response.use(
     }
 
     if (error.response?.status === 401) {
-      // Token expired or invalid - clear stored token
+      // Token expired or invalid - clear stored token and force logout
       try {
         await clearAuthToken();
         console.log("🗑️ Cleared invalid token");
+
+        // Force logout in Redux store
+        store.dispatch({ type: "auth/signOut" });
+
+        // Redirect to signin
+        const { router } = require("expo-router");
+        router.replace("/(auth)/signin");
+
+        console.log("🔒 User logged out due to invalid token");
       } catch (clearError) {
         console.warn("⚠️ Failed to clear token:", clearError);
+        // Force navigation even if cleanup fails
+        const { router } = require("expo-router");
+        router.replace("/(auth)/signin");
       }
     }
     return Promise.reject(error);
@@ -1155,6 +1167,61 @@ export const userAPI = {
         error.response?.data?.error ||
         error.message ||
         "Failed to resend verification code";
+      return { success: false, error: errMsg };
+    }
+  },
+
+  forgotPassword: async (email: string) => {
+    try {
+      console.log("❓ Requesting password reset for:", email);
+      const response = await api.post("/auth/forgot-password", { email });
+      console.log("✅ forgotPassword response:", response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error("💥 forgotPassword error:", error);
+      const errMsg =
+        error.response?.data?.error ||
+        error.message ||
+        "Failed to request password reset";
+      return { success: false, error: errMsg };
+    }
+  },
+
+  verifyResetCode: async (email: string, code: string) => {
+    try {
+      console.log("🔒 Verifying reset code for:", email);
+      const response = await api.post("/auth/verify-reset-code", {
+        email,
+        code,
+      });
+      console.log("✅ verifyResetCode response:", response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error("💥 verifyResetCode error:", error);
+      const errMsg =
+        error.response?.data?.error ||
+        error.message ||
+        "Failed to verify reset code";
+      return { success: false, error: errMsg };
+    }
+  },
+
+  resetPassword: async (token: string, email: string, newPassword: string) => {
+    try {
+      console.log("🔑 Resetting password for:", email);
+      const response = await api.post("/auth/reset-password", {
+        token,
+        email,
+        newPassword,
+      });
+      console.log("✅ resetPassword response:", response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error("💥 resetPassword error:", error);
+      const errMsg =
+        error.response?.data?.error ||
+        error.message ||
+        "Failed to reset password";
       return { success: false, error: errMsg };
     }
   },

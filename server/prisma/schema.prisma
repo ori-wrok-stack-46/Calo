@@ -29,6 +29,8 @@ model User {
   email_verified             Boolean               @default(false)
   email_verification_code    String?
   email_verification_expires DateTime?
+  password_reset_code        String?
+  password_reset_expires     DateTime?
 
   connectedDevices  ConnectedDevice[]
   activitySummaries DailyActivitySummary[]
@@ -77,7 +79,7 @@ model Session {
   user User @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
 
   created_at DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  updated_at DateTime @updatedAt
 
   @@map("sessions")
 }
@@ -601,7 +603,6 @@ model Achievement {
   // 👇 This line fixes the error:
   userAchievements UserAchievement[]
 }
-
 
 model UserAchievement {
   id             String    @id @default(cuid())

@@ -28,11 +28,14 @@ import FloatingChatButton from "@/components/FloatingChatButton";
 
 SplashScreen.preventAutoHideAsync();
 
-// Memoized selector to prevent unnecessary re-renders
-const selectAuthState = (state: RootState) => ({
-  isAuthenticated: state.auth.isAuthenticated,
-  user: state.auth.user,
-});
+// Memoized selector to prevent unnecessary rerenders
+const selectAuthState = useMemo(
+  () => (state: RootState) => ({
+    isAuthenticated: state.auth.isAuthenticated,
+    user: state.auth.user,
+  }),
+  []
+);
 
 // Update the navigation state logic:
 function useNavigationState(
@@ -56,22 +59,24 @@ function useNavigationState(
 
     let targetRoute: string | null = null;
 
+    // Enhanced redirect logic with token validation
     if (!isAuthenticated || !user) {
+      // Not authenticated at all - go to signin
       if (!inAuthGroup) {
         targetRoute = "/(auth)/signin";
       }
-    } else if (user?.email_verified === false && !onEmailVerification) {
-      targetRoute = `/(auth)/email-verification?email=${user?.email || ""}`;
-    } else if (!user?.subscription_type && !onPaymentPlan && !onPayment) {
-      targetRoute = "/payment-plan";
+    } else if (user && !user.email_verified && !onEmailVerification) {
+      // User exists but email not verified
+      targetRoute = "/(auth)/email-verification";
     } else if (
-      user?.subscription_type &&
-      !user?.is_questionnaire_completed &&
-      !onQuestionnaire &&
-      !onPayment &&
-      !onPaymentPlan
+      user?.subscription_type === "FREE" &&
+      !onPaymentPlan &&
+      !onPayment
     ) {
-      // Change this to redirect to tabs questionnaire:
+      // User verified but needs subscription
+      targetRoute = "/payment-plan";
+    } else if (!user?.is_questionnaire_completed && !onQuestionnaire) {
+      // User has subscription but needs questionnaire
       targetRoute = "/(tabs)/questionnaire";
     } else if (
       !inTabsGroup &&

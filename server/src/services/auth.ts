@@ -193,10 +193,10 @@ export class AuthService {
       <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f8f9fa;">
         <tr>
           <td align="center" style="padding: 40px 20px;">
-            
+
             <!-- Main Container -->
             <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width: 600px; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08); overflow: hidden;">
-              
+
               <!-- Header Section -->
               <tr>
                 <td style="background: linear-gradient(135deg, #4ECDC4 0%, #44A08D 100%); padding: 40px 32px; text-align: center;">
@@ -209,20 +209,20 @@ export class AuthService {
                   <p style="color: rgba(255, 255, 255, 0.9); font-size: 16px; margin: 8px 0 0 0; font-weight: 400;">Fitness & Diet</p>
                 </td>
               </tr>
-              
+
               <!-- Content Section -->
               <tr>
                 <td style="padding: 48px 32px 32px;">
-                  
+
                   <!-- Greeting -->
                   <h2 style="color: #1a1a1a; font-size: 24px; font-weight: 600; margin: 0 0 24px 0; line-height: 1.3;">
                     Welcome, ${name}! 👋
                   </h2>
-                  
+
                   <p style="color: #4a5568; font-size: 16px; line-height: 1.6; margin: 0 0 32px 0;">
-                    Thank you for joining Calo! We're excited to help you on your fitness and nutrition journey. To get started, please verify your email address using the code below.
+                    Thank you for joining Calo! We're excited to help you on your fitness and nutrition journey. Please verify your email address using the code below.
                   </p>
-                  
+
                   <!-- Verification Code Container -->
                   <div style="background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%); border: 2px dashed #cbd5e0; border-radius: 12px; padding: 32px; text-align: center; margin: 32px 0;">
                     <p style="color: #4a5568; font-size: 14px; margin: 0 0 16px 0; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px;">
@@ -235,7 +235,7 @@ export class AuthService {
                       This code expires in <strong>15 minutes</strong>
                     </p>
                   </div>
-                  
+
                   <!-- Instructions -->
                   <div style="background-color: #f0f9ff; border-left: 4px solid #3b82f6; padding: 20px; margin: 32px 0; border-radius: 0 8px 8px 0;">
                     <h3 style="color: #1e40af; font-size: 16px; font-weight: 600; margin: 0 0 8px 0;">
@@ -245,7 +245,7 @@ export class AuthService {
                       Enter this code in the Calo app to verify your email and unlock all features including personalized meal plans, workout tracking, and progress analytics.
                     </p>
                   </div>
-                  
+
                   <!-- Security Notice -->
                   <div style="background-color: #fef2f2; border-left: 4px solid #ef4444; padding: 20px; margin: 32px 0; border-radius: 0 8px 8px 0;">
                     <h3 style="color: #dc2626; font-size: 16px; font-weight: 600; margin: 0 0 8px 0;">
@@ -255,21 +255,21 @@ export class AuthService {
                       If you didn't create an account with Calo, please ignore this email. Never share your verification code with anyone.
                     </p>
                   </div>
-                  
+
                 </td>
               </tr>
-              
+
               <!-- Footer Section -->
               <tr>
                 <td style="background-color: #f8f9fa; padding: 32px; text-align: center; border-top: 1px solid #e2e8f0;">
-                  
+
                   <!-- Social Links -->
                   <div style="margin-bottom: 24px;">
                     <a href="#" style="display: inline-block; margin: 0 8px; width: 40px; height: 40px; background-color: #4ECDC4; border-radius: 50%; text-decoration: none; line-height: 40px; color: white; font-size: 16px;">📧</a>
                     <a href="#" style="display: inline-block; margin: 0 8px; width: 40px; height: 40px; background-color: #4ECDC4; border-radius: 50%; text-decoration: none; line-height: 40px; color: white; font-size: 16px;">💬</a>
                     <a href="#" style="display: inline-block; margin: 0 8px; width: 40px; height: 40px; background-color: #4ECDC4; border-radius: 50%; text-decoration: none; line-height: 40px; color: white; font-size: 16px;">🌐</a>
                   </div>
-                  
+
                   <!-- Company Info -->
                   <p style="color: #1a1a1a; font-size: 16px; font-weight: 600; margin: 0 0 8px 0;">
                     Calo - Fitness & Diet
@@ -278,26 +278,26 @@ export class AuthService {
                     Your Personal Nutrition & Fitness Assistant<br>
                     Transform your health, one meal at a time.
                   </p>
-                  
+
                   <!-- Links -->
                   <div style="margin: 24px 0;">
                     <a href="#" style="color: #4ECDC4; text-decoration: none; font-size: 14px; margin: 0 16px; font-weight: 500;">Privacy Policy</a>
                     <a href="#" style="color: #4ECDC4; text-decoration: none; font-size: 14px; margin: 0 16px; font-weight: 500;">Terms of Service</a>
                     <a href="#" style="color: #4ECDC4; text-decoration: none; font-size: 14px; margin: 0 16px; font-weight: 500;">Support</a>
                   </div>
-                  
+
                   <!-- Copyright -->
                   <p style="color: #a0aec0; font-size: 12px; margin: 20px 0 0 0;">
                     © 2025 Calo. All rights reserved.<br>
                     <a href="#" style="color: #a0aec0; text-decoration: none;">Unsubscribe</a> | 
                     <a href="#" style="color: #a0aec0; text-decoration: none;">Update Preferences</a>
                   </p>
-                  
+
                 </td>
               </tr>
-              
+
             </table>
-            
+
           </td>
         </tr>
       </table>
@@ -457,44 +457,50 @@ export class AuthService {
   static async signOut(token: string) {
     await prisma.session.deleteMany({ where: { token } });
   }
-  static async sendPasswordResetEmail(email: string) {
+  static async sendPasswordResetEmail(email: string): Promise<void> {
+    console.log("🔄 Sending password reset email to:", email);
+
+    // Check if user exists
     const user = await prisma.user.findUnique({
       where: { email },
-      select: {
-        user_id: true,
-        email: true,
-        name: true,
-        email_verified: true,
-      },
     });
 
     if (!user) {
       throw new Error("User not found");
     }
 
-    if (!user.email_verified) {
-      throw new Error("Please verify your email address first");
-    }
-
-    // Generate JWT token for password reset (this was missing!)
-    const resetToken = generatePasswordResetToken(email);
-
-    // Generate 6-digit verification code (if you want to keep the code approach)
+    // Generate reset code (same as email verification)
     const resetCode = crypto.randomInt(100000, 999999).toString();
+    const resetExpires = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes (same as email verification)
 
-    // Store the code in the database with expiry
+    // Store reset code in database temporarily
     await prisma.user.update({
       where: { email },
       data: {
-        email_verification_code: resetCode,
-        email_verification_expires: new Date(Date.now() + 15 * 60 * 1000), // 15 minutes to match JWT expiry
+        password_reset_code: resetCode,
+        password_reset_expires: resetExpires,
       },
     });
 
+    // Send password reset email
+    await this.sendPasswordResetEmailTemplate(
+      email,
+      resetCode,
+      user.name || "User"
+    );
+
+    console.log("✅ Password reset code generated and sent");
+  }
+
+  static async sendPasswordResetEmailTemplate(
+    email: string,
+    code: string,
+    name: string
+  ) {
     try {
       const nodemailer = require("nodemailer");
 
-      const transporter = nodemailer.createTransporter({
+      const transporter = nodemailer.createTransport({
         host: "smtp.gmail.com",
         port: 587,
         secure: false,
@@ -504,243 +510,178 @@ export class AuthService {
         },
       });
 
+      // Test the connection
+      console.log("🔍 Testing email connection...");
+      await transporter.verify();
+      console.log("✅ Email connection verified");
+
       const mailOptions = {
         from: `"Calo Fitness & Diet" <${process.env.EMAIL_USER}>`,
         to: email,
-        subject: "Reset Your Password - Calo",
+        subject: "Password Reset Code - Calo",
         html: `
-      <!DOCTYPE html>
-      <html lang="en">
-      <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Password Reset - Calo</title>
-      </head>
-      <body style="margin: 0; padding: 0; background-color: #f8f9fa; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;">
-        <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f8f9fa;">
-          <tr>
-            <td align="center" style="padding: 40px 20px;">
-              
-              <!-- Main Container -->
-              <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width: 600px; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08); overflow: hidden;">
-                
-                <!-- Header Section -->
-                <tr>
-                  <td style="background: linear-gradient(135deg, #4ECDC4 0%, #44A08D 100%); padding: 40px 32px; text-align: center;">
-                    <div style="background-color: rgba(255, 255, 255, 0.1); width: 80px; height: 80px; border-radius: 50%; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; border: 3px solid rgba(255, 255, 255, 0.2);">
-                      <div style="width: 40px; height: 40px; background-color: white; border-radius: 50%; position: relative;">
-                        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 20px; height: 20px; background: linear-gradient(135deg, #4ECDC4 0%, #44A08D 100%); border-radius: 50%;"></div>
-                      </div>
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Password Reset - Calo</title>
+    </head>
+    <body style="margin: 0; padding: 0; background-color: #f8f9fa; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;">
+      <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f8f9fa;">
+        <tr>
+          <td align="center" style="padding: 40px 20px;">
+            <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width: 600px; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08); overflow: hidden;">
+              <tr>
+                <td style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 32px; text-align: center;">
+                  <h1 style="color: #ffffff; font-size: 28px; font-weight: 700; margin: 0; letter-spacing: -0.5px;">Calo</h1>
+                  <p style="color: rgba(255, 255, 255, 0.9); font-size: 16px; margin: 8px 0 0 0; font-weight: 400;">Password Reset</p>
+                </td>
+              </tr>
+              <tr>
+                <td style="padding: 48px 32px 32px;">
+                  <h2 style="color: #1a1a1a; font-size: 24px; font-weight: 600; margin: 0 0 24px 0; line-height: 1.3;">
+                    Reset Your Password, ${name}! 🔑
+                  </h2>
+                  <p style="color: #4a5568; font-size: 16px; line-height: 1.6; margin: 0 0 32px 0;">
+                    You requested to reset your password. Use the code below to create a new password.
+                  </p>
+                  <div style="background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%); border: 2px dashed #cbd5e0; border-radius: 12px; padding: 32px; text-align: center; margin: 32px 0;">
+                    <p style="color: #4a5568; font-size: 14px; margin: 0 0 16px 0; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px;">
+                      Reset Code
+                    </p>
+                    <div style="font-family: 'Courier New', monospace; font-size: 36px; font-weight: 700; color: #2d3748; letter-spacing: 8px; margin: 16px 0; text-align: center;">
+                      ${code}
                     </div>
-                    <h1 style="color: #ffffff; font-size: 28px; font-weight: 700; margin: 0; letter-spacing: -0.5px;">Calo</h1>
-                    <p style="color: rgba(255, 255, 255, 0.9); font-size: 16px; margin: 8px 0 0 0; font-weight: 400;">Fitness & Diet</p>
-                  </td>
-                </tr>
-                
-                <!-- Content Section -->
-                <tr>
-                  <td style="padding: 48px 32px 32px;">
-                    
-                    <!-- Greeting -->
-                    <h2 style="color: #1a1a1a; font-size: 24px; font-weight: 600; margin: 0 0 24px 0; line-height: 1.3;">
-                      Password Reset Request 🔒
-                    </h2>
-                    
-                    <p style="color: #4a5568; font-size: 16px; line-height: 1.6; margin: 0 0 32px 0;">
-                      Hi ${user.name || "there"},<br><br>
-                      We received a request to reset your password for your Calo account. Click the button below to reset your password securely.
+                    <p style="color: #718096; font-size: 13px; margin: 16px 0 0 0;">
+                      This code expires in <strong>10 minutes</strong>
                     </p>
-                    
-                    <!-- Reset Button -->
-                    <div style="text-align: center; margin: 32px 0;">
-                      <a href="${
-                        process.env.FRONTEND_URL
-                      }/reset-password?token=${resetToken}" 
-                         style="display: inline-block; background: linear-gradient(135deg, #4ECDC4 0%, #44A08D 100%); color: white; text-decoration: none; padding: 16px 32px; border-radius: 8px; font-weight: 600; font-size: 16px;">
-                        Reset My Password
-                      </a>
-                    </div>
-                    
-                    <p style="color: #718096; font-size: 14px; text-align: center; margin: 16px 0;">
-                      Or copy this link: <br>
-                      <span style="font-family: monospace; background: #f7fafc; padding: 4px 8px; border-radius: 4px; word-break: break-all;">
-                        ${
-                          process.env.FRONTEND_URL
-                        }/reset-password?token=${resetToken}
-                      </span>
+                  </div>
+                  <div style="background-color: #fef2f2; border-left: 4px solid #ef4444; padding: 20px; margin: 32px 0; border-radius: 0 8px 8px 0;">
+                    <h3 style="color: #dc2626; font-size: 16px; font-weight: 600; margin: 0 0 8px 0;">
+                      🔒 Security Notice
+                    </h3>
+                    <p style="color: #dc2626; font-size: 14px; line-height: 1.5; margin: 0;">
+                      If you didn't request this password reset, please ignore this email. Never share your reset code with anyone.
                     </p>
-                    
-                    <!-- Instructions -->
-                    <div style="background-color: #f0f9ff; border-left: 4px solid #3b82f6; padding: 20px; margin: 32px 0; border-radius: 0 8px 8px 0;">
-                      <h3 style="color: #1e40af; font-size: 16px; font-weight: 600; margin: 0 0 8px 0;">
-                        📱 What happens next?
-                      </h3>
-                      <p style="color: #1e40af; font-size: 14px; line-height: 1.5; margin: 0;">
-                        Click the link above to go to a secure page where you can create a new password. This link expires in 15 minutes for your security.
-                      </p>
-                    </div>
-                    
-                    <!-- Security Notice -->
-                    <div style="background-color: #fef2f2; border-left: 4px solid #ef4444; padding: 20px; margin: 32px 0; border-radius: 0 8px 8px 0;">
-                      <h3 style="color: #dc2626; font-size: 16px; font-weight: 600; margin: 0 0 8px 0;">
-                        ⚠️ Security Notice
-                      </h3>
-                      <p style="color: #dc2626; font-size: 14px; line-height: 1.5; margin: 0;">
-                        If you didn't request a password reset, please ignore this email. Your password will remain unchanged. Never share this reset link with anyone.
-                      </p>
-                    </div>
-                    
-                  </td>
-                </tr>
-                
-                <!-- Footer Section -->
-                <tr>
-                  <td style="background-color: #f8f9fa; padding: 32px; text-align: center; border-top: 1px solid #e2e8f0;">
-                    <p style="color: #1a1a1a; font-size: 16px; font-weight: 600; margin: 0 0 8px 0;">
-                      Calo - Fitness & Diet
-                    </p>
-                    <p style="color: #718096; font-size: 14px; margin: 0 0 16px 0; line-height: 1.5;">
-                      Your Personal Nutrition & Fitness Assistant
-                    </p>
-                    <p style="color: #a0aec0; font-size: 12px; margin: 20px 0 0 0;">
-                      © 2025 Calo. All rights reserved.
-                    </p>
-                  </td>
-                </tr>
-                
-              </table>
-              
-            </td>
-          </tr>
-        </table>
-      </body>
-      </html>
-      `,
+                  </div>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </body>
+    </html>
+  `,
       };
 
       const result = await transporter.sendMail(mailOptions);
       console.log(`✅ Password reset email sent to ${email}`);
       console.log("📧 Message ID:", result.messageId);
 
-      // Log to console for development
+      // Fallback to console logging for development
       if (process.env.NODE_ENV !== "production") {
         console.log(`📧 Password reset email for ${email}`);
-        console.log(`👤 Name: ${user.name}`);
-        console.log(
-          `🔗 Reset Link: ${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`
-        );
-        console.log(`⏰ Link expires in 15 minutes`);
+        console.log(`👤 Name: ${name}`);
+        console.log(`🔑 Reset Code: ${code}`);
+        console.log(`⏰ Code expires in 10 minutes`);
       }
 
       return true;
     } catch (error: any) {
-      console.error("❌ Failed to send password reset email:", error, {
-        email,
-      });
+      console.error("❌ Failed to send password reset email:", error);
 
       // Fallback to console logging if email fails
-      console.log(`📧 FALLBACK - Password reset email for ${email}`);
-      console.log(`👤 Name: ${user.name}`);
-      console.log(
-        `🔗 Reset Link: ${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`
-      );
-      console.log(`⏰ Link expires in 15 minutes`);
+      console.log(`📧 FALLBACK - Password reset code for ${email}`);
+      console.log(`👤 Name: ${name}`);
+      console.log(`🔑 Reset Code: ${code}`);
+      console.log(`⏰ Code expires in 10 minutes`);
 
+      // Don't throw error - let the process continue even if email fails
       return true;
     }
   }
-  
-  static async verifyResetCode(email: string, code: string) {
+
+  static async verifyResetCode(email: string, code: string): Promise<string> {
+    console.log("🔒 Verifying reset code for:", email);
+
     const user = await prisma.user.findUnique({
       where: { email },
-      select: {
-        user_id: true,
-        email: true,
-        email_verified: true,
-        email_verification_code: true,
-        email_verification_expires: true,
-      },
     });
 
     if (!user) {
       throw new Error("User not found");
     }
 
-    if (!user.email_verified) {
-      throw new Error("Please verify your email address first");
+    if (!user.password_reset_code || !user.password_reset_expires) {
+      throw new Error("No reset code found");
     }
 
-    if (
-      !user.email_verification_expires ||
-      user.email_verification_expires < new Date()
-    ) {
-      throw new Error("Verification code expired");
+    if (user.password_reset_code !== code) {
+      throw new Error("Invalid reset code");
     }
 
-    if (user.email_verification_code !== code) {
-      throw new Error("Invalid verification code");
+    if (new Date() > user.password_reset_expires) {
+      throw new Error("Reset code has expired");
     }
 
-    // Generate JWT token for password reset
-    const resetToken = generatePasswordResetToken(email);
+    // Generate simple reset token (like email verification)
+    const resetToken = jwt.sign(
+      { userId: user.user_id, email: user.email, type: "password_reset" },
+      JWT_SECRET,
+      { expiresIn: "15m" }
+    );
 
-    // Clear the verification code
-    await prisma.user.update({
-      where: { email },
-      data: {
-        email_verification_code: null,
-        email_verification_expires: null,
-      },
-    });
-
-    return { token: resetToken };
+    console.log("✅ Reset code verified, token generated");
+    return resetToken;
   }
 
-  static async resetPassword(token: string, newPassword: string) {
-    // Verify the JWT token
-    const decoded = verifyPasswordResetToken(token);
-    const email = decoded.email;
+  static async resetPassword(
+    token: string,
+    email: string,
+    newPassword: string
+  ): Promise<void> {
+    console.log("🔑 Resetting password for:", email);
 
-    const user = await prisma.user.findUnique({
-      where: { email },
-      select: {
-        user_id: true,
-        email: true,
-        email_verified: true,
-      },
-    });
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET) as any;
 
-    if (!user) {
-      throw new Error("User not found");
+      if (decoded.type !== "password_reset" || decoded.email !== email) {
+        throw new Error("Invalid reset token");
+      }
+
+      const user = await prisma.user.findUnique({
+        where: { email },
+      });
+
+      if (!user) {
+        throw new Error("User not found");
+      }
+
+      // Hash new password
+      const hashedPassword = await bcrypt.hash(newPassword, 12);
+
+      // Update password and clear reset fields (like email verification clears verification fields)
+      await prisma.user.update({
+        where: { email },
+        data: {
+          password_hash: hashedPassword,
+          password_reset_code: null,
+          password_reset_expires: null,
+        },
+      });
+
+      // Invalidate all existing sessions for security
+      await prisma.session.deleteMany({
+        where: { user_id: user.user_id },
+      });
+
+      console.log("✅ Password reset successfully");
+    } catch (error) {
+      console.error("💥 Password reset error:", error);
+      throw new Error("Invalid or expired reset token");
     }
-
-    if (!user.email_verified) {
-      throw new Error("Please verify your email address first");
-    }
-
-    // Validate new password strength
-    if (newPassword.length < 8) {
-      throw new Error("Password must be at least 8 characters long");
-    }
-
-    // Hash new password
-    const hashedPassword = await bcrypt.hash(newPassword, 12);
-
-    // Update password
-    await prisma.user.update({
-      where: { email },
-      data: {
-        password_hash: hashedPassword,
-      },
-    });
-
-    // Invalidate all existing sessions for security
-    await prisma.session.deleteMany({
-      where: { user_id: user.user_id },
-    });
-
-    console.log(`✅ Password reset successful for ${email}`);
-    return true;
   }
 
   // Add method to verify token validity (for frontend validation)

@@ -343,6 +343,11 @@ const authSlice = createSlice({
               });
           }
         }
+        builder.addCase("auth/forceSignOut" as any, (state) => {
+          state.user = null;
+          state.token = null;
+          state.isAuthenticated = false;
+        });
       })
       .addCase(verifyEmail.rejected, (state, action) => {
         state.isLoading = false;

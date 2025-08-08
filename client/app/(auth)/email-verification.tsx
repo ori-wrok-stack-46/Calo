@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -7,78 +7,122 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
-  Animated,
-  Dimensions,
 } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useLanguage } from "@/src/i18n/context/LanguageContext";
+import { useTheme } from "@/src/context/ThemeContext";
 import { useDispatch } from "react-redux";
 import { AppDispatch } from "@/src/store";
-import { userAPI } from "@/src/services/api";
+import { api } from "@/src/services/api";
+import { Mail, ArrowLeft, Shield, RefreshCw, Check } from "lucide-react-native";
 
 export default function EmailVerificationScreen() {
   const { t } = useTranslation();
   const { isRTL } = useLanguage();
+  const { colors, isDarkMode } = useTheme();
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
   const { email } = useLocalSearchParams();
 
-  const [verificationCode, setVerificationCode] = useState("");
+  const [code, setCode] = useState(["", "", "", "", "", ""]);
   const [isLoading, setIsLoading] = useState(false);
-  const [resendCooldown, setResendCooldown] = useState(0);
-  const [fadeAnim] = useState(new Animated.Value(0));
-  const [slideAnim] = useState(new Animated.Value(50));
+  const [resendLoading, setResendLoading] = useState(false);
+  const [timeLeft, setTimeLeft] = useState(300); // 5 minutes
+  const [canResend, setCanResend] = useState(false);
+
+  // Refs for input fields
+  const inputRefs = useRef<TextInput[]>([]);
 
   useEffect(() => {
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 800,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 600,
-        useNativeDriver: true,
-      }),
-    ]).start();
+    // Start countdown timer
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          setCanResend(true);
+          clearInterval(timer);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
   }, []);
 
-  const handleVerifyEmail = async () => {
-    if (!verificationCode || verificationCode.length !== 6) {
-      Alert.alert("שגיאה", "אנא הכנס קוד אימות בן 6 ספרות");
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  };
+
+  const handleCodeChange = (text: string, index: number) => {
+    // Only allow digits
+    const digit = text.replace(/[^0-9]/g, "");
+
+    if (digit.length <= 1) {
+      const newCode = [...code];
+      newCode[index] = digit;
+      setCode(newCode);
+
+      // Auto-focus next input
+      if (digit && index < 5) {
+        inputRefs.current[index + 1]?.focus();
+      }
+
+      // Auto-submit when all fields are filled
+      if (digit && index === 5 && newCode.every((c) => c !== "")) {
+        handleVerifyEmail(newCode.join(""));
+      }
+    }
+  };
+
+  const handleKeyPress = (key: string, index: number) => {
+    if (key === "Backspace" && !code[index] && index > 0) {
+      inputRefs.current[index - 1]?.focus();
+    }
+  };
+
+  const handleVerifyEmail = async (verificationCode?: string) => {
+    const codeToVerify = verificationCode || code.join("");
+
+    if (codeToVerify.length !== 6) {
+      Alert.alert("Error", "Please enter the complete 6-digit code");
       return;
     }
 
     try {
       setIsLoading(true);
-      console.log("🔄 Verifying email:", email, "with code:", verificationCode);
+      console.log("🔄 Verifying email:", email, "with code:", codeToVerify);
 
-      const response = await userAPI.verifyEmail(
-        email as string,
-        verificationCode
-      );
+      const response = await api.post("/auth/verify-email", {
+        email: email as string,
+        code: codeToVerify,
+      });
+
       console.log("✅ Verification response:", response);
 
-      if (response.success && response.user && response.token) {
+      if (response.data.success && response.data.user && response.data.token) {
         // Store token in SecureStore for mobile
         const { Platform } = require("react-native");
         if (Platform.OS !== "web") {
           const SecureStore = require("expo-secure-store");
-          await SecureStore.setItemAsync("auth_token_secure", response.token);
+          await SecureStore.setItemAsync(
+            "auth_token_secure",
+            response.data.token
+          );
           console.log("✅ Token stored in SecureStore for mobile");
         }
 
         // Store auth data in Redux
         dispatch({
           type: "auth/setUser",
-          payload: response.user,
+          payload: response.data.user,
         });
 
         dispatch({
           type: "auth/setToken",
-          payload: response.token,
+          payload: response.data.token,
         });
 
         console.log("✅ User authenticated, redirecting to payment-plan");
@@ -86,267 +130,370 @@ export default function EmailVerificationScreen() {
         // Navigate directly without alert for better UX
         router.replace("/payment-plan");
       } else {
-        throw new Error(response.error || "אימות נכשל");
+        throw new Error(response.data.error || "Verification failed");
       }
     } catch (error: any) {
       console.error("💥 Verification error:", error);
-      Alert.alert("שגיאה", error.message || "אימות האימייל נכשל");
+      Alert.alert(
+        "Error",
+        error.response?.data?.error ||
+          error.message ||
+          "Email verification failed"
+      );
+
+      // Clear the code inputs
+      setCode(["", "", "", "", "", ""]);
+      inputRefs.current[0]?.focus();
     } finally {
       setIsLoading(false);
     }
   };
 
+  const handleResendCode = async () => {
+    if (!canResend) return;
+
+    try {
+      setResendLoading(true);
+      console.log("🔄 Resending verification code...");
+
+      const response = await api.post("/auth/resend-verification", {
+        email: email as string,
+      });
+
+      if (response.data.success) {
+        Alert.alert(
+          "Success",
+          "A new verification code has been sent to your email"
+        );
+
+        // Reset timer
+        setTimeLeft(300);
+        setCanResend(false);
+
+        // Clear current code
+        setCode(["", "", "", "", "", ""]);
+        inputRefs.current[0]?.focus();
+
+        // Start new timer
+        const timer = setInterval(() => {
+          setTimeLeft((prev) => {
+            if (prev <= 1) {
+              setCanResend(true);
+              clearInterval(timer);
+              return 0;
+            }
+            return prev - 1;
+          });
+        }, 1000);
+      } else {
+        throw new Error(response.data.error || "Failed to resend code");
+      }
+    } catch (error: any) {
+      console.error("💥 Resend error:", error);
+      Alert.alert(
+        "Error",
+        error.response?.data?.error || error.message || "Failed to resend code"
+      );
+    } finally {
+      setResendLoading(false);
+    }
+  };
+
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    containerRTL: {
+      writingDirection: "rtl",
+    },
+    backgroundAccent: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      height: "35%",
+      backgroundColor: isDarkMode ? colors.surface : "#f0fdf4",
+      borderBottomLeftRadius: 30,
+      borderBottomRightRadius: 30,
+    },
+    header: {
+      paddingTop: 60,
+      paddingHorizontal: 20,
+      marginBottom: 20,
+      zIndex: 2,
+    },
+    backButton: {
+      width: 40,
+      height: 40,
+      borderRadius: 20,
+      backgroundColor: colors.primary + "20",
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    content: {
+      flex: 1,
+      padding: 24,
+      justifyContent: "center",
+      zIndex: 1,
+    },
+    headerSection: {
+      marginBottom: 48,
+      alignItems: "center",
+    },
+    iconContainer: {
+      width: 80,
+      height: 80,
+      borderRadius: 40,
+      backgroundColor: colors.primary + "20",
+      justifyContent: "center",
+      alignItems: "center",
+      marginBottom: 24,
+    },
+    title: {
+      fontSize: 36,
+      fontWeight: "700",
+      color: colors.text,
+      marginBottom: 8,
+      letterSpacing: -0.5,
+      textAlign: "center",
+    },
+    titleRTL: {
+      textAlign: "right",
+    },
+    subtitle: {
+      fontSize: 16,
+      color: colors.textSecondary,
+      fontWeight: "500",
+      textAlign: "center",
+      lineHeight: 24,
+      paddingHorizontal: 20,
+    },
+    subtitleRTL: {
+      textAlign: "right",
+    },
+    emailText: {
+      fontWeight: "600",
+      color: colors.primary,
+    },
+    form: {
+      flex: 1,
+      maxHeight: 400,
+    },
+    codeContainer: {
+      marginBottom: 32,
+    },
+    codeLabel: {
+      fontSize: 16,
+      fontWeight: "600",
+      color: colors.text,
+      textAlign: "center",
+      marginBottom: 16,
+    },
+    codeInputs: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      paddingHorizontal: 10,
+    },
+    codeInputsRTL: {
+      flexDirection: "row-reverse",
+    },
+    codeInput: {
+      width: 45,
+      height: 55,
+      borderRadius: 12,
+      backgroundColor: colors.surface,
+      borderWidth: 2,
+      borderColor: colors.border,
+      fontSize: 24,
+      fontWeight: "bold",
+      color: colors.text,
+      textAlign: "center",
+    },
+    codeInputFilled: {
+      borderColor: colors.primary,
+    },
+    verifyButton: {
+      backgroundColor: colors.primary,
+      borderRadius: 16,
+      padding: 18,
+      alignItems: "center",
+      shadowColor: colors.primary,
+      shadowOffset: {
+        width: 0,
+        height: 4,
+      },
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+      elevation: 6,
+      marginBottom: 24,
+    },
+    verifyButtonDisabled: {
+      opacity: 0.5,
+    },
+    verifyButtonContent: {
+      flexDirection: "row",
+      alignItems: "center",
+    },
+    verifyButtonText: {
+      fontSize: 18,
+      fontWeight: "700",
+      color: "#ffffff",
+      marginLeft: 8,
+      letterSpacing: 0.5,
+    },
+    resendContainer: {
+      alignItems: "center",
+      marginBottom: 32,
+    },
+    timerText: {
+      fontSize: 14,
+      color: colors.textSecondary,
+      textAlign: "center",
+      fontWeight: "500",
+    },
+    resendButton: {
+      paddingHorizontal: 20,
+      paddingVertical: 12,
+      borderRadius: 20,
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    resendButtonContent: {
+      flexDirection: "row",
+      alignItems: "center",
+    },
+    resendButtonText: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: colors.primary,
+      marginLeft: 6,
+    },
+    securityNotice: {
+      flexDirection: "row",
+      alignItems: "center",
+      paddingHorizontal: 16,
+      paddingVertical: 12,
+      borderRadius: 8,
+      backgroundColor: colors.surface,
+      borderLeftWidth: 4,
+      borderLeftColor: colors.primary,
+    },
+    securityText: {
+      fontSize: 12,
+      color: colors.textSecondary,
+      marginLeft: 8,
+      flex: 1,
+    },
+  });
+
   return (
     <View style={[styles.container, isRTL && styles.containerRTL]}>
       <View style={styles.backgroundAccent} />
 
-      <Animated.View
-        style={[
-          styles.content,
-          {
-            opacity: fadeAnim,
-            transform: [{ translateY: slideAnim }],
-          },
-        ]}
-      >
-        <View style={styles.header}>
+      <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.back()}
+        >
+          <ArrowLeft size={24} color={colors.primary} />
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.content}>
+        <View style={styles.headerSection}>
           <View style={styles.iconContainer}>
-            <Text style={styles.emailIcon}>📧</Text>
+            <Mail size={32} color={colors.primary} />
           </View>
+
           <Text style={[styles.title, isRTL && styles.titleRTL]}>
-            אימות אימייל
+            Check Your Email
           </Text>
+
           <Text style={[styles.subtitle, isRTL && styles.subtitleRTL]}>
-            שלחנו קוד אימות בן 6 ספרות לכתובת:
-          </Text>
-          <Text style={[styles.emailText, isRTL && styles.emailTextRTL]}>
-            {email}
-          </Text>
-          <Text style={[styles.subtitle, isRTL && styles.subtitleRTL]}>
-            אנא בדוק את תיבת הדואר שלך (כולל תיקיית ספאם)
+            We've sent a 6-digit verification code to {"\n"}
+            <Text style={styles.emailText}>{email}</Text>
           </Text>
         </View>
 
         <View style={styles.form}>
-          <View style={styles.inputContainer}>
-            <TextInput
-              style={[styles.input, isRTL && styles.inputRTL]}
-              placeholder="הכנס קוד אימות"
-              placeholderTextColor="#10B981"
-              value={verificationCode}
-              onChangeText={setVerificationCode}
-              keyboardType="numeric"
-              maxLength={6}
-              textAlign="center"
-              editable={!isLoading}
-            />
+          <View style={styles.codeContainer}>
+            <Text style={styles.codeLabel}>Enter Verification Code</Text>
+            <View style={[styles.codeInputs, isRTL && styles.codeInputsRTL]}>
+              {code.map((digit, index) => (
+                <TextInput
+                  key={index}
+                  ref={(ref) => (inputRefs.current[index] = ref!)}
+                  style={[styles.codeInput, digit && styles.codeInputFilled]}
+                  value={digit}
+                  onChangeText={(text) => handleCodeChange(text, index)}
+                  onKeyPress={({ nativeEvent }) =>
+                    handleKeyPress(nativeEvent.key, index)
+                  }
+                  keyboardType="numeric"
+                  maxLength={1}
+                  textAlign="center"
+                  editable={!isLoading}
+                />
+              ))}
+            </View>
           </View>
 
           <TouchableOpacity
-            style={[styles.verifyButton, isLoading && styles.buttonDisabled]}
-            onPress={handleVerifyEmail}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <ActivityIndicator size="small" color="#ffffff" />
-            ) : (
-              <Text style={styles.verifyButtonText}>אמת אימייל</Text>
-            )}
-          </TouchableOpacity>
-
-          <TouchableOpacity
             style={[
-              styles.resendButton,
-              (isLoading || resendCooldown > 0) && styles.buttonDisabled,
+              styles.verifyButton,
+              (!code.every((c) => c !== "") || isLoading) &&
+                styles.verifyButtonDisabled,
             ]}
-            onPress={async () => {
-              if (resendCooldown > 0) return;
-
-              try {
-                setIsLoading(true);
-                const response = await userAPI.resendVerificationCode(
-                  email as string
-                );
-                if (response.success) {
-                  setResendCooldown(60); // 60 second cooldown
-                  Alert.alert("הודעה", "קוד חדש נשלח לאימייל שלך");
-                } else {
-                  throw new Error(response.error || "Failed to resend code");
-                }
-              } catch (error: any) {
-                Alert.alert("שגיאה", error.message || "שליחת הקוד נכשלה");
-              } finally {
-                setIsLoading(false);
-              }
-            }}
-            disabled={isLoading || resendCooldown > 0}
+            onPress={() => handleVerifyEmail()}
+            disabled={!code.every((c) => c !== "") || isLoading}
           >
-            <Text style={styles.resendButtonText}>
-              {resendCooldown > 0
-                ? `שלח קוד חדש (${resendCooldown})`
-                : "שלח קוד חדש"}
-            </Text>
+            <View style={styles.verifyButtonContent}>
+              {isLoading ? (
+                <ActivityIndicator color="#ffffff" size="small" />
+              ) : (
+                <>
+                  <Shield size={20} color="#ffffff" />
+                  <Text style={styles.verifyButtonText}>Verify Email</Text>
+                </>
+              )}
+            </View>
           </TouchableOpacity>
+
+          <View style={styles.resendContainer}>
+            {!canResend ? (
+              <Text style={styles.timerText}>
+                Resend code in {formatTime(timeLeft)}
+              </Text>
+            ) : (
+              <TouchableOpacity
+                style={styles.resendButton}
+                onPress={handleResendCode}
+                disabled={resendLoading}
+              >
+                <View style={styles.resendButtonContent}>
+                  {resendLoading ? (
+                    <ActivityIndicator color={colors.primary} size="small" />
+                  ) : (
+                    <>
+                      <RefreshCw size={16} color={colors.primary} />
+                      <Text style={styles.resendButtonText}>Resend Code</Text>
+                    </>
+                  )}
+                </View>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          <View style={styles.securityNotice}>
+            <Check size={16} color={colors.primary} />
+            <Text style={styles.securityText}>
+              This code expires in 5 minutes for your security
+            </Text>
+          </View>
         </View>
-      </Animated.View>
+      </View>
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#ffffff",
-  },
-  containerRTL: {
-    direction: "rtl",
-  },
-  backgroundAccent: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    height: "40%",
-    backgroundColor: "#f0fdf4",
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
-  },
-  content: {
-    flex: 1,
-    padding: 24,
-    justifyContent: "center",
-    zIndex: 1,
-  },
-  header: {
-    marginBottom: 48,
-    alignItems: "center",
-  },
-  iconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: "#ffffff",
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 24,
-    shadowColor: "#10B981",
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 8,
-    borderWidth: 2,
-    borderColor: "#d1fae5",
-  },
-  emailIcon: {
-    fontSize: 40,
-  },
-  title: {
-    fontSize: 32,
-    fontWeight: "700",
-    color: "#065f46",
-    marginBottom: 16,
-    textAlign: "center",
-    letterSpacing: -0.5,
-  },
-  titleRTL: {
-    textAlign: "right",
-  },
-  subtitle: {
-    fontSize: 16,
-    color: "#6b7280",
-    textAlign: "center",
-    marginBottom: 8,
-    fontWeight: "500",
-    lineHeight: 22,
-  },
-  subtitleRTL: {
-    textAlign: "right",
-  },
-  emailText: {
-    fontSize: 16,
-    color: "#10B981",
-    fontWeight: "700",
-    marginBottom: 8,
-  },
-  emailTextRTL: {
-    textAlign: "right",
-  },
-  form: {
-    flex: 1,
-    maxHeight: 300,
-  },
-  inputContainer: {
-    marginBottom: 32,
-    shadowColor: "#10B981",
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 6,
-  },
-  input: {
-    borderWidth: 2,
-    borderColor: "#d1fae5",
-    borderRadius: 16,
-    padding: 20,
-    fontSize: 22,
-    backgroundColor: "#ffffff",
-    textAlign: "center",
-    letterSpacing: 8,
-    fontWeight: "700",
-    color: "#065f46",
-  },
-  inputRTL: {
-    textAlign: "center",
-  },
-  verifyButton: {
-    backgroundColor: "#10B981",
-    borderRadius: 16,
-    padding: 18,
-    alignItems: "center",
-    marginBottom: 24,
-    shadowColor: "#10B981",
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  buttonDisabled: {
-    opacity: 0.7,
-  },
-  verifyButtonText: {
-    color: "#ffffff",
-    fontSize: 18,
-    fontWeight: "700",
-    letterSpacing: 0.5,
-  },
-  resendButton: {
-    alignItems: "center",
-    padding: 16,
-    borderRadius: 16,
-    backgroundColor: "#ffffff",
-    borderWidth: 2,
-    borderColor: "#d1fae5",
-    shadowColor: "#10B981",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  resendButtonText: {
-    color: "#10B981",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-});

@@ -38,6 +38,8 @@ import {
   Award,
   Flame,
   Scroll,
+  Edit,
+  Eye,
 } from "lucide-react-native";
 import LoadingScreen from "@/components/LoadingScreen";
 import i18n from "@/src/i18n";
@@ -62,6 +64,7 @@ interface DayData {
     title: string;
     type: string;
     created_at: string;
+    description?: string;
   }>;
 }
 
@@ -88,6 +91,7 @@ export default function CalendarScreen() {
   const [selectedDay, setSelectedDay] = useState<DayData | null>(null);
   const [showDayModal, setShowDayModal] = useState(false);
   const [showEventModal, setShowEventModal] = useState(false);
+  const [showEventDetailsModal, setShowEventDetailsModal] = useState(false);
   const [showMonthPicker, setShowMonthPicker] = useState(false);
   const [showYearPicker, setShowYearPicker] = useState(false);
   const [showBadgesModal, setShowBadgesModal] = useState(false);
@@ -96,7 +100,8 @@ export default function CalendarScreen() {
   const [eventType, setEventType] = useState("general");
   const [eventDescription, setEventDescription] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
-  const [badges, setBadges] = useState([]);
+  const [selectedEvent, setSelectedEvent] = useState<any>(null);
+  const [isEditingEvent, setIsEditingEvent] = useState(false);
   const [language, setLanguage] = useState<"he" | "en">("he");
 
   const texts = {
@@ -143,6 +148,15 @@ export default function CalendarScreen() {
         "דצמבר",
       ],
       dayNames: ["א", "ב", "ג", "ד", "ה", "ו", "ש"],
+      eventDetails: "פרטי האירוע",
+      editEvent: "ערוך אירוע",
+      viewEvent: "צפה באירוע",
+      deleteEvent: "מחק אירוע",
+      addEvent: "הוסף אירוע",
+      cancel: "ביטול",
+      save: "שמור",
+      edit: "ערוך",
+      delete: "מחק",
     },
     en: {
       title: "Goal Calendar",
@@ -187,6 +201,15 @@ export default function CalendarScreen() {
         "December",
       ],
       dayNames: ["S", "M", "T", "W", "T", "F", "S"],
+      eventDetails: "Event Details",
+      editEvent: "Edit Event",
+      viewEvent: "View Event",
+      deleteEvent: "Delete Event",
+      addEvent: "Add Event",
+      cancel: "Cancel",
+      save: "Save",
+      edit: "Edit",
+      delete: "Delete",
     },
   };
 
@@ -337,6 +360,23 @@ export default function CalendarScreen() {
     setEventTitle("");
     setEventType("general");
     setEventDescription("");
+    setSelectedEvent(null);
+    setIsEditingEvent(false);
+    setShowEventModal(true);
+  };
+
+  const handleEventPress = (event: any, dayData: DayData) => {
+    setSelectedEvent({ ...event, date: dayData.date });
+    setShowEventDetailsModal(true);
+  };
+
+  const handleEditEvent = () => {
+    setEventTitle(selectedEvent.title);
+    setEventType(selectedEvent.type);
+    setEventDescription(selectedEvent.description || "");
+    setSelectedDate(selectedEvent.date);
+    setIsEditingEvent(true);
+    setShowEventDetailsModal(false);
     setShowEventModal(true);
   };
 
@@ -347,6 +387,13 @@ export default function CalendarScreen() {
     }
 
     try {
+      if (isEditingEvent && selectedEvent) {
+        // Delete the old event and create a new one (simulating edit)
+        await dispatch(
+          deleteEvent({ eventId: selectedEvent.id, date: selectedEvent.date })
+        ).unwrap();
+      }
+
       await dispatch(
         addEvent({
           date: selectedDate,
@@ -357,21 +404,31 @@ export default function CalendarScreen() {
       ).unwrap();
 
       setShowEventModal(false);
-      Alert.alert("Success", "Event added successfully!");
+      setIsEditingEvent(false);
+      Alert.alert(
+        "Success",
+        isEditingEvent
+          ? "Event updated successfully!"
+          : "Event added successfully!"
+      );
     } catch (error) {
-      Alert.alert("Error", "Failed to add event");
+      Alert.alert(
+        "Error",
+        isEditingEvent ? "Failed to update event" : "Failed to add event"
+      );
     }
   };
 
   const handleDeleteEvent = async (eventId: string, date: string) => {
     Alert.alert("Delete Event", "Are you sure you want to delete this event?", [
-      { text: "Cancel", style: "cancel" },
+      { text: t.cancel, style: "cancel" },
       {
-        text: "Delete",
+        text: t.delete,
         style: "destructive",
         onPress: async () => {
           try {
             await dispatch(deleteEvent({ eventId, date })).unwrap();
+            setShowEventDetailsModal(false);
             Alert.alert("Success", "Event deleted successfully!");
           } catch (error) {
             Alert.alert("Error", "Failed to delete event");
@@ -498,6 +555,7 @@ export default function CalendarScreen() {
   };
 
   const renderGamificationSection = () => {
+    // Only show if there are real badges from the backend
     if (!statistics || !statistics.gamificationBadges?.length) return null;
 
     return (
@@ -599,49 +657,6 @@ export default function CalendarScreen() {
       </View>
     );
   };
-
-  useEffect(() => {
-    const loadBadges = async () => {
-      try {
-        // Simulate fetching user achievements
-        const userStats = {
-          daysTracked: 10,
-          currentStreak: 7,
-          healthyMealsCount: 12,
-        };
-
-        const calculatedBadges = [
-          {
-            id: 1,
-            name: "First Week",
-            icon: "🏆",
-            earned: userStats?.daysTracked >= 7,
-            description: "Complete your first week of tracking",
-          },
-          {
-            id: 2,
-            name: "Streak Master",
-            icon: "🔥",
-            earned: userStats?.currentStreak >= 5,
-            description: "Maintain a 5-day streak",
-          },
-          {
-            id: 3,
-            name: "Healthy Choice",
-            icon: "🥗",
-            earned: userStats?.healthyMealsCount >= 10,
-            description: "Log 10 healthy meals",
-          },
-        ];
-        setBadges(calculatedBadges);
-      } catch (error) {
-        console.error("Failed to load badges:", error);
-        setBadges([]);
-      }
-    };
-
-    loadBadges();
-  }, []);
 
   if (isLoading) {
     return (
@@ -842,19 +857,31 @@ export default function CalendarScreen() {
                   <View style={styles.eventsSection}>
                     <Text style={styles.eventsTitle}>Events</Text>
                     {selectedDay.events.map((event) => (
-                      <View key={event.id} style={styles.eventItem}>
+                      <TouchableOpacity
+                        key={event.id}
+                        style={styles.eventItem}
+                        onPress={() => handleEventPress(event, selectedDay)}
+                      >
                         <Ionicons name="calendar" size={16} color="#16A085" />
                         <Text style={styles.eventText}>{event.title}</Text>
-                        <TouchableOpacity
-                          style={styles.deleteEventButton}
-                          onPress={() =>
-                            handleDeleteEvent(event.id, selectedDay.date)
-                          }
-                          disabled={isDeletingEvent}
-                        >
-                          <Ionicons name="trash" size={16} color="#F44336" />
-                        </TouchableOpacity>
-                      </View>
+                        <View style={styles.eventActions}>
+                          <TouchableOpacity
+                            style={styles.eventActionButton}
+                            onPress={() => handleEventPress(event, selectedDay)}
+                          >
+                            <Eye size={16} color="#3498DB" />
+                          </TouchableOpacity>
+                          <TouchableOpacity
+                            style={styles.deleteEventButton}
+                            onPress={() =>
+                              handleDeleteEvent(event.id, selectedDay.date)
+                            }
+                            disabled={isDeletingEvent}
+                          >
+                            <Ionicons name="trash" size={16} color="#F44336" />
+                          </TouchableOpacity>
+                        </View>
+                      </TouchableOpacity>
                     ))}
                   </View>
                 )}
@@ -867,7 +894,7 @@ export default function CalendarScreen() {
                       handleAddEvent(selectedDay.date);
                     }}
                   >
-                    <Text style={styles.addEventButtonText}>Add Event</Text>
+                    <Text style={styles.addEventButtonText}>{t.addEvent}</Text>
                   </TouchableOpacity>
                 </View>
               </LinearGradient>
@@ -882,7 +909,82 @@ export default function CalendarScreen() {
           </View>
         )}
 
-        {/* Add Event Modal */}
+        {/* Event Details Modal */}
+        <Modal
+          visible={showEventDetailsModal}
+          animationType="slide"
+          transparent={true}
+          onRequestClose={() => setShowEventDetailsModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <View style={styles.eventDetailsHeader}>
+                <Text style={styles.modalTitle}>{t.eventDetails}</Text>
+                <TouchableOpacity
+                  onPress={() => setShowEventDetailsModal(false)}
+                >
+                  <Ionicons name="close" size={24} color="#666" />
+                </TouchableOpacity>
+              </View>
+
+              {selectedEvent && (
+                <ScrollView>
+                  <View style={styles.eventDetailCard}>
+                    <Text style={styles.eventDetailTitle}>
+                      {selectedEvent.title}
+                    </Text>
+                    <Text style={styles.eventDetailType}>
+                      Type: {selectedEvent.type}
+                    </Text>
+                    {selectedEvent.description && (
+                      <Text style={styles.eventDetailDescription}>
+                        {selectedEvent.description}
+                      </Text>
+                    )}
+                    <Text style={styles.eventDetailDate}>
+                      Date: {new Date(selectedEvent.date).toLocaleDateString()}
+                    </Text>
+                    <Text style={styles.eventDetailCreated}>
+                      Created:{" "}
+                      {new Date(selectedEvent.created_at).toLocaleString()}
+                    </Text>
+                  </View>
+
+                  <View style={styles.eventDetailActions}>
+                    <TouchableOpacity
+                      style={[styles.modalButton, styles.editButton]}
+                      onPress={handleEditEvent}
+                    >
+                      <Edit size={16} color="#fff" />
+                      <Text style={styles.editButtonText}>{t.edit}</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[styles.modalButton, styles.deleteButton]}
+                      onPress={() =>
+                        handleDeleteEvent(selectedEvent.id, selectedEvent.date)
+                      }
+                      disabled={isDeletingEvent}
+                    >
+                      {isDeletingEvent ? (
+                        <ActivityIndicator color="white" size="small" />
+                      ) : (
+                        <>
+                          <Ionicons name="trash" size={16} color="#fff" />
+                          <Text style={styles.deleteButtonText}>
+                            {t.delete}
+                          </Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </ScrollView>
+              )}
+            </View>
+          </View>
+        </Modal>
+
+        {/* Add/Edit Event Modal */}
         <Modal
           visible={showEventModal}
           animationType="slide"
@@ -892,14 +994,16 @@ export default function CalendarScreen() {
           <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
               <ScrollView>
-                <Text style={styles.modalTitle}>Add Event</Text>
+                <Text style={styles.modalTitle}>
+                  {isEditingEvent ? t.editEvent : t.addEvent}
+                </Text>
 
                 <TextInput
                   style={styles.eventInput}
                   placeholder="Event title (e.g., Wedding, Heavy workout, Fasting day)"
                   value={eventTitle}
                   onChangeText={setEventTitle}
-                  autoFocus={true}
+                  autoFocus={!isEditingEvent}
                 />
 
                 <TextInput
@@ -953,10 +1057,13 @@ export default function CalendarScreen() {
                 <View style={styles.modalButtons}>
                   <TouchableOpacity
                     style={[styles.modalButton, styles.cancelButton]}
-                    onPress={() => setShowEventModal(false)}
+                    onPress={() => {
+                      setShowEventModal(false);
+                      setIsEditingEvent(false);
+                    }}
                     disabled={isAddingEvent}
                   >
-                    <Text style={styles.cancelButtonText}>Cancel</Text>
+                    <Text style={styles.cancelButtonText}>{t.cancel}</Text>
                   </TouchableOpacity>
 
                   <TouchableOpacity
@@ -967,7 +1074,9 @@ export default function CalendarScreen() {
                     {isAddingEvent ? (
                       <ActivityIndicator color="white" size="small" />
                     ) : (
-                      <Text style={styles.submitButtonText}>Add Event</Text>
+                      <Text style={styles.submitButtonText}>
+                        {isEditingEvent ? t.save : t.addEvent}
+                      </Text>
                     )}
                   </TouchableOpacity>
                 </View>
@@ -976,7 +1085,7 @@ export default function CalendarScreen() {
           </View>
         </Modal>
 
-        {/* Badges Modal */}
+        {/* Badges Modal - Only show if real badges exist */}
         <Modal
           visible={showBadgesModal}
           animationType="slide"
@@ -993,7 +1102,7 @@ export default function CalendarScreen() {
               </View>
 
               <ScrollView style={styles.badgesScrollView}>
-                {badges.map((badge) => (
+                {statistics?.gamificationBadges?.map((badge) => (
                   <View key={badge.id} style={styles.badgeDetailItem}>
                     <Text style={styles.badgeDetailIcon}>{badge.icon}</Text>
                     <View style={styles.badgeDetailContent}>
@@ -1001,9 +1110,22 @@ export default function CalendarScreen() {
                       <Text style={styles.badgeDetailDescription}>
                         {badge.description}
                       </Text>
+                      <Text style={styles.badgeDetailDate}>
+                        Achieved:{" "}
+                        {new Date(badge.achieved_at).toLocaleDateString()}
+                      </Text>
                     </View>
                   </View>
-                ))}
+                )) || (
+                  <View style={styles.noBadgesContainer}>
+                    <Text style={styles.noBadgesText}>
+                      No badges earned yet
+                    </Text>
+                    <Text style={styles.noBadgesSubtext}>
+                      Keep working towards your goals to earn achievements!
+                    </Text>
+                  </View>
+                )}
               </ScrollView>
             </View>
           </View>
@@ -1496,6 +1618,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#333",
   },
+  eventActions: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  eventActionButton: {
+    padding: 5,
+  },
   deleteEventButton: {
     padding: 5,
   },
@@ -1519,6 +1648,50 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     textAlign: "center",
     color: "#333",
+  },
+  eventDetailsHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  eventDetailCard: {
+    backgroundColor: "#f8f9fa",
+    padding: 15,
+    borderRadius: 8,
+    marginBottom: 20,
+  },
+  eventDetailTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#333",
+    marginBottom: 10,
+  },
+  eventDetailType: {
+    fontSize: 14,
+    color: "#666",
+    marginBottom: 5,
+    textTransform: "capitalize",
+  },
+  eventDetailDescription: {
+    fontSize: 14,
+    color: "#666",
+    marginBottom: 10,
+    fontStyle: "italic",
+  },
+  eventDetailDate: {
+    fontSize: 14,
+    color: "#666",
+    marginBottom: 5,
+  },
+  eventDetailCreated: {
+    fontSize: 12,
+    color: "#999",
+  },
+  eventDetailActions: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 10,
   },
   eventInput: {
     borderWidth: 1,
@@ -1578,6 +1751,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: "center",
     marginHorizontal: 5,
+    flexDirection: "row",
+    justifyContent: "center",
   },
   addEventButton: {
     backgroundColor: "#16A085",
@@ -1586,6 +1761,24 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 16,
     fontWeight: "bold",
+  },
+  editButton: {
+    backgroundColor: "#3498DB",
+  },
+  editButtonText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "bold",
+    marginLeft: 5,
+  },
+  deleteButton: {
+    backgroundColor: "#E74C3C",
+  },
+  deleteButtonText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "bold",
+    marginLeft: 5,
   },
   cancelButton: {
     backgroundColor: "#f8f9fa",
@@ -1638,6 +1831,25 @@ const styles = StyleSheet.create({
   badgeDetailDescription: {
     fontSize: 14,
     color: "#666",
+    marginBottom: 5,
+  },
+  badgeDetailDate: {
+    fontSize: 12,
+    color: "#999",
+  },
+  noBadgesContainer: {
+    alignItems: "center",
+    paddingVertical: 40,
+  },
+  noBadgesText: {
+    fontSize: 16,
+    color: "#666",
+    marginBottom: 10,
+  },
+  noBadgesSubtext: {
+    fontSize: 14,
+    color: "#999",
+    textAlign: "center",
   },
   insightsHeader: {
     flexDirection: "row",
