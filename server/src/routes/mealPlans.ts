@@ -711,7 +711,6 @@ router.post("/create", authenticateToken, async (req, res) => {
     });
   }
 });
-
 // Replace meal in plan
 router.put("/:planId/replace", authenticateToken, async (req, res) => {
   try {
@@ -854,6 +853,95 @@ router.post("/preferences", authenticateToken, async (req, res) => {
       success: false,
       error:
         error instanceof Error ? error.message : "Failed to save preference",
+    });
+  }
+});
+
+// Activate meal plan
+router.post("/:planId/activate", authenticateToken, async (req, res) => {
+  try {
+    console.log("🚀 Activating meal plan:", req.params.planId);
+
+    const user_id = req.user?.user_id;
+    if (!user_id) {
+      return res.status(401).json({
+        success: false,
+        error: "User not authenticated",
+      });
+    }
+
+    const { planId } = req.params;
+    const { previousPlanFeedback } = req.body;
+
+    // If there's feedback about a previous plan, store it
+    if (previousPlanFeedback) {
+      await MealPlanService.savePlanFeedback(
+        user_id,
+        previousPlanFeedback.planId,
+        previousPlanFeedback.rating,
+        previousPlanFeedback.liked,
+        previousPlanFeedback.disliked,
+        previousPlanFeedback.suggestions
+      );
+    }
+
+    // Deactivate any currently active plans
+    await MealPlanService.deactivateUserPlans(user_id);
+
+    // Activate the new plan
+    const activatedPlan = await MealPlanService.activatePlan(user_id, planId);
+
+    console.log("✅ Meal plan activated successfully");
+    res.json({
+      success: true,
+      data: activatedPlan,
+      message: "Meal plan activated successfully",
+    });
+  } catch (error) {
+    console.error("💥 Error activating meal plan:", error);
+    res.status(500).json({
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Failed to activate meal plan",
+    });
+  }
+});
+
+// Complete meal plan with feedback
+router.post("/:planId/complete", authenticateToken, async (req, res) => {
+  try {
+    console.log("🏁 Completing meal plan:", req.params.planId);
+
+    const user_id = req.user?.user_id;
+    if (!user_id) {
+      return res.status(401).json({
+        success: false,
+        error: "User not authenticated",
+      });
+    }
+
+    const { planId } = req.params;
+    const { rating, liked, disliked, suggestions } = req.body;
+
+    // Save feedback and mark plan as completed
+    await MealPlanService.completePlan(user_id, planId, {
+      rating,
+      liked,
+      disliked,
+      suggestions,
+    });
+
+    console.log("✅ Meal plan completed successfully");
+    res.json({
+      success: true,
+      message: "Meal plan completed and feedback saved",
+    });
+  } catch (error) {
+    console.error("💥 Error completing meal plan:", error);
+    res.status(500).json({
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Failed to complete meal plan",
     });
   }
 });

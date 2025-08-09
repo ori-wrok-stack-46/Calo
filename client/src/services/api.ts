@@ -21,7 +21,6 @@ const API_BASE_URL = getApiBaseUrl();
 
 console.log("🌐 API Base URL:", API_BASE_URL);
 console.log("📱 Platform:", Platform.OS);
-
 // Create axios instance with optimizations
 export const api = axios.create({
   baseURL: API_BASE_URL,
@@ -1128,9 +1127,7 @@ export const userAPI = {
       if (response.data.success) {
         return response.data.data;
       } else {
-        throw new Error(
-          response.data.error || "Failed to fetch global statistics"
-        );
+        throw new Error("Failed to fetch global statistics");
       }
     } catch (error: any) {
       console.error("💥 Get global statistics API error:", error);
@@ -1195,7 +1192,13 @@ export const userAPI = {
         code,
       });
       console.log("✅ verifyResetCode response:", response.data);
-      return response.data;
+
+      // The server returns 'resetToken', not 'token'
+      return {
+        success: response.data.success,
+        resetToken: response.data.resetToken, // Use resetToken instead of token
+        error: response.data.error,
+      };
     } catch (error: any) {
       console.error("💥 verifyResetCode error:", error);
       const errMsg =
@@ -1206,12 +1209,11 @@ export const userAPI = {
     }
   },
 
-  resetPassword: async (token: string, email: string, newPassword: string) => {
+  resetPassword: async (token: string, newPassword: string) => {
     try {
-      console.log("🔑 Resetting password for:", email);
+      console.log("🔑 Resetting password with token");
       const response = await api.post("/auth/reset-password", {
         token,
-        email,
         newPassword,
       });
       console.log("✅ resetPassword response:", response.data);
@@ -1284,7 +1286,6 @@ export const mealPlanAPI = {
       return { success: false, error: errMsg };
     }
   },
-
   replaceMeal: async (
     planId: string,
     payload: {
@@ -1316,11 +1317,10 @@ export const mealPlanAPI = {
   ): Promise<{ success: boolean; data?: any; error?: string }> => {
     try {
       console.log("❤️ Marking meal as favorite:", template_id);
-      const response = await api.post("/meal-plans/preferences", {
-        template_id,
-        preference_type: "favorite",
-        rating: 5,
-      });
+
+      const response = await api.put(
+        `/meal-plans/meals/${template_id}/favorite`
+      );
       console.log("✅ markMealAsFavorite response:", response.data);
       return response.data;
     } catch (error: any) {
@@ -1328,7 +1328,63 @@ export const mealPlanAPI = {
       const errMsg =
         error.response?.data?.error ||
         error.message ||
-        "Failed to mark as favorite";
+        "Failed to mark meal as favorite";
+      return { success: false, error: errMsg };
+    }
+  },
+
+  activatePlan: async (
+    planId: string,
+    previousPlanFeedback?: {
+      planId: string;
+      rating: number;
+      liked?: string;
+      disliked?: string;
+      suggestions?: string;
+    }
+  ): Promise<{ success: boolean; data?: any; error?: string }> => {
+    try {
+      console.log("🚀 Activating plan:", planId);
+
+      const response = await api.post(`/meal-plans/${planId}/activate`, {
+        previousPlanFeedback,
+      });
+      console.log("✅ activatePlan response:", response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error("💥 activatePlan error:", error);
+      const errMsg =
+        error.response?.data?.error ||
+        error.message ||
+        "Failed to activate plan";
+      return { success: false, error: errMsg };
+    }
+  },
+
+  completePlan: async (
+    planId: string,
+    feedback: {
+      rating: number;
+      liked?: string;
+      disliked?: string;
+      suggestions?: string;
+    }
+  ): Promise<{ success: boolean; data?: any; error?: string }> => {
+    try {
+      console.log("🏁 Completing plan:", planId);
+
+      const response = await api.post(
+        `/meal-plans/${planId}/complete`,
+        feedback
+      );
+      console.log("✅ completePlan response:", response.data);
+      return response.data;
+    } catch (error: any) {
+      console.error("💥 completePlan error:", error);
+      const errMsg =
+        error.response?.data?.error ||
+        error.message ||
+        "Failed to complete plan";
       return { success: false, error: errMsg };
     }
   },

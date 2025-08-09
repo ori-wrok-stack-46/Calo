@@ -1470,6 +1470,122 @@ export class MealPlanService {
     }
   }
 
+  static async activatePlan(user_id: string, plan_id: string) {
+    try {
+      console.log("🚀 Activating plan:", plan_id, "for user:", user_id);
+
+      // First deactivate any active plans
+      await this.deactivateUserPlans(user_id);
+
+      // Activate the new plan
+      const updatedPlan = await prisma.userMealPlan.update({
+        where: {
+          plan_id,
+          user_id,
+        },
+        data: {
+          is_active: true,
+          start_date: new Date(),
+        },
+        include: {
+          schedules: {
+            include: {
+              template: true,
+            },
+          },
+        },
+      });
+
+      return updatedPlan;
+    } catch (error) {
+      console.error("💥 Error activating plan:", error);
+      throw error;
+    }
+  }
+
+  static async deactivateUserPlans(user_id: string) {
+    try {
+      await prisma.userMealPlan.updateMany({
+        where: {
+          user_id,
+          is_active: true,
+        },
+        data: {
+          is_active: false,
+          end_date: new Date(),
+        },
+      });
+    } catch (error) {
+      console.error("💥 Error deactivating plans:", error);
+      throw error;
+    }
+  }
+
+  static async savePlanFeedback(
+    user_id: string,
+    plan_id: string,
+    rating: number,
+    liked?: string,
+    disliked?: string,
+    suggestions?: string
+  ) {
+    try {
+      // Create or update plan feedback
+      await prisma.userMealPlan.update({
+        where: {
+          plan_id,
+          user_id,
+        },
+        data: {
+          rating,
+          feedback_liked: liked,
+          feedback_disliked: disliked,
+          feedback_suggestions: suggestions,
+          completed_at: new Date(),
+        },
+      });
+
+      console.log("✅ Plan feedback saved successfully");
+    } catch (error) {
+      console.error("💥 Error saving plan feedback:", error);
+      throw error;
+    }
+  }
+
+  static async completePlan(
+    user_id: string,
+    plan_id: string,
+    feedback: {
+      rating: number;
+      liked?: string;
+      disliked?: string;
+      suggestions?: string;
+    }
+  ) {
+    try {
+      await prisma.userMealPlan.update({
+        where: {
+          plan_id,
+          user_id,
+        },
+        data: {
+          is_active: false,
+          completed_at: new Date(),
+          end_date: new Date(),
+          rating: feedback.rating,
+          feedback_liked: feedback.liked,
+          feedback_disliked: feedback.disliked,
+          feedback_suggestions: feedback.suggestions,
+        },
+      });
+
+      console.log("✅ Plan completed successfully");
+    } catch (error) {
+      console.error("💥 Error completing plan:", error);
+      throw error;
+    }
+  }
+
   static async getMealPlanNutritionSummary(user_id: string, plan_id: string) {
     try {
       const weeklyPlan = await this.getUserMealPlan(user_id, plan_id);

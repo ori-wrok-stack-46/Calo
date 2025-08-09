@@ -77,6 +77,22 @@ export interface User {
   ai_requests_count?: number;
   ai_requests_reset_at?: string;
   created_at?: string;
+  password_hash?: string;
+  subscription_start?: string;
+  subscription_end?: string;
+  email_verification_code?: string;
+  email_verification_expires?: string;
+  password_reset_code?: string;
+  password_reset_expires?: string;
+  level?: number;
+  total_points?: number;
+  current_xp?: number;
+  current_streak?: number;
+  best_streak?: number;
+  total_complete_days?: number;
+  last_complete_date?: string;
+  active_meal_plan_id?: string;
+  active_menu_id?: string;
 }
 
 export interface Meal {

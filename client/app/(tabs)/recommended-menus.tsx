@@ -38,9 +38,11 @@ import {
   Filter,
   Search,
 } from "lucide-react-native";
-import { api } from "@/src/services/api";
+import { api, mealPlanAPI } from "@/src/services/api";
 import LoadingScreen from "@/components/LoadingScreen";
 import { router } from "expo-router";
+import { useSelector } from "react-redux";
+import { RootState } from "@/src/store";
 
 const { width } = Dimensions.get("window");
 
@@ -107,6 +109,7 @@ export default function RecommendedMenusScreen() {
   const [carbGoal, setCarbGoal] = useState("");
   const [fatGoal, setFatGoal] = useState("");
   const [specialRequests, setSpecialRequests] = useState("");
+  const { user } = useSelector((state: RootState) => state.auth);
 
   // Animation values
   const [fadeAnim] = useState(new Animated.Value(0));
@@ -336,31 +339,41 @@ export default function RecommendedMenusScreen() {
     }
   };
 
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [selectedMenuToStart, setSelectedMenuToStart] = useState<string | null>(
+    null
+  );
+  const [currentActivePlan, setCurrentActivePlan] = useState<any>(null);
+  const [feedbackForm, setFeedbackForm] = useState({
+    rating: 0,
+    liked: "",
+    disliked: "",
+    suggestions: "",
+  });
+
+  const checkForActivePlan = async () => {
+    try {
+      const response = user?.active_meal_plan_id;
+      setCurrentActivePlan(response);
+    } catch (error) {
+      console.log("No active plan found");
+    }
+  };
+
+  useEffect(() => {
+    checkForActivePlan();
+  }, []);
+
   const handleStartMenu = async (menuId: string) => {
     try {
       console.log("🚀 Starting menu:", menuId);
+      setSelectedMenuToStart(menuId);
 
-      const response = await api.post(
-        `/recommended-menus/${menuId}/start-today`
-      );
-
-      if (response.data.success) {
-        const activePlanId = response.data.data?.plan_id || menuId;
-
-        Alert.alert(
-          language === "he" ? "הצלחה!" : "Success!",
-          language === "he"
-            ? "התפריט הופעל בהצלחה!"
-            : "Menu started successfully!",
-          [
-            {
-              text: language === "he" ? "אישור" : "OK",
-              onPress: () => {
-                router.push(`/menu/activeMenu?planId=${activePlanId}`);
-              },
-            },
-          ]
-        );
+      // Check if user has an active plan
+      if (currentActivePlan) {
+        setShowFeedbackModal(true);
+      } else {
+        await activateMenuPlan(menuId);
       }
     } catch (error: any) {
       console.error("💥 Error starting menu:", error);
@@ -370,6 +383,80 @@ export default function RecommendedMenusScreen() {
           (language === "he" ? "נכשל בהפעלת התפריט" : "Failed to start menu")
       );
     }
+  };
+
+  const activateMenuPlan = async (
+    menuId: string,
+    previousPlanFeedback?: any
+  ) => {
+    try {
+      // First create a plan from the recommended menu
+      const createResponse = await api.post(
+        `/recommended-menus/${menuId}/start-today`
+      );
+
+      if (createResponse.data.success) {
+        const newPlanId = createResponse.data.data?.plan_id;
+
+        // Then activate it with optional feedback
+        const activateResponse = await mealPlanAPI.activatePlan(
+          newPlanId,
+          previousPlanFeedback
+        );
+
+        if (activateResponse.success) {
+          setCurrentActivePlan(activateResponse.data);
+          setShowFeedbackModal(false);
+          setSelectedMenuToStart(null);
+
+          Alert.alert(
+            language === "he" ? "הצלחה!" : "Success!",
+            language === "he"
+              ? "התפריט הופעל בהצלחה!"
+              : "Menu started successfully!",
+            [
+              {
+                text: language === "he" ? "אישור" : "OK",
+                onPress: () => {
+                  router.push(`/menu/activeMenu?planId=${newPlanId}`);
+                },
+              },
+            ]
+          );
+        } else {
+          throw new Error(activateResponse.error);
+        }
+      } else {
+        throw new Error(createResponse.data.error);
+      }
+    } catch (error: any) {
+      console.error("💥 Error activating menu plan:", error);
+      Alert.alert(
+        language === "he" ? "שגיאה" : "Error",
+        error.message ||
+          (language === "he" ? "נכשל בהפעלת התפריט" : "Failed to start menu")
+      );
+    }
+  };
+
+  const handleFeedbackSubmit = async () => {
+    if (feedbackForm.rating === 0) {
+      Alert.alert(
+        language === "he" ? "שגיאה" : "Error",
+        language === "he" ? "אנא דרג את התוכנית" : "Please rate the plan"
+      );
+      return;
+    }
+
+    const previousPlanFeedback = {
+      planId: currentActivePlan.plan_id,
+      rating: feedbackForm.rating,
+      liked: feedbackForm.liked,
+      disliked: feedbackForm.disliked,
+      suggestions: feedbackForm.suggestions,
+    };
+
+    await activateMenuPlan(selectedMenuToStart!, previousPlanFeedback);
   };
 
   const filteredMenus = useMemo(() => {
@@ -800,6 +887,196 @@ export default function RecommendedMenusScreen() {
                   <Send size={16} color="#ffffff" />
                   <Text style={styles.modalCreateText}>
                     {language === "he" ? "צור" : "Create"}
+                  </Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+
+  const renderFeedbackModal = () => (
+    <Modal
+      visible={showFeedbackModal}
+      animationType="slide"
+      transparent={true}
+      onRequestClose={() => setShowFeedbackModal(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View
+          style={[styles.modalContent, { backgroundColor: colors.background }]}
+        >
+          <View
+            style={[styles.modalHeader, { borderBottomColor: colors.border }]}
+          >
+            <Text style={[styles.modalTitle, { color: colors.text }]}>
+              {language === "he"
+                ? "דרג את התוכנית הנוכחית"
+                : "Rate Current Plan"}
+            </Text>
+            <TouchableOpacity onPress={() => setShowFeedbackModal(false)}>
+              <X size={24} color={colors.icon} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.modalBody}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              {language === "he"
+                ? "איך הייתה התוכנית שלך?"
+                : "How was your plan?"}
+            </Text>
+
+            {/* Rating */}
+            <View style={styles.inputGroup}>
+              <Text style={[styles.inputLabel, { color: colors.text }]}>
+                {language === "he" ? "דירוג כללי" : "Overall Rating"} *
+              </Text>
+              <View style={styles.ratingContainer}>
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <TouchableOpacity
+                    key={star}
+                    onPress={() =>
+                      setFeedbackForm({ ...feedbackForm, rating: star })
+                    }
+                    style={styles.starButton}
+                  >
+                    <Star
+                      size={32}
+                      color={
+                        star <= feedbackForm.rating ? "#fbbf24" : colors.border
+                      }
+                      fill={
+                        star <= feedbackForm.rating ? "#fbbf24" : "transparent"
+                      }
+                    />
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* What you liked */}
+            <View style={styles.inputGroup}>
+              <Text style={[styles.inputLabel, { color: colors.text }]}>
+                {language === "he" ? "מה אהבת?" : "What did you like?"}
+              </Text>
+              <TextInput
+                style={[
+                  styles.textArea,
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: colors.border,
+                    color: colors.text,
+                  },
+                ]}
+                placeholder={
+                  language === "he"
+                    ? "תאר מה אהבת בתוכנית..."
+                    : "Describe what you liked about the plan..."
+                }
+                placeholderTextColor={colors.icon}
+                value={feedbackForm.liked}
+                onChangeText={(text) =>
+                  setFeedbackForm({ ...feedbackForm, liked: text })
+                }
+                multiline
+                numberOfLines={3}
+                textAlign={isRTL ? "right" : "left"}
+              />
+            </View>
+
+            {/* What you didn't like */}
+            <View style={styles.inputGroup}>
+              <Text style={[styles.inputLabel, { color: colors.text }]}>
+                {language === "he" ? "מה לא אהבת?" : "What didn't you like?"}
+              </Text>
+              <TextInput
+                style={[
+                  styles.textArea,
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: colors.border,
+                    color: colors.text,
+                  },
+                ]}
+                placeholder={
+                  language === "he"
+                    ? "תאר מה לא אהבת..."
+                    : "Describe what you didn't like..."
+                }
+                placeholderTextColor={colors.icon}
+                value={feedbackForm.disliked}
+                onChangeText={(text) =>
+                  setFeedbackForm({ ...feedbackForm, disliked: text })
+                }
+                multiline
+                numberOfLines={3}
+                textAlign={isRTL ? "right" : "left"}
+              />
+            </View>
+
+            {/* Suggestions */}
+            <View style={styles.inputGroup}>
+              <Text style={[styles.inputLabel, { color: colors.text }]}>
+                {language === "he"
+                  ? "הצעות לשיפור"
+                  : "Suggestions for improvement"}
+              </Text>
+              <TextInput
+                style={[
+                  styles.textArea,
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: colors.border,
+                    color: colors.text,
+                  },
+                ]}
+                placeholder={
+                  language === "he" ? "איך נוכל לשפר?" : "How can we improve?"
+                }
+                placeholderTextColor={colors.icon}
+                value={feedbackForm.suggestions}
+                onChangeText={(text) =>
+                  setFeedbackForm({ ...feedbackForm, suggestions: text })
+                }
+                multiline
+                numberOfLines={3}
+                textAlign={isRTL ? "right" : "left"}
+              />
+            </View>
+          </ScrollView>
+
+          <View
+            style={[styles.modalActions, { borderTopColor: colors.border }]}
+          >
+            <TouchableOpacity
+              style={[
+                styles.modalCancelButton,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+              onPress={() => setShowFeedbackModal(false)}
+            >
+              <Text style={[styles.modalCancelText, { color: colors.text }]}>
+                {language === "he" ? "ביטול" : "Cancel"}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.modalCreateButton,
+                { backgroundColor: colors.emerald500 },
+              ]}
+              onPress={handleFeedbackSubmit}
+              disabled={isGenerating}
+            >
+              {isGenerating ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <>
+                  <Send size={16} color="#ffffff" />
+                  <Text style={styles.modalCreateText}>
+                    {language === "he" ? "שמור והמשך" : "Save & Continue"}
                   </Text>
                 </>
               )}
@@ -1404,6 +1681,7 @@ export default function RecommendedMenusScreen() {
 
       {renderCustomModal()}
       {renderComprehensiveModal()}
+      {renderFeedbackModal()}
     </SafeAreaView>
   );
 }
@@ -1417,17 +1695,17 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#e5e5e5',
+    borderBottomColor: "#e5e5e5",
   },
   headerTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
     marginBottom: 20,
   },
   title: {
     fontSize: 28,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 4,
   },
   subtitle: {
@@ -1435,19 +1713,19 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   rtlText: {
-    textAlign: 'right',
+    textAlign: "right",
   },
   rtlRow: {
-    flexDirection: 'row-reverse',
+    flexDirection: "row-reverse",
   },
   generateButton: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     elevation: 4,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
@@ -1456,8 +1734,8 @@ const styles = StyleSheet.create({
     gap: 15,
   },
   searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 12,
@@ -1482,7 +1760,7 @@ const styles = StyleSheet.create({
   },
   filterChipText: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   content: {
     flex: 1,
@@ -1494,43 +1772,43 @@ const styles = StyleSheet.create({
   statsCard: {
     borderRadius: 16,
     borderWidth: 1,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   statsGradient: {
     padding: 20,
   },
   statsHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
     marginBottom: 16,
   },
   statsTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   statsGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
+    flexDirection: "row",
+    justifyContent: "space-around",
   },
   statItem: {
-    alignItems: 'center',
+    alignItems: "center",
   },
   statValue: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     marginBottom: 4,
   },
   statLabel: {
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   menuCard: {
     borderRadius: 16,
     borderWidth: 1,
-    overflow: 'hidden',
+    overflow: "hidden",
     elevation: 3,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -1539,13 +1817,13 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   headerContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
   },
   headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 12,
     flex: 1,
   },
@@ -1554,30 +1832,30 @@ const styles = StyleSheet.create({
   },
   menuTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#ffffff',
+    fontWeight: "bold",
+    color: "#ffffff",
     marginBottom: 4,
   },
   menuDate: {
     fontSize: 14,
-    color: '#ffffff',
+    color: "#ffffff",
     opacity: 0.8,
   },
   daysContainer: {
-    alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 12,
   },
   daysNumber: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#ffffff',
+    fontWeight: "bold",
+    color: "#ffffff",
   },
   daysLabel: {
     fontSize: 12,
-    color: '#ffffff',
+    color: "#ffffff",
     opacity: 0.8,
   },
   cardContent: {
@@ -1594,26 +1872,26 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   nutritionGrid: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 12,
   },
   nutritionCard: {
     flex: 1,
     padding: 16,
     borderRadius: 12,
-    alignItems: 'center',
+    alignItems: "center",
     gap: 8,
   },
   nutritionValue: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   nutritionLabel: {
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   mealsPreview: {
     gap: 12,
@@ -1627,43 +1905,43 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 10,
     borderWidth: 1,
-    alignItems: 'center',
+    alignItems: "center",
     gap: 6,
     marginRight: 12,
   },
   mealPreviewName: {
     fontSize: 12,
-    fontWeight: '500',
-    textAlign: 'center',
+    fontWeight: "500",
+    textAlign: "center",
     lineHeight: 16,
   },
   mealPreviewCalories: {
     fontSize: 11,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
+    flexDirection: "row",
+    justifyContent: "space-around",
     paddingVertical: 12,
   },
   infoItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 6,
   },
   infoText: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   actionButtons: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 12,
   },
   secondaryButton: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: 14,
     borderRadius: 12,
     borderWidth: 2,
@@ -1671,41 +1949,41 @@ const styles = StyleSheet.create({
   },
   secondaryButtonText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   primaryButton: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: 14,
     borderRadius: 12,
     gap: 8,
   },
   primaryButtonText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#ffffff',
+    fontWeight: "600",
+    color: "#ffffff",
   },
   emptyState: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     paddingVertical: 60,
     gap: 20,
   },
   emptyTitle: {
     fontSize: 24,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   emptyText: {
     fontSize: 16,
-    textAlign: 'center',
+    textAlign: "center",
     opacity: 0.7,
   },
   createFirstButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 24,
     paddingVertical: 16,
     borderRadius: 12,
@@ -1714,63 +1992,63 @@ const styles = StyleSheet.create({
   },
   createFirstButtonText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#ffffff',
+    fontWeight: "600",
+    color: "#ffffff",
   },
   fab: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 30,
     right: 30,
     width: 56,
     height: 56,
     borderRadius: 28,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     elevation: 8,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 6,
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
     padding: 20,
   },
   modalContent: {
-    width: '100%',
-    maxHeight: '80%',
+    width: "100%",
+    maxHeight: "80%",
     borderRadius: 20,
-    overflow: 'hidden',
+    overflow: "hidden",
     elevation: 10,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
     shadowRadius: 8,
   },
   comprehensiveModalContainer: {
-    width: '100%',
-    maxHeight: '85%',
+    width: "100%",
+    maxHeight: "85%",
     borderRadius: 20,
-    overflow: 'hidden',
+    overflow: "hidden",
     elevation: 10,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
     shadowRadius: 8,
   },
   modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     padding: 20,
     borderBottomWidth: 1,
   },
   modalTitle: {
     fontSize: 20,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   modalBody: {
     padding: 20,
@@ -1781,7 +2059,7 @@ const styles = StyleSheet.create({
   },
   inputLabel: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 8,
   },
   textInput: {
@@ -1799,16 +2077,16 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     fontSize: 16,
     minHeight: 100,
-    textAlignVertical: 'top',
+    textAlignVertical: "top",
   },
   inputRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 12,
     marginBottom: 20,
   },
   daysSelector: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 8,
   },
   dayOption: {
@@ -1817,14 +2095,14 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     minWidth: 44,
-    alignItems: 'center',
+    alignItems: "center",
   },
   dayOptionText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   modalActions: {
-    flexDirection: 'row',
+    flexDirection: "row",
     padding: 20,
     gap: 12,
     borderTopWidth: 1,
@@ -1833,26 +2111,35 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 16,
     borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     borderWidth: 1,
   },
   modalCancelText: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: "600",
   },
   modalCreateButton: {
     flex: 1,
-    flexDirection: 'row',
+    flexDirection: "row",
     paddingVertical: 16,
     borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     gap: 8,
   },
   modalCreateText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#ffffff',
+    fontWeight: "600",
+    color: "#ffffff",
+  },
+  ratingContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 8,
+    marginVertical: 16,
+  },
+  starButton: {
+    padding: 4,
   },
 });

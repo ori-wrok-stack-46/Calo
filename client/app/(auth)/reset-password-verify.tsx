@@ -102,22 +102,38 @@ export default function ResetPasswordVerifyScreen() {
         codeToVerify
       );
 
-      if (response.success && response.resetToken) {
-        console.log("✅ Reset code verified successfully");
+      console.log("✅ verifyResetCode response:", response);
 
+      if (response.success && response.resetToken) {
+        console.log(
+          "✅ Reset code verified successfully, navigating to reset password"
+        );
+
+        // Navigate to reset password screen
         router.push({
           pathname: "/(auth)/resetPassword",
           params: {
-            email,
             resetToken: response.resetToken,
           },
         });
-      } else {
-        throw new Error(response.error || "Verification failed");
+
+        return; // Exit early on success
       }
+
+      // If we get here, verification failed
+      throw new Error(response.error || "Verification failed");
     } catch (error: any) {
       console.error("💥 Reset code verification error:", error);
-      Alert.alert("Error", error.message || "Invalid verification code");
+
+      // Extract error message from different error formats
+      let errorMessage = "Invalid verification code";
+      if (error.response && error.response.data && error.response.data.error) {
+        errorMessage = error.response.data.error;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      Alert.alert("Error", errorMessage);
 
       // Clear the code inputs
       setCode(["", "", "", "", "", ""]);
@@ -183,7 +199,7 @@ export default function ResetPasswordVerifyScreen() {
       left: 0,
       right: 0,
       height: "35%",
-      backgroundColor: isDarkMode ? colors.surface : "#f0fdf4",
+      backgroundColor: isDarkMode ? "#1f2937" : "#f0fdf4",
       borderBottomLeftRadius: 30,
       borderBottomRightRadius: 30,
     },
@@ -215,10 +231,20 @@ export default function ResetPasswordVerifyScreen() {
       width: 80,
       height: 80,
       borderRadius: 40,
-      backgroundColor: colors.primary + "20",
+      backgroundColor: isDarkMode
+        ? colors.primary + "40"
+        : colors.primary + "20",
       justifyContent: "center",
       alignItems: "center",
       marginBottom: 24,
+      shadowColor: colors.primary,
+      shadowOffset: {
+        width: 0,
+        height: 4,
+      },
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+      elevation: 4,
     },
     title: {
       fontSize: 36,
@@ -272,13 +298,21 @@ export default function ResetPasswordVerifyScreen() {
       width: 45,
       height: 55,
       borderRadius: 12,
-      backgroundColor: colors.surface,
+      backgroundColor: isDarkMode ? "#374151" : colors.surface,
       borderWidth: 2,
-      borderColor: colors.border,
+      borderColor: isDarkMode ? "#4b5563" : colors.border,
       fontSize: 24,
       fontWeight: "bold",
       color: colors.text,
       textAlign: "center",
+      shadowColor: isDarkMode ? "#000" : colors.primary,
+      shadowOffset: {
+        width: 0,
+        height: 2,
+      },
+      shadowOpacity: isDarkMode ? 0.3 : 0.1,
+      shadowRadius: 4,
+      elevation: 2,
     },
     codeInputFilled: {
       borderColor: colors.primary,

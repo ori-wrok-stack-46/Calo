@@ -20,7 +20,7 @@ export default function ResetPasswordScreen() {
   const { isRTL } = useLanguage();
   const { colors, isDarkMode } = useTheme();
   const router = useRouter();
-  const { email, resetToken } = useLocalSearchParams();
+  const { resetToken } = useLocalSearchParams();
 
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -54,11 +54,10 @@ export default function ResetPasswordScreen() {
 
     try {
       setIsLoading(true);
-      console.log("🔑 Resetting password for:", email);
+      console.log("🔑 Resetting password with token");
 
       const response = await userAPI.resetPassword(
         resetToken as string,
-        email as string,
         password
       );
 
@@ -109,7 +108,7 @@ export default function ResetPasswordScreen() {
       left: 0,
       right: 0,
       height: "35%",
-      backgroundColor: isDarkMode ? colors.surface : "#f0fdf4",
+      backgroundColor: isDarkMode ? "#1f2937" : "#f0fdf4",
       borderBottomLeftRadius: 30,
       borderBottomRightRadius: 30,
     },
@@ -141,10 +140,20 @@ export default function ResetPasswordScreen() {
       width: 80,
       height: 80,
       borderRadius: 40,
-      backgroundColor: colors.primary + "20",
+      backgroundColor: isDarkMode
+        ? colors.primary + "40"
+        : colors.primary + "20",
       justifyContent: "center",
       alignItems: "center",
       marginBottom: 24,
+      shadowColor: colors.primary,
+      shadowOffset: {
+        width: 0,
+        height: 4,
+      },
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+      elevation: 4,
     },
     title: {
       fontSize: 36,
@@ -187,12 +196,12 @@ export default function ResetPasswordScreen() {
     },
     input: {
       borderWidth: 2,
-      borderColor: colors.border,
+      borderColor: isDarkMode ? "#4b5563" : colors.border,
       borderRadius: 16,
       padding: 18,
       paddingRight: 60,
       fontSize: 16,
-      backgroundColor: colors.surface,
+      backgroundColor: isDarkMode ? "#374151" : colors.surface,
       color: colors.text,
       fontWeight: "500",
     },
@@ -242,11 +251,19 @@ export default function ResetPasswordScreen() {
       letterSpacing: 0.5,
     },
     passwordRequirements: {
-      backgroundColor: colors.surface,
+      backgroundColor: isDarkMode ? "#374151" : colors.surface,
       borderRadius: 12,
       padding: 16,
       borderLeftWidth: 4,
       borderLeftColor: colors.primary,
+      shadowColor: isDarkMode ? "#000" : colors.primary,
+      shadowOffset: {
+        width: 0,
+        height: 2,
+      },
+      shadowOpacity: isDarkMode ? 0.3 : 0.1,
+      shadowRadius: 4,
+      elevation: 2,
     },
     requirementsTitle: {
       fontSize: 14,

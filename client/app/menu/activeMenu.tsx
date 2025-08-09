@@ -42,7 +42,7 @@ import {
   Plus,
   Minus,
 } from "lucide-react-native";
-import { api } from "@/src/services/api";
+import { api, mealPlanAPI } from "@/src/services/api";
 import LoadingScreen from "@/components/LoadingScreen";
 
 const { width } = Dimensions.get("window");
@@ -118,8 +118,15 @@ export default function ActiveMenuScreen() {
   const [showMealModal, setShowMealModal] = useState(false);
   const [showSwapModal, setShowSwapModal] = useState(false);
   const [showFilterModal, setShowFilterModal] = useState(false);
+  const [showCompletePlanModal, setShowCompletePlanModal] = useState(false);
   const [isSwapping, setIsSwapping] = useState(false);
   const [swapError, setSwapError] = useState<string | null>(null);
+  const [completionFeedback, setCompletionFeedback] = useState({
+    rating: 0,
+    liked: "",
+    disliked: "",
+    suggestions: "",
+  });
 
   // Calendar state
   const [currentWeekStart, setCurrentWeekStart] = useState(new Date());
@@ -482,6 +489,55 @@ export default function ActiveMenuScreen() {
       setSwapError(errorMessage);
     } finally {
       setIsSwapping(false);
+    }
+  };
+
+  const handleCompletePlan = async () => {
+    if (!mealPlan) return;
+
+    if (completionFeedback.rating === 0) {
+      Alert.alert(
+        language === "he" ? "שגיאה" : "Error",
+        language === "he" ? "אנא דרג את התוכנית" : "Please rate the plan"
+      );
+      return;
+    }
+
+    try {
+      const response = await mealPlanAPI.completePlan(
+        mealPlan.plan_id,
+        completionFeedback
+      );
+
+      if (response.success) {
+        setShowCompletePlanModal(false);
+
+        Alert.alert(
+          language === "he" ? "תודה!" : "Thank you!",
+          language === "he"
+            ? "התוכנית הושלמה בהצלחה. המשוב שלך יעזור לנו לשפר!"
+            : "Plan completed successfully. Your feedback will help us improve!",
+          [
+            {
+              text: language === "he" ? "אישור" : "OK",
+              onPress: () => {
+                router.replace("/(tabs)/recommended-menus");
+              },
+            },
+          ]
+        );
+      } else {
+        throw new Error(response.error);
+      }
+    } catch (error: any) {
+      console.error("💥 Error completing plan:", error);
+      Alert.alert(
+        language === "he" ? "שגיאה" : "Error",
+        error.message ||
+          (language === "he"
+            ? "נכשל בהשלמת התוכנית"
+            : "Failed to complete plan")
+      );
     }
   };
 
@@ -961,6 +1017,215 @@ export default function ActiveMenuScreen() {
     </Modal>
   );
 
+  const renderCompletePlanModal = () => (
+    <Modal
+      visible={showCompletePlanModal}
+      animationType="slide"
+      transparent={true}
+      onRequestClose={() => setShowCompletePlanModal(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View
+          style={[styles.modalContent, { backgroundColor: colors.background }]}
+        >
+          <View
+            style={[styles.modalHeader, { borderBottomColor: colors.border }]}
+          >
+            <Text
+              style={[
+                styles.modalTitle,
+                { color: colors.text },
+                isRTL && styles.rtlText,
+              ]}
+            >
+              {language === "he" ? "השלמת התוכנית" : "Complete Plan"}
+            </Text>
+            <TouchableOpacity onPress={() => setShowCompletePlanModal(false)}>
+              <X size={24} color={colors.icon} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.modalBody}>
+            <Text
+              style={[
+                styles.swapDescription,
+                { color: colors.text },
+                isRTL && styles.rtlText,
+              ]}
+            >
+              {language === "he"
+                ? "איך הייתה התוכנית שלך? המשוב שלך יעזור לנו לשפר!"
+                : "How was your plan? Your feedback will help us improve!"}
+            </Text>
+
+            {/* Rating */}
+            <View style={styles.inputGroup}>
+              <Text style={[styles.inputLabel, { color: colors.text }]}>
+                {language === "he" ? "דירוג כללי" : "Overall Rating"} *
+              </Text>
+              <View style={styles.ratingContainer}>
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <TouchableOpacity
+                    key={star}
+                    onPress={() =>
+                      setCompletionFeedback({
+                        ...completionFeedback,
+                        rating: star,
+                      })
+                    }
+                    style={styles.starButton}
+                  >
+                    <Star
+                      size={28}
+                      color={
+                        star <= completionFeedback.rating
+                          ? "#fbbf24"
+                          : colors.border
+                      }
+                      fill={
+                        star <= completionFeedback.rating
+                          ? "#fbbf24"
+                          : "transparent"
+                      }
+                    />
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* What you liked */}
+            <View style={styles.inputGroup}>
+              <Text style={[styles.inputLabel, { color: colors.text }]}>
+                {language === "he" ? "מה אהבת?" : "What did you like?"}
+              </Text>
+              <TextInput
+                style={[
+                  styles.textArea,
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: colors.border,
+                    color: colors.text,
+                  },
+                  isRTL && styles.rtlTextInput,
+                ]}
+                placeholder={
+                  language === "he"
+                    ? "תאר מה אהבת בתוכנית..."
+                    : "Describe what you liked about the plan..."
+                }
+                placeholderTextColor={colors.icon}
+                value={completionFeedback.liked}
+                onChangeText={(text) =>
+                  setCompletionFeedback({ ...completionFeedback, liked: text })
+                }
+                multiline
+                numberOfLines={3}
+                textAlign={isRTL ? "right" : "left"}
+              />
+            </View>
+
+            {/* What you didn't like */}
+            <View style={styles.inputGroup}>
+              <Text style={[styles.inputLabel, { color: colors.text }]}>
+                {language === "he" ? "מה לא אהבת?" : "What didn't you like?"}
+              </Text>
+              <TextInput
+                style={[
+                  styles.textArea,
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: colors.border,
+                    color: colors.text,
+                  },
+                  isRTL && styles.rtlTextInput,
+                ]}
+                placeholder={
+                  language === "he"
+                    ? "תאר מה לא אהבת..."
+                    : "Describe what you didn't like..."
+                }
+                placeholderTextColor={colors.icon}
+                value={completionFeedback.disliked}
+                onChangeText={(text) =>
+                  setCompletionFeedback({
+                    ...completionFeedback,
+                    disliked: text,
+                  })
+                }
+                multiline
+                numberOfLines={3}
+                textAlign={isRTL ? "right" : "left"}
+              />
+            </View>
+
+            {/* Suggestions */}
+            <View style={styles.inputGroup}>
+              <Text style={[styles.inputLabel, { color: colors.text }]}>
+                {language === "he"
+                  ? "הצעות לשיפור"
+                  : "Suggestions for improvement"}
+              </Text>
+              <TextInput
+                style={[
+                  styles.textArea,
+                  {
+                    backgroundColor: colors.card,
+                    borderColor: colors.border,
+                    color: colors.text,
+                  },
+                  isRTL && styles.rtlTextInput,
+                ]}
+                placeholder={
+                  language === "he" ? "איך נוכל לשפר?" : "How can we improve?"
+                }
+                placeholderTextColor={colors.icon}
+                value={completionFeedback.suggestions}
+                onChangeText={(text) =>
+                  setCompletionFeedback({
+                    ...completionFeedback,
+                    suggestions: text,
+                  })
+                }
+                multiline
+                numberOfLines={3}
+                textAlign={isRTL ? "right" : "left"}
+              />
+            </View>
+          </ScrollView>
+
+          <View
+            style={[styles.modalActions, { borderTopColor: colors.border }]}
+          >
+            <TouchableOpacity
+              style={[
+                styles.modalCancelButton,
+                { backgroundColor: colors.card, borderColor: colors.border },
+              ]}
+              onPress={() => setShowCompletePlanModal(false)}
+            >
+              <Text style={[styles.modalCancelText, { color: colors.text }]}>
+                {language === "he" ? "ביטול" : "Cancel"}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.modalSaveButton,
+                { backgroundColor: colors.emerald500 },
+              ]}
+              onPress={handleCompletePlan}
+            >
+              <Award size={16} color="#ffffff" />
+              <Text style={styles.modalSaveText}>
+                {language === "he" ? "השלם תוכנית" : "Complete Plan"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+
   const renderSwapModal = () => (
     <Modal
       visible={showSwapModal}
@@ -1242,12 +1507,27 @@ export default function ActiveMenuScreen() {
           </Text>
         </View>
 
-        <TouchableOpacity
-          style={[styles.filterHeaderButton, { backgroundColor: colors.card }]}
-          onPress={() => setShowFilterModal(true)}
-        >
-          <Filter size={20} color={colors.emerald500} />
-        </TouchableOpacity>
+        <View style={styles.headerButtons}>
+          <TouchableOpacity
+            style={[
+              styles.filterHeaderButton,
+              { backgroundColor: colors.card },
+            ]}
+            onPress={() => setShowFilterModal(true)}
+          >
+            <Filter size={20} color={colors.emerald500} />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.completeButton,
+              { backgroundColor: colors.emerald500 },
+            ]}
+            onPress={() => setShowCompletePlanModal(true)}
+          >
+            <Award size={16} color="#ffffff" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Enhanced Calendar Widget */}
@@ -1462,6 +1742,7 @@ export default function ActiveMenuScreen() {
       {/* Modals */}
       {renderMealModal()}
       {renderSwapModal()}
+      {renderCompletePlanModal()}
     </SafeAreaView>
   );
 }
@@ -1925,5 +2206,39 @@ const styles = StyleSheet.create({
   },
   rtlRow: {
     flexDirection: "row-reverse",
+  },
+  headerButtons: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  completeButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  inputGroup: {
+    marginBottom: 20,
+  },
+  inputLabel: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 8,
+  },
+  textArea: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 16,
+    minHeight: 100,
+    textAlignVertical: "top",
+  },
+  ratingContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 8,
+    marginVertical: 16,
   },
 });

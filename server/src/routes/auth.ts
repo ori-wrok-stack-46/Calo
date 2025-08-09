@@ -300,11 +300,11 @@ router.post("/verify-reset-code", async (req, res) => {
 
     console.log("🔄 Verifying reset code for:", email);
 
-    const result = await AuthService.verifyResetCode(email, code);
+    const resetToken = await AuthService.verifyResetCode(email, code);
 
     res.json({
       success: true,
-      token: result.token,
+      resetToken: resetToken,
       message: "Code verified successfully",
     });
   } catch (error) {
@@ -326,16 +326,16 @@ router.post("/verify-reset-code", async (req, res) => {
 // Reset password endpoint
 router.post("/reset-password", async (req, res) => {
   try {
-    const { token, email, newPassword } = req.body;
+    const { token, newPassword } = req.body;
 
-    if (!token || !email || !newPassword) {
+    if (!token || !newPassword) {
       return res.status(400).json({
         success: false,
-        error: "Token, email, and new password are required",
+        error: "Token and new password are required",
       });
     }
 
-    console.log("🔄 Processing password reset for:", email);
+    console.log("🔄 Processing password reset with token");
 
     await AuthService.resetPassword(token, newPassword);
 

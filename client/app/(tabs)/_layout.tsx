@@ -57,9 +57,18 @@ export default function TabLayout() {
               }}
             />
             <Tabs.Screen
-              name="questionnaire"
+              name="history"
               options={{
-                title: t("tabs.questionnaire"),
+                title: t("tabs.history"),
+                tabBarIcon: ({ color }) => (
+                  <IconSymbol size={28} name="clock.fill" color={color} />
+                ),
+              }}
+            />
+            <Tabs.Screen
+              name="recommended-menus"
+              options={{
+                title: t("tabs.recommended_menus"),
                 tabBarIcon: ({ color }) => (
                   <IconSymbol size={28} name="dining" color={color} />
                 ),
@@ -97,24 +106,6 @@ export default function TabLayout() {
               }}
             />
             <Tabs.Screen
-              name="recommended-menus"
-              options={{
-                title: t("tabs.recommended_menus"),
-                tabBarIcon: ({ color }) => (
-                  <IconSymbol size={28} name="dining" color={color} />
-                ),
-              }}
-            />
-            <Tabs.Screen
-              name="history"
-              options={{
-                title: t("tabs.history"),
-                tabBarIcon: ({ color }) => (
-                  <IconSymbol size={28} name="clock.fill" color={color} />
-                ),
-              }}
-            />
-            <Tabs.Screen
               name="statistics"
               options={{
                 title: t("tabs.statistics"),
@@ -138,6 +129,15 @@ export default function TabLayout() {
                 title: t("tabs.devices"),
                 tabBarIcon: ({ color }) => (
                   <IconSymbol size={28} name="watch.digital" color={color} />
+                ),
+              }}
+            />
+            <Tabs.Screen
+              name="questionnaire"
+              options={{
+                title: t("tabs.questionnaire"),
+                tabBarIcon: ({ color }) => (
+                  <IconSymbol size={28} name="dining" color={color} />
                 ),
               }}
             />

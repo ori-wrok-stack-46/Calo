@@ -526,48 +526,169 @@ export class AuthService {
       <meta charset="UTF-8">
       <meta name="viewport" content="width=device-width, initial-scale=1.0">
       <title>Password Reset - Calo</title>
+      <!--[if mso]>
+      <noscript>
+        <xml>
+          <o:OfficeDocumentSettings>
+            <o:PixelsPerInch>96</o:PixelsPerInch>
+          </o:OfficeDocumentSettings>
+        </xml>
+      </noscript>
+      <![endif]-->
     </head>
     <body style="margin: 0; padding: 0; background-color: #f8f9fa; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;">
       <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="100%" style="background-color: #f8f9fa;">
         <tr>
           <td align="center" style="padding: 40px 20px;">
+
+            <!-- Main Container -->
             <table role="presentation" cellspacing="0" cellpadding="0" border="0" width="600" style="max-width: 600px; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08); overflow: hidden;">
+
+              <!-- Header Section -->
               <tr>
-                <td style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 32px; text-align: center;">
-                  <h1 style="color: #ffffff; font-size: 28px; font-weight: 700; margin: 0; letter-spacing: -0.5px;">Calo</h1>
-                  <p style="color: rgba(255, 255, 255, 0.9); font-size: 16px; margin: 8px 0 0 0; font-weight: 400;">Password Reset</p>
+                <td style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 40px 32px; text-align: center; position: relative;">
+                  <!-- Background Pattern -->
+                  <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background-image: radial-gradient(circle at 20% 50%, rgba(255, 255, 255, 0.1) 0%, transparent 50%), radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.1) 0%, transparent 50%); opacity: 0.5;"></div>
+
+                  <!-- Logo/Icon -->
+                  <div style="background-color: rgba(255, 255, 255, 0.15); width: 90px; height: 90px; border-radius: 50%; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; border: 3px solid rgba(255, 255, 255, 0.3); position: relative;">
+                    <div style="width: 50px; height: 50px; background-color: white; border-radius: 50%; position: relative;">
+                      <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 24px; height: 24px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 50%;"></div>
+                      <div style="position: absolute; top: 15px; left: 15px; width: 8px; height: 8px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 2px; transform: rotate(45deg);"></div>
+                    </div>
+                  </div>
+
+                  <h1 style="color: #ffffff; font-size: 32px; font-weight: 700; margin: 0; letter-spacing: -0.5px; position: relative;">Calo</h1>
+                  <p style="color: rgba(255, 255, 255, 0.9); font-size: 16px; margin: 8px 0 0 0; font-weight: 400; position: relative;">Password Reset</p>
                 </td>
               </tr>
+
+              <!-- Content Section -->
               <tr>
                 <td style="padding: 48px 32px 32px;">
-                  <h2 style="color: #1a1a1a; font-size: 24px; font-weight: 600; margin: 0 0 24px 0; line-height: 1.3;">
-                    Reset Your Password, ${name}! 🔑
-                  </h2>
-                  <p style="color: #4a5568; font-size: 16px; line-height: 1.6; margin: 0 0 32px 0;">
-                    You requested to reset your password. Use the code below to create a new password.
-                  </p>
-                  <div style="background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%); border: 2px dashed #cbd5e0; border-radius: 12px; padding: 32px; text-align: center; margin: 32px 0;">
-                    <p style="color: #4a5568; font-size: 14px; margin: 0 0 16px 0; font-weight: 500; text-transform: uppercase; letter-spacing: 0.5px;">
-                      Reset Code
-                    </p>
-                    <div style="font-family: 'Courier New', monospace; font-size: 36px; font-weight: 700; color: #2d3748; letter-spacing: 8px; margin: 16px 0; text-align: center;">
-                      ${code}
+
+                  <!-- Greeting -->
+                  <div style="text-align: center; margin-bottom: 32px;">
+                    <div style="width: 60px; height: 60px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 50%; margin: 0 auto 16px; display: flex; align-items: center; justify-content: center;">
+                      <span style="color: white; font-size: 24px;">🔑</span>
                     </div>
-                    <p style="color: #718096; font-size: 13px; margin: 16px 0 0 0;">
-                      This code expires in <strong>10 minutes</strong>
+                    <h2 style="color: #1a1a1a; font-size: 26px; font-weight: 600; margin: 0 0 8px 0; line-height: 1.3;">
+                      Reset Your Password
+                    </h2>
+                    <p style="color: #4a5568; font-size: 16px; margin: 0;">
+                      Hello <strong>${name}</strong>! We received a request to reset your password.
                     </p>
                   </div>
-                  <div style="background-color: #fef2f2; border-left: 4px solid #ef4444; padding: 20px; margin: 32px 0; border-radius: 0 8px 8px 0;">
+
+                  <p style="color: #4a5568; font-size: 16px; line-height: 1.6; margin: 0 0 32px 0; text-align: center;">
+                    Enter the verification code below in the Calo app to create a new password for your account.
+                  </p>
+
+                  <!-- Verification Code Container -->
+                  <div style="background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%); border: 2px solid #e2e8f0; border-radius: 16px; padding: 40px 32px; text-align: center; margin: 32px 0; position: relative; overflow: hidden;">
+                    <!-- Background decoration -->
+                    <div style="position: absolute; top: -50px; right: -50px; width: 100px; height: 100px; background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%); border-radius: 50%; opacity: 0.5;"></div>
+                    <div style="position: absolute; bottom: -30px; left: -30px; width: 60px; height: 60px; background: linear-gradient(135deg, #667eea20 0%, #764ba220 100%); border-radius: 50%; opacity: 0.3;"></div>
+
+                    <p style="color: #4a5568; font-size: 14px; margin: 0 0 20px 0; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; position: relative;">
+                      Your Reset Code
+                    </p>
+
+                    <!-- Code Display -->
+                    <div style="background-color: white; border: 2px solid #e2e8f0; border-radius: 12px; padding: 24px; margin: 20px 0; position: relative;">
+                      <div style="font-family: 'Courier New', monospace; font-size: 42px; font-weight: 700; color: #2d3748; letter-spacing: 10px; margin: 0; text-align: center; line-height: 1;">
+                        ${code}
+                      </div>
+                    </div>
+
+                    <div style="display: flex; align-items: center; justify-content: center; margin-top: 20px; position: relative;">
+                      <div style="width: 20px; height: 20px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 50%; margin-right: 8px; display: flex; align-items: center; justify-content: center;">
+                        <span style="color: white; font-size: 12px;">⏰</span>
+                      </div>
+                      <p style="color: #718096; font-size: 14px; margin: 0; font-weight: 500;">
+                        This code expires in <strong style="color: #4a5568;">15 minutes</strong>
+                      </p>
+                    </div>
+                  </div>
+
+                  <!-- Instructions -->
+                  <div style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border-left: 4px solid #3b82f6; padding: 24px; margin: 32px 0; border-radius: 0 12px 12px 0; position: relative;">
+                    <div style="position: absolute; top: 20px; right: 20px; width: 30px; height: 30px; background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                      <span style="color: white; font-size: 14px;">📱</span>
+                    </div>
+                    <h3 style="color: #1e40af; font-size: 16px; font-weight: 600; margin: 0 0 8px 0;">
+                      How to use this code:
+                    </h3>
+                    <ul style="color: #1e40af; font-size: 14px; line-height: 1.6; margin: 0; padding-left: 20px;">
+                      <li>Open the Calo app on your device</li>
+                      <li>Enter this 6-digit code when prompted</li>
+                      <li>Create your new secure password</li>
+                      <li>Start using your account immediately</li>
+                    </ul>
+                  </div>
+
+                  <!-- Security Notice -->
+                  <div style="background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%); border-left: 4px solid #ef4444; padding: 24px; margin: 32px 0; border-radius: 0 12px 12px 0; position: relative;">
+                    <div style="position: absolute; top: 20px; right: 20px; width: 30px; height: 30px; background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                      <span style="color: white; font-size: 14px;">🔒</span>
+                    </div>
                     <h3 style="color: #dc2626; font-size: 16px; font-weight: 600; margin: 0 0 8px 0;">
-                      🔒 Security Notice
+                      Security Notice
                     </h3>
                     <p style="color: #dc2626; font-size: 14px; line-height: 1.5; margin: 0;">
-                      If you didn't request this password reset, please ignore this email. Never share your reset code with anyone.
+                      <strong>Important:</strong> If you didn't request this password reset, please ignore this email and contact our support team. Never share your reset code with anyone.
                     </p>
                   </div>
+
                 </td>
               </tr>
+
+              <!-- Footer Section -->
+              <tr>
+                <td style="background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%); padding: 32px; text-align: center; border-top: 1px solid #e2e8f0;">
+
+                  <!-- Social Links -->
+                  <div style="margin-bottom: 24px;">
+                    <a href="#" style="display: inline-block; margin: 0 8px; width: 44px; height: 44px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 50%; text-decoration: none; line-height: 44px; color: white; font-size: 16px; transition: transform 0.2s;">📧</a>
+                    <a href="#" style="display: inline-block; margin: 0 8px; width: 44px; height: 44px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 50%; text-decoration: none; line-height: 44px; color: white; font-size: 16px; transition: transform 0.2s;">💬</a>
+                    <a href="#" style="display: inline-block; margin: 0 8px; width: 44px; height: 44px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 50%; text-decoration: none; line-height: 44px; color: white; font-size: 16px; transition: transform 0.2s;">🌐</a>
+                  </div>
+
+                  <!-- Company Info -->
+                  <div style="background-color: white; border-radius: 12px; padding: 20px; margin: 20px 0; box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);">
+                    <h3 style="color: #1a1a1a; font-size: 18px; font-weight: 600; margin: 0 0 8px 0;">
+                      Calo - Fitness & Diet
+                    </h3>
+                    <p style="color: #718096; font-size: 14px; margin: 0 0 16px 0; line-height: 1.5;">
+                      Your Personal Nutrition & Fitness Assistant<br>
+                      <strong style="color: #4a5568;">Transform your health, one meal at a time.</strong>
+                    </p>
+
+                    <!-- App Download Buttons -->
+                    <div style="margin: 16px 0;">
+                      <span style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 8px 16px; border-radius: 20px; font-size: 12px; font-weight: 500; margin: 0 4px;">📱 Available on iOS & Android</span>
+                    </div>
+                  </div>
+
+                  <!-- Links -->
+                  <div style="margin: 24px 0;">
+                    <a href="#" style="color: #667eea; text-decoration: none; font-size: 14px; margin: 0 16px; font-weight: 500; padding: 8px 12px; border-radius: 6px; background-color: rgba(102, 126, 234, 0.1);">Privacy Policy</a>
+                    <a href="#" style="color: #667eea; text-decoration: none; font-size: 14px; margin: 0 16px; font-weight: 500; padding: 8px 12px; border-radius: 6px; background-color: rgba(102, 126, 234, 0.1);">Terms of Service</a>
+                    <a href="#" style="color: #667eea; text-decoration: none; font-size: 14px; margin: 0 16px; font-weight: 500; padding: 8px 12px; border-radius: 6px; background-color: rgba(102, 126, 234, 0.1);">Support</a>
+                  </div>
+
+                  <!-- Copyright -->
+                  <p style="color: #a0aec0; font-size: 12px; margin: 20px 0 0 0; line-height: 1.5;">
+                    © 2025 Calo. All rights reserved.<br>
+                    <a href="#" style="color: #a0aec0; text-decoration: none;">Unsubscribe</a> | 
+                    <a href="#" style="color: #a0aec0; text-decoration: none;">Update Preferences</a>
+                  </p>
+
+                </td>
+              </tr>
+
             </table>
+
           </td>
         </tr>
       </table>
@@ -585,7 +706,7 @@ export class AuthService {
         console.log(`📧 Password reset email for ${email}`);
         console.log(`👤 Name: ${name}`);
         console.log(`🔑 Reset Code: ${code}`);
-        console.log(`⏰ Code expires in 10 minutes`);
+        console.log(`⏰ Code expires in 15 minutes`);
       }
 
       return true;
@@ -596,7 +717,7 @@ export class AuthService {
       console.log(`📧 FALLBACK - Password reset code for ${email}`);
       console.log(`👤 Name: ${name}`);
       console.log(`🔑 Reset Code: ${code}`);
-      console.log(`⏰ Code expires in 10 minutes`);
+      console.log(`⏰ Code expires in 15 minutes`);
 
       // Don't throw error - let the process continue even if email fails
       return true;
@@ -639,20 +760,19 @@ export class AuthService {
 
   static async resetPassword(
     token: string,
-    email: string,
     newPassword: string
   ): Promise<void> {
-    console.log("🔑 Resetting password for:", email);
+    console.log("🔑 Resetting password with token");
 
     try {
       const decoded = jwt.verify(token, JWT_SECRET) as any;
 
-      if (decoded.type !== "password_reset" || decoded.email !== email) {
+      if (decoded.type !== "password_reset") {
         throw new Error("Invalid reset token");
       }
 
       const user = await prisma.user.findUnique({
-        where: { email },
+        where: { email: decoded.email },
       });
 
       if (!user) {
@@ -664,7 +784,7 @@ export class AuthService {
 
       // Update password and clear reset fields (like email verification clears verification fields)
       await prisma.user.update({
-        where: { email },
+        where: { email: decoded.email },
         data: {
           password_hash: hashedPassword,
           password_reset_code: null,
@@ -677,7 +797,7 @@ export class AuthService {
         where: { user_id: user.user_id },
       });
 
-      console.log("✅ Password reset successfully");
+      console.log("✅ Password reset successfully for:", decoded.email);
     } catch (error) {
       console.error("💥 Password reset error:", error);
       throw new Error("Invalid or expired reset token");

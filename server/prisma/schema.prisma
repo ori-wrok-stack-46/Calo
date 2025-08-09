@@ -333,26 +333,31 @@ model MealTemplate {
 }
 
 model UserMealPlan {
-  plan_id                 String       @id @default(cuid())
+  plan_id                 String    @id @default(cuid())
   user_id                 String
   name                    String
-  plan_type               MealPlanType
-  meals_per_day           Int          @default(3)
-  snacks_per_day          Int          @default(0)
-  rotation_frequency_days Int          @default(7)
-  include_leftovers       Boolean      @default(false)
-  fixed_meal_times        Boolean      @default(false)
-  target_calories_daily   Float?
+  plan_type               String
+  meals_per_day           Int
+  snacks_per_day          Int       @default(0)
+  rotation_frequency_days Int       @default(7)
+  include_leftovers       Boolean   @default(false)
+  fixed_meal_times        Boolean   @default(true)
+  target_calories_daily   Int?
   target_protein_daily    Float?
   target_carbs_daily      Float?
   target_fats_daily       Float?
-  dietary_preferences     Json?
-  excluded_ingredients    Json?
-  is_active               Boolean      @default(true)
-  start_date              DateTime?    @db.Date
-  end_date                DateTime?    @db.Date
-  created_at              DateTime     @default(now())
-  updated_at              DateTime     @updatedAt
+  dietary_preferences     String?
+  excluded_ingredients    String?
+  start_date              DateTime?
+  end_date                DateTime?
+  is_active               Boolean   @default(false)
+  completed_at            DateTime?
+  rating                  Int?
+  feedback_liked          String?
+  feedback_disliked       String?
+  feedback_suggestions    String?
+  created_at              DateTime  @default(now())
+  updated_at              DateTime  @updatedAt
 
   // Relationships
   user          User               @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
