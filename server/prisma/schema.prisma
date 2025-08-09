@@ -600,7 +600,6 @@ model Achievement {
   created_at     DateTime @default(now())
   updated_at     DateTime @updatedAt
 
-  // 👇 This line fixes the error:
   userAchievements UserAchievement[]
 }
 
