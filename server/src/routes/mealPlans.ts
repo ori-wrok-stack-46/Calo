@@ -444,22 +444,267 @@ router.get("/current", authenticateToken, async (req, res) => {
       });
     }
 
-    // Try to get the active meal plan first
-    const activePlan = await MealPlanService.getActiveMealPlan(user_id);
+    // Get user's active plan/menu IDs
+    const user = await prisma.user.findUnique({
+      where: { user_id },
+      select: {
+        active_meal_plan_id: true,
+        active_menu_id: true,
+      },
+    });
 
-    if (activePlan) {
-      // Get the full weekly plan data
-      const weeklyPlan = await MealPlanService.getUserMealPlan(
-        user_id,
-        activePlan.plan_id
-      );
+    let weeklyPlan: any = {};
+    let planId: string | null = null;
+    let planName: string | null = null;
+    let hasActivePlan = false;
 
-      console.log("✅ Active meal plan found and retrieved");
+    // Try active meal plan first
+    if (user?.active_meal_plan_id) {
+      console.log("🔍 Checking active meal plan:", user.active_meal_plan_id);
+      try {
+        // Check if meal plan exists and has schedules
+        const mealPlan = await prisma.userMealPlan.findFirst({
+          where: {
+            plan_id: user.active_meal_plan_id,
+            user_id: user_id,
+          },
+          include: {
+            schedules: {
+              include: {
+                template: true,
+              },
+            },
+          },
+        });
+
+        if (mealPlan && mealPlan.schedules.length > 0) {
+          weeklyPlan = await MealPlanService.getUserMealPlan(
+            user_id,
+            user.active_meal_plan_id
+          );
+
+          planId = user.active_meal_plan_id;
+          planName = mealPlan.name || "Active Plan";
+          hasActivePlan = true;
+          console.log("✅ Active meal plan found with schedules");
+        } else if (mealPlan) {
+          console.log(
+            "⚠️ Meal plan exists but has no schedules, trying to regenerate"
+          );
+          // Plan exists but no schedules - this is the issue we're seeing
+          // Try to use the recommended menu as fallback
+        }
+      } catch (error) {
+        console.log("⚠️ Error checking active meal plan:", error);
+      }
+    }
+
+    // If no meal plan data, try recommended menu
+    if (!hasActivePlan && user?.active_menu_id) {
+      console.log("🔍 Checking active recommended menu:", user.active_menu_id);
+      try {
+        const recommendedMenu = await prisma.recommendedMenu.findFirst({
+          where: {
+            menu_id: user.active_menu_id,
+            user_id: user_id,
+          },
+          include: {
+            meals: {
+              include: {
+                ingredients: true,
+              },
+              orderBy: [{ day_number: "asc" }, { meal_type: "asc" }],
+            },
+          },
+        });
+
+        if (recommendedMenu && recommendedMenu.meals.length > 0) {
+          // Convert recommended menu to weekly plan format
+          const dayNames = [
+            "Sunday",
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday",
+          ];
+          weeklyPlan = {};
+
+          recommendedMenu.meals.forEach((meal) => {
+            const dayName = dayNames[(meal.day_number - 1) % 7];
+            const timing = meal.meal_type;
+
+            if (!weeklyPlan[dayName]) {
+              weeklyPlan[dayName] = {};
+            }
+            if (!weeklyPlan[dayName][timing]) {
+              weeklyPlan[dayName][timing] = [];
+            }
+
+            weeklyPlan[dayName][timing].push({
+              template_id: meal.meal_id,
+              name: meal.name,
+              description: meal.instructions || "",
+              meal_timing: timing,
+              dietary_category: "BALANCED",
+              prep_time_minutes: meal.prep_time_minutes || 30,
+              difficulty_level: 2,
+              calories: meal.calories,
+              protein_g: meal.protein,
+              carbs_g: meal.carbs,
+              fats_g: meal.fat,
+              fiber_g: meal.fiber || 0,
+              sugar_g: 0,
+              sodium_mg: 0,
+              ingredients: meal.ingredients?.map((ing) => ing.name) || [],
+              instructions:
+                typeof meal.instructions === "string"
+                  ? [meal.instructions]
+                  : meal.instructions || [],
+              allergens: [],
+              image_url: null,
+              user_rating: 0,
+              user_comments: "",
+              is_favorite: false,
+            });
+          });
+
+          planId = user.active_menu_id;
+          planName = recommendedMenu.title;
+          hasActivePlan = true;
+          console.log(
+            "✅ Active recommended menu found and converted to weekly plan"
+          );
+        }
+      } catch (error) {
+        console.log(
+          "⚠️ Active recommended menu not found or has no data:",
+          error
+        );
+      }
+    }
+
+    // If still no plan, try to find any recent plan for the user
+    if (!hasActivePlan) {
+      console.log("🔍 Trying to find any recent meal plan or menu");
+
+      // Try latest meal plan
+      const latestPlan = await prisma.userMealPlan.findFirst({
+        where: { user_id },
+        include: {
+          schedules: {
+            include: {
+              template: true,
+            },
+          },
+        },
+        orderBy: { created_at: "desc" },
+      });
+
+      if (latestPlan && latestPlan.schedules.length > 0) {
+        weeklyPlan = await MealPlanService.getUserMealPlan(
+          user_id,
+          latestPlan.plan_id
+        );
+        planId = latestPlan.plan_id;
+        planName = latestPlan.name;
+        hasActivePlan = true;
+
+        // Update user's active plan
+        await prisma.user.update({
+          where: { user_id },
+          data: { active_meal_plan_id: latestPlan.plan_id },
+        });
+
+        console.log("✅ Found latest meal plan and set as active");
+      } else {
+        // Try latest recommended menu
+        const latestMenu = await prisma.recommendedMenu.findFirst({
+          where: { user_id },
+          include: {
+            meals: {
+              include: {
+                ingredients: true,
+              },
+            },
+          },
+          orderBy: { created_at: "desc" },
+        });
+
+        if (latestMenu && latestMenu.meals.length > 0) {
+          // Convert to weekly plan format (same code as above)
+          const dayNames = [
+            "Sunday",
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday",
+          ];
+          weeklyPlan = {};
+
+          latestMenu.meals.forEach((meal) => {
+            const dayName = dayNames[(meal.day_number - 1) % 7];
+            const timing = meal.meal_type;
+
+            if (!weeklyPlan[dayName]) {
+              weeklyPlan[dayName] = {};
+            }
+            if (!weeklyPlan[dayName][timing]) {
+              weeklyPlan[dayName][timing] = [];
+            }
+
+            weeklyPlan[dayName][timing].push({
+              template_id: meal.meal_id,
+              name: meal.name,
+              description: meal.instructions || "",
+              meal_timing: timing,
+              dietary_category: "BALANCED",
+              prep_time_minutes: meal.prep_time_minutes || 30,
+              difficulty_level: 2,
+              calories: meal.calories,
+              protein_g: meal.protein,
+              carbs_g: meal.carbs,
+              fats_g: meal.fat,
+              fiber_g: meal.fiber || 0,
+              sugar_g: 0,
+              sodium_mg: 0,
+              ingredients: meal.ingredients?.map((ing) => ing.name) || [],
+              instructions:
+                typeof meal.instructions === "string"
+                  ? [meal.instructions]
+                  : meal.instructions || [],
+              allergens: [],
+              image_url: null,
+              user_rating: 0,
+              user_comments: "",
+              is_favorite: false,
+            });
+          });
+
+          planId = latestMenu.menu_id;
+          planName = latestMenu.title;
+          hasActivePlan = true;
+
+          // Update user's active menu
+          await prisma.user.update({
+            where: { user_id },
+            data: { active_menu_id: latestMenu.menu_id },
+          });
+
+          console.log("✅ Found latest recommended menu and set as active");
+        }
+      }
+    }
+
+    if (hasActivePlan && Object.keys(weeklyPlan).length > 0) {
       return res.json({
         success: true,
         data: weeklyPlan,
-        planId: activePlan.plan_id,
-        planName: activePlan.name,
+        planId: planId,
+        planName: planName,
         hasActivePlan: true,
       });
     } else {
@@ -922,6 +1167,51 @@ router.post("/:planId/complete", authenticateToken, async (req, res) => {
 
     const { planId } = req.params;
     const { rating, liked, disliked, suggestions } = req.body;
+
+    // Check if plan exists first
+    const existingPlan = await prisma.userMealPlan.findFirst({
+      where: {
+        plan_id: planId,
+        user_id: user_id,
+      },
+    });
+
+    if (!existingPlan) {
+      // Try to find by menu_id in case it's a recommended menu
+      const recommendedMenu = await prisma.recommendedMenu.findFirst({
+        where: {
+          menu_id: planId,
+          user_id: user_id,
+        },
+      });
+
+      if (recommendedMenu) {
+        // Create a completion record for the recommended menu
+        await prisma.recommendedMenu.update({
+          where: {
+            menu_id: planId,
+          },
+          data: {
+            completed_at: new Date(),
+            rating: rating,
+            feedback_liked: liked,
+            feedback_disliked: disliked,
+            feedback_suggestions: suggestions,
+          },
+        });
+
+        console.log("✅ Recommended menu completed successfully");
+        return res.json({
+          success: true,
+          message: "Menu completed and feedback saved",
+        });
+      }
+
+      return res.status(404).json({
+        success: false,
+        error: "Plan or menu not found",
+      });
+    }
 
     // Save feedback and mark plan as completed
     await MealPlanService.completePlan(user_id, planId, {

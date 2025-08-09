@@ -848,30 +848,33 @@ export class MealPlanService {
   }
 
   static async replaceMealInPlan(
-    user_id: string,
-    plan_id: string,
-    day_of_week: number,
-    meal_timing: string,
-    meal_order: number,
-    preferences?: { dietary_category?: string; max_prep_time?: number }
+    userId: string,
+    planId: string,
+    dayOfWeek: number,
+    mealTiming: string,
+    mealOrder: number,
+    preferences: any = {}
   ) {
     try {
-      console.log("🔄 AI-powered meal replacement in plan:", {
-        plan_id,
-        day_of_week,
-        meal_timing,
-        meal_order,
+      console.log("🔄 Replacing meal in plan with AI:", {
+        planId,
+        dayOfWeek,
+        mealTiming,
+        preferences,
       });
 
-      // Verify the plan belongs to the user
+      // Get the current meal plan
       const mealPlan = await prisma.userMealPlan.findFirst({
-        where: { plan_id, user_id },
+        where: {
+          plan_id: planId,
+          user_id: userId,
+        },
         include: {
           schedules: {
             where: {
-              day_of_week,
-              meal_timing: meal_timing as any,
-              meal_order,
+              day_of_week: dayOfWeek,
+              meal_timing: mealTiming as any,
+              meal_order: mealOrder,
             },
             include: {
               template: true,
@@ -880,483 +883,338 @@ export class MealPlanService {
         },
       });
 
-      if (!mealPlan || !mealPlan.schedules[0]) {
-        throw new Error("Meal not found in plan");
-      }
-
-      const currentMeal = mealPlan.schedules[0].template;
-
-      // Get user profile for AI replacement
-      const questionnaire = await prisma.userQuestionnaire.findFirst({
-        where: { user_id },
-        orderBy: { date_completed: "desc" },
-      });
-
-      const user = await prisma.userQuestionnaire.findFirst({
-        where: { user_id: user_id },
-        select: { age: true, weight_kg: true, height_cm: true },
-      });
-
-      // For now, use a fallback replacement meal since OpenAI service needs fixing
-      const replacementMeal = this.generateFallbackReplacementMeal({
-        current_meal: {
-          name: currentMeal.name,
-          meal_timing: currentMeal.meal_timing,
-          dietary_category: currentMeal.dietary_category,
-          calories: Number(currentMeal.calories) || 0,
-          protein_g: Number(currentMeal.protein_g) || 0,
-          carbs_g: Number(currentMeal.carbs_g) || 0,
-          fats_g: Number(currentMeal.fats_g) || 0,
-        },
-        user_preferences: {
-          dietary_preferences: validateArray(
-            mealPlan.dietary_preferences as any
-          ),
-          excluded_ingredients: validateArray(
-            mealPlan.excluded_ingredients as any
-          ),
-          allergies: validateArray(questionnaire?.allergies),
-          preferred_dietary_category: preferences?.dietary_category,
-          max_prep_time: preferences?.max_prep_time,
-        },
-        nutrition_targets: {
-          target_calories: mealPlan.target_calories_daily || 2000,
-          target_protein: mealPlan.target_protein_daily || 150,
-        },
-      });
-
-      // Use transaction for replacement
-      const result = await prisma.$transaction(async (tx) => {
-        // Create new template for replacement meal
-        const newTemplate = await tx.mealTemplate.create({
-          data: {
-            name: replacementMeal.name,
-            description: replacementMeal.description,
-            meal_timing: replacementMeal.meal_timing as any,
-            dietary_category: replacementMeal.dietary_category as any,
-            prep_time_minutes: replacementMeal.prep_time_minutes,
-            difficulty_level: replacementMeal.difficulty_level,
-            calories: replacementMeal.calories,
-            protein_g: replacementMeal.protein_g,
-            carbs_g: replacementMeal.carbs_g,
-            fats_g: replacementMeal.fats_g,
-            fiber_g: replacementMeal.fiber_g,
-            sugar_g: replacementMeal.sugar_g,
-            sodium_mg: replacementMeal.sodium_mg,
-            ingredients_json: replacementMeal.ingredients,
-            instructions_json: replacementMeal.instructions,
-            allergens_json: replacementMeal.allergens,
-            image_url: replacementMeal.image_url,
-          },
-        });
-
-        // Update the schedule
-        await tx.mealPlanSchedule.updateMany({
-          where: {
-            plan_id,
-            day_of_week,
-            meal_timing: meal_timing as any,
-            meal_order,
-          },
-          data: {
-            template_id: newTemplate.template_id,
-          },
-        });
-
-        return newTemplate;
-      });
-
-      console.log("✅ AI meal replacement completed successfully");
-      return { success: true, new_meal: result };
-    } catch (error) {
-      console.error("💥 Error replacing meal with AI:", error);
-      throw error;
-    }
-  }
-
-  static async generateShoppingList(
-    user_id: string,
-    plan_id: string,
-    week_start_date: string
-  ) {
-    try {
-      console.log("🛒 Generating shopping list for plan:", plan_id);
-
-      const mealPlan = await prisma.userMealPlan.findFirst({
-        where: { plan_id, user_id },
-        include: {
-          schedules: {
-            include: {
-              template: true,
-            },
-          },
-        },
-      });
       if (!mealPlan) {
         throw new Error("Meal plan not found");
       }
 
-      // Aggregate ingredients from all meals
-      const ingredientMap = new Map<
-        string,
-        { quantity: number; unit: string; category: string }
-      >();
+      const currentSchedule = mealPlan.schedules[0];
+      if (!currentSchedule) {
+        throw new Error("Current meal not found in schedule");
+      }
 
-      mealPlan.schedules.forEach((schedule) => {
-        const ingredients = (schedule.template.ingredients_json as any[]) || [];
-        ingredients.forEach((ingredient) => {
-          const key = ingredient.name?.toLowerCase() || "unknown";
-          const existing = ingredientMap.get(key);
-
-          const quantity =
-            (ingredient.quantity || 1) * schedule.portion_multiplier;
-          const unit = ingredient.unit || "piece";
-          const category = ingredient.category || "Other";
-
-          if (existing && existing.unit === unit) {
-            existing.quantity += quantity;
-          } else {
-            ingredientMap.set(key, {
-              quantity,
-              unit,
-              category,
-            });
-          }
-        });
+      // Get user's dietary preferences for context
+      const userQuestionnaire = await prisma.userQuestionnaire.findFirst({
+        where: { user_id: userId },
+        orderBy: { date_completed: "desc" },
       });
 
-      // Convert to shopping list format
-      const shoppingItems = Array.from(ingredientMap.entries()).map(
-        ([name, details]) => ({
-          name,
-          quantity: Math.ceil(details.quantity * 100) / 100, // Round to 2 decimal places
-          unit: details.unit,
-          category: details.category,
-          estimated_cost: this.estimateIngredientCost(
-            name,
-            details.quantity,
-            details.unit
-          ),
-          is_purchased: false,
-        })
+      // Generate a new meal template using OpenAI
+      const newTemplate = await this.generateAIReplacementMeal(
+        currentSchedule.template,
+        preferences,
+        userQuestionnaire,
+        userId
       );
 
-      // Group by category
-      const groupedItems = shoppingItems.reduce((acc, item) => {
-        if (!acc[item.category]) acc[item.category] = [];
-        acc[item.category].push(item);
-        return acc;
-      }, {} as Record<string, any[]>);
+      // Create new meal template
+      const createdTemplate = await prisma.mealTemplate.create({
+        data: newTemplate,
+      });
 
-      // Calculate total estimated cost
-      const totalCost =
-        Math.round(
-          shoppingItems.reduce((sum, item) => sum + item.estimated_cost, 0) *
-            100
-        ) / 100;
-
-      // Create shopping list
-      const shoppingList = await prisma.shoppingList.create({
+      // Update the schedule to use the new template
+      await prisma.mealPlanSchedule.update({
+        where: {
+          schedule_id: currentSchedule.schedule_id,
+        },
         data: {
-          user_id,
-          plan_id,
-          name: `Shopping List - Week of ${week_start_date}`,
-          week_start_date: new Date(week_start_date),
-          items_json: groupedItems,
-          total_estimated_cost: totalCost,
+          template_id: createdTemplate.template_id,
         },
       });
 
-      console.log("✅ Shopping list generated successfully");
-      return shoppingList;
+      console.log("✅ AI-powered meal replacement completed");
+
+      return {
+        template_id: createdTemplate.template_id,
+        name: createdTemplate.name,
+        description: createdTemplate.description,
+        meal_timing: createdTemplate.meal_timing,
+        dietary_category: createdTemplate.dietary_category,
+        prep_time_minutes: createdTemplate.prep_time_minutes,
+        difficulty_level: createdTemplate.difficulty_level,
+        calories: createdTemplate.calories,
+        protein_g: createdTemplate.protein_g,
+        carbs_g: createdTemplate.carbs_g,
+        fats_g: createdTemplate.fats_g,
+        fiber_g: createdTemplate.fiber_g,
+        sugar_g: createdTemplate.sugar_g,
+        sodium_mg: createdTemplate.sodium_mg,
+        ingredients_json: createdTemplate.ingredients_json,
+        instructions_json: createdTemplate.instructions_json,
+        allergens_json: createdTemplate.allergens_json,
+        image_url: createdTemplate.image_url,
+      };
     } catch (error) {
-      console.error("💥 Error generating shopping list:", error);
+      console.error("💥 Error replacing meal in plan:", error);
       throw error;
     }
   }
 
-  static async saveMealPreference(
-    user_id: string,
-    template_id: string,
-    preference_type: string,
-    rating?: number,
-    notes?: string
+  static async generateAIReplacementMeal(
+    currentMeal: any,
+    preferences: any,
+    userQuestionnaire: any,
+    userId: string
   ) {
     try {
-      console.log("💝 Saving meal preference:", {
-        template_id,
-        preference_type,
-        rating,
-      });
+      console.log("🤖 Generating AI replacement meal...");
 
-      const preference = await prisma.userMealPreference.upsert({
-        where: {
-          user_id_template_id_preference_type: {
-            user_id,
-            template_id,
-            preference_type,
-          },
-        },
-        update: {
-          rating,
-          notes,
-          updated_at: new Date(),
-        },
-        create: {
-          user_id,
-          template_id,
-          preference_type,
-          rating,
-          notes,
-        },
-      });
+      // Import OpenAI service
+      const { OpenAIService } = await import("./openai");
 
-      console.log("✅ Meal preference saved successfully");
-      return preference;
-    } catch (error) {
-      console.error("💥 Error saving meal preference:", error);
-      throw error;
-    }
-  }
+      // Build context for AI generation
+      const currentMealContext = preferences.current_meal_context || {
+        name: currentMeal.name,
+        calories: currentMeal.calories,
+        protein_g: currentMeal.protein_g,
+        carbs_g: currentMeal.carbs_g,
+        fats_g: currentMeal.fats_g,
+      };
 
-  // Helper methods
-  private static getCookingTimeFrommeal_count(meals_per_day: number): string {
-    if (meals_per_day <= 2) return "minimal"; // 15-30 min total
-    if (meals_per_day === 3) return "moderate"; // 30-60 min total
-    return "extensive"; // 60+ min total
-  }
+      const replacementPrompt = `Generate a replacement meal for the following context:
 
-  private static estimateIngredientCost(
-    name: string,
-    quantity: number,
-    unit: string
-  ): number {
-    // Simple cost estimation - in a real app, you'd use actual pricing data
-    const baseCosts: Record<string, number> = {
-      // Proteins (per 100g)
-      chicken: 3.0,
-      beef: 5.0,
-      fish: 4.0,
-      salmon: 6.0,
-      eggs: 0.5,
-      tofu: 2.0,
-      turkey: 4.0,
-      pork: 3.5,
-      tuna: 3.0,
-      shrimp: 8.0,
+CURRENT MEAL TO REPLACE:
+- Name: ${currentMealContext.name}
+- Calories: ${currentMealContext.calories}
+- Protein: ${currentMealContext.protein_g}g
+- Carbs: ${currentMealContext.carbs_g}g
+- Fats: ${currentMealContext.fats_g}g
+- Meal timing: ${currentMeal.meal_timing}
 
-      // Vegetables (per 100g)
-      tomato: 0.8,
-      onion: 0.5,
-      carrot: 0.6,
-      broccoli: 1.2,
-      spinach: 1.5,
-      avocado: 2.0,
-      "sweet potato": 0.7,
-      potato: 0.4,
-      bell: 1.0, // bell pepper
-      pepper: 1.0,
-      cucumber: 0.7,
-      lettuce: 1.0,
-      garlic: 2.0,
-      mushroom: 1.5,
-      zucchini: 0.8,
+USER PREFERENCES:
+${
+  preferences.protein_preference
+    ? `- Protein preference: ${preferences.protein_preference}`
+    : ""
+}
+${
+  preferences.calorie_preference
+    ? `- Calorie preference: ${preferences.calorie_preference}`
+    : ""
+}
+${
+  preferences.dietary_category
+    ? `- Dietary category: ${preferences.dietary_category}`
+    : ""
+}
+${
+  preferences.max_prep_time
+    ? `- Max prep time: ${preferences.max_prep_time} minutes`
+    : ""
+}
 
-      // Grains (per 100g)
-      rice: 0.3,
-      quinoa: 1.2,
-      pasta: 0.4,
-      bread: 0.8,
-      oats: 0.5,
-      flour: 0.2,
-      "brown rice": 0.4,
+USER DIETARY INFO:
+${
+  userQuestionnaire?.dietary_restrictions
+    ? `- Dietary restrictions: ${userQuestionnaire.dietary_restrictions.join(
+        ", "
+      )}`
+    : ""
+}
+${
+  userQuestionnaire?.food_allergies
+    ? `- Food allergies: ${userQuestionnaire.food_allergies.join(", ")}`
+    : ""
+}
+${
+  userQuestionnaire?.main_goal
+    ? `- Main goal: ${userQuestionnaire.main_goal}`
+    : ""
+}
 
-      // Dairy (per 100g/ml)
-      milk: 0.1,
-      yogurt: 0.8,
-      cheese: 2.5,
-      feta: 3.0,
-      butter: 1.5,
-      cream: 1.0,
-      "greek yogurt": 1.2,
+REQUIREMENTS:
+1. Create a completely different meal that matches the user's preferences
+2. Maintain similar nutritional profile unless specifically requested otherwise
+3. Consider dietary restrictions and allergies
+4. Make it suitable for the same meal timing
+5. Provide detailed ingredients list and instructions
 
-      // Fruits (per 100g)
-      apple: 0.6,
-      banana: 0.4,
-      orange: 0.7,
-      berries: 2.0,
-      lemon: 0.8,
-      lime: 0.9,
+Please return a JSON object with the following structure:
+{
+  "name": "Meal name",
+  "description": "Brief description",
+  "meal_timing": "${currentMeal.meal_timing}",
+  "dietary_category": "BALANCED/VEGETARIAN/VEGAN/etc",
+  "prep_time_minutes": number,
+  "difficulty_level": 1-5,
+  "calories": number,
+  "protein_g": number,
+  "carbs_g": number,
+  "fats_g": number,
+  "fiber_g": number,
+  "sugar_g": number,
+  "sodium_mg": number,
+  "ingredients_json": ["ingredient1", "ingredient2", "etc"],
+  "instructions_json": ["step1", "step2", "etc"],
+  "allergens_json": ["allergen1", "allergen2"],
+  "replacement_reason": "Why this meal was chosen"
+}`;
 
-      // Nuts and seeds (per 100g)
-      almonds: 4.0,
-      walnuts: 5.0,
-      seeds: 3.0,
-      "peanut butter": 2.0,
+      const aiResponse = await OpenAIService.generateText(
+        replacementPrompt,
+        1500
+      );
 
-      // Oils and condiments (per 100ml/g)
-      "olive oil": 3.0,
-      oil: 2.0,
-      vinegar: 1.0,
-      salt: 0.1,
-      honey: 2.0,
-      "soy sauce": 1.5,
-
-      // Legumes (per 100g)
-      beans: 0.8,
-      lentils: 1.0,
-      chickpeas: 0.9,
-
-      // Default
-      default: 1.0,
-    };
-
-    // Normalize ingredient name for lookup
-    const normalizedName = name.toLowerCase().trim();
-
-    // Try to find exact match first
-    let baseCost = baseCosts[normalizedName];
-
-    // If no exact match, try partial matches
-    if (!baseCost) {
-      for (const [key, cost] of Object.entries(baseCosts)) {
-        if (normalizedName.includes(key) || key.includes(normalizedName)) {
-          baseCost = cost;
-          break;
-        }
+      // Parse AI response
+      let mealData;
+      try {
+        const cleanResponse = aiResponse
+          .replace(/```json\s*/g, "")
+          .replace(/```\s*/g, "")
+          .trim();
+        mealData = JSON.parse(cleanResponse);
+      } catch (parseError) {
+        console.log("⚠️ AI response parsing failed, using fallback");
+        throw new Error("Failed to parse AI response");
       }
+
+      // Validate and sanitize the AI response
+      const sanitizedMeal = {
+        name: mealData.name || `Replacement ${currentMeal.meal_timing}`,
+        description: mealData.description || "AI-generated replacement meal",
+        meal_timing: currentMeal.meal_timing,
+        dietary_category: this.validateDietaryCategory(
+          mealData.dietary_category
+        ),
+        prep_time_minutes: Math.min(
+          120,
+          Math.max(5, Number(mealData.prep_time_minutes) || 30)
+        ),
+        difficulty_level: Math.min(
+          5,
+          Math.max(1, Number(mealData.difficulty_level) || 2)
+        ),
+        calories: Math.min(
+          1500,
+          Math.max(100, Number(mealData.calories) || currentMeal.calories)
+        ),
+        protein_g: Math.min(
+          80,
+          Math.max(0, Number(mealData.protein_g) || currentMeal.protein_g)
+        ),
+        carbs_g: Math.min(
+          150,
+          Math.max(0, Number(mealData.carbs_g) || currentMeal.carbs_g)
+        ),
+        fats_g: Math.min(
+          80,
+          Math.max(0, Number(mealData.fats_g) || currentMeal.fats_g)
+        ),
+        fiber_g: Math.min(30, Math.max(0, Number(mealData.fiber_g) || 5)),
+        sugar_g: Math.min(50, Math.max(0, Number(mealData.sugar_g) || 8)),
+        sodium_mg: Math.min(
+          2000,
+          Math.max(0, Number(mealData.sodium_mg) || 400)
+        ),
+        ingredients_json: Array.isArray(mealData.ingredients_json)
+          ? mealData.ingredients_json.slice(0, 15)
+          : ["Mixed ingredients"],
+        instructions_json: Array.isArray(mealData.instructions_json)
+          ? mealData.instructions_json.slice(0, 10)
+          : ["Prepare according to preferences"],
+        allergens_json: Array.isArray(mealData.allergens_json)
+          ? mealData.allergens_json
+          : [],
+        image_url: null,
+        is_active: true,
+      };
+
+      console.log("✅ AI replacement meal generated:", sanitizedMeal.name);
+      return sanitizedMeal;
+    } catch (error) {
+      console.log("⚠️ AI meal generation failed, using fallback");
+      return this.generateFallbackReplacementMeal(currentMeal, preferences);
     }
-
-    // Use default if still no match
-    if (!baseCost) {
-      baseCost = baseCosts.default;
-    }
-
-    // Convert units to standardized quantities
-    let quantityMultiplier = quantity;
-
-    switch (unit.toLowerCase()) {
-      case "kg":
-        quantityMultiplier = quantity * 10; // Convert kg to 100g units
-        break;
-      case "g":
-        quantityMultiplier = quantity / 100; // Convert g to 100g units
-        break;
-      case "lb":
-        quantityMultiplier = quantity * 4.54; // Convert lb to 100g units (1 lb ≈ 454g)
-        break;
-      case "oz":
-        quantityMultiplier = quantity * 0.28; // Convert oz to 100g units (1 oz ≈ 28g)
-        break;
-      case "ml":
-      case "l":
-        // For liquids, treat similar to weight
-        quantityMultiplier = unit === "l" ? quantity * 10 : quantity / 100;
-        break;
-      case "cup":
-        quantityMultiplier = quantity * 2.4; // Approximate cup to 100g units
-        break;
-      case "tbsp":
-        quantityMultiplier = quantity * 0.15; // Approximate tbsp to 100g units
-        break;
-      case "tsp":
-        quantityMultiplier = quantity * 0.05; // Approximate tsp to 100g units
-        break;
-      case "piece":
-      case "pieces":
-      case "item":
-      case "items":
-        // For pieces, use a moderate multiplier
-        quantityMultiplier = quantity * 0.5;
-        break;
-      default:
-        // For unknown units, use quantity as-is
-        quantityMultiplier = quantity;
-    }
-
-    const totalCost = baseCost * quantityMultiplier;
-    return Math.round(totalCost * 100) / 100; // Round to 2 decimal places
   }
 
-  // Fallback replacement meal generator
-  private static generateFallbackReplacementMeal(request: any) {
-    const { current_meal, user_preferences } = request;
+  static validateDietaryCategory(category: string): string {
+    const validCategories = [
+      "BALANCED",
+      "VEGETARIAN",
+      "VEGAN",
+      "KETO",
+      "PALEO",
+      "MEDITERRANEAN",
+    ];
+    return validCategories.includes(category) ? category : "BALANCED";
+  }
 
-    const fallbackMeals = [
+  static generateFallbackReplacementMeal(currentMeal: any, preferences: any) {
+    const fallbackOptions = [
       {
-        name: "Healthy Chicken Bowl",
-        description: "Grilled chicken with quinoa and vegetables",
-        meal_timing: current_meal.meal_timing,
-        dietary_category: "BALANCED",
-        prep_time_minutes: 25,
-        difficulty_level: 2,
-        calories: current_meal.calories || 400,
-        protein_g: current_meal.protein_g || 30,
-        carbs_g: current_meal.carbs_g || 35,
-        fats_g: current_meal.fats_g || 15,
-        fiber_g: 8,
-        sugar_g: 5,
-        sodium_mg: 500,
+        name: "Grilled Chicken with Vegetables",
+        description: "Healthy protein with fresh vegetables",
+        calories: 380,
+        protein_g: 35,
+        carbs_g: 15,
+        fats_g: 18,
         ingredients: [
-          {
-            name: "chicken breast",
-            quantity: 150,
-            unit: "g",
-            category: "Protein",
-          },
-          { name: "quinoa", quantity: 80, unit: "g", category: "Grains" },
-          {
-            name: "mixed vegetables",
-            quantity: 100,
-            unit: "g",
-            category: "Vegetables",
-          },
+          "chicken breast",
+          "mixed vegetables",
+          "olive oil",
+          "herbs",
         ],
         instructions: [
-          "Grill chicken breast",
-          "Cook quinoa according to package instructions",
+          "Season chicken",
+          "Grill until cooked",
           "Steam vegetables",
-          "Combine in bowl and serve",
+          "Serve together",
         ],
-        allergens: [],
-        image_url: null,
       },
       {
-        name: "Mediterranean Salad",
-        description: "Fresh salad with feta cheese and olive oil",
-        meal_timing: current_meal.meal_timing,
-        dietary_category: "MEDITERRANEAN",
-        prep_time_minutes: 15,
-        difficulty_level: 1,
-        calories: current_meal.calories || 350,
-        protein_g: current_meal.protein_g || 15,
-        carbs_g: current_meal.carbs_g || 25,
-        fats_g: current_meal.fats_g || 20,
-        fiber_g: 10,
-        sugar_g: 8,
-        sodium_mg: 400,
-        ingredients: [
-          {
-            name: "mixed greens",
-            quantity: 100,
-            unit: "g",
-            category: "Vegetables",
-          },
-          { name: "feta cheese", quantity: 50, unit: "g", category: "Dairy" },
-          { name: "olive oil", quantity: 2, unit: "tbsp", category: "Fats" },
-        ],
+        name: "Quinoa Buddha Bowl",
+        description: "Nutritious plant-based meal",
+        calories: 420,
+        protein_g: 18,
+        carbs_g: 55,
+        fats_g: 15,
+        ingredients: ["quinoa", "chickpeas", "vegetables", "tahini", "lemon"],
         instructions: [
-          "Wash and prepare greens",
-          "Crumble feta cheese",
-          "Drizzle with olive oil",
-          "Toss and serve",
+          "Cook quinoa",
+          "Roast vegetables",
+          "Prepare dressing",
+          "Assemble bowl",
         ],
-        allergens: ["dairy"],
-        image_url: null,
+      },
+      {
+        name: "Salmon with Sweet Potato",
+        description: "Omega-3 rich fish with complex carbs",
+        calories: 450,
+        protein_g: 32,
+        carbs_g: 35,
+        fats_g: 20,
+        ingredients: ["salmon fillet", "sweet potato", "broccoli", "herbs"],
+        instructions: [
+          "Bake salmon",
+          "Roast sweet potato",
+          "Steam broccoli",
+          "Plate nicely",
+        ],
       },
     ];
 
-    return fallbackMeals[Math.floor(Math.random() * fallbackMeals.length)];
+    const selected =
+      fallbackOptions[Math.floor(Math.random() * fallbackOptions.length)];
+
+    return {
+      name: selected.name,
+      description: selected.description,
+      meal_timing: currentMeal.meal_timing,
+      dietary_category: "BALANCED",
+      prep_time_minutes: 25,
+      difficulty_level: 2,
+      calories: selected.calories,
+      protein_g: selected.protein_g,
+      carbs_g: selected.carbs_g,
+      fats_g: selected.fats_g,
+      fiber_g: 6,
+      sugar_g: 8,
+      sodium_mg: 500,
+      ingredients_json: selected.ingredients,
+      instructions_json: selected.instructions,
+      allergens_json: [],
+      image_url: null,
+      is_active: true,
+    };
   }
 
   // Additional utility methods
@@ -1563,6 +1421,22 @@ export class MealPlanService {
     }
   ) {
     try {
+      // First check if the plan exists
+      const existingPlan = await prisma.userMealPlan.findFirst({
+        where: {
+          plan_id,
+          user_id,
+        },
+      });
+
+      if (!existingPlan) {
+        console.log("⚠️ Plan not found, treating as already completed");
+        return {
+          success: true,
+          message: "Plan not found or already completed",
+        };
+      }
+
       await prisma.userMealPlan.update({
         where: {
           plan_id,
@@ -1580,6 +1454,7 @@ export class MealPlanService {
       });
 
       console.log("✅ Plan completed successfully");
+      return { success: true, message: "Plan completed successfully" };
     } catch (error) {
       console.error("💥 Error completing plan:", error);
       throw error;

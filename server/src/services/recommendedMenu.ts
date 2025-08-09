@@ -1718,8 +1718,26 @@ Return ONLY JSON:
   }
 
   static async startMenuToday(userId: string, menuId: string) {
-    console.log("🚀 Starting menu today:", menuId);
-    // Implementation could track menu usage, set active status, etc.
-    console.log(`Menu ${menuId} started for user ${userId}`);
+    console.log("🚀 Starting menu today:", menuId, "for user:", userId);
+
+    try {
+      // Update the menu to mark it as active/used
+      await prisma.recommendedMenu.update({
+        where: {
+          menu_id: menuId,
+          user_id: userId,
+        },
+        data: {
+          is_active: true,
+          // You could add a last_used_at field if needed
+        },
+      });
+
+      console.log(`✅ Menu ${menuId} marked as started for user ${userId}`);
+      return true;
+    } catch (error) {
+      console.error("💥 Error starting menu:", error);
+      throw error;
+    }
   }
 }

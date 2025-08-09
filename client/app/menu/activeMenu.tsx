@@ -165,7 +165,11 @@ export default function ActiveMenuScreen() {
   const initializeCalendar = () => {
     const today = new Date();
     const startOfWeek = new Date(today);
-    startOfWeek.setDate(today.getDate() - today.getDay()); // Set to Sunday
+    startOfWeek.setDate(
+      today.getDay() === 0
+        ? today.getDate() - 6
+        : today.getDate() - today.getDay()
+    ); // Set to Monday if Sunday, otherwise to Monday
     setCurrentWeekStart(startOfWeek);
     setSelectedDay(today.getDay());
     setSelectedDate(today);
@@ -183,57 +187,77 @@ export default function ActiveMenuScreen() {
 
   const loadMealPlan = async () => {
     try {
-      console.log("📋 Loading meal plan:", planId);
       setIsLoading(true);
+      console.log("📋 Loading meal plan, planId:", planId);
 
-      // First try to get current meal plan if no planId
-      const endpoint = planId ? `/meal-plans/${planId}` : "/meal-plans/current";
-      console.log("🔄 Making API request to:", endpoint);
-
-      const response = await api.get(endpoint);
-      console.log("📝 API Response:", response.data);
+      let response;
+      if (planId && planId !== "undefined" && planId !== "null") {
+        // Load specific plan by ID
+        console.log("🔍 Loading specific plan:", planId);
+        response = await api.get(`/meal-plans/${planId}`);
+      } else {
+        // Load current active plan
+        console.log("🔍 Loading current active plan");
+        response = await api.get("/meal-plans/current");
+      }
 
       if (response.data.success && response.data.data) {
         const plan = response.data.data;
-        console.log("✅ Meal plan loaded:", plan);
-        console.log("📊 Weekly plan structure:", plan.weekly_plan);
+        console.log("✅ Meal plan loaded successfully");
+        console.log(`📊 Plan has ${Object.keys(plan).length} days`);
 
-        // Ensure weekly_plan is properly structured
-        if (!plan.weekly_plan || typeof plan.weekly_plan !== "object") {
-          console.log(
-            "⚠️ Weekly plan is empty or invalid, initializing empty structure"
-          );
-          plan.weekly_plan = {};
+        if (Object.keys(plan).length === 0) {
+          console.log("⚠️ Empty meal plan received");
+          setMealPlan(null);
+          return;
         }
 
-        // Log the structure of weekly_plan for debugging
-        if (plan.weekly_plan && typeof plan.weekly_plan === "object") {
-          const dayCount = Object.keys(plan.weekly_plan).length;
-          console.log(`📅 Weekly plan has ${dayCount} days`);
+        const dayCount = Object.keys(plan).length;
+        console.log(`📅 Meal plan covers ${dayCount} days`);
 
-          Object.entries(plan.weekly_plan).forEach(([day, timings]) => {
-            if (timings && typeof timings === "object") {
-              const timingCount = Object.keys(timings).length;
-              console.log(`  📅 ${day}: ${timingCount} meal timings`);
+        // Handle both weekly_plan format and direct day format
+        const planData = plan.weekly_plan || plan;
+        let hasMeals = false;
 
-              Object.entries(timings).forEach(([timing, meals]) => {
-                if (Array.isArray(meals)) {
-                  console.log(`    🍽️ ${timing}: ${meals.length} meals`);
-                }
-              });
-            }
-          });
+        Object.entries(planData).forEach(([day, timings]) => {
+          if (timings && typeof timings === "object") {
+            const timingCount = Object.keys(timings).length;
+            console.log(`  📅 ${day}: ${timingCount} meal timings`);
+
+            Object.entries(timings).forEach(([timing, meals]) => {
+              if (Array.isArray(meals) && meals.length > 0) {
+                console.log(`    🍽️ ${timing}: ${meals.length} meals`);
+                hasMeals = true;
+              }
+            });
+          }
+        });
+
+        if (!hasMeals) {
+          console.log("⚠️ No meals found in plan data");
+          setMealPlan(null);
+          return;
         }
 
-        setMealPlan(plan);
+        // Create meal plan object with proper structure
+        const mealPlanData: MealPlan = {
+          plan_id: response.data.planId || planId || "unknown",
+          name: response.data.planName || "Active Plan",
+          description: "Active meal plan",
+          start_date: new Date().toISOString(),
+          is_active: true,
+          weekly_plan: planData,
+        };
+
+        setMealPlan(mealPlanData);
 
         // Initialize local state from existing data
         const ratings: { [key: string]: number } = {};
         const comments: { [key: string]: string } = {};
         const favorites: { [key: string]: boolean } = {};
 
-        if (plan.weekly_plan && typeof plan.weekly_plan === "object") {
-          Object.entries(plan.weekly_plan).forEach(([day, timings]) => {
+        if (planData && typeof planData === "object") {
+          Object.entries(planData).forEach(([day, timings]) => {
             if (timings && typeof timings === "object") {
               Object.entries(timings).forEach(([timing, meals]) => {
                 if (Array.isArray(meals)) {
@@ -255,20 +279,33 @@ export default function ActiveMenuScreen() {
         setMealComments(comments);
         setMealFavorites(favorites);
 
-        console.log("✅ Meal plan loaded successfully");
+        console.log("✅ Meal plan loaded and structured successfully");
       } else {
-        throw new Error(response.data.error || "No meal plan data found");
+        if (response.data.hasActivePlan === false) {
+          console.log("⚠️ No active meal plan found from server");
+          setMealPlan(null);
+        } else {
+          throw new Error(response.data.error || "No meal plan data found");
+        }
       }
     } catch (error) {
       console.error("💥 Error loading meal plan:", error);
-      Alert.alert(
-        language === "he" ? "שגיאה" : "Error",
-        language === "he"
-          ? "לא ניתן לטעון את התוכנית"
-          : "Failed to load meal plan"
-      );
-      // Don't navigate back, show empty state instead
-      setMealPlan(null);
+
+      // More user-friendly error handling
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
+      if (errorMessage.includes("404") || errorMessage.includes("not found")) {
+        console.log("📍 Plan not found, showing empty state");
+        setMealPlan(null);
+      } else {
+        Alert.alert(
+          language === "he" ? "שגיאה" : "Error",
+          language === "he"
+            ? "לא ניתן לטעון את התוכנית. אנא נסה שוב."
+            : "Failed to load meal plan. Please try again."
+        );
+        setMealPlan(null);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -391,29 +428,37 @@ export default function ActiveMenuScreen() {
     setSwapError(null);
 
     try {
-      console.log("🔄 Requesting meal swap via AI...");
+      console.log("🔄 Requesting AI-powered meal swap...");
+      console.log("📋 Swap request:", {
+        current_meal: swapRequest.currentMeal.name,
+        preferences: swapRequest.preferences,
+        day: swapRequest.dayName,
+        timing: swapRequest.currentMeal.meal_timing,
+      });
 
       const response = await api.put(
-        `/meal-plans/${mealPlan.plan_id}/swap-meal`,
+        `/meal-plans/${mealPlan.plan_id}/replace`,
         {
-          current_meal: {
-            template_id: swapRequest.currentMeal.template_id,
-            name: swapRequest.currentMeal.name,
-            meal_timing: swapRequest.currentMeal.meal_timing,
-            dietary_category: swapRequest.currentMeal.dietary_category,
-            calories: swapRequest.currentMeal.calories,
-            protein_g: swapRequest.currentMeal.protein_g,
-            carbs_g: swapRequest.currentMeal.carbs_g,
-            fats_g: swapRequest.currentMeal.fats_g,
-          },
-          day: swapRequest.dayName,
+          day_of_week: getDayNames().indexOf(swapRequest.dayName),
           meal_timing: swapRequest.currentMeal.meal_timing,
-          preferences: swapRequest.preferences,
+          meal_order: 0,
+          preferences: {
+            ...swapRequest.preferences,
+            current_meal_context: {
+              name: swapRequest.currentMeal.name,
+              calories: swapRequest.currentMeal.calories,
+              protein_g: swapRequest.currentMeal.protein_g,
+              carbs_g: swapRequest.currentMeal.carbs_g,
+              fats_g: swapRequest.currentMeal.fats_g,
+              dietary_category: swapRequest.currentMeal.dietary_category,
+            },
+          },
         }
       );
 
       if (response.data.success) {
-        const newMeal = response.data.data.new_meal;
+        const newMeal = response.data.data;
+        console.log("✅ AI generated new meal:", newMeal.name);
 
         // Update the meal plan with the new meal
         setMealPlan((prev) => {
@@ -437,31 +482,33 @@ export default function ActiveMenuScreen() {
             ].map((m) =>
               m.template_id === swapRequest.currentMeal.template_id
                 ? {
-                    ...newMeal,
-                    template_id: newMeal.template_id,
+                    template_id: newMeal.template_id || `new_${Date.now()}`,
                     name: newMeal.name,
-                    description: newMeal.description,
+                    description: newMeal.description || "",
                     meal_timing: newMeal.meal_timing,
-                    dietary_category: newMeal.dietary_category,
-                    prep_time_minutes: newMeal.prep_time_minutes,
-                    difficulty_level: newMeal.difficulty_level,
+                    dietary_category: newMeal.dietary_category || "BALANCED",
+                    prep_time_minutes: newMeal.prep_time_minutes || 30,
+                    difficulty_level: newMeal.difficulty_level || 2,
                     calories: newMeal.calories,
                     protein_g: newMeal.protein_g,
                     carbs_g: newMeal.carbs_g,
                     fats_g: newMeal.fats_g,
-                    fiber_g: newMeal.fiber_g,
-                    sugar_g: newMeal.sugar_g,
-                    sodium_mg: newMeal.sodium_mg,
+                    fiber_g: newMeal.fiber_g || 0,
+                    sugar_g: newMeal.sugar_g || 0,
+                    sodium_mg: newMeal.sodium_mg || 0,
                     ingredients: Array.isArray(newMeal.ingredients_json)
                       ? newMeal.ingredients_json
-                      : [],
+                      : newMeal.ingredients || [],
                     instructions: Array.isArray(newMeal.instructions_json)
                       ? newMeal.instructions_json
-                      : [],
+                      : newMeal.instructions || [],
                     allergens: Array.isArray(newMeal.allergens_json)
                       ? newMeal.allergens_json
                       : [],
-                    image_url: newMeal.image_url,
+                    image_url: newMeal.image_url || null,
+                    user_rating: 0,
+                    user_comments: "",
+                    is_favorite: false,
                   }
                 : m
             );
@@ -475,8 +522,14 @@ export default function ActiveMenuScreen() {
         Alert.alert(
           language === "he" ? "הצלחה!" : "Success!",
           language === "he"
-            ? "הארוחה הוחלפה בהצלחה"
-            : "Meal swapped successfully"
+            ? `הארוחה הוחלפה ל: ${newMeal.name}`
+            : `Meal swapped to: ${newMeal.name}`,
+          [
+            {
+              text: language === "he" ? "אישור" : "OK",
+              onPress: () => console.log("✅ Meal swap completed successfully"),
+            },
+          ]
         );
       } else {
         throw new Error(response.data.error || "Failed to swap meal");
@@ -484,9 +537,21 @@ export default function ActiveMenuScreen() {
     } catch (error: any) {
       console.error("💥 Error swapping meal:", error);
 
-      const errorMessage =
-        error.response?.data?.error || error.message || "Unknown error";
+      let errorMessage = "Failed to swap meal";
+      if (error.response?.data?.error) {
+        errorMessage = error.response.data.error;
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
       setSwapError(errorMessage);
+
+      Alert.alert(
+        language === "he" ? "שגיאה" : "Error",
+        language === "he"
+          ? `נכשל בהחלפת הארוחה: ${errorMessage}`
+          : `Failed to swap meal: ${errorMessage}`
+      );
     } finally {
       setIsSwapping(false);
     }
@@ -562,8 +627,17 @@ export default function ActiveMenuScreen() {
   };
 
   const selectDay = (dayIndex: number, date: Date) => {
+    console.log("📅 Selecting day:", dayIndex, date.toDateString());
     setSelectedDay(dayIndex);
     setSelectedDate(date);
+
+    // Force re-render of filtered meals
+    const dayName = getDayNames()[dayIndex];
+    console.log("📅 Selected day name:", dayName);
+    console.log(
+      "📅 Available meal plan days:",
+      mealPlan?.weekly_plan ? Object.keys(mealPlan.weekly_plan) : []
+    );
   };
 
   const getDailyNutritionTotals = () => {
@@ -598,14 +672,13 @@ export default function ActiveMenuScreen() {
   };
 
   const filteredMeals = useMemo(() => {
-    if (
-      !mealPlan?.weekly_plan ||
-      !mealPlan.weekly_plan[getDayNames()[selectedDay]]
-    )
-      return {};
-
     const dayName = getDayNames()[selectedDay];
-    const dayMeals = mealPlan.weekly_plan[dayName];
+    const dayMeals = mealPlan?.weekly_plan
+      ? mealPlan.weekly_plan[dayName]
+      : undefined;
+
+    if (!dayMeals) return {};
+
     const filtered: { [timing: string]: PlanMeal[] } = {};
 
     if (dayMeals && typeof dayMeals === "object") {

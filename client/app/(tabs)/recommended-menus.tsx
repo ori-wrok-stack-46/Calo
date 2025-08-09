@@ -40,7 +40,7 @@ import {
 } from "lucide-react-native";
 import { api, mealPlanAPI } from "@/src/services/api";
 import LoadingScreen from "@/components/LoadingScreen";
-import { router } from "expo-router";
+import { router, useFocusEffect } from "expo-router";
 import { useSelector } from "react-redux";
 import { RootState } from "@/src/store";
 
@@ -109,6 +109,8 @@ export default function RecommendedMenusScreen() {
   const [carbGoal, setCarbGoal] = useState("");
   const [fatGoal, setFatGoal] = useState("");
   const [specialRequests, setSpecialRequests] = useState("");
+  const [hasActivePlan, setHasActivePlan] = useState(false);
+  const [activePlanData, setActivePlanData] = useState<any>(null);
   const { user } = useSelector((state: RootState) => state.auth);
 
   // Animation values
@@ -117,6 +119,7 @@ export default function RecommendedMenusScreen() {
 
   useEffect(() => {
     loadRecommendedMenus();
+    checkForActivePlan();
 
     // Start animations
     Animated.parallel([
@@ -132,6 +135,14 @@ export default function RecommendedMenusScreen() {
       }),
     ]).start();
   }, []);
+
+  // Refresh active plan status when user returns to screen
+  useFocusEffect(
+    useCallback(() => {
+      console.log("🔄 Screen focused, checking for active plans...");
+      checkForActivePlan();
+    }, [])
+  );
 
   const loadRecommendedMenus = async () => {
     try {
@@ -353,10 +364,27 @@ export default function RecommendedMenusScreen() {
 
   const checkForActivePlan = async () => {
     try {
-      const response = user?.active_meal_plan_id;
-      setCurrentActivePlan(response);
+      // Check via API call to get current meal plan
+      const response = await api.get("/meal-plans/current");
+      if (response.data.success && response.data.hasActivePlan) {
+        const planData = {
+          plan_id: response.data.planId,
+          name: response.data.planName || "Active Plan",
+          data: response.data.data,
+        };
+        setCurrentActivePlan(planData);
+        setActivePlanData(planData);
+        setHasActivePlan(true);
+      } else {
+        setCurrentActivePlan(null);
+        setActivePlanData(null);
+        setHasActivePlan(false);
+      }
     } catch (error) {
       console.log("No active plan found");
+      setCurrentActivePlan(null);
+      setActivePlanData(null);
+      setHasActivePlan(false);
     }
   };
 
@@ -390,44 +418,52 @@ export default function RecommendedMenusScreen() {
     previousPlanFeedback?: any
   ) => {
     try {
-      // First create a plan from the recommended menu
-      const createResponse = await api.post(
+      console.log("🚀 Starting menu:", menuId);
+
+      // Submit feedback for previous plan if provided
+      if (previousPlanFeedback && currentActivePlan) {
+        try {
+          await mealPlanAPI.completePlan(
+            currentActivePlan.plan_id || currentActivePlan,
+            previousPlanFeedback
+          );
+          console.log("✅ Previous plan feedback submitted");
+        } catch (feedbackError) {
+          console.warn(
+            "⚠️ Failed to submit previous plan feedback:",
+            feedbackError
+          );
+          // Continue with activation even if feedback submission fails
+        }
+      }
+
+      // Create and activate the new plan from the recommended menu
+      const response = await api.post(
         `/recommended-menus/${menuId}/start-today`
       );
 
-      if (createResponse.data.success) {
-        const newPlanId = createResponse.data.data?.plan_id;
+      if (response.data.success && response.data.data) {
+        const newPlan = response.data.data;
+        setCurrentActivePlan(newPlan);
+        setShowFeedbackModal(false);
+        setSelectedMenuToStart(null);
 
-        // Then activate it with optional feedback
-        const activateResponse = await mealPlanAPI.activatePlan(
-          newPlanId,
-          previousPlanFeedback
-        );
-
-        if (activateResponse.success) {
-          setCurrentActivePlan(activateResponse.data);
-          setShowFeedbackModal(false);
-          setSelectedMenuToStart(null);
-
-          Alert.alert(
-            language === "he" ? "הצלחה!" : "Success!",
-            language === "he"
-              ? "התפריט הופעל בהצלחה!"
-              : "Menu started successfully!",
-            [
-              {
-                text: language === "he" ? "אישור" : "OK",
-                onPress: () => {
-                  router.push(`/menu/activeMenu?planId=${newPlanId}`);
-                },
+        Alert.alert(
+          language === "he" ? "הצלחה!" : "Success!",
+          language === "he"
+            ? "התפריט הופעל בהצלחה!"
+            : "Menu started successfully!",
+          [
+            {
+              text: language === "he" ? "אישור" : "OK",
+              onPress: () => {
+                router.push(`/menu/activeMenu?planId=${newPlan.plan_id}`);
               },
-            ]
-          );
-        } else {
-          throw new Error(activateResponse.error);
-        }
+            },
+          ]
+        );
       } else {
-        throw new Error(createResponse.data.error);
+        throw new Error(response.data.error || "Failed to start menu");
       }
     } catch (error: any) {
       console.error("💥 Error activating menu plan:", error);
@@ -730,7 +766,13 @@ export default function RecommendedMenusScreen() {
             >
               <Play size={16} color="#ffffff" />
               <Text style={styles.primaryButtonText}>
-                {language === "he" ? "התחל" : "Start"}
+                {hasActivePlan
+                  ? language === "he"
+                    ? "החלף"
+                    : "Switch"
+                  : language === "he"
+                  ? "התחל"
+                  : "Start"}
               </Text>
             </TouchableOpacity>
           </View>
@@ -1463,21 +1505,40 @@ export default function RecommendedMenusScreen() {
             </Text>
           </View>
 
-          {/* Floating Action Button */}
-          <TouchableOpacity
-            style={[
-              styles.generateButton,
-              { backgroundColor: colors.emerald500 },
-            ]}
-            onPress={() => setShowComprehensiveModal(true)}
-            disabled={isGenerating}
-          >
-            {isGenerating ? (
-              <ActivityIndicator size="small" color="#ffffff" />
-            ) : (
-              <Plus size={20} color="#ffffff" />
-            )}
-          </TouchableOpacity>
+          {/* Continue or Create Button */}
+          {hasActivePlan ? (
+            <TouchableOpacity
+              style={[
+                styles.continueButton,
+                { backgroundColor: colors.emerald500 },
+              ]}
+              onPress={() =>
+                router.push(
+                  `/menu/activeMenu?planId=${activePlanData?.plan_id}`
+                )
+              }
+            >
+              <Play size={16} color="#ffffff" />
+              <Text style={styles.continueButtonText}>
+                {language === "he" ? "המשך" : "Continue"}
+              </Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={[
+                styles.generateButton,
+                { backgroundColor: colors.emerald500 },
+              ]}
+              onPress={() => setShowComprehensiveModal(true)}
+              disabled={isGenerating}
+            >
+              {isGenerating ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <Plus size={20} color="#ffffff" />
+              )}
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Search and Filter */}
@@ -1729,6 +1790,24 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 4,
+  },
+  continueButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 24,
+    gap: 8,
+    elevation: 4,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+  },
+  continueButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#ffffff",
   },
   searchSection: {
     gap: 15,
