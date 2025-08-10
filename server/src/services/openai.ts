@@ -371,6 +371,57 @@ Return JSON with ALL fields below (text fields in ${
 
 Language: ${language}`;
 
+    const prompt = `
+    Please analyze this meal image and provide detailed nutritional information.
+    ${updateText ? `Additional context: ${updateText}` : ""}
+
+    IMPORTANT: Please identify ALL visible ingredients and food components in the meal. Do not combine ingredients - list each one separately.
+
+    Return a JSON object with the following structure:
+    {
+      "meal_name": "Name of the meal",
+      "calories": number,
+      "protein_g": number,
+      "carbs_g": number,
+      "fats_g": number,
+      "fiber_g": number,
+      "sugar_g": number,
+      "sodium_mg": number,
+      "saturated_fats_g": number,
+      "polyunsaturated_fats_g": number,
+      "monounsaturated_fats_g": number,
+      "omega_3_g": number,
+      "omega_6_g": number,
+      "cholesterol_mg": number,
+      "serving_size_g": number,
+      "ingredients": [
+        {
+          "name": "ingredient name",
+          "calories": number,
+          "protein_g": number,
+          "carbs_g": number,
+          "fats_g": number,
+          "fiber_g": number,
+          "sugar_g": number,
+          "sodium_mg": number
+        }
+      ],
+      "healthScore": "score from 1-100",
+      "recommendations": "health recommendations",
+      "cookingMethod": "cooking method used",
+      "foodCategory": "category of food",
+      "confidence": number (1-100)
+    }
+
+    Requirements for ingredients array:
+    - List EVERY visible ingredient/component separately
+    - Include main ingredients, vegetables, proteins, grains, sauces, seasonings
+    - Provide accurate nutritional values for each ingredient
+    - Do not group similar items together - list each distinctly
+    - If you see rice and vegetables, list them as separate ingredients
+    - If you see multiple vegetables, list each type separately
+    `;
+
     let userPrompt =
       "Please analyze this food image and provide detailed nutritional information.";
     if (updateText) {
@@ -394,7 +445,7 @@ Language: ${language}`;
           content: [
             {
               type: "text",
-              text: userPrompt,
+              text: prompt,
             },
             {
               type: "image_url",
@@ -845,8 +896,8 @@ Language: ${language}`;
       sodium: 600 + Math.floor(Math.random() * 400),
       confidence: 75,
       saturated_fats_g: 5 + Math.floor(Math.random() * 3),
-      polyunsaturated_fats_g: 3 + Math.floor(Math.random() * 2),
-      monounsaturated_fats_g: 7 + Math.floor(Math.random() * 3),
+      polyunsaturated_fats_g: 3 + Math.random() * 2,
+      monounsaturated_fats_g: 7 + Math.random() * 3,
       omega_3_g: 0.5 + Math.random() * 0.8,
       omega_6_g: 2 + Math.random() * 1.5,
       soluble_fiber_g: 3 + Math.floor(Math.random() * 2),

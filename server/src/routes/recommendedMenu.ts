@@ -515,6 +515,128 @@ router.get(
   }
 );
 
+// POST /api/recommended-menus/generate-comprehensive - Generate comprehensive menu with detailed parameters
+router.post(
+  "/generate-comprehensive",
+  authenticateToken,
+  async (req: AuthRequest, res) => {
+    try {
+      const userId = req.user.user_id;
+      console.log("🎯 Generating comprehensive menu for user:", userId);
+      console.log("📋 Request body:", req.body);
+
+      const {
+        name,
+        days = 7,
+        mealsPerDay = "3_main",
+        targetCalories,
+        proteinGoal,
+        carbGoal,
+        fatGoal,
+        budget,
+        specialRequests,
+      } = req.body;
+
+      // Validate input
+      if (!name || name.trim() === "") {
+        return res.status(400).json({
+          success: false,
+          error: "Menu name is required",
+        });
+      }
+
+      if (days < 1 || days > 30) {
+        return res.status(400).json({
+          success: false,
+          error: "Days must be between 1 and 30",
+        });
+      }
+
+      console.log(
+        "✅ Input validation passed, generating comprehensive menu..."
+      );
+
+      // Create comprehensive request
+      const comprehensiveRequest = {
+        userId,
+        days,
+        mealsPerDay,
+        targetCalories,
+        dietaryPreferences: [],
+        excludedIngredients: [],
+        budget,
+        customRequest: `Create a comprehensive menu named "${name}". ${
+          specialRequests || ""
+        }. ${
+          targetCalories ? `Target ${targetCalories} calories daily.` : ""
+        } ${proteinGoal ? `${proteinGoal}g protein daily.` : ""} ${
+          carbGoal ? `${carbGoal}g carbs daily.` : ""
+        } ${fatGoal ? `${fatGoal}g fats daily.` : ""}`.trim(),
+      };
+
+      const menu = await RecommendedMenuService.generateCustomMenu(
+        comprehensiveRequest
+      );
+
+      if (!menu) {
+        throw new Error("Comprehensive menu generation returned null");
+      }
+
+      console.log("🎉 Comprehensive menu generated successfully!");
+      console.log("📊 Menu stats:", {
+        menu_id: menu?.menu_id,
+        title: menu?.title,
+        meals_count: menu?.meals?.length || 0,
+        total_calories: menu?.total_calories,
+      });
+
+      const responseData = {
+        ...menu,
+        menu_id: menu.menu_id,
+        title: menu.title,
+        description: menu.description,
+        meals: menu.meals || [],
+        days_count: menu.days_count,
+        total_calories: menu.total_calories,
+        estimated_cost: menu.estimated_cost,
+      };
+
+      console.log(
+        "📤 Sending comprehensive menu response with",
+        responseData.meals.length,
+        "meals"
+      );
+
+      res.json({
+        success: true,
+        message: "Comprehensive menu generated successfully",
+        data: responseData,
+      });
+    } catch (error) {
+      console.error("💥 Error generating comprehensive menu:", error);
+
+      let errorMessage = "Failed to generate comprehensive menu";
+      let statusCode = 500;
+
+      if (error instanceof Error) {
+        if (error.message.includes("questionnaire not found")) {
+          errorMessage =
+            "Please complete your questionnaire first before generating a comprehensive menu";
+          statusCode = 400;
+        } else {
+          errorMessage = error.message;
+        }
+      }
+
+      res.status(statusCode).json({
+        success: false,
+        error: errorMessage,
+        details: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  }
+);
+
 // POST /api/recommended-menus/:menuId/start-today - Create meal plan from menu and activate it
 router.post(
   "/:menuId/start-today",

@@ -860,6 +860,7 @@ export class MealPlanService {
         planId,
         dayOfWeek,
         mealTiming,
+        mealOrder,
         preferences,
       });
 
@@ -874,11 +875,11 @@ export class MealPlanService {
             where: {
               day_of_week: dayOfWeek,
               meal_timing: mealTiming as any,
-              meal_order: mealOrder,
             },
             include: {
               template: true,
             },
+            orderBy: [{ meal_order: "asc" }],
           },
         },
       });
@@ -887,10 +888,27 @@ export class MealPlanService {
         throw new Error("Meal plan not found");
       }
 
-      const currentSchedule = mealPlan.schedules[0];
+      // Find the specific meal or use the first one if meal_order is 0 or not specified
+      let currentSchedule =
+        mealPlan.schedules.find((s) => s.meal_order === mealOrder) ||
+        mealPlan.schedules[0];
+
       if (!currentSchedule) {
-        throw new Error("Current meal not found in schedule");
+        console.log(
+          "🔍 Available schedules:",
+          mealPlan.schedules.map((s) => ({
+            day: s.day_of_week,
+            timing: s.meal_timing,
+            order: s.meal_order,
+            name: s.template.name,
+          }))
+        );
+        throw new Error(
+          `No meal found for day ${dayOfWeek}, timing ${mealTiming}, order ${mealOrder}`
+        );
       }
+
+      console.log("✅ Found meal to replace:", currentSchedule.template.name);
 
       // Get user's dietary preferences for context
       const userQuestionnaire = await prisma.userQuestionnaire.findFirst({

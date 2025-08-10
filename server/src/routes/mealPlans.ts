@@ -170,149 +170,6 @@ router.post(
           activityFactor = 1.9;
         }
 
-        // Swap meal in plan
-        router.put(
-          "/:planId/swap-meal",
-          authenticateToken,
-          async (req, res) => {
-            try {
-              const { planId } = req.params;
-              const { current_meal, day, meal_timing, preferences } = req.body;
-              const user_id = req.user?.user_id;
-
-              if (!user_id) {
-                return res
-                  .status(401)
-                  .json({ success: false, error: "User not authenticated" });
-              }
-
-              console.log("🔄 Swapping meal in plan:", planId);
-
-              const result = await MealPlanService.replaceMealInPlan(
-                user_id,
-                planId,
-                getDayNumber(day),
-                meal_timing,
-                0, // meal_order
-                preferences
-              );
-
-              res.json({
-                success: true,
-                data: result,
-                message: "Meal swapped successfully",
-              });
-            } catch (error: any) {
-              console.error("💥 Error swapping meal:", error);
-              res.status(500).json({
-                success: false,
-                error: error.message || "Failed to swap meal",
-              });
-            }
-          }
-        );
-
-        // Update meal interaction (rating, comments, favorite)
-        router.put(
-          "/:planId/meals/:templateId/interaction",
-          authenticateToken,
-          async (req, res) => {
-            try {
-              const { planId, templateId } = req.params;
-              const { rating, comments, day, meal_timing } = req.body;
-              const user_id = req.user?.user_id;
-
-              if (!user_id) {
-                return res
-                  .status(401)
-                  .json({ success: false, error: "User not authenticated" });
-              }
-
-              console.log("💝 Saving meal interaction:", {
-                templateId,
-                rating,
-                comments,
-              });
-
-              await MealPlanService.saveMealPreference(
-                user_id,
-                templateId,
-                "rating",
-                rating,
-                comments
-              );
-
-              res.json({
-                success: true,
-                message: "Meal interaction saved successfully",
-              });
-            } catch (error: any) {
-              console.error("💥 Error saving meal interaction:", error);
-              res.status(500).json({
-                success: false,
-                error: error.message || "Failed to save meal interaction",
-              });
-            }
-          }
-        );
-
-        // Toggle meal favorite
-        router.put(
-          "/:planId/meals/:templateId/favorite",
-          authenticateToken,
-          async (req, res) => {
-            try {
-              const { planId, templateId } = req.params;
-              const { is_favorite, day, meal_timing } = req.body;
-              const user_id = req.user?.user_id;
-
-              if (!user_id) {
-                return res
-                  .status(401)
-                  .json({ success: false, error: "User not authenticated" });
-              }
-
-              console.log("❤️ Toggling meal favorite:", {
-                templateId,
-                is_favorite,
-              });
-
-              await MealPlanService.saveMealPreference(
-                user_id,
-                templateId,
-                "favorite",
-                undefined,
-                undefined
-              );
-
-              res.json({
-                success: true,
-                message: "Meal favorite status updated successfully",
-              });
-            } catch (error: any) {
-              console.error("💥 Error updating meal favorite:", error);
-              res.status(500).json({
-                success: false,
-                error: error.message || "Failed to update meal favorite",
-              });
-            }
-          }
-        );
-
-        // Helper function to convert day name to number
-        function getDayNumber(dayName: string): number {
-          const dayMap: { [key: string]: number } = {
-            Sunday: 0,
-            Monday: 1,
-            Tuesday: 2,
-            Wednesday: 3,
-            Thursday: 4,
-            Friday: 5,
-            Saturday: 6,
-          };
-          return dayMap[dayName] || 0;
-        }
-
         let maintenanceCalories = bmr * activityFactor;
 
         // Adjust calories based on the main goal
@@ -432,7 +289,7 @@ router.post(
 );
 
 // Get current/active meal plan
-router.get("/current", authenticateToken, async (req, res) => {
+router.get("/current", authenticateToken, async (req: AuthRequest, res) => {
   try {
     console.log("📋 Getting current meal plan for user:", req.user?.user_id);
 
@@ -457,45 +314,102 @@ router.get("/current", authenticateToken, async (req, res) => {
     let planId: string | null = null;
     let planName: string | null = null;
     let hasActivePlan = false;
+    let startDate: Date = new Date();
+    let daysCount: number = 7;
 
-    // Try active meal plan first
+    // First, try to get active meal plan
     if (user?.active_meal_plan_id) {
       console.log("🔍 Checking active meal plan:", user.active_meal_plan_id);
       try {
-        // Check if meal plan exists and has schedules
-        const mealPlan = await prisma.userMealPlan.findFirst({
+        const activePlan = await prisma.userMealPlan.findFirst({
           where: {
             plan_id: user.active_meal_plan_id,
             user_id: user_id,
+            is_active: true,
           },
           include: {
             schedules: {
               include: {
                 template: true,
               },
+              orderBy: [
+                { day_of_week: "asc" },
+                { meal_timing: "asc" },
+                { meal_order: "asc" },
+              ],
             },
           },
         });
 
-        if (mealPlan && mealPlan.schedules.length > 0) {
-          weeklyPlan = await MealPlanService.getUserMealPlan(
-            user_id,
-            user.active_meal_plan_id
-          );
+        if (activePlan && activePlan.schedules.length > 0) {
+          // Convert to weekly plan format
+          const dayNames = [
+            "Sunday",
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday",
+          ];
 
-          planId = user.active_meal_plan_id;
-          planName = mealPlan.name || "Active Plan";
+          weeklyPlan = {};
+          activePlan.schedules.forEach((schedule) => {
+            const dayName = dayNames[schedule.day_of_week];
+            const timing = schedule.meal_timing;
+
+            if (!weeklyPlan[dayName]) {
+              weeklyPlan[dayName] = {};
+            }
+            if (!weeklyPlan[dayName][timing]) {
+              weeklyPlan[dayName][timing] = [];
+            }
+
+            weeklyPlan[dayName][timing].push({
+              template_id: schedule.template.template_id,
+              name: schedule.template.name,
+              description: schedule.template.description || "",
+              meal_timing: timing,
+              dietary_category:
+                schedule.template.dietary_category || "BALANCED",
+              prep_time_minutes: schedule.template.prep_time_minutes || 30,
+              difficulty_level: schedule.template.difficulty_level || 2,
+              calories: schedule.template.calories,
+              protein_g: schedule.template.protein_g,
+              carbs_g: schedule.template.carbs_g,
+              fats_g: schedule.template.fats_g,
+              fiber_g: schedule.template.fiber_g || 0,
+              sugar_g: schedule.template.sugar_g || 0,
+              sodium_mg: schedule.template.sodium_mg || 0,
+              ingredients: Array.isArray(schedule.template.ingredients_json)
+                ? schedule.template.ingredients_json
+                : [],
+              instructions: Array.isArray(schedule.template.instructions_json)
+                ? schedule.template.instructions_json
+                : [],
+              allergens: Array.isArray(schedule.template.allergens_json)
+                ? schedule.template.allergens_json
+                : [],
+              image_url: schedule.template.image_url,
+              user_rating: 0,
+              user_comments: "",
+              is_favorite: false,
+            });
+          });
+
+          planId = activePlan.plan_id;
+          planName = activePlan.name;
+          startDate = activePlan.start_date || new Date();
+          daysCount = activePlan.rotation_frequency_days || 7;
           hasActivePlan = true;
-          console.log("✅ Active meal plan found with schedules");
-        } else if (mealPlan) {
           console.log(
-            "⚠️ Meal plan exists but has no schedules, trying to regenerate"
+            "✅ Active meal plan found with",
+            Object.keys(weeklyPlan).length,
+            "days"
           );
-          // Plan exists but no schedules - this is the issue we're seeing
-          // Try to use the recommended menu as fallback
         }
       } catch (error) {
-        console.log("⚠️ Error checking active meal plan:", error);
+        console.log("⚠️ Error fetching active meal plan:", error);
       }
     }
 
@@ -572,68 +486,45 @@ router.get("/current", authenticateToken, async (req, res) => {
 
           planId = user.active_menu_id;
           planName = recommendedMenu.title;
+          // For recommended menus, we don't have a specific start date or days_count in the same way.
+          // We'll use today as a reference and assume a default 7-day cycle for progression calculation.
+          startDate = new Date();
+          daysCount = 7;
           hasActivePlan = true;
           console.log(
-            "✅ Active recommended menu found and converted to weekly plan"
+            "✅ Active recommended menu found with",
+            recommendedMenu.meals.length,
+            "meals"
           );
         }
       } catch (error) {
         console.log(
-          "⚠️ Active recommended menu not found or has no data:",
+          "⚠️ Active recommended menu not found or has no meals:",
           error
         );
       }
     }
 
-    // If still no plan, try to find any recent plan for the user
+    // If still no active plan, try to get the latest recommended menu
     if (!hasActivePlan) {
-      console.log("🔍 Trying to find any recent meal plan or menu");
-
-      // Try latest meal plan
-      const latestPlan = await prisma.userMealPlan.findFirst({
-        where: { user_id },
-        include: {
-          schedules: {
-            include: {
-              template: true,
-            },
-          },
-        },
-        orderBy: { created_at: "desc" },
-      });
-
-      if (latestPlan && latestPlan.schedules.length > 0) {
-        weeklyPlan = await MealPlanService.getUserMealPlan(
-          user_id,
-          latestPlan.plan_id
-        );
-        planId = latestPlan.plan_id;
-        planName = latestPlan.name;
-        hasActivePlan = true;
-
-        // Update user's active plan
-        await prisma.user.update({
-          where: { user_id },
-          data: { active_meal_plan_id: latestPlan.plan_id },
-        });
-
-        console.log("✅ Found latest meal plan and set as active");
-      } else {
-        // Try latest recommended menu
+      console.log(
+        "🔍 No active plan found, checking for latest recommended menu"
+      );
+      try {
         const latestMenu = await prisma.recommendedMenu.findFirst({
-          where: { user_id },
+          where: { user_id: user_id },
           include: {
             meals: {
               include: {
                 ingredients: true,
               },
+              orderBy: [{ day_number: "asc" }, { meal_type: "asc" }],
             },
           },
           orderBy: { created_at: "desc" },
         });
 
         if (latestMenu && latestMenu.meals.length > 0) {
-          // Convert to weekly plan format (same code as above)
           const dayNames = [
             "Sunday",
             "Monday",
@@ -686,6 +577,9 @@ router.get("/current", authenticateToken, async (req, res) => {
 
           planId = latestMenu.menu_id;
           planName = latestMenu.title;
+          // For latest recommended menu, use today as start date and assume 7 days cycle
+          startDate = new Date();
+          daysCount = 7;
           hasActivePlan = true;
 
           // Update user's active menu
@@ -694,42 +588,131 @@ router.get("/current", authenticateToken, async (req, res) => {
             data: { active_menu_id: latestMenu.menu_id },
           });
 
-          console.log("✅ Found latest recommended menu and set as active");
+          console.log(
+            "✅ Found latest recommended menu with",
+            latestMenu.meals.length,
+            "meals"
+          );
         }
+      } catch (error) {
+        console.log("⚠️ No recommended menus found:", error);
       }
     }
 
-    if (hasActivePlan && Object.keys(weeklyPlan).length > 0) {
-      return res.json({
+    console.log("📋 Final check: hasActivePlan =", hasActivePlan);
+    console.log("📋 Plan ID:", planId);
+    console.log("📋 Weekly plan days:", Object.keys(weeklyPlan));
+
+    // Count total meals for debugging
+    const totalMeals = Object.values(weeklyPlan).reduce(
+      (total: number, dayMeals: any) => {
+        return (
+          total +
+          Object.values(dayMeals).reduce(
+            (dayTotal: number, mealTimings: any) => {
+              return (
+                dayTotal + (Array.isArray(mealTimings) ? mealTimings.length : 0)
+              );
+            },
+            0
+          )
+        );
+      },
+      0
+    );
+
+    console.log("📋 Total meals in plan:", totalMeals);
+
+    if (hasActivePlan && Object.keys(weeklyPlan).length > 0 && totalMeals > 0) {
+      // Get the actual plan data for proper date calculation
+      let planDetails = null;
+
+      // Try to get the actual meal plan details if it's a user meal plan
+      if (user?.active_meal_plan_id && !user?.active_menu_id) {
+        try {
+          planDetails = await prisma.userMealPlan.findFirst({
+            where: {
+              plan_id: user.active_meal_plan_id,
+              user_id: user_id,
+            },
+          });
+          if (planDetails) {
+            startDate = planDetails.start_date || new Date();
+            daysCount = planDetails.rotation_frequency_days || 7;
+          }
+        } catch (error) {
+          console.log("⚠️ Could not fetch meal plan details:", error);
+        }
+      } else if (user?.active_menu_id) {
+        // If it's a recommended menu, we already set default startDate and daysCount
+        // but fetch the menu details to get potential metadata if available
+        try {
+          planDetails = await prisma.recommendedMenu.findFirst({
+            where: {
+              menu_id: user.active_menu_id,
+              user_id: user_id,
+            },
+          });
+          if (planDetails) {
+            // No specific start_date or days_count in RecommendedMenu model for this purpose.
+            // Using defaults set earlier.
+          }
+        } catch (error) {
+          console.log("⚠️ Could not fetch recommended menu details:", error);
+        }
+      }
+
+      // Calculate the current week start based on plan start date
+      const daysSinceStart = Math.floor(
+        (new Date().getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
+      );
+      const weeksCompleted = Math.floor(daysSinceStart / 7);
+      const currentWeekStartDate = new Date(startDate);
+      currentWeekStartDate.setDate(startDate.getDate() + weeksCompleted * 7);
+
+      console.log("📅 Plan start date:", startDate.toDateString());
+      console.log("📅 Days since start:", daysSinceStart);
+      console.log(
+        "📅 Current week start:",
+        currentWeekStartDate.toDateString()
+      );
+      console.log("📅 Plan days count:", daysCount);
+
+      res.json({
         success: true,
-        data: weeklyPlan,
+        hasActivePlan: true,
         planId: planId,
         planName: planName,
-        hasActivePlan: true,
+        start_date: startDate.toISOString(),
+        days_count: daysCount,
+        target_calories_daily: planDetails?.target_calories_daily,
+        target_protein_daily: planDetails?.target_protein_daily,
+        target_carbs_daily: planDetails?.target_carbs_daily,
+        target_fats_daily: planDetails?.target_fats_daily,
+        data: weeklyPlan,
+      });
+
+      // Log additional details for debugging
+      console.log("✅ Meal plan structure:", {
+        planId: planId,
+        daysInPlan: Object.keys(weeklyPlan).length,
+        startDate: startDate.toISOString(),
+        daysSinceStart,
+        currentDayInPlan: daysSinceStart % 7,
       });
     } else {
-      // No active plan, return empty structure
-      console.log("⚠️ No active meal plan found");
-      return res.json({
+      console.log("⚠️ No active plan data found, returning empty response");
+      res.json({
         success: true,
-        data: {},
-        planId: null,
-        planName: null,
         hasActivePlan: false,
-        message: "No active meal plan found. Create one to get started!",
+        data: null,
       });
     }
   } catch (error) {
     console.error("💥 Error getting current meal plan:", error);
-
-    // Return empty structure on error to prevent frontend crashes
-    return res.json({
-      success: true,
-      data: {},
-      planId: null,
-      planName: null,
-      hasActivePlan: false,
-      error: error instanceof Error ? error.message : "Unknown error",
+    res.status(500).json({
+      success: false,
+      error: "Failed to get current meal plan",
     });
   }
 });
@@ -984,6 +967,14 @@ router.put("/:planId/replace", authenticateToken, async (req, res) => {
         error: "Missing required fields: day_of_week, meal_timing",
       });
     }
+
+    console.log("🔍 Meal replacement request:", {
+      planId,
+      day_of_week,
+      meal_timing,
+      meal_order,
+      user_id,
+    });
 
     const result = await MealPlanService.replaceMealInPlan(
       user_id,
