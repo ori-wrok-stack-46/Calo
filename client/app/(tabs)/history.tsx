@@ -145,7 +145,7 @@ const CompactMealCard = ({
       const mealId = meal.id || meal.meal_id?.toString();
       if (!mealId) throw new Error("No meal ID found");
 
-      await dispatch(
+      const result = await dispatch(
         saveMealFeedback({
           mealId,
           feedback: {
@@ -157,12 +157,20 @@ const CompactMealCard = ({
         })
       ).unwrap();
 
-      Alert.alert("Success", "Ratings saved successfully!");
-      // Refresh the meals list
-      dispatch(fetchMeals());
+      if (result) {
+        Alert.alert("Success", "Ratings saved successfully!");
+        // Update local meal state immediately
+        meal.taste_rating = ratings.taste_rating;
+        meal.satiety_rating = ratings.satiety_rating;
+        meal.energy_rating = ratings.energy_rating;
+        meal.heaviness_rating = ratings.heaviness_rating;
+
+        // Refresh the meals list
+        await dispatch(fetchMeals());
+      }
     } catch (error) {
       console.error("Failed to save ratings:", error);
-      Alert.alert("Error", "Failed to save ratings");
+      Alert.alert("Error", "Failed to save ratings. Please try again.");
     } finally {
       setSavingRatings(false);
     }
@@ -421,34 +429,61 @@ const CompactMealCard = ({
             {ingredients && ingredients.length > 0 && (
               <View style={styles.ingredientsSection}>
                 <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                  Ingredients
+                  Ingredients ({ingredients.length})
                 </Text>
                 <ScrollView
                   horizontal
                   showsHorizontalScrollIndicator={false}
                   style={styles.ingredientsScroll}
+                  contentContainerStyle={[
+                    styles.ingredientsContainer,
+                    isRTL && styles.rtlContainer,
+                  ]}
                 >
-                  {ingredients.map((ingredient: any, index: number) => (
-                    <View
-                      key={index}
-                      style={[
-                        styles.ingredientChip,
-                        {
-                          backgroundColor: colors.emerald + "15",
-                          borderColor: colors.emerald + "30",
-                        },
-                      ]}
-                    >
-                      <Text
+                  {ingredients.map((ingredient: any, index: number) => {
+                    const ingredientName =
+                      typeof ingredient === "string"
+                        ? ingredient
+                        : ingredient.name ||
+                          ingredient.ingredient_name ||
+                          `Ingredient ${index + 1}`;
+
+                    const hasNutrition =
+                      typeof ingredient === "object" &&
+                      (ingredient.calories > 0 ||
+                        ingredient.protein > 0 ||
+                        ingredient.carbs > 0);
+
+                    return (
+                      <View
+                        key={`ingredient-${index}`}
                         style={[
-                          styles.ingredientText,
-                          { color: colors.emerald },
+                          styles.ingredientChip,
+                          {
+                            backgroundColor: colors.emerald + "15",
+                            borderColor: colors.emerald + "30",
+                          },
                         ]}
                       >
-                        {ingredient.name || ingredient}
-                      </Text>
-                    </View>
-                  ))}
+                        <Text
+                          style={[
+                            styles.ingredientText,
+                            { color: colors.emerald },
+                            isRTL && styles.rtlText,
+                          ]}
+                        >
+                          {ingredientName}
+                        </Text>
+                        {hasNutrition && (
+                          <View style={styles.ingredientNutritionBadge}>
+                            <Text style={styles.ingredientNutritionText}>
+                              {Math.round(ingredient.calories || 0)} cal
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                    );
+                  })}
                 </ScrollView>
               </View>
             )}
@@ -668,15 +703,44 @@ export default function HistoryScreen() {
   const handleToggleFavorite = useCallback(
     async (mealId: string) => {
       try {
-        await dispatch(toggleMealFavorite(mealId)).unwrap();
-        // Refresh the meals list to reflect changes
-        dispatch(fetchMeals());
+        // Optimistically update the UI
+        const mealToUpdate = meals.find(
+          (m) => (m.id || m.meal_id?.toString()) === mealId
+        );
+        if (mealToUpdate) {
+          mealToUpdate.is_favorite = !mealToUpdate.is_favorite;
+        }
+
+        const result = await dispatch(toggleMealFavorite(mealId)).unwrap();
+
+        if (result) {
+          // Show success feedback
+          Alert.alert(
+            "Success",
+            mealToUpdate?.is_favorite
+              ? "Added to favorites!"
+              : "Removed from favorites!"
+          );
+
+          // Refresh the meals list to ensure consistency
+          await dispatch(fetchMeals());
+        }
       } catch (error) {
         console.error("Failed to toggle favorite:", error);
-        Alert.alert("Error", "Failed to update favorite status");
+        // Revert optimistic update on error
+        const mealToRevert = meals.find(
+          (m) => (m.id || m.meal_id?.toString()) === mealId
+        );
+        if (mealToRevert) {
+          mealToRevert.is_favorite = !mealToRevert.is_favorite;
+        }
+        Alert.alert(
+          "Error",
+          "Failed to update favorite status. Please try again."
+        );
       }
     },
-    [dispatch]
+    [dispatch, meals]
   );
 
   const handleDuplicateMeal = useCallback(
@@ -1318,6 +1382,26 @@ const styles = StyleSheet.create({
   ingredientText: {
     fontSize: 12,
     fontWeight: "500",
+  },
+  ingredientsContainer: {
+    paddingRight: 8,
+  },
+  rtlContainer: {
+    flexDirection: "row-reverse",
+    paddingLeft: 8,
+    paddingRight: 0,
+  },
+  ingredientNutritionBadge: {
+    backgroundColor: "rgba(16, 185, 129, 0.1)",
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 8,
+    marginTop: 4,
+  },
+  ingredientNutritionText: {
+    fontSize: 10,
+    color: "#059669",
+    fontWeight: "600",
   },
   ratingSection: {
     marginTop: 8,
