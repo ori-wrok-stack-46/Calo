@@ -27,6 +27,9 @@ export const Colors = {
     primaryLight: "#a7f3d0", // emerald-200
     textSecondary: "#047857", // emerald-700
     success: "#16a34a", // green-600
+    glass: "rgba(255, 255, 255, 0.8)",
+    glassStroke: "rgba(255, 255, 255, 0.2)",
+    backdrop: "rgba(0, 0, 0, 0.1)",
   },
   dark: {
     text: "#d1fae5", // green-100
@@ -52,6 +55,9 @@ export const Colors = {
     primaryLight: "#065f46", // emerald-800
     textSecondary: "#6ee7b7", // emerald-300
     success: "#22c55e", // green-500
+    glass: "rgba(30, 41, 59, 0.8)",
+    glassStroke: "rgba(255, 255, 255, 0.1)",
+    backdrop: "rgba(0, 0, 0, 0.3)",
   },
 };
 

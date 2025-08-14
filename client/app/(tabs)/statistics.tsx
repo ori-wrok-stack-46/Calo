@@ -96,6 +96,8 @@ interface ProgressData {
   energy?: "high" | "medium" | "low";
   satiety?: "very_full" | "satisfied" | "hungry";
   mealQuality?: number;
+  mealsCount: number;
+  requiredMeals: number;
 }
 
 interface Achievement {
@@ -117,15 +119,6 @@ interface Achievement {
   xpReward: number;
   rarity: "COMMON" | "RARE" | "EPIC" | "LEGENDARY";
   unlockedDate?: string;
-}
-
-interface Badge {
-  id: string;
-  name: string;
-  icon: React.ReactNode;
-  color: string;
-  earnedDate: string;
-  rarity: "common" | "rare" | "epic" | "legendary";
 }
 
 interface TimeFilter {
@@ -160,6 +153,25 @@ interface StatisticsData {
   highEnergyDays: number;
   satisfiedDays: number;
   averageMealQuality: number;
+  userGoals: {
+    dailyCalories: number;
+    dailyProtein: number;
+    dailyCarbs: number;
+    dailyFats: number;
+    dailyFiber: number;
+    dailyWater: number;
+    mealsPerDay: number;
+  };
+}
+
+interface UserQuestionnaire {
+  mealsPerDay: number;
+  dailyCalories: number;
+  dailyProtein: number;
+  dailyCarbs: number;
+  dailyFats: number;
+  dailyFiber: number;
+  dailyWater: number;
 }
 
 // Helper function to get the appropriate Lucide icon component
@@ -222,35 +234,37 @@ const getAchievementIcon = (
 };
 
 // Helper functions for achievement styling
-const getAchievementGradientColors = (rarity: string) => {
+const getAchievementBackgroundColor = (rarity: string, unlocked: boolean) => {
+  if (!unlocked) return "#FFFFFF";
+
   switch (rarity.toUpperCase()) {
     case "LEGENDARY":
-      return ["#FF6B6B", "#4ECDC4"];
+      return "#FFFBEB"; // Very light gold
     case "EPIC":
-      return ["#9B59B6", "#E74C3C"];
+      return "#F9F5FF"; // Very light purple
     case "RARE":
-      return ["#3498DB", "#2ECC71"];
+      return "#F0F9FF"; // Very light blue
     case "UNCOMMON":
-      return ["#F39C12", "#E67E22"];
+      return "#FFF7ED"; // Very light orange
     case "COMMON":
     default:
-      return ["#16A085", "#27AE60"];
+      return "#F0FDF4"; // Very light green
   }
 };
 
 const getRarityColor = (rarity: string) => {
   switch (rarity.toUpperCase()) {
     case "LEGENDARY":
-      return "#FF6B6B";
+      return "#F59E0B";
     case "EPIC":
-      return "#9B59B6";
+      return "#8B5CF6";
     case "RARE":
-      return "#3498DB";
+      return "#3B82F6";
     case "UNCOMMON":
-      return "#F39C12";
+      return "#F97316";
     case "COMMON":
     default:
-      return "#16A085";
+      return "#10B981";
   }
 };
 
@@ -262,7 +276,6 @@ export default function StatisticsScreen() {
     "today" | "week" | "month"
   >("week");
   const [showAlerts, setShowAlerts] = useState(true);
-  const [showComparison, setShowComparison] = useState(false);
   const [showAchievements, setShowAchievements] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -270,13 +283,15 @@ export default function StatisticsScreen() {
   const [statisticsData, setStatisticsData] = useState<StatisticsData | null>(
     null
   );
+  const [userQuestionnaire, setUserQuestionnaire] =
+    useState<UserQuestionnaire | null>(null);
 
   const texts = {
     title: language === "he" ? "התקדמות וסטטיסטיקות" : "Progress & Statistics",
     subtitle:
       language === "he"
-        ? "מעקב מפורט אחר 15 מדדי תזונה מרכזיים והתקדמות אישית"
-        : "Detailed tracking of 15 key nutritional metrics and personal progress",
+        ? "מעקב מפורט אחר מדדי תזונה והתקדמות אישית"
+        : "Detailed tracking of nutritional metrics and personal progress",
     today: language === "he" ? "היום" : "Today",
     week: language === "he" ? "שבוע" : "Week",
     month: language === "he" ? "חודש" : "Month",
@@ -319,38 +334,12 @@ export default function StatisticsScreen() {
     unlocked: language === "he" ? "נפתח" : "Unlocked",
     locked: language === "he" ? "נעול" : "Locked",
     progress: language === "he" ? "התקדמות" : "Progress",
-    compareWith: language === "he" ? "השווה עם" : "Compare With",
-    lastWeek: language === "he" ? "השבוע שעבר" : "Last Week",
-    lastMonth: language === "he" ? "החודש שעבר" : "Last Month",
-    thisWeek: language === "he" ? "השבוע" : "This Week",
-    thisMonth: language === "he" ? "החודש" : "This Month",
-    improvement: language === "he" ? "שיפור" : "Improvement",
-    decline: language === "he" ? "ירידה" : "Decline",
-    stable: language === "he" ? "יציב" : "Stable",
-    mood: language === "he" ? "מצב רוח" : "Mood",
-    energy: language === "he" ? "אנרגיה" : "Energy",
-    satiety: language === "he" ? "שובע" : "Satiety",
-    mealQuality: language === "he" ? "איכות ארוחה" : "Meal Quality",
-    happy: language === "he" ? "שמח" : "Happy",
-    neutral: language === "he" ? "ניטרלי" : "Neutral",
-    sad: language === "he" ? "עצוב" : "Sad",
-    high: language === "he" ? "גבוה" : "High",
-    medium: language === "he" ? "בינוני" : "Medium",
-    low: language === "he" ? "נמוך" : "Low",
-    veryFull: language === "he" ? "שבע מאוד" : "Very Full",
-    satisfied: language === "he" ? "מרוצה" : "Satisfied",
-    hungry: language === "he" ? "רעב" : "Hungry",
-    averageDaily: language === "he" ? "ממוצע יומי" : "Daily Average",
-    totalConsumed: language === "he" ? 'סה"כ נצרך' : "Total Consumed",
-    goalAchieved: language === "he" ? "יעד הושג" : "Goal Achieved",
-    streak: language === "he" ? "רצף ימים" : "Day Streak",
-    days: language === "he" ? "ימים" : "days",
-    bestDay: language === "he" ? "היום הטוב ביותר" : "Best Day",
-    improvementArea: language === "he" ? "אזור לשיפור" : "Improvement Area",
-    successfulDays: language === "he" ? "ימים מוצלחים" : "Successful Days",
-    averageCompletion: language === "he" ? "ממוצע השלמה" : "Average Completion",
-    bestStreak: language === "he" ? "רצף הטוב ביותר" : "Best Streak",
-    currentStreak: language === "he" ? "רצף נוכחי" : "Current Streak",
+    completeMealsFirst:
+      language === "he"
+        ? "השלם את כל הארוחות היומיות שלך כדי לקבל תובנות תזונתיות"
+        : "Complete all your daily meals to receive nutritional insights",
+    mealsCompleted: language === "he" ? "ארוחות הושלמו" : "Meals Completed",
+    of: language === "he" ? "מתוך" : "of",
     totalCalories:
       language === "he" ? 'סה"כ קלוריות יומיות' : "Total Daily Calories",
     protein: language === "he" ? "חלבון" : "Protein",
@@ -365,27 +354,10 @@ export default function StatisticsScreen() {
     mg: language === "he" ? 'מ"ג' : "mg",
     ml: language === "he" ? 'מ"ל' : "ml",
     percent: "%",
-    score: language === "he" ? "ניקוד" : "score",
-    meals: language === "he" ? "ארוחות" : "meals",
-    hours: language === "he" ? "שעות" : "hours",
     increaseIntake: language === "he" ? "הגדל צריכה" : "Increase intake",
     decreaseIntake: language === "he" ? "הפחת צריכה" : "Decrease intake",
     maintainLevel: language === "he" ? "שמור על הרמה" : "Maintain level",
     consultDoctor: language === "he" ? "התייעץ עם רופא" : "Consult doctor",
-    addSupplement:
-      language === "he" ? "שקול תוסף תזונה" : "Consider supplement",
-    improveHydration: language === "he" ? "שפר הידרציה" : "Improve hydration",
-    balanceMeals:
-      language === "he" ? "איזן זמני ארוחות" : "Balance meal timing",
-    increaseFiber:
-      language === "he" ? "הוסף סיבים תזונתיים" : "Add fiber sources",
-    reduceSodium: language === "he" ? "הפחת נתרן" : "Reduce sodium",
-    addOmega3:
-      language === "he" ? "הוסף מקורות אומגה 3" : "Add omega-3 sources",
-    insightTitle:
-      language === "he"
-        ? "תובנות חכמות מבוססות נתונים"
-        : "Smart Data-Driven Insights",
     noDataMessage:
       language === "he"
         ? "אין נתונים זמינים לתקופה זו"
@@ -394,6 +366,11 @@ export default function StatisticsScreen() {
     errorMessage:
       language === "he" ? "שגיאה בטעינת הנתונים" : "Error loading data",
     retryButton: language === "he" ? "נסה שוב" : "Retry",
+    days: language === "he" ? "ימים" : "days",
+    successfulDays: language === "he" ? "ימים מוצלחים" : "Successful Days",
+    averageCompletion: language === "he" ? "ממוצע השלמה" : "Average Completion",
+    bestStreak: language === "he" ? "רצף הטוב ביותר" : "Best Streak",
+    currentStreak: language === "he" ? "רצף נוכחי" : "Current Streak",
   };
 
   // Fetch statistics data from API
@@ -403,20 +380,53 @@ export default function StatisticsScreen() {
 
     try {
       console.log(`📊 Fetching statistics for period: ${period}`);
-      const response = await api.get(`/statistics?period=${period}`);
+      const [statisticsResponse, questionnaireResponse] = await Promise.all([
+        api.get(`/statistics?period=${period}`),
+        api.get("/questionnaire"),
+      ]);
 
-      console.log("📊 Raw statistics response:", response.data);
+      console.log("📊 Raw statistics response:", statisticsResponse.data);
 
-      if (response.data.success && response.data.data) {
-        setStatisticsData(response.data.data);
-        console.log(`✅ Statistics loaded successfully:`, response.data.data);
+      if (statisticsResponse.data.success && statisticsResponse.data.data) {
+        setStatisticsData(statisticsResponse.data.data);
+        console.log(
+          `✅ Statistics loaded successfully:`,
+          statisticsResponse.data.data
+        );
       } else {
         console.warn("⚠️ Statistics response unsuccessful or no data");
-        setError(response.data.message || "No statistics data available");
+        setError(
+          statisticsResponse.data.message || "No statistics data available"
+        );
+      }
+
+      // Set user questionnaire for meal requirements
+      if (
+        questionnaireResponse.data.success &&
+        questionnaireResponse.data.data
+      ) {
+        const qData = questionnaireResponse.data.data;
+        // Fix the meals_per_day parsing issue
+        let mealsPerDay = 3; // default
+        if (qData.meals_per_day) {
+          const cleanedMeals = qData.meals_per_day
+            .toString()
+            .replace(/[^0-9]/g, "");
+          mealsPerDay = parseInt(cleanedMeals) || 3;
+        }
+
+        setUserQuestionnaire({
+          mealsPerDay,
+          dailyCalories: qData.daily_calories || 2000,
+          dailyProtein: qData.daily_protein || 120,
+          dailyCarbs: qData.daily_carbs || 250,
+          dailyFats: qData.daily_fats || 70,
+          dailyFiber: qData.daily_fiber || 25,
+          dailyWater: qData.daily_water || 2500,
+        });
       }
     } catch (err: any) {
       console.error("❌ Error fetching statistics:", err);
-      console.error("❌ Error details:", err.response?.data);
       setError(err.response?.data?.message || "Failed to load statistics data");
     } finally {
       setIsLoading(false);
@@ -430,8 +440,10 @@ export default function StatisticsScreen() {
 
   // Generate nutrition data from real API response
   const generateNutritionMetrics = (): NutritionMetric[] => {
-    if (!statisticsData) {
-      console.warn("⚠️ No statistics data available for metrics generation");
+    if (!statisticsData || !userQuestionnaire) {
+      console.warn(
+        "⚠️ No statistics data or questionnaire available for metrics generation"
+      );
       return [];
     }
 
@@ -461,7 +473,7 @@ export default function StatisticsScreen() {
         name: texts.totalCalories,
         nameEn: "Total Calories",
         value: statisticsData.averageCalories || 0,
-        target: 1800,
+        target: userQuestionnaire.dailyCalories,
         unit: texts.kcal,
         icon: <Flame size={20} color="#E74C3C" />,
         color: "#E74C3C",
@@ -470,7 +482,10 @@ export default function StatisticsScreen() {
           language === "he"
             ? "צריכת קלוריות יומית כוללת"
             : "Total daily calorie intake",
-        trend: calculateTrend(statisticsData.averageCalories || 0, 1800),
+        trend: calculateTrend(
+          statisticsData.averageCalories || 0,
+          userQuestionnaire.dailyCalories
+        ),
         weeklyAverage: statisticsData.averageCalories || 0,
         lastWeekChange: calculateWeeklyChange(
           statisticsData.averageCalories || 0,
@@ -482,7 +497,7 @@ export default function StatisticsScreen() {
         name: texts.protein,
         nameEn: "Protein",
         value: statisticsData.averageProtein || 0,
-        target: 120,
+        target: userQuestionnaire.dailyProtein,
         unit: texts.g,
         icon: <Zap size={20} color="#9B59B6" />,
         color: "#9B59B6",
@@ -491,7 +506,10 @@ export default function StatisticsScreen() {
           language === "he"
             ? "חלבון לבניית שרירים ותיקון רקמות"
             : "Protein for muscle building and tissue repair",
-        trend: calculateTrend(statisticsData.averageProtein || 0, 120),
+        trend: calculateTrend(
+          statisticsData.averageProtein || 0,
+          userQuestionnaire.dailyProtein
+        ),
         weeklyAverage: statisticsData.averageProtein || 0,
         lastWeekChange: calculateWeeklyChange(
           statisticsData.averageProtein || 0,
@@ -503,7 +521,7 @@ export default function StatisticsScreen() {
         name: texts.carbohydrates,
         nameEn: "Carbohydrates",
         value: statisticsData.averageCarbs || 0,
-        target: 225,
+        target: userQuestionnaire.dailyCarbs,
         unit: texts.g,
         icon: <Wheat size={20} color="#F39C12" />,
         color: "#F39C12",
@@ -512,7 +530,10 @@ export default function StatisticsScreen() {
           language === "he"
             ? "פחמימות לאנרגיה ותפקוד המוח"
             : "Carbohydrates for energy and brain function",
-        trend: calculateTrend(statisticsData.averageCarbs || 0, 225),
+        trend: calculateTrend(
+          statisticsData.averageCarbs || 0,
+          userQuestionnaire.dailyCarbs
+        ),
         weeklyAverage: statisticsData.averageCarbs || 0,
         lastWeekChange: calculateWeeklyChange(
           statisticsData.averageCarbs || 0,
@@ -524,7 +545,7 @@ export default function StatisticsScreen() {
         name: texts.fats,
         nameEn: "Fats",
         value: statisticsData.averageFats || 0,
-        target: 70,
+        target: userQuestionnaire.dailyFats,
         unit: texts.g,
         icon: <Fish size={20} color="#16A085" />,
         color: "#16A085",
@@ -533,7 +554,10 @@ export default function StatisticsScreen() {
           language === "he"
             ? "שומנים בריאים לתפקוד הורמונלי"
             : "Healthy fats for hormonal function",
-        trend: calculateTrend(statisticsData.averageFats || 0, 70),
+        trend: calculateTrend(
+          statisticsData.averageFats || 0,
+          userQuestionnaire.dailyFats
+        ),
         weeklyAverage: statisticsData.averageFats || 0,
         lastWeekChange: calculateWeeklyChange(
           statisticsData.averageFats || 0,
@@ -545,7 +569,7 @@ export default function StatisticsScreen() {
         name: texts.fiber,
         nameEn: "Fiber",
         value: statisticsData.averageFiber || 0,
-        target: 25,
+        target: userQuestionnaire.dailyFiber,
         unit: texts.g,
         icon: <Leaf size={20} color="#27AE60" />,
         color: "#27AE60",
@@ -554,8 +578,11 @@ export default function StatisticsScreen() {
           language === "he"
             ? "סיבים תזונתיים לבריאות העיכול"
             : "Dietary fiber for digestive health",
-        recommendation: texts.increaseFiber,
-        trend: calculateTrend(statisticsData.averageFiber || 0, 25),
+        recommendation: texts.increaseIntake,
+        trend: calculateTrend(
+          statisticsData.averageFiber || 0,
+          userQuestionnaire.dailyFiber
+        ),
         weeklyAverage: statisticsData.averageFiber || 0,
         lastWeekChange: calculateWeeklyChange(
           statisticsData.averageFiber || 0,
@@ -600,7 +627,7 @@ export default function StatisticsScreen() {
           language === "he"
             ? "נתרן - חשוב להגביל למניעת יתר לחץ דם"
             : "Sodium - important to limit to prevent hypertension",
-        recommendation: texts.reduceSodium,
+        recommendation: texts.decreaseIntake,
         trend: calculateTrend(statisticsData.averageSodium || 0, 2300),
         weeklyAverage: statisticsData.averageSodium || 0,
         lastWeekChange: calculateWeeklyChange(
@@ -613,15 +640,18 @@ export default function StatisticsScreen() {
         name: texts.hydration,
         nameEn: "Hydration",
         value: statisticsData.averageFluids || 0,
-        target: 2500,
+        target: userQuestionnaire.dailyWater,
         unit: texts.ml,
         icon: <Droplets size={20} color="#3498DB" />,
         color: "#3498DB",
         category: "lifestyle" as const,
         description:
           language === "he" ? "רמת הידרציה יומית" : "Daily hydration level",
-        recommendation: texts.improveHydration,
-        trend: calculateTrend(statisticsData.averageFluids || 0, 2500),
+        recommendation: texts.increaseIntake,
+        trend: calculateTrend(
+          statisticsData.averageFluids || 0,
+          userQuestionnaire.dailyWater
+        ),
         weeklyAverage: statisticsData.averageFluids || 0,
         lastWeekChange: calculateWeeklyChange(
           statisticsData.averageFluids || 0,
@@ -657,11 +687,12 @@ export default function StatisticsScreen() {
     });
   };
 
-  // Generate weekly progress data from real API data
+  // Generate weekly progress data with meal completion tracking
   const generateWeeklyData = (): ProgressData[] => {
     if (
       !statisticsData?.dailyBreakdown ||
-      statisticsData.dailyBreakdown.length === 0
+      statisticsData.dailyBreakdown.length === 0 ||
+      !userQuestionnaire
     ) {
       return [];
     }
@@ -679,7 +710,20 @@ export default function StatisticsScreen() {
       satiety:
         (day.satiety as "very_full" | "satisfied" | "hungry") || "satisfied",
       mealQuality: day.meal_quality || 3,
+      mealsCount: day.meals_count || 0,
+      requiredMeals: userQuestionnaire.mealsPerDay,
     }));
+  };
+
+  // Check if user has completed daily meals for warnings
+  const shouldShowWarnings = (): boolean => {
+    if (!userQuestionnaire) return false;
+
+    const weeklyData = generateWeeklyData();
+    const today = new Date().toISOString().split("T")[0];
+    const todayData = weeklyData.find((day) => day.date === today);
+
+    return todayData ? todayData.mealsCount >= todayData.requiredMeals : false;
   };
 
   // Generate achievements from real API data
@@ -693,7 +737,7 @@ export default function StatisticsScreen() {
         en: "Description",
         he: "תיאור",
       },
-      icon: achievement.icon || getAchievementIcon(achievement.category),
+      icon: achievement.icon || "trophy",
       color: getRarityColor(achievement.rarity || "COMMON"),
       progress: achievement.progress || 0,
       maxProgress: achievement.max_progress || 1,
@@ -705,71 +749,18 @@ export default function StatisticsScreen() {
     }));
   };
 
-  // Generate badges from real API data
-  const generateBadges = (): Badge[] => {
-    if (!statisticsData?.badges) return [];
-
-    return statisticsData.badges.map((badge: any) => ({
-      id: badge.id,
-      name: badge.name,
-      icon: getBadgeIcon(badge.name),
-      color: getBadgeColor(badge.rarity),
-      earnedDate: new Date(badge.earned_date).toLocaleDateString(),
-      rarity: badge.rarity.toLowerCase(),
-    }));
-  };
-
-  // Helper functions for icons and colors (existing ones)
-  const getBadgeIcon = (name: string) => {
-    if (
-      name.toLowerCase().includes("water") ||
-      name.toLowerCase().includes("מים")
-    ) {
-      return <Droplets size={20} color="#3498DB" />;
-    } else if (
-      name.toLowerCase().includes("protein") ||
-      name.toLowerCase().includes("חלבון")
-    ) {
-      return <Zap size={20} color="#9B59B6" />;
-    } else if (
-      name.toLowerCase().includes("streak") ||
-      name.toLowerCase().includes("רצף")
-    ) {
-      return <Flame size={20} color="#E74C3C" />;
-    } else {
-      return <Star size={20} color="#F39C12" />;
-    }
-  };
-
-  const getBadgeColor = (rarity: string) => {
-    switch (rarity?.toLowerCase()) {
-      case "common":
-        return "#95A5A6";
-      case "rare":
-        return "#3498DB";
-      case "epic":
-        return "#9B59B6";
-      case "legendary":
-        return "#F39C12";
-      default:
-        return "#95A5A6";
-    }
-  };
-
   const [metrics, setMetrics] = useState<NutritionMetric[]>([]);
   const [weeklyData, setWeeklyData] = useState<ProgressData[]>([]);
   const [achievements, setAchievements] = useState<Achievement[]>([]);
-  const [badges, setBadges] = useState<Badge[]>([]);
 
   // Update metrics when data changes
   useEffect(() => {
-    if (statisticsData) {
+    if (statisticsData && userQuestionnaire) {
       setMetrics(generateNutritionMetrics());
       setWeeklyData(generateWeeklyData());
       setAchievements(generateAchievements());
-      setBadges(generateBadges());
     }
-  }, [statisticsData]);
+  }, [statisticsData, userQuestionnaire]);
 
   // Refresh handler
   const handleRefresh = async () => {
@@ -828,33 +819,11 @@ export default function StatisticsScreen() {
     }
   };
 
-  const getMoodIcon = (mood: string) => {
-    switch (mood) {
-      case "happy":
-        return <Smile size={16} color="#2ECC71" />;
-      case "neutral":
-        return <Meh size={16} color="#F39C12" />;
-      case "sad":
-        return <Frown size={16} color="#E74C3C" />;
-      default:
-        return <Meh size={16} color="#95A5A6" />;
-    }
-  };
-
-  const getEnergyIcon = (energy: string) => {
-    switch (energy) {
-      case "high":
-        return <Battery size={16} color="#2ECC71" />;
-      case "medium":
-        return <Battery size={16} color="#F39C12" />;
-      case "low":
-        return <Battery size={16} color="#E74C3C" />;
-      default:
-        return <Battery size={16} color="#95A5A6" />;
-    }
-  };
-
   const getAlertsData = () => {
+    if (!shouldShowWarnings()) {
+      return [];
+    }
+
     return metrics
       .filter(
         (metric) => metric.status === "danger" || metric.status === "warning"
@@ -940,37 +909,14 @@ export default function StatisticsScreen() {
     };
   };
 
-  // Calculate wellbeing insights
-  const calculateWellbeingInsights = () => {
-    if (!statisticsData) {
-      return {
-        happyDays: 0,
-        highEnergyDays: 0,
-        satisfiedDays: 0,
-        averageMealQuality: "3.0",
-        totalDays: 0,
-      };
-    }
-
-    return {
-      happyDays: statisticsData.happyDays || 0,
-      highEnergyDays: statisticsData.highEnergyDays || 0,
-      satisfiedDays: statisticsData.satisfiedDays || 0,
-      averageMealQuality: (statisticsData.averageMealQuality || 3).toFixed(1),
-      totalDays: statisticsData.totalDays || 0,
-    };
-  };
-
   const categorizedMetrics = {
     macros: metrics.filter((m) => m.category === "macros"),
     micros: metrics.filter((m) => m.category === "micros"),
     lifestyle: metrics.filter((m) => m.category === "lifestyle"),
-    quality: metrics.filter((m) => m.category === "quality"),
   };
 
   const progressStats = calculateProgressStats();
   const gamificationStats = calculateGamificationStats();
-  const wellbeingInsights = calculateWellbeingInsights();
 
   const renderMetricCard = (metric: NutritionMetric) => (
     <TouchableOpacity
@@ -978,10 +924,7 @@ export default function StatisticsScreen() {
       style={styles.metricCard}
       onPress={() => Alert.alert(metric.name, metric.description)}
     >
-      <LinearGradient
-        colors={[`${metric.color}15`, `${metric.color}05`]}
-        style={styles.metricGradient}
-      >
+      <View style={styles.metricCardContent}>
         <View style={styles.metricHeader}>
           <View style={styles.metricIconContainer}>{metric.icon}</View>
           <View style={styles.metricInfo}>
@@ -994,7 +937,7 @@ export default function StatisticsScreen() {
                   { color: getStatusColor(metric.status) },
                 ]}
               >
-                {texts[metric.status]}
+                {texts[metric.status as keyof typeof texts] || metric.status}
               </Text>
             </View>
           </View>
@@ -1028,19 +971,19 @@ export default function StatisticsScreen() {
 
         <View style={styles.metricProgress}>
           <View style={styles.metricProgressBg}>
-            <LinearGradient
-              colors={[metric.color, `${metric.color}80`]}
+            <View
               style={[
                 styles.metricProgressFill,
-                { width: `${Math.min(metric.percentage, 100)}%` },
+                {
+                  width: `${Math.min(metric.percentage, 100)}%`,
+                  backgroundColor: metric.color,
+                },
               ]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 0 }}
             />
           </View>
         </View>
 
-        {metric.recommendation && (
+        {metric.recommendation && shouldShowWarnings() && (
           <View style={styles.metricRecommendation}>
             <Sparkles size={12} color={metric.color} />
             <Text style={styles.metricRecommendationText}>
@@ -1048,7 +991,7 @@ export default function StatisticsScreen() {
             </Text>
           </View>
         )}
-      </LinearGradient>
+      </View>
     </TouchableOpacity>
   );
 
@@ -1077,6 +1020,40 @@ export default function StatisticsScreen() {
       </SafeAreaView>
     );
   }
+
+  // Meal completion status component
+  const renderMealCompletionStatus = () => {
+    const weeklyData = generateWeeklyData();
+    const today = new Date().toISOString().split("T")[0];
+    const todayData = weeklyData.find((day) => day.date === today);
+
+    if (!todayData || !userQuestionnaire) return null;
+
+    const isCompleted = todayData.mealsCount >= todayData.requiredMeals;
+
+    return (
+      <View style={styles.mealCompletionCard}>
+        <View style={styles.mealCompletionHeader}>
+          <View style={styles.mealCompletionIcon}>
+            {isCompleted ? (
+              <CheckCircle size={24} color="#2ECC71" />
+            ) : (
+              <Clock size={24} color="#E67E22" />
+            )}
+          </View>
+          <Text style={styles.mealCompletionTitle}>{texts.mealsCompleted}</Text>
+        </View>
+        <Text style={styles.mealCompletionText}>
+          {todayData.mealsCount} {texts.of} {todayData.requiredMeals}
+        </Text>
+        {!isCompleted && (
+          <Text style={styles.mealCompletionMessage}>
+            {texts.completeMealsFirst}
+          </Text>
+        )}
+      </View>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -1140,88 +1117,85 @@ export default function StatisticsScreen() {
         {/* Main Content */}
         {statisticsData && (
           <>
+            {/* Meal Completion Status */}
+            {renderMealCompletionStatus()}
+
             {/* Gamification Dashboard */}
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>{texts.gamification}</Text>
               <View style={styles.gamificationContainer}>
-                <LinearGradient
-                  colors={["#9B59B615", "#9B59B605"]}
-                  style={styles.gamificationGradient}
-                >
-                  <View style={styles.levelContainer}>
-                    <View style={styles.levelInfo}>
-                      <View style={styles.levelIcon}>
-                        <Crown size={32} color="#F39C12" />
-                      </View>
-                      <View style={styles.levelDetails}>
-                        <Text style={styles.levelText}>
-                          {texts.level} {gamificationStats.level}
-                        </Text>
-                        <Text style={styles.xpText}>
-                          {gamificationStats.currentXP} /{" "}
-                          {gamificationStats.nextLevelXP} {texts.xp}
-                        </Text>
-                      </View>
+                <View style={styles.levelContainer}>
+                  <View style={styles.levelInfo}>
+                    <View style={styles.levelIcon}>
+                      <Crown size={32} color="#F39C12" />
                     </View>
-                    <View style={styles.xpProgress}>
-                      <View style={styles.xpProgressBg}>
-                        <LinearGradient
-                          colors={["#F39C12", "#E67E22"]}
-                          style={[
-                            styles.xpProgressFill,
-                            { width: `${gamificationStats.xpProgress}%` },
-                          ]}
-                        />
-                      </View>
-                      <Text style={styles.xpToNext}>
-                        {gamificationStats.xpToNext} {texts.nextLevel}
+                    <View style={styles.levelDetails}>
+                      <Text style={styles.levelText}>
+                        {texts.level} {gamificationStats.level}
+                      </Text>
+                      <Text style={styles.xpText}>
+                        {gamificationStats.currentXP} /{" "}
+                        {gamificationStats.nextLevelXP} {texts.xp}
                       </Text>
                     </View>
                   </View>
+                  <View style={styles.xpProgress}>
+                    <View style={styles.xpProgressBg}>
+                      <View
+                        style={[
+                          styles.xpProgressFill,
+                          { width: `${gamificationStats.xpProgress}%` },
+                        ]}
+                      />
+                    </View>
+                    <Text style={styles.xpToNext}>
+                      {gamificationStats.xpToNext} {texts.nextLevel}
+                    </Text>
+                  </View>
+                </View>
 
-                  <View style={styles.gamificationStats}>
-                    <View style={styles.gamificationStatItem}>
-                      <Flame size={20} color="#E74C3C" />
-                      <Text style={styles.gamificationStatValue}>
-                        {gamificationStats.dailyStreak}
-                      </Text>
-                      <Text style={styles.gamificationStatLabel}>
-                        {texts.dailyStreak}
-                      </Text>
-                    </View>
-                    <View style={styles.gamificationStatItem}>
-                      <Calendar size={20} color="#3498DB" />
-                      <Text style={styles.gamificationStatValue}>
-                        {gamificationStats.weeklyStreak}
-                      </Text>
-                      <Text style={styles.gamificationStatLabel}>
-                        {texts.weeklyStreak}
-                      </Text>
-                    </View>
-                    <View style={styles.gamificationStatItem}>
-                      <Star size={20} color="#F39C12" />
-                      <Text style={styles.gamificationStatValue}>
-                        {gamificationStats.perfectDays}
-                      </Text>
-                      <Text style={styles.gamificationStatLabel}>
-                        {texts.perfectDays}
-                      </Text>
-                    </View>
-                    <View style={styles.gamificationStatItem}>
-                      <Trophy size={20} color="#16A085" />
-                      <Text style={styles.gamificationStatValue}>
-                        {gamificationStats.totalPoints.toLocaleString()}
-                      </Text>
-                      <Text style={styles.gamificationStatLabel}>
-                        {texts.totalPoints}
-                      </Text>
-                    </View>
+                <View style={styles.gamificationStats}>
+                  <View style={styles.gamificationStatItem}>
+                    <Flame size={20} color="#E74C3C" />
+                    <Text style={styles.gamificationStatValue}>
+                      {gamificationStats.dailyStreak}
+                    </Text>
+                    <Text style={styles.gamificationStatLabel}>
+                      {texts.dailyStreak}
+                    </Text>
                   </View>
-                </LinearGradient>
+                  <View style={styles.gamificationStatItem}>
+                    <Calendar size={20} color="#3498DB" />
+                    <Text style={styles.gamificationStatValue}>
+                      {gamificationStats.weeklyStreak}
+                    </Text>
+                    <Text style={styles.gamificationStatLabel}>
+                      {texts.weeklyStreak}
+                    </Text>
+                  </View>
+                  <View style={styles.gamificationStatItem}>
+                    <Star size={20} color="#F39C12" />
+                    <Text style={styles.gamificationStatValue}>
+                      {gamificationStats.perfectDays}
+                    </Text>
+                    <Text style={styles.gamificationStatLabel}>
+                      {texts.perfectDays}
+                    </Text>
+                  </View>
+                  <View style={styles.gamificationStatItem}>
+                    <Trophy size={20} color="#16A085" />
+                    <Text style={styles.gamificationStatValue}>
+                      {gamificationStats.totalPoints.toLocaleString()}
+                    </Text>
+                    <Text style={styles.gamificationStatLabel}>
+                      {texts.totalPoints}
+                    </Text>
+                  </View>
+                </View>
               </View>
             </View>
 
-            {/* Achievements & Badges */}
+            {/* Enhanced Achievements Section */}
             <View style={styles.section}>
               <View style={styles.achievementsHeader}>
                 <Text style={styles.sectionTitle}>{texts.achievements}</Text>
@@ -1237,321 +1211,275 @@ export default function StatisticsScreen() {
 
               <View style={styles.achievementsContainer}>
                 {achievements.slice(0, 3).map((achievement) => (
-                  <View key={achievement.id} style={styles.achievementCard}>
-                    <LinearGradient
-                      colors={
-                        achievement.unlocked
-                          ? getAchievementGradientColors(achievement.rarity)
-                          : ["#E9ECEF15", "#E9ECEF05"]
-                      }
-                      style={styles.achievementGradient}
-                    >
-                      <View style={styles.achievementContent}>
-                        <View
-                          style={[
-                            styles.achievementIcon,
-                            {
-                              backgroundColor: achievement.unlocked
-                                ? `${achievement.color}20`
-                                : "#E9ECEF",
-                            },
-                          ]}
-                        >
-                          {getAchievementIcon(
-                            achievement.icon,
-                            24,
-                            achievement.color
-                          )}
-                        </View>
-                        <View style={styles.achievementInfo}>
-                          <Text style={styles.achievementTitle}>
+                  <View
+                    key={achievement.id}
+                    style={[
+                      styles.achievementCard,
+                      {
+                        backgroundColor: getAchievementBackgroundColor(
+                          achievement.rarity,
+                          achievement.unlocked
+                        ),
+                        borderWidth: 1,
+                        borderColor: achievement.unlocked
+                          ? `${achievement.color}30`
+                          : "#E5E7EB",
+                      },
+                    ]}
+                  >
+                    <View style={styles.achievementContent}>
+                      <View
+                        style={[
+                          styles.achievementIconContainer,
+                          {
+                            backgroundColor: achievement.unlocked
+                              ? `${achievement.color}20`
+                              : "#F3F4F6",
+                          },
+                        ]}
+                      >
+                        {getAchievementIcon(
+                          achievement.icon,
+                          28,
+                          achievement.unlocked ? achievement.color : "#9CA3AF"
+                        )}
+                      </View>
+
+                      <View style={styles.achievementDetails}>
+                        <View style={styles.achievementHeader}>
+                          <Text
+                            style={[
+                              styles.achievementTitle,
+                              {
+                                color: achievement.unlocked
+                                  ? "#111827"
+                                  : "#6B7280",
+                              },
+                            ]}
+                          >
                             {typeof achievement.title === "object"
                               ? achievement.title[language] ||
                                 achievement.title.en
                               : achievement.title}
                           </Text>
-                          <Text style={styles.achievementDescription}>
-                            {typeof achievement.description === "object"
-                              ? achievement.description[language] ||
-                                achievement.description.en
-                              : achievement.description}
-                          </Text>
-                          <View style={styles.achievementMeta}>
-                            <View style={styles.achievementProgress}>
-                              <View style={styles.achievementProgressBg}>
-                                <View
-                                  style={[
-                                    styles.achievementProgressFill,
-                                    {
-                                      width: `${
-                                        achievement.unlocked
-                                          ? 100
-                                          : (achievement.progress /
-                                              (achievement.maxProgress || 1)) *
-                                            100
-                                      }%`,
-                                      backgroundColor: achievement.color,
-                                    },
-                                  ]}
-                                />
-                              </View>
-                              <Text style={styles.achievementProgressText}>
-                                {achievement.progress}/
-                                {achievement.maxProgress || 1}
-                              </Text>
-                            </View>
-                            <View style={styles.achievementReward}>
-                              <Text
-                                style={[
-                                  styles.xpReward,
-                                  { color: achievement.color },
-                                ]}
-                              >
-                                +{achievement.xpReward} XP
-                              </Text>
-                              <Text
-                                style={[
-                                  styles.rarityText,
-                                  { color: achievement.color },
-                                ]}
-                              >
-                                {achievement.rarity}
-                              </Text>
-                            </View>
+                          <View
+                            style={[
+                              styles.rarityBadge,
+                              {
+                                backgroundColor: achievement.unlocked
+                                  ? `${achievement.color}20`
+                                  : "#F3F4F6",
+                              },
+                            ]}
+                          >
+                            <Text
+                              style={[
+                                styles.rarityText,
+                                {
+                                  color: achievement.unlocked
+                                    ? achievement.color
+                                    : "#6B7280",
+                                },
+                              ]}
+                            >
+                              {achievement.rarity}
+                            </Text>
                           </View>
                         </View>
-                        {achievement.unlocked && (
-                          <View style={styles.achievementBadge}>
-                            <CheckCircle size={20} color={achievement.color} />
+
+                        <Text
+                          style={[
+                            styles.achievementDescription,
+                            {
+                              color: achievement.unlocked
+                                ? "#374151"
+                                : "#9CA3AF",
+                            },
+                          ]}
+                        >
+                          {typeof achievement.description === "object"
+                            ? achievement.description[language] ||
+                              achievement.description.en
+                            : achievement.description}
+                        </Text>
+
+                        <View style={styles.achievementProgress}>
+                          <View style={styles.progressBarContainer}>
+                            <View style={styles.progressBarBg}>
+                              <View
+                                style={[
+                                  styles.progressBarFill,
+                                  {
+                                    width: `${
+                                      achievement.unlocked
+                                        ? 100
+                                        : (achievement.progress /
+                                            (achievement.maxProgress || 1)) *
+                                          100
+                                    }%`,
+                                    backgroundColor: achievement.unlocked
+                                      ? achievement.color
+                                      : "#D1D5DB",
+                                  },
+                                ]}
+                              />
+                            </View>
+                            <Text style={styles.progressText}>
+                              {achievement.progress}/
+                              {achievement.maxProgress || 1}
+                            </Text>
                           </View>
-                        )}
+
+                          <View style={styles.xpRewardContainer}>
+                            <Sparkles
+                              size={16}
+                              color={
+                                achievement.unlocked
+                                  ? achievement.color
+                                  : "#9CA3AF"
+                              }
+                            />
+                            <Text
+                              style={[
+                                styles.xpRewardText,
+                                {
+                                  color: achievement.unlocked
+                                    ? achievement.color
+                                    : "#9CA3AF",
+                                },
+                              ]}
+                            >
+                              +{achievement.xpReward} XP
+                            </Text>
+                          </View>
+                        </View>
                       </View>
-                    </LinearGradient>
+
+                      {achievement.unlocked && (
+                        <View style={styles.unlockedBadge}>
+                          <CheckCircle size={24} color={achievement.color} />
+                        </View>
+                      )}
+                    </View>
                   </View>
                 ))}
               </View>
+            </View>
 
-              <View style={styles.badgesContainer}>
-                <Text style={styles.badgesTitle}>{texts.badges}</Text>
-                <View style={styles.badgesGrid}>
-                  {badges.map((badge) => (
-                    <View key={badge.id} style={styles.badgeCard}>
-                      <LinearGradient
-                        colors={[
-                          `${getRarityColor(badge.rarity)}15`,
-                          `${getRarityColor(badge.rarity)}05`,
-                        ]}
-                        style={styles.badgeGradient}
-                      >
-                        <View
-                          style={[
-                            styles.badgeIcon,
-                            { backgroundColor: `${badge.color}20` },
-                          ]}
-                        >
-                          {badge.icon}
-                        </View>
-                        <Text style={styles.badgeName}>{badge.name}</Text>
-                        <Text style={styles.badgeDate}>{badge.earnedDate}</Text>
-                      </LinearGradient>
+            {/* Progress Overview with Real Data */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>{texts.progressOverview}</Text>
+              <View style={styles.progressOverviewContainer}>
+                <View style={styles.progressStatsGrid}>
+                  <View style={styles.progressStatItem}>
+                    <View style={styles.progressStatIcon}>
+                      <CheckCircle size={20} color="#2ECC71" />
                     </View>
-                  ))}
+                    <Text style={styles.progressStatValue}>
+                      {progressStats.successfulDays}/{progressStats.totalDays}
+                    </Text>
+                    <Text style={styles.progressStatLabel}>
+                      {texts.successfulDays}
+                    </Text>
+                  </View>
+
+                  <View style={styles.progressStatItem}>
+                    <View style={styles.progressStatIcon}>
+                      <Target size={20} color="#3498DB" />
+                    </View>
+                    <Text style={styles.progressStatValue}>
+                      {progressStats.averageCompletion}%
+                    </Text>
+                    <Text style={styles.progressStatLabel}>
+                      {texts.averageCompletion}
+                    </Text>
+                  </View>
+
+                  <View style={styles.progressStatItem}>
+                    <View style={styles.progressStatIcon}>
+                      <Award size={20} color="#F39C12" />
+                    </View>
+                    <Text style={styles.progressStatValue}>
+                      {progressStats.bestStreak}
+                    </Text>
+                    <Text style={styles.progressStatLabel}>
+                      {texts.bestStreak}
+                    </Text>
+                  </View>
+
+                  <View style={styles.progressStatItem}>
+                    <View style={styles.progressStatIcon}>
+                      <Trophy size={20} color="#E74C3C" />
+                    </View>
+                    <Text style={styles.progressStatValue}>
+                      {progressStats.currentStreak}
+                    </Text>
+                    <Text style={styles.progressStatLabel}>
+                      {texts.currentStreak}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Real nutrition averages */}
+                <View style={styles.nutritionAverages}>
+                  <Text style={styles.nutritionAveragesTitle}>
+                    {language === "he"
+                      ? "ממוצעים תזונתיים"
+                      : "Nutrition Averages"}
+                  </Text>
+                  <View style={styles.nutritionAveragesGrid}>
+                    <View style={styles.nutritionAverage}>
+                      <Flame size={16} color="#E74C3C" />
+                      <Text style={styles.nutritionAverageValue}>
+                        {progressStats.averages.calories}
+                      </Text>
+                      <Text style={styles.nutritionAverageLabel}>
+                        {texts.kcal}
+                      </Text>
+                    </View>
+                    <View style={styles.nutritionAverage}>
+                      <Zap size={16} color="#9B59B6" />
+                      <Text style={styles.nutritionAverageValue}>
+                        {progressStats.averages.protein}
+                      </Text>
+                      <Text style={styles.nutritionAverageLabel}>
+                        {texts.g}
+                      </Text>
+                    </View>
+                    <View style={styles.nutritionAverage}>
+                      <Wheat size={16} color="#F39C12" />
+                      <Text style={styles.nutritionAverageValue}>
+                        {progressStats.averages.carbs}
+                      </Text>
+                      <Text style={styles.nutritionAverageLabel}>
+                        {texts.g}
+                      </Text>
+                    </View>
+                    <View style={styles.nutritionAverage}>
+                      <Fish size={16} color="#16A085" />
+                      <Text style={styles.nutritionAverageValue}>
+                        {progressStats.averages.fats}
+                      </Text>
+                      <Text style={styles.nutritionAverageLabel}>
+                        {texts.g}
+                      </Text>
+                    </View>
+                    <View style={styles.nutritionAverage}>
+                      <Droplets size={16} color="#3498DB" />
+                      <Text style={styles.nutritionAverageValue}>
+                        {progressStats.averages.water}
+                      </Text>
+                      <Text style={styles.nutritionAverageLabel}>
+                        {texts.ml}
+                      </Text>
+                    </View>
+                  </View>
                 </View>
               </View>
             </View>
 
-            {/* Wellbeing Analysis */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>{texts.wellbeing}</Text>
-              <View style={styles.wellbeingContainer}>
-                <LinearGradient
-                  colors={["#16A08515", "#16A08505"]}
-                  style={styles.wellbeingGradient}
-                >
-                  <View style={styles.wellbeingStats}>
-                    <View style={styles.wellbeingStatItem}>
-                      <View style={styles.wellbeingStatIcon}>
-                        <Smile size={20} color="#2ECC71" />
-                      </View>
-                      <Text style={styles.wellbeingStatValue}>
-                        {wellbeingInsights.happyDays}/
-                        {wellbeingInsights.totalDays}
-                      </Text>
-                      <Text style={styles.wellbeingStatLabel}>
-                        {texts.mood}
-                      </Text>
-                    </View>
-
-                    <View style={styles.wellbeingStatItem}>
-                      <View style={styles.wellbeingStatIcon}>
-                        <Battery size={20} color="#F39C12" />
-                      </View>
-                      <Text style={styles.wellbeingStatValue}>
-                        {wellbeingInsights.highEnergyDays}/
-                        {wellbeingInsights.totalDays}
-                      </Text>
-                      <Text style={styles.wellbeingStatLabel}>
-                        {texts.energy}
-                      </Text>
-                    </View>
-
-                    <View style={styles.wellbeingStatItem}>
-                      <View style={styles.wellbeingStatIcon}>
-                        <Heart size={20} color="#E74C3C" />
-                      </View>
-                      <Text style={styles.wellbeingStatValue}>
-                        {wellbeingInsights.satisfiedDays}/
-                        {wellbeingInsights.totalDays}
-                      </Text>
-                      <Text style={styles.wellbeingStatLabel}>
-                        {texts.satiety}
-                      </Text>
-                    </View>
-
-                    <View style={styles.wellbeingStatItem}>
-                      <View style={styles.wellbeingStatIcon}>
-                        <Star size={20} color="#9B59B6" />
-                      </View>
-                      <Text style={styles.wellbeingStatValue}>
-                        {wellbeingInsights.averageMealQuality}/5
-                      </Text>
-                      <Text style={styles.wellbeingStatLabel}>
-                        {texts.mealQuality}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.wellbeingChart}>
-                    <Text style={styles.wellbeingChartTitle}>
-                      {language === "he"
-                        ? "מצב רוח ואנרגיה השבוע"
-                        : "Mood and Energy This Week"}
-                    </Text>
-                    <View style={styles.wellbeingChartBars}>
-                      {weeklyData.map((day, index) => (
-                        <View key={index} style={styles.wellbeingDayContainer}>
-                          <View style={styles.wellbeingDayIcons}>
-                            {getMoodIcon(day.mood || "neutral")}
-                            {getEnergyIcon(day.energy || "medium")}
-                          </View>
-                          <Text style={styles.wellbeingDayLabel}>
-                            {new Date(day.date).getDate()}
-                          </Text>
-                        </View>
-                      ))}
-                    </View>
-                  </View>
-                </LinearGradient>
-              </View>
-            </View>
-
-            {/* Progress Overview */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>{texts.progressOverview}</Text>
-              <View style={styles.progressOverviewContainer}>
-                <LinearGradient
-                  colors={["#16A08515", "#16A08505"]}
-                  style={styles.progressOverviewGradient}
-                >
-                  <View style={styles.progressStatsGrid}>
-                    <View style={styles.progressStatItem}>
-                      <View style={styles.progressStatIcon}>
-                        <CheckCircle size={20} color="#2ECC71" />
-                      </View>
-                      <Text style={styles.progressStatValue}>
-                        {progressStats.successfulDays}/{progressStats.totalDays}
-                      </Text>
-                      <Text style={styles.progressStatLabel}>
-                        {texts.successfulDays}
-                      </Text>
-                    </View>
-
-                    <View style={styles.progressStatItem}>
-                      <View style={styles.progressStatIcon}>
-                        <Target size={20} color="#3498DB" />
-                      </View>
-                      <Text style={styles.progressStatValue}>
-                        {progressStats.averageCompletion}%
-                      </Text>
-                      <Text style={styles.progressStatLabel}>
-                        {texts.averageCompletion}
-                      </Text>
-                    </View>
-
-                    <View style={styles.progressStatItem}>
-                      <View style={styles.progressStatIcon}>
-                        <Award size={20} color="#F39C12" />
-                      </View>
-                      <Text style={styles.progressStatValue}>
-                        {progressStats.bestStreak}
-                      </Text>
-                      <Text style={styles.progressStatLabel}>
-                        {texts.bestStreak}
-                      </Text>
-                    </View>
-
-                    <View style={styles.progressStatItem}>
-                      <View style={styles.progressStatIcon}>
-                        <Trophy size={20} color="#E74C3C" />
-                      </View>
-                      <Text style={styles.progressStatValue}>
-                        {progressStats.currentStreak}
-                      </Text>
-                      <Text style={styles.progressStatLabel}>
-                        {texts.currentStreak}
-                      </Text>
-                    </View>
-                  </View>
-                </LinearGradient>
-              </View>
-            </View>
-
-            {/* Weekly Progress Chart */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>{texts.weeklyProgress}</Text>
-              <View style={styles.chartContainer}>
-                <LinearGradient
-                  colors={["#16A08510", "#16A08505"]}
-                  style={styles.chartGradient}
-                >
-                  <View style={styles.chartHeader}>
-                    <Text style={styles.chartTitle}>{texts.totalCalories}</Text>
-                    <Text style={styles.chartSubtitle}>7 {texts.days}</Text>
-                  </View>
-
-                  <View style={styles.chartBars}>
-                    {weeklyData.map((day, index) => {
-                      const maxCalories = Math.max(
-                        ...weeklyData.map((d) => d.calories)
-                      );
-                      const percentage =
-                        maxCalories > 0
-                          ? (day.calories / maxCalories) * 100
-                          : 0;
-                      return (
-                        <View key={index} style={styles.chartBarContainer}>
-                          <View style={styles.chartBarBackground}>
-                            <LinearGradient
-                              colors={["#16A085", "#1ABC9C"]}
-                              style={[
-                                styles.chartBar,
-                                { height: `${percentage}%` },
-                              ]}
-                            />
-                          </View>
-                          <Text style={styles.chartBarLabel}>
-                            {new Date(day.date).getDate()}
-                          </Text>
-                        </View>
-                      );
-                    })}
-                  </View>
-                </LinearGradient>
-              </View>
-            </View>
-
-            {/* Alerts Section */}
-            {showAlerts && alerts.length > 0 && (
+            {/* Alerts Section - Only show when meals are completed */}
+            {shouldShowWarnings() && alerts.length > 0 && (
               <View style={styles.section}>
                 <View style={styles.alertsHeader}>
                   <Text style={styles.sectionTitle}>{texts.alertsTitle}</Text>
@@ -1567,33 +1495,24 @@ export default function StatisticsScreen() {
                 <View style={styles.alertsContainer}>
                   {alerts.map((alert) => (
                     <View key={alert.id} style={styles.alertCard}>
-                      <LinearGradient
-                        colors={
-                          alert.severity === "danger"
-                            ? ["#E74C3C15", "#E74C3C05"]
-                            : ["#E67E2215", "#E67E2205"]
-                        }
-                        style={styles.alertGradient}
-                      >
-                        <View style={styles.alertContent}>
-                          <View style={styles.alertIcon}>
-                            <AlertTriangle
-                              size={20}
-                              color={
-                                alert.severity === "danger"
-                                  ? "#E74C3C"
-                                  : "#E67E22"
-                              }
-                            />
-                          </View>
-                          <View style={styles.alertText}>
-                            <Text style={styles.alertTitle}>{alert.title}</Text>
-                            <Text style={styles.alertMessage}>
-                              {alert.message}
-                            </Text>
-                          </View>
+                      <View style={styles.alertContent}>
+                        <View style={styles.alertIcon}>
+                          <AlertTriangle
+                            size={20}
+                            color={
+                              alert.severity === "danger"
+                                ? "#E74C3C"
+                                : "#E67E22"
+                            }
+                          />
                         </View>
-                      </LinearGradient>
+                        <View style={styles.alertText}>
+                          <Text style={styles.alertTitle}>{alert.title}</Text>
+                          <Text style={styles.alertMessage}>
+                            {alert.message}
+                          </Text>
+                        </View>
+                      </View>
                     </View>
                   ))}
                 </View>
@@ -1623,65 +1542,6 @@ export default function StatisticsScreen() {
                 {categorizedMetrics.lifestyle.map(renderMetricCard)}
               </View>
             </View>
-
-            {/* Smart Insights Section */}
-            <View style={styles.section}>
-              <View style={styles.insightsContainer}>
-                <LinearGradient
-                  colors={["#9B59B615", "#9B59B605"]}
-                  style={styles.insightsGradient}
-                >
-                  <View style={styles.insightsHeader}>
-                    <Brain size={24} color="#9B59B6" />
-                    <Text style={styles.insightsTitle}>
-                      {texts.insightTitle}
-                    </Text>
-                  </View>
-                  <View style={styles.insightsList}>
-                    <View style={styles.insightItem}>
-                      <Star size={16} color="#F39C12" />
-                      <Text style={styles.insightText}>
-                        {language === "he"
-                          ? `אתה עומד ביעד החלבון ב-${Math.round(
-                              (progressStats.averages.protein / 120) * 100
-                            )}% מהימים השבוע - מעולה לבניית שרירים!`
-                          : `You're meeting protein goals ${Math.round(
-                              (progressStats.averages.protein / 120) * 100
-                            )}% of days this week - excellent for muscle building!`}
-                      </Text>
-                    </View>
-                    <View style={styles.insightItem}>
-                      <TrendingUp size={16} color="#2ECC71" />
-                      <Text style={styles.insightText}>
-                        {language === "he"
-                          ? `צריכת המים שלך עמדה על ${Math.round(
-                              progressStats.averages.water
-                            )}מ"ל יומית - המשך כך!`
-                          : `Your water intake averaged ${Math.round(
-                              progressStats.averages.water
-                            )}ml daily - keep it up!`}
-                      </Text>
-                    </View>
-                    <View style={styles.insightItem}>
-                      <AlertTriangle size={16} color="#E67E22" />
-                      <Text style={styles.insightText}>
-                        {language === "he"
-                          ? "הסיבים התזונתיים נמוכים מהמומלץ - הוסף יותר ירקות וקטניות."
-                          : "Dietary fiber is below recommended - add more vegetables and legumes."}
-                      </Text>
-                    </View>
-                    <View style={styles.insightItem}>
-                      <Shield size={16} color="#E74C3C" />
-                      <Text style={styles.insightText}>
-                        {language === "he"
-                          ? "רמת הנתרן גבוהה - נסה להפחית מזון מעובד ותבלינים."
-                          : "Sodium levels are high - try reducing processed foods and seasonings."}
-                      </Text>
-                    </View>
-                  </View>
-                </LinearGradient>
-              </View>
-            </View>
           </>
         )}
 
@@ -1702,71 +1562,150 @@ export default function StatisticsScreen() {
 
             <ScrollView style={styles.modalContent}>
               {achievements.map((achievement) => (
-                <View key={achievement.id} style={styles.achievementCard}>
-                  <LinearGradient
-                    colors={
-                      achievement.unlocked
-                        ? getAchievementGradientColors(achievement.rarity)
-                        : ["#E9ECEF15", "#E9ECEF05"]
-                    }
-                    style={styles.achievementGradient}
-                  >
-                    <View style={styles.achievementContent}>
-                      <View
-                        style={[
-                          styles.achievementIcon,
-                          {
-                            backgroundColor: achievement.unlocked
-                              ? `${achievement.color}20`
-                              : "#E9ECEF",
-                          },
-                        ]}
-                      >
-                        {getAchievementIcon(
-                          achievement.icon,
-                          24,
-                          achievement.color
-                        )}
-                      </View>
-                      <View style={styles.achievementInfo}>
-                        <Text style={styles.achievementTitle}>
+                <View
+                  key={achievement.id}
+                  style={[
+                    styles.achievementCard,
+                    {
+                      backgroundColor: getAchievementBackgroundColor(
+                        achievement.rarity,
+                        achievement.unlocked
+                      ),
+                      borderWidth: 1,
+                      borderColor: achievement.unlocked
+                        ? `${achievement.color}30`
+                        : "#E5E7EB",
+                    },
+                  ]}
+                >
+                  <View style={styles.achievementContent}>
+                    <View
+                      style={[
+                        styles.achievementIconContainer,
+                        {
+                          backgroundColor: achievement.unlocked
+                            ? `${achievement.color}20`
+                            : "#F3F4F6",
+                        },
+                      ]}
+                    >
+                      {getAchievementIcon(
+                        achievement.icon,
+                        28,
+                        achievement.unlocked ? achievement.color : "#9CA3AF"
+                      )}
+                    </View>
+
+                    <View style={styles.achievementDetails}>
+                      <View style={styles.achievementHeader}>
+                        <Text
+                          style={[
+                            styles.achievementTitle,
+                            {
+                              color: achievement.unlocked
+                                ? "#111827"
+                                : "#6B7280",
+                            },
+                          ]}
+                        >
                           {typeof achievement.title === "object"
                             ? achievement.title.en
                             : achievement.title}
                         </Text>
-                        <Text style={styles.achievementDescription}>
-                          {typeof achievement.description === "object"
-                            ? achievement.description.en
-                            : achievement.description}
-                        </Text>
-                        <View style={styles.achievementProgress}>
-                          <View style={styles.achievementProgressBg}>
+                        <View
+                          style={[
+                            styles.rarityBadge,
+                            {
+                              backgroundColor: achievement.unlocked
+                                ? `${achievement.color}20`
+                                : "#F3F4F6",
+                            },
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.rarityText,
+                              {
+                                color: achievement.unlocked
+                                  ? achievement.color
+                                  : "#6B7280",
+                              },
+                            ]}
+                          >
+                            {achievement.rarity}
+                          </Text>
+                        </View>
+                      </View>
+
+                      <Text
+                        style={[
+                          styles.achievementDescription,
+                          {
+                            color: achievement.unlocked ? "#374151" : "#9CA3AF",
+                          },
+                        ]}
+                      >
+                        {typeof achievement.description === "object"
+                          ? achievement.description.en
+                          : achievement.description}
+                      </Text>
+
+                      <View style={styles.achievementProgress}>
+                        <View style={styles.progressBarContainer}>
+                          <View style={styles.progressBarBg}>
                             <View
                               style={[
-                                styles.achievementProgressFill,
+                                styles.progressBarFill,
                                 {
                                   width: `${
                                     (achievement.progress /
-                                      achievement.maxProgress) *
+                                      (achievement.maxProgress || 1)) *
                                     100
                                   }%`,
-                                  backgroundColor: achievement.color,
+                                  backgroundColor: achievement.unlocked
+                                    ? achievement.color
+                                    : "#D1D5DB",
                                 },
                               ]}
                             />
                           </View>
-                          <Text style={styles.achievementProgressText}>
-                            {achievement.progress}/{achievement.maxProgress}
+                          <Text style={styles.progressText}>
+                            {achievement.progress}/
+                            {achievement.maxProgress || 1}
+                          </Text>
+                        </View>
+
+                        <View style={styles.xpRewardContainer}>
+                          <Sparkles
+                            size={16}
+                            color={
+                              achievement.unlocked
+                                ? achievement.color
+                                : "#9CA3AF"
+                            }
+                          />
+                          <Text
+                            style={[
+                              styles.xpRewardText,
+                              {
+                                color: achievement.unlocked
+                                  ? achievement.color
+                                  : "#9CA3AF",
+                              },
+                            ]}
+                          >
+                            +{achievement.xpReward} XP
                           </Text>
                         </View>
                       </View>
-                      {achievement.unlocked && (
-                        <View style={styles.achievementBadge}>
-                          <CheckCircle size={20} color={achievement.color} />
-                        </View>
-                      )}
                     </View>
-                  </LinearGradient>
+
+                    {achievement.unlocked && (
+                      <View style={styles.unlockedBadge}>
+                        <CheckCircle size={24} color={achievement.color} />
+                      </View>
+                    )}
+                  </View>
                 </View>
               ))}
             </ScrollView>
@@ -1850,22 +1789,6 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
 
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingVertical: 80,
-    backgroundColor: "#FFFFFF",
-    margin: 20,
-    borderRadius: 24,
-  },
-  loadingText: {
-    marginTop: 24,
-    fontSize: 18,
-    color: "#64748B",
-    fontWeight: "600",
-  },
-
   noDataContainer: {
     flex: 1,
     justifyContent: "center",
@@ -1908,6 +1831,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: "hidden",
   },
+  timeFilterButtonActive: {},
   timeFilterGradient: {
     paddingVertical: 14,
     alignItems: "center",
@@ -1931,6 +1855,43 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
   },
 
+  // Meal Completion Status
+  mealCompletionCard: {
+    marginHorizontal: 20,
+    marginBottom: 24,
+    borderRadius: 20,
+    backgroundColor: "#FFFFFF",
+    shadowColor: "#1E293B",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 16,
+    padding: 20,
+  },
+  mealCompletionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  mealCompletionIcon: {
+    marginRight: 12,
+  },
+  mealCompletionTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#0F172A",
+  },
+  mealCompletionText: {
+    fontSize: 24,
+    fontWeight: "800",
+    color: "#0F172A",
+    marginBottom: 8,
+  },
+  mealCompletionMessage: {
+    fontSize: 14,
+    color: "#64748B",
+    fontStyle: "italic",
+  },
+
   // Enhanced Section Styling
   section: {
     paddingHorizontal: 20,
@@ -1946,15 +1907,13 @@ const styles = StyleSheet.create({
 
   // Enhanced Gamification
   gamificationContainer: {
+    backgroundColor: "#FFFFFF",
     borderRadius: 24,
-    overflow: "hidden",
-    shadowColor: "#7C3AED",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 24,
-  },
-  gamificationGradient: {
     padding: 24,
+    shadowColor: "#1E293B",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 20,
   },
   levelContainer: {
     marginBottom: 24,
@@ -1968,14 +1927,10 @@ const styles = StyleSheet.create({
     width: 72,
     height: 72,
     borderRadius: 36,
-    backgroundColor: "rgba(249, 115, 22, 0.15)",
+    backgroundColor: "#FEF3E2",
     justifyContent: "center",
     alignItems: "center",
     marginRight: 20,
-    shadowColor: "#F59E0B",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
   },
   levelDetails: {
     flex: 1,
@@ -1998,17 +1953,14 @@ const styles = StyleSheet.create({
   },
   xpProgressBg: {
     height: 12,
-    backgroundColor: "rgba(148, 163, 184, 0.2)",
+    backgroundColor: "#F1F5F9",
     borderRadius: 6,
     overflow: "hidden",
   },
   xpProgressFill: {
     height: "100%",
     borderRadius: 6,
-    shadowColor: "#F59E0B",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
+    backgroundColor: "#F39C12",
   },
   xpToNext: {
     fontSize: 14,
@@ -2023,7 +1975,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-around",
     paddingTop: 20,
     borderTopWidth: 1,
-    borderTopColor: "rgba(255, 255, 255, 0.2)",
+    borderTopColor: "#F1F5F9",
   },
   gamificationStatItem: {
     alignItems: "center",
@@ -2056,10 +2008,6 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     backgroundColor: "#E0F2F1",
     borderRadius: 12,
-    shadowColor: "#16A085",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
   },
   viewAllText: {
     fontSize: 14,
@@ -2074,261 +2022,119 @@ const styles = StyleSheet.create({
   },
   achievementCard: {
     borderRadius: 20,
-    overflow: "hidden",
-    shadowColor: "#1E293B",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-  },
-  achievementGradient: {
     padding: 20,
+    shadowColor: "#1E293B",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 16,
   },
   achievementContent: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
   },
-  achievementIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+  achievementIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
+    marginRight: 20,
   },
-  achievementInfo: {
+  achievementDetails: {
     flex: 1,
+  },
+  achievementHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 8,
   },
   achievementTitle: {
     fontSize: 18,
     fontWeight: "700",
-    color: "#0F172A",
-    marginBottom: 6,
     letterSpacing: -0.2,
+    flex: 1,
+    marginRight: 12,
+  },
+  rarityBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  rarityText: {
+    fontSize: 10,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 1,
   },
   achievementDescription: {
     fontSize: 14,
-    color: "#64748B",
     lineHeight: 20,
-    marginBottom: 12,
+    marginBottom: 16,
     fontWeight: "500",
-  },
-  achievementMeta: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
   },
   achievementProgress: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    justifyContent: "space-between",
+  },
+  progressBarContainer: {
     flex: 1,
     marginRight: 16,
   },
-  achievementProgressBg: {
-    flex: 1,
+  progressBarBg: {
     height: 8,
-    backgroundColor: "rgba(148, 163, 184, 0.2)",
+    backgroundColor: "#F1F5F9",
     borderRadius: 4,
     overflow: "hidden",
+    marginBottom: 8,
   },
-  achievementProgressFill: {
+  progressBarFill: {
     height: "100%",
     borderRadius: 4,
   },
-  achievementProgressText: {
+  progressText: {
     fontSize: 12,
     fontWeight: "600",
     color: "#64748B",
-    minWidth: 40,
   },
-  achievementReward: {
-    alignItems: "flex-end",
+  xpRewardContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
   },
-  xpReward: {
+  xpRewardText: {
     fontSize: 14,
     fontWeight: "700",
-    marginBottom: 2,
     letterSpacing: 0.2,
   },
-  rarityText: {
-    fontSize: 10,
-    fontWeight: "700",
-    textTransform: "uppercase",
-    letterSpacing: 1,
-  },
-  achievementBadge: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "rgba(255, 255, 255, 0.9)",
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-
-  // Enhanced Badges
-  badgesContainer: {
-    marginTop: 24,
-  },
-  badgesTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#0F172A",
-    marginBottom: 16,
-    letterSpacing: -0.2,
-  },
-  badgesGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 12,
-  },
-  badgeCard: {
-    width: (width - 84) / 4,
-    borderRadius: 16,
-    overflow: "hidden",
-    shadowColor: "#1E293B",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-  },
-  badgeGradient: {
-    padding: 16,
-    alignItems: "center",
-    minHeight: 100,
-    justifyContent: "center",
-  },
-  badgeIcon: {
+  unlockedBadge: {
     width: 40,
     height: 40,
     borderRadius: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 8,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-  },
-  badgeName: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: "#0F172A",
-    textAlign: "center",
-    marginBottom: 4,
-    letterSpacing: 0.1,
-  },
-  badgeDate: {
-    fontSize: 9,
-    color: "#64748B",
-    textAlign: "center",
-    fontWeight: "500",
-  },
-
-  // Enhanced Wellbeing
-  wellbeingContainer: {
-    borderRadius: 24,
-    overflow: "hidden",
-    shadowColor: "#059669",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.1,
-    shadowRadius: 20,
-  },
-  wellbeingGradient: {
-    padding: 24,
-  },
-  wellbeingStats: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    marginBottom: 24,
-  },
-  wellbeingStatItem: {
-    alignItems: "center",
-    paddingHorizontal: 8,
-  },
-  wellbeingStatIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: "rgba(255, 255, 255, 0.9)",
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-  },
-  wellbeingStatValue: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: "#0F172A",
-    marginBottom: 4,
-  },
-  wellbeingStatLabel: {
-    fontSize: 13,
-    color: "#64748B",
-    fontWeight: "600",
-    textAlign: "center",
-    letterSpacing: 0.1,
-  },
-  wellbeingChart: {
-    borderTopWidth: 1,
-    borderTopColor: "rgba(255, 255, 255, 0.25)",
-    paddingTop: 24,
-  },
-  wellbeingChartTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#0F172A",
-    marginBottom: 20,
-    textAlign: "center",
-    letterSpacing: -0.2,
-  },
-  wellbeingChartBars: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    paddingHorizontal: 8,
-  },
-  wellbeingDayContainer: {
-    alignItems: "center",
-    paddingHorizontal: 4,
-  },
-  wellbeingDayIcons: {
-    flexDirection: "column",
-    gap: 6,
-    marginBottom: 12,
-    backgroundColor: "rgba(255, 255, 255, 0.8)",
-    padding: 8,
-    borderRadius: 12,
-  },
-  wellbeingDayLabel: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#64748B",
   },
 
   // Enhanced Progress Overview
   progressOverviewContainer: {
+    backgroundColor: "#FFFFFF",
     borderRadius: 24,
-    overflow: "hidden",
-    shadowColor: "#3B82F6",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.1,
-    shadowRadius: 20,
-  },
-  progressOverviewGradient: {
     padding: 24,
+    shadowColor: "#1E293B",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.06,
+    shadowRadius: 20,
   },
   progressStatsGrid: {
     flexDirection: "row",
     justifyContent: "space-around",
+    marginBottom: 24,
   },
   progressStatItem: {
     alignItems: "center",
@@ -2338,14 +2144,10 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: "rgba(255, 255, 255, 0.9)",
+    backgroundColor: "#F8FAFC",
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
   },
   progressStatValue: {
     fontSize: 20,
@@ -2361,82 +2163,38 @@ const styles = StyleSheet.create({
     letterSpacing: 0.1,
   },
 
-  // Enhanced Chart
-  chartContainer: {
-    borderRadius: 24,
-    overflow: "hidden",
-    shadowColor: "#1E293B",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.08,
-    shadowRadius: 20,
-    backgroundColor: "#FFFFFF",
+  // Nutrition Averages
+  nutritionAverages: {
+    borderTopWidth: 1,
+    borderTopColor: "#F1F5F9",
+    paddingTop: 24,
   },
-  chartGradient: {
-    padding: 24,
-  },
-  chartHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 24,
-  },
-  chartTitle: {
-    fontSize: 20,
+  nutritionAveragesTitle: {
+    fontSize: 18,
     fontWeight: "700",
     color: "#0F172A",
-    letterSpacing: -0.3,
+    marginBottom: 16,
+    textAlign: "center",
   },
-  chartSubtitle: {
-    fontSize: 14,
-    color: "#64748B",
-    fontWeight: "600",
-    backgroundColor: "#F1F5F9",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-  },
-  chartBars: {
+  nutritionAveragesGrid: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-end",
-    height: 140,
-    paddingHorizontal: 8,
+    justifyContent: "space-around",
   },
-  chartBarContainer: {
-    flex: 1,
+  nutritionAverage: {
     alignItems: "center",
-    marginHorizontal: 3,
-  },
-  chartBarBackground: {
-    width: "85%",
-    height: 100,
-    justifyContent: "flex-end",
-    borderRadius: 6,
-    backgroundColor: "#F1F5F9",
-    overflow: "hidden",
-  },
-  chartBar: {
-    width: "100%",
-    borderRadius: 6,
-    minHeight: 8,
-    shadowColor: "#16A085",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-  },
-  chartBarLabel: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#64748B",
-    marginTop: 12,
-    backgroundColor: "#FFFFFF",
     paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    shadowColor: "#1E293B",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
+  },
+  nutritionAverageValue: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#0F172A",
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  nutritionAverageLabel: {
+    fontSize: 12,
+    color: "#64748B",
+    fontWeight: "600",
   },
 
   // Enhanced Alerts
@@ -2451,10 +2209,6 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     backgroundColor: "#F1F5F9",
     borderRadius: 12,
-    shadowColor: "#1E293B",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
   },
   hideAlertsText: {
     fontSize: 14,
@@ -2465,15 +2219,13 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   alertCard: {
+    backgroundColor: "#FFFFFF",
     borderRadius: 20,
-    overflow: "hidden",
+    padding: 20,
     shadowColor: "#EF4444",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.06,
     shadowRadius: 12,
-  },
-  alertGradient: {
-    padding: 20,
   },
   alertContent: {
     flexDirection: "row",
@@ -2483,14 +2235,10 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: "rgba(255, 255, 255, 0.9)",
+    backgroundColor: "#FEF2F2",
     justifyContent: "center",
     alignItems: "center",
     marginRight: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
   },
   alertText: {
     flex: 1,
@@ -2514,15 +2262,14 @@ const styles = StyleSheet.create({
     gap: 20,
   },
   metricCard: {
-    borderRadius: 24,
-    overflow: "hidden",
-    shadowColor: "#1E293B",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.06,
-    shadowRadius: 24,
+    borderRadius: 20,
     backgroundColor: "#FFFFFF",
+    shadowColor: "#1E293B",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 16,
   },
-  metricGradient: {
+  metricCardContent: {
     padding: 24,
   },
   metricHeader: {
@@ -2534,14 +2281,10 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: "rgba(255, 255, 255, 0.9)",
+    backgroundColor: "#F8FAFC",
     justifyContent: "center",
     alignItems: "center",
     marginRight: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
   },
   metricInfo: {
     flex: 1,
@@ -2565,7 +2308,7 @@ const styles = StyleSheet.create({
   },
   metricTrend: {
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.8)",
+    backgroundColor: "#F8FAFC",
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 12,
@@ -2600,7 +2343,7 @@ const styles = StyleSheet.create({
   },
   metricPercentage: {
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.8)",
+    backgroundColor: "#F8FAFC",
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 16,
@@ -2615,29 +2358,21 @@ const styles = StyleSheet.create({
   },
   metricProgressBg: {
     height: 10,
-    backgroundColor: "rgba(148, 163, 184, 0.2)",
+    backgroundColor: "#F1F5F9",
     borderRadius: 5,
     overflow: "hidden",
   },
   metricProgressFill: {
     height: "100%",
     borderRadius: 5,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
   },
   metricRecommendation: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.8)",
+    backgroundColor: "#F8FAFC",
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
   },
   metricRecommendationText: {
     fontSize: 13,
@@ -2646,53 +2381,6 @@ const styles = StyleSheet.create({
     marginLeft: 12,
     flex: 1,
     letterSpacing: 0.1,
-  },
-
-  // Enhanced Insights
-  insightsContainer: {
-    borderRadius: 24,
-    overflow: "hidden",
-    shadowColor: "#7C3AED",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 24,
-  },
-  insightsGradient: {
-    padding: 24,
-  },
-  insightsHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 24,
-  },
-  insightsTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-    color: "#0F172A",
-    marginLeft: 16,
-    letterSpacing: -0.3,
-  },
-  insightsList: {
-    gap: 16,
-  },
-  insightItem: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    backgroundColor: "rgba(255, 255, 255, 0.8)",
-    padding: 20,
-    borderRadius: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-  },
-  insightText: {
-    fontSize: 15,
-    color: "#0F172A",
-    marginLeft: 16,
-    flex: 1,
-    lineHeight: 22,
-    fontWeight: "500",
   },
 
   // Enhanced Modal
@@ -2723,27 +2411,5 @@ const styles = StyleSheet.create({
   modalContent: {
     flex: 1,
     padding: 24,
-  },
-
-  // Additional helper styles
-  divider: {
-    height: 1,
-    backgroundColor: "rgba(148, 163, 184, 0.2)",
-    marginVertical: 16,
-  },
-
-  cardShadow: {
-    shadowColor: "#1E293B",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 16,
-  },
-
-  textPrimary: {
-    color: "#0F172A",
-  },
-
-  textSecondary: {
-    color: "#64748B",
   },
 });

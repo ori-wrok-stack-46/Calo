@@ -7,6 +7,21 @@ import { asJsonObject, mapExistingMealToPrismaInput } from "../utils/nutrition";
 function transformMealForClient(meal: any) {
   const additives = meal.additives_json || {};
   const feedback = additives.feedback || {};
+
+  // Safely parse ingredients
+  let ingredients = [];
+  if (meal.ingredients) {
+    if (Array.isArray(meal.ingredients)) {
+      ingredients = meal.ingredients;
+    } else if (typeof meal.ingredients === "string") {
+      try {
+        ingredients = JSON.parse(meal.ingredients);
+      } catch (e) {
+        ingredients = [];
+      }
+    }
+  }
+
   return {
     meal_id: meal.meal_id,
     user_id: meal.user_id,
@@ -20,6 +35,7 @@ function transformMealForClient(meal: any) {
     fats_g: meal.fats_g,
     fiber_g: meal.fiber_g,
     sugar_g: meal.sugar_g,
+    sodium_mg: meal.sodium_mg,
     created_at: meal.created_at,
     id: meal.meal_id.toString(),
     name: meal.meal_name || "Unknown Meal",
@@ -30,12 +46,19 @@ function transformMealForClient(meal: any) {
     fat: meal.fats_g || 0,
     fiber: meal.fiber_g || 0,
     sugar: meal.sugar_g || 0,
+    sodium: meal.sodium_mg || 0,
     userId: meal.user_id,
+    ingredients: ingredients, // Include ingredients in response
     isFavorite: additives.isFavorite || false,
+    is_favorite: additives.isFavorite || false, // Both formats for compatibility
     tasteRating: feedback.tasteRating || 0,
     satietyRating: feedback.satietyRating || 0,
     energyRating: feedback.energyRating || 0,
     heavinessRating: feedback.heavinessRating || 0,
+    taste_rating: feedback.tasteRating || 0, // Dual format
+    satiety_rating: feedback.satietyRating || 0,
+    energy_rating: feedback.energyRating || 0,
+    heaviness_rating: feedback.heavinessRating || 0,
   };
 }
 
@@ -328,20 +351,19 @@ export class NutritionService {
     }
   }
 
-  static async getUserMeals(user_id: string) {
+  static async getUserMeals(user_id: string, offset = 0, limit = 100) {
     try {
       const meals = await prisma.meal.findMany({
         where: { user_id },
         orderBy: { created_at: "desc" },
+        skip: offset,
+        take: limit,
       });
       return meals.map(transformMealForClient);
     } catch (error) {
       throw new Error("Failed to fetch meals");
     }
   }
-  // Add this method to your NutritionService class
-
-  // Add this method to your NutritionService class
 
   static async getRangeStatistics(
     userId: string,
@@ -705,6 +727,7 @@ function mapMealDataToPrismaFields(
     processing_level: mealData.processing_level || "",
     cooking_method: mealData.cooking_method || "",
     health_risk_notes: mealData.health_risk_notes || "",
+    confidence: mealData.confidence || 75,
 
     // System fields
     ingredients: ingredients,

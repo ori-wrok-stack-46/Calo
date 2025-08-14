@@ -719,5 +719,5 @@ export default function TabLayout() {
         headerShown: false,
       }}
     ></Tabs>
-  );
+  );  
 }

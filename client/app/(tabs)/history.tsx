@@ -93,7 +93,6 @@ const NUTRITION_ICONS = {
   sugar: { icon: Candy, name: "Sugars", color: "#f97316" },
   sodium: { icon: Beaker, name: "Sodium", color: "#6b7280" },
 };
-
 // Compact Meal Card component
 const CompactMealCard = ({
   meal,
@@ -119,6 +118,8 @@ const CompactMealCard = ({
     energy_rating: meal.energy_rating || 0,
     heaviness_rating: meal.heaviness_rating || 0,
   });
+  const { currentLanguage } = useLanguage();
+  const isRTL = currentLanguage === "he";
 
   // Update ratings when meal data changes
   useEffect(() => {

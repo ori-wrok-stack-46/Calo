@@ -94,6 +94,13 @@ export function mapMealDataToPrismaFields(
     mealData.additives ??
     parseJSONField(mealData.additives_json);
 
+  // Extract ingredients, defaulting to an empty array if not present or not an array
+  const ingredients = Array.isArray(mealData.ingredients)
+    ? mealData.ingredients
+    : typeof mealData.ingredients === "string"
+    ? [mealData.ingredients]
+    : [];
+
   return {
     user_id,
     image_url: imageBase64 ? `data:image/jpeg;base64,${imageBase64}` : "",
@@ -135,11 +142,7 @@ export function mapMealDataToPrismaFields(
     cooking_method: mealData.cooking_method ?? mealData.cookingMethod ?? null,
     health_risk_notes:
       mealData.health_risk_notes ?? mealData.healthNotes ?? null,
-    ingredients: Array.isArray(mealData.ingredients)
-      ? mealData.ingredients
-      : typeof mealData.ingredients === "string"
-      ? [mealData.ingredients]
-      : [],
+    ingredients: ingredients, // Save the extracted ingredients
 
     // JSON fields
     vitamins_json,

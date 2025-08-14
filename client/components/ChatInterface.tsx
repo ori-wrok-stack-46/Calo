@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from "react";
 import {
   View,
   Text,
@@ -11,24 +11,27 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
-import { 
-  MessageCircle, 
-  Send, 
-  X, 
-  ChefHat, 
-  Sparkles, 
-  Clock, 
-  Utensils, 
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
+import {
+  MessageCircle,
+  Send,
+  X,
+  ChefHat,
+  Sparkles,
+  Clock,
+  Utensils,
   Heart,
   Zap,
   Apple,
-  Coffee
-} from 'lucide-react-native';
+  Coffee,
+} from "lucide-react-native";
+import { useTheme } from "@/src/context/ThemeContext";
+import { useLanguage } from "@/src/i18n/context/LanguageContext";
+import { useTranslation } from "react-i18next";
 
-const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
+const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
 interface Message {
   id: string;
@@ -43,40 +46,51 @@ interface ChatInterfaceProps {
 }
 
 export default function ChatInterface({ children }: ChatInterfaceProps) {
+  const { colors, isDark } = useTheme();
+  const { isRTL } = useLanguage();
+  const { t } = useTranslation();
+
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([
     {
-      id: '1',
-      text: 'שלום! אני כאן לעזור לך לבחור מה לאכול. ספר לי על ההעדפות שלך, הדיאטה שלך, או פשוט שאל אותי מה מומלץ לאכול עכשיו! 🍽️',
+      id: "1",
+      text:
+        t("ai_chat.welcome_message") ||
+        "שלום! אני כאן לעזור לך לבחור מה לאכול. ספר לי על ההעדפות שלך, הדיאטה שלך, או פשוט שאל אותי מה מומלץ לאכול עכשיו! 🍽️",
       isUser: false,
       timestamp: new Date(),
-      suggestions: ['מה מומלץ לארוחת בוקר?', 'אני רוצה משהו בריא', 'יש לי 30 דקות לבישול', 'אני צמחוני']
-    }
+      suggestions: [
+        t("ai_chat.suggestion_breakfast") || "מה מומלץ לארוחת בוקר?",
+        t("ai_chat.suggestion_healthy") || "אני רוצה משהו בריא",
+        t("ai_chat.suggestion_quick") || "יש לי 30 דקות לבישול",
+        t("ai_chat.suggestion_vegetarian") || "אני צמחוני",
+      ],
+    },
   ]);
-  const [inputText, setInputText] = useState('');
+  const [inputText, setInputText] = useState("");
   const [isTyping, setIsTyping] = useState(false);
-  
+
   const translateX = useRef(new Animated.Value(screenWidth)).current;
   const swipeProgress = useRef(new Animated.Value(0)).current;
   const scrollViewRef = useRef<ScrollView>(null);
   const chatIconScale = useRef(new Animated.Value(1)).current;
 
-  // Animate chat icon periodically
+  // Enhanced pulse animation
   useEffect(() => {
     const pulseAnimation = () => {
       Animated.sequence([
         Animated.timing(chatIconScale, {
-          toValue: 1.1,
-          duration: 1000,
+          toValue: 1.15,
+          duration: 1200,
           useNativeDriver: true,
         }),
         Animated.timing(chatIconScale, {
           toValue: 1,
-          duration: 1000,
+          duration: 1200,
           useNativeDriver: true,
         }),
       ]).start(() => {
-        setTimeout(pulseAnimation, 3000);
+        setTimeout(pulseAnimation, 4000);
       });
     };
 
@@ -84,33 +98,38 @@ export default function ChatInterface({ children }: ChatInterfaceProps) {
     return () => clearTimeout(timer);
   }, []);
 
-  // Pan responder for swipe gesture
+  // Enhanced pan responder with RTL support
   const panResponder = useRef(
     PanResponder.create({
       onMoveShouldSetPanResponder: (evt, gestureState) => {
-        // Only respond to left swipes from the left edge
+        const edgeThreshold = 60;
+        const startX = isRTL ? screenWidth - edgeThreshold : 0;
+        const endX = isRTL ? screenWidth : edgeThreshold;
+
         return (
-          evt.nativeEvent.pageX < 50 && 
+          evt.nativeEvent.pageX >= startX &&
+          evt.nativeEvent.pageX <= endX &&
           Math.abs(gestureState.dx) > Math.abs(gestureState.dy) &&
-          gestureState.dx > 10
+          (isRTL ? gestureState.dx < -10 : gestureState.dx > 10)
         );
       },
       onPanResponderGrant: () => {
         // Start tracking the swipe
       },
       onPanResponderMove: (evt, gestureState) => {
-        if (gestureState.dx > 0) {
-          const progress = Math.min(gestureState.dx / (screenWidth * 0.3), 1);
+        const dx = isRTL ? -gestureState.dx : gestureState.dx;
+        if (dx > 0) {
+          const progress = Math.min(dx / (screenWidth * 0.3), 1);
           swipeProgress.setValue(progress);
         }
       },
       onPanResponderRelease: (evt, gestureState) => {
-        const shouldOpen = gestureState.dx > screenWidth * 0.15 && gestureState.dx > 0;
-        
+        const dx = isRTL ? -gestureState.dx : gestureState.dx;
+        const shouldOpen = dx > screenWidth * 0.15 && dx > 0;
+
         if (shouldOpen) {
           openChat();
         } else {
-          // Reset swipe progress
           Animated.spring(swipeProgress, {
             toValue: 0,
             useNativeDriver: false,
@@ -132,13 +151,13 @@ export default function ChatInterface({ children }: ChatInterfaceProps) {
       Animated.spring(swipeProgress, {
         toValue: 0,
         useNativeDriver: false,
-      })
+      }),
     ]).start();
   };
 
   const closeChat = () => {
     Animated.spring(translateX, {
-      toValue: screenWidth,
+      toValue: isRTL ? -screenWidth : screenWidth,
       useNativeDriver: true,
       tension: 100,
       friction: 8,
@@ -157,34 +176,46 @@ export default function ChatInterface({ children }: ChatInterfaceProps) {
       timestamp: new Date(),
     };
 
-    setMessages(prev => [...prev, userMessage]);
-    setInputText('');
+    setMessages((prev) => [...prev, userMessage]);
+    setInputText("");
     setIsTyping(true);
 
-    // Scroll to bottom
     setTimeout(() => {
       scrollViewRef.current?.scrollToEnd({ animated: true });
     }, 100);
 
-    // Simulate AI response (for UX/UI demo)
+    // Enhanced AI responses with RTL support
     setTimeout(() => {
       const responses = [
         {
-          text: 'זה נשמע מעולה! בהתבסס על מה שאמרת, אני ממליץ על סלט קינואה עם ירקות צבעוניים וחלבון לבחירתך. זה מזין, טעים ומתאים לדיאטה בריאה.',
-          suggestions: ['איך מכינים קינואה?', 'אפשרויות חלבון', 'עוד רעיונות לסלטים']
+          text: isRTL
+            ? "זה נשמע מעולה! בהתבסס על מה שאמרת, אני ממליץ על סלט קינואה עם ירקות צבעוניים וחלבון לבחירתך. זה מזין, טעים ומתאים לדיאטה בריאה."
+            : "That sounds great! Based on what you said, I recommend a quinoa salad with colorful vegetables and your choice of protein. It's nutritious, delicious and suitable for a healthy diet.",
+          suggestions: isRTL
+            ? ["איך מכינים קינואה?", "אפשרויות חלבון", "עוד רעיונות לסלטים"]
+            : ["How to prepare quinoa?", "Protein options", "More salad ideas"],
         },
         {
-          text: 'לארוחת בוקר אני ממליץ על שייק חלבון עם בננה, שיבולת שועל ושקדים. זה נותן אנרגיה לכל הבוקר ומכיל חלבון איכותי.',
-          suggestions: ['מתכון לשייק', 'חלופות לבננה', 'עוד רעיונות לבוקר']
+          text: isRTL
+            ? "לארוחת בוקר אני ממליץ על שייק חלבון עם בננה, שיבולת שועל ושקדים. זה נותן אנרגיה לכל הבוקר ומכיל חלבון איכותי."
+            : "For breakfast I recommend a protein shake with banana, oats and almonds. It provides energy for the whole morning and contains quality protein.",
+          suggestions: isRTL
+            ? ["מתכון לשייק", "חלופות לבננה", "עוד רעיונות לבוקר"]
+            : ["Shake recipe", "Banana alternatives", "More breakfast ideas"],
         },
         {
-          text: 'עבור ארוחה מהירה, אני מציע טוסט אבוקדו עם ביצה, או סלט טונה מהיר. שתי האפשרויות לוקחות פחות מ-10 דקות להכנה.',
-          suggestions: ['מתכון טוסט אבוקדו', 'רעיונות לסלט טונה', 'עוד ארוחות מהירות']
-        }
+          text: isRTL
+            ? "עבור ארוחה מהירה, אני מציע טוסט אבוקדו עם ביצה, או סלט טונה מהיר. שתי האפשרויות לוקחות פחות מ-10 דקות להכנה."
+            : "For a quick meal, I suggest avocado toast with egg, or a quick tuna salad. Both options take less than 10 minutes to prepare.",
+          suggestions: isRTL
+            ? ["מתכון טוסט אבוקדו", "רעיונות לסלט טונה", "עוד ארוחות מהירות"]
+            : ["Avocado toast recipe", "Tuna salad ideas", "More quick meals"],
+        },
       ];
 
-      const randomResponse = responses[Math.floor(Math.random() * responses.length)];
-      
+      const randomResponse =
+        responses[Math.floor(Math.random() * responses.length)];
+
       const botMessage: Message = {
         id: (Date.now() + 1).toString(),
         text: randomResponse.text,
@@ -193,9 +224,9 @@ export default function ChatInterface({ children }: ChatInterfaceProps) {
         suggestions: randomResponse.suggestions,
       };
 
-      setMessages(prev => [...prev, botMessage]);
+      setMessages((prev) => [...prev, botMessage]);
       setIsTyping(false);
-      
+
       setTimeout(() => {
         scrollViewRef.current?.scrollToEnd({ animated: true });
       }, 100);
@@ -206,160 +237,251 @@ export default function ChatInterface({ children }: ChatInterfaceProps) {
     sendMessage(suggestion);
   };
 
-  // Swipe indicator overlay
-  const swipeIndicatorOpacity = swipeProgress.interpolate({
-    inputRange: [0, 0.5, 1],
-    outputRange: [0, 0.7, 1],
-  });
-
-  const swipeIndicatorScale = swipeProgress.interpolate({
-    inputRange: [0, 1],
-    outputRange: [0.8, 1.2],
-  });
+  const dynamicStyles = createChatStyles(colors, isDark, isRTL);
 
   return (
-    <View style={styles.container}>
-      {/* Main content with pan responder */}
-      <View style={styles.mainContent} {...panResponder.panHandlers}>
+    <View style={dynamicStyles.container}>
+      {/* Main content with enhanced pan responder */}
+      <View style={dynamicStyles.mainContent} {...panResponder.panHandlers}>
         {children}
       </View>
 
-      {/* Floating Chat Icon */}
-      <Animated.View 
+      {/* Enhanced floating chat icon */}
+      <Animated.View
         style={[
-          styles.floatingChatIcon,
+          dynamicStyles.floatingChatIcon,
           {
-            transform: [{ scale: chatIconScale }]
-          }
+            transform: [{ scale: chatIconScale }],
+            [isRTL ? "left" : "right"]: 20,
+          },
         ]}
       >
         <TouchableOpacity
-          style={styles.chatIconButton}
+          style={dynamicStyles.chatIconButton}
           onPress={openChat}
           activeOpacity={0.8}
+          accessibilityLabel={t("tabs.ai_chat")}
+          accessibilityRole="button"
         >
           <LinearGradient
-            colors={['#16A085', '#1ABC9C']}
-            style={styles.chatIconGradient}
+            colors={[colors.emerald500, colors.emerald600]}
+            style={dynamicStyles.chatIconGradient}
           >
-            <MessageCircle size={28} color="#FFFFFF" />
-            <View style={styles.chatIconBadge}>
-              <ChefHat size={12} color="#16A085" />
+            <MessageCircle size={32} color="#FFFFFF" strokeWidth={2.5} />
+            <View style={dynamicStyles.chatIconBadge}>
+              <ChefHat size={14} color={colors.emerald600} strokeWidth={2} />
             </View>
           </LinearGradient>
         </TouchableOpacity>
       </Animated.View>
 
-      {/* Swipe indicator */}
-      <Animated.View 
+      {/* Enhanced swipe indicator with RTL support */}
+      <Animated.View
         style={[
-          styles.swipeIndicator,
+          dynamicStyles.swipeIndicator,
           {
-            opacity: swipeIndicatorOpacity,
-            transform: [{ scale: swipeIndicatorScale }]
-          }
+            opacity: swipeProgress,
+            transform: [
+              {
+                scale: swipeProgress.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [0.8, 1.2],
+                }),
+              },
+              {
+                translateX: swipeProgress.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [isRTL ? 50 : -50, 0],
+                }),
+              },
+            ],
+            [isRTL ? "right" : "left"]: 20,
+          },
         ]}
         pointerEvents="none"
       >
         <LinearGradient
-          colors={['#16A085', '#1ABC9C']}
-          style={styles.swipeIndicatorGradient}
+          colors={[colors.emerald500, colors.emerald600]}
+          style={dynamicStyles.swipeIndicatorGradient}
         >
-          <MessageCircle size={32} color="#FFFFFF" />
-          <Text style={styles.swipeIndicatorText}>החלק ימינה לצ'אט</Text>
+          <MessageCircle size={28} color="#FFFFFF" strokeWidth={2} />
+          <Text
+            style={[
+              dynamicStyles.swipeIndicatorText,
+              isRTL && dynamicStyles.rtlText,
+            ]}
+          >
+            {isRTL ? "החלק שמאלה לצ'אט" : "Swipe right to chat"}
+          </Text>
         </LinearGradient>
       </Animated.View>
 
-      {/* Chat Interface */}
+      {/* Enhanced Chat Interface */}
       {isOpen && (
-        <Animated.View 
+        <Animated.View
           style={[
-            styles.chatContainer,
+            dynamicStyles.chatContainer,
             {
-              transform: [{ translateX }]
-            }
+              transform: [{ translateX }],
+            },
           ]}
         >
           <LinearGradient
-            colors={['#F8F9FA', '#FFFFFF']}
-            style={styles.chatGradient}
+            colors={[colors.background, colors.surface]}
+            style={dynamicStyles.chatGradient}
           >
-            <SafeAreaView style={styles.chatSafeArea}>
-              {/* Chat Header */}
-              <View style={styles.chatHeader}>
-                <View style={styles.chatHeaderLeft}>
-                  <View style={styles.chatIconContainer}>
-                    <LinearGradient
-                      colors={['#16A085', '#1ABC9C']}
-                      style={styles.chatHeaderIconGradient}
-                    >
-                      <ChefHat size={24} color="#FFFFFF" />
-                    </LinearGradient>
-                  </View>
-                  <View>
-                    <Text style={styles.chatTitle}>יועץ תזונה AI</Text>
-                    <Text style={styles.chatSubtitle}>מה נאכל היום?</Text>
-                  </View>
-                </View>
-                <TouchableOpacity 
-                  style={styles.closeButton}
-                  onPress={closeChat}
-                  accessibilityLabel="סגור צ'אט"
-                  accessibilityRole="button"
+            <SafeAreaView style={dynamicStyles.chatSafeArea}>
+              {/* Enhanced Chat Header */}
+              <View style={dynamicStyles.chatHeader}>
+                <LinearGradient
+                  colors={[
+                    colors.background,
+                    isDark
+                      ? "rgba(30, 41, 59, 0.95)"
+                      : "rgba(255, 255, 255, 0.95)",
+                  ]}
+                  style={dynamicStyles.chatHeaderGradient}
                 >
-                  <X size={24} color="#2C3E50" />
-                </TouchableOpacity>
+                  <View
+                    style={[
+                      dynamicStyles.chatHeaderLeft,
+                      isRTL && dynamicStyles.rtlRow,
+                    ]}
+                  >
+                    <View style={dynamicStyles.chatIconContainer}>
+                      <LinearGradient
+                        colors={[colors.emerald500, colors.emerald600]}
+                        style={dynamicStyles.chatHeaderIconGradient}
+                      >
+                        <ChefHat size={24} color="#FFFFFF" strokeWidth={2} />
+                      </LinearGradient>
+                    </View>
+                    <View
+                      style={[
+                        dynamicStyles.chatHeaderTextContainer,
+                        isRTL && dynamicStyles.rtlAlign,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          dynamicStyles.chatTitle,
+                          { color: colors.text },
+                          isRTL && dynamicStyles.rtlText,
+                        ]}
+                      >
+                        {t("ai_chat.title")}
+                      </Text>
+                      <Text
+                        style={[
+                          dynamicStyles.chatSubtitle,
+                          { color: colors.textSecondary },
+                          isRTL && dynamicStyles.rtlText,
+                        ]}
+                      >
+                        {t("ai_chat.subtitle") || "מה נאכל היום?"}
+                      </Text>
+                    </View>
+                  </View>
+                  <TouchableOpacity
+                    style={dynamicStyles.closeButton}
+                    onPress={closeChat}
+                    accessibilityLabel={t("common.close")}
+                    accessibilityRole="button"
+                  >
+                    <X size={24} color={colors.textSecondary} strokeWidth={2} />
+                  </TouchableOpacity>
+                </LinearGradient>
               </View>
 
-              {/* Messages */}
-              <ScrollView 
+              {/* Enhanced Messages */}
+              <ScrollView
                 ref={scrollViewRef}
-                style={styles.messagesContainer}
+                style={dynamicStyles.messagesContainer}
                 showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.messagesContent}
+                contentContainerStyle={dynamicStyles.messagesContent}
               >
                 {messages.map((message) => (
-                  <View key={message.id} style={styles.messageWrapper}>
-                    <View style={[
-                      styles.messageBubble,
-                      message.isUser ? styles.userMessage : styles.botMessage
-                    ]}>
+                  <View key={message.id} style={dynamicStyles.messageWrapper}>
+                    <View
+                      style={[
+                        dynamicStyles.messageBubble,
+                        message.isUser
+                          ? dynamicStyles.userMessage
+                          : dynamicStyles.botMessage,
+                        isRTL &&
+                          (message.isUser
+                            ? dynamicStyles.userMessageRTL
+                            : dynamicStyles.botMessageRTL),
+                      ]}
+                    >
                       {!message.isUser && (
-                        <View style={styles.botIconContainer}>
-                          <Sparkles size={16} color="#16A085" />
+                        <View style={dynamicStyles.botIconContainer}>
+                          <Sparkles
+                            size={16}
+                            color={colors.emerald600}
+                            strokeWidth={2}
+                          />
                         </View>
                       )}
-                      <Text style={[
-                        styles.messageText,
-                        message.isUser ? styles.userMessageText : styles.botMessageText
-                      ]}>
+                      <Text
+                        style={[
+                          dynamicStyles.messageText,
+                          message.isUser
+                            ? dynamicStyles.userMessageText
+                            : dynamicStyles.botMessageText,
+                          { color: message.isUser ? "#FFFFFF" : colors.text },
+                          isRTL && dynamicStyles.rtlText,
+                        ]}
+                      >
                         {message.text}
                       </Text>
-                      <Text style={[
-                        styles.messageTime,
-                        message.isUser ? styles.userMessageTime : styles.botMessageTime
-                      ]}>
-                        {message.timestamp.toLocaleTimeString('he-IL', { 
-                          hour: '2-digit', 
-                          minute: '2-digit' 
-                        })}
+                      <Text
+                        style={[
+                          dynamicStyles.messageTime,
+                          message.isUser
+                            ? dynamicStyles.userMessageTime
+                            : dynamicStyles.botMessageTime,
+                          isRTL && dynamicStyles.rtlText,
+                        ]}
+                      >
+                        {message.timestamp.toLocaleTimeString(
+                          isRTL ? "he-IL" : "en-US",
+                          {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          }
+                        )}
                       </Text>
                     </View>
 
-                    {/* Suggestions */}
+                    {/* Enhanced Suggestions */}
                     {message.suggestions && (
-                      <View style={styles.suggestionsContainer}>
+                      <View
+                        style={[
+                          dynamicStyles.suggestionsContainer,
+                          isRTL && dynamicStyles.suggestionsContainerRTL,
+                        ]}
+                      >
                         {message.suggestions.map((suggestion, index) => (
                           <TouchableOpacity
                             key={index}
-                            style={styles.suggestionButton}
+                            style={dynamicStyles.suggestionButton}
                             onPress={() => handleSuggestionPress(suggestion)}
+                            activeOpacity={0.8}
                           >
                             <LinearGradient
-                              colors={['#E8F8F5', '#F0FDF4']}
-                              style={styles.suggestionGradient}
+                              colors={[colors.emerald50, colors.emerald500]}
+                              style={dynamicStyles.suggestionGradient}
                             >
-                              <Text style={styles.suggestionText}>{suggestion}</Text>
+                              <Text
+                                style={[
+                                  dynamicStyles.suggestionText,
+                                  { color: colors.emerald700 },
+                                  isRTL && dynamicStyles.rtlText,
+                                ]}
+                              >
+                                {suggestion}
+                              </Text>
                             </LinearGradient>
                           </TouchableOpacity>
                         ))}
@@ -368,90 +490,202 @@ export default function ChatInterface({ children }: ChatInterfaceProps) {
                   </View>
                 ))}
 
-                {/* Typing indicator */}
+                {/* Enhanced typing indicator */}
                 {isTyping && (
-                  <View style={styles.typingContainer}>
-                    <View style={styles.typingBubble}>
-                      <View style={styles.typingDots}>
-                        <View style={[styles.typingDot, styles.typingDot1]} />
-                        <View style={[styles.typingDot, styles.typingDot2]} />
-                        <View style={[styles.typingDot, styles.typingDot3]} />
+                  <View
+                    style={[
+                      dynamicStyles.typingContainer,
+                      isRTL && dynamicStyles.typingContainerRTL,
+                    ]}
+                  >
+                    <View style={dynamicStyles.typingBubble}>
+                      <View style={dynamicStyles.typingDots}>
+                        <Animated.View
+                          style={[
+                            dynamicStyles.typingDot,
+                            { backgroundColor: colors.emerald500 },
+                          ]}
+                        />
+                        <Animated.View
+                          style={[
+                            dynamicStyles.typingDot,
+                            { backgroundColor: colors.emerald500 },
+                          ]}
+                        />
+                        <Animated.View
+                          style={[
+                            dynamicStyles.typingDot,
+                            { backgroundColor: colors.emerald500 },
+                          ]}
+                        />
                       </View>
                     </View>
                   </View>
                 )}
               </ScrollView>
 
-              {/* Input Area */}
-              <KeyboardAvoidingView 
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                style={styles.inputContainer}
+              {/* Enhanced Input Area */}
+              <KeyboardAvoidingView
+                behavior={Platform.OS === "ios" ? "padding" : "height"}
+                style={dynamicStyles.inputContainer}
               >
-                <View style={styles.inputWrapper}>
-                  <TextInput
-                    style={styles.textInput}
-                    value={inputText}
-                    onChangeText={setInputText}
-                    placeholder="שאל אותי מה לאכול..."
-                    placeholderTextColor="#A0AEC0"
-                    multiline
-                    maxLength={500}
-                    textAlign="right"
-                    onSubmitEditing={() => sendMessage(inputText)}
-                    blurOnSubmit={false}
-                  />
-                  <TouchableOpacity
+                <LinearGradient
+                  colors={[colors.background, colors.surface]}
+                  style={dynamicStyles.inputGradient}
+                >
+                  <View
                     style={[
-                      styles.sendButton,
-                      (!inputText.trim() || isTyping) && styles.sendButtonDisabled
+                      dynamicStyles.inputWrapper,
+                      isRTL && dynamicStyles.inputWrapperRTL,
                     ]}
-                    onPress={() => sendMessage(inputText)}
-                    disabled={!inputText.trim() || isTyping}
                   >
-                    <LinearGradient
-                      colors={
-                        inputText.trim() && !isTyping 
-                          ? ['#16A085', '#1ABC9C'] 
-                          : ['#E2E8F0', '#CBD5E0']
+                    <TextInput
+                      style={[
+                        dynamicStyles.textInput,
+                        {
+                          color: colors.text,
+                          backgroundColor: colors.card,
+                          borderColor: colors.border,
+                        },
+                        isRTL && dynamicStyles.rtlTextInput,
+                      ]}
+                      value={inputText}
+                      onChangeText={setInputText}
+                      placeholder={
+                        t("ai_chat.type_message") || "שאל אותי מה לאכול..."
                       }
-                      style={styles.sendButtonGradient}
+                      placeholderTextColor={colors.textSecondary}
+                      multiline
+                      maxLength={500}
+                      textAlign={isRTL ? "right" : "left"}
+                      onSubmitEditing={() => sendMessage(inputText)}
+                      blurOnSubmit={false}
+                    />
+                    <TouchableOpacity
+                      style={[
+                        dynamicStyles.sendButton,
+                        (!inputText.trim() || isTyping) &&
+                          dynamicStyles.sendButtonDisabled,
+                      ]}
+                      onPress={() => sendMessage(inputText)}
+                      disabled={!inputText.trim() || isTyping}
+                      accessibilityLabel={t("common.send")}
                     >
-                      <Send size={20} color="#FFFFFF" />
-                    </LinearGradient>
-                  </TouchableOpacity>
-                </View>
+                      <LinearGradient
+                        colors={
+                          inputText.trim() && !isTyping
+                            ? [colors.emerald500, colors.emerald600]
+                            : [colors.textSecondary, colors.textSecondary]
+                        }
+                        style={dynamicStyles.sendButtonGradient}
+                      >
+                        <Send size={20} color="#FFFFFF" strokeWidth={2} />
+                      </LinearGradient>
+                    </TouchableOpacity>
+                  </View>
 
-                {/* Quick actions */}
-                <View style={styles.quickActions}>
-                  <TouchableOpacity 
-                    style={styles.quickAction}
-                    onPress={() => sendMessage('מה מומלץ לארוחת בוקר?')}
+                  {/* Enhanced quick actions with RTL support */}
+                  <View
+                    style={[
+                      dynamicStyles.quickActions,
+                      isRTL && dynamicStyles.quickActionsRTL,
+                    ]}
                   >
-                    <Coffee size={16} color="#16A085" />
-                    <Text style={styles.quickActionText}>ארוחת בוקר</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={styles.quickAction}
-                    onPress={() => sendMessage('משהו מהיר להכנה')}
-                  >
-                    <Clock size={16} color="#16A085" />
-                    <Text style={styles.quickActionText}>מהיר</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={styles.quickAction}
-                    onPress={() => sendMessage('משהו בריא ומזין')}
-                  >
-                    <Heart size={16} color="#16A085" />
-                    <Text style={styles.quickActionText}>בריא</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity 
-                    style={styles.quickAction}
-                    onPress={() => sendMessage('רעיונות לחטיפים')}
-                  >
-                    <Apple size={16} color="#16A085" />
-                    <Text style={styles.quickActionText}>חטיפים</Text>
-                  </TouchableOpacity>
-                </View>
+                    <TouchableOpacity
+                      style={dynamicStyles.quickAction}
+                      onPress={() =>
+                        sendMessage(
+                          t("ai_chat.suggestion_breakfast") ||
+                            "מה מומלץ לארוחת בוקר?"
+                        )
+                      }
+                    >
+                      <Coffee
+                        size={16}
+                        color={colors.emerald600}
+                        strokeWidth={2}
+                      />
+                      <Text
+                        style={[
+                          dynamicStyles.quickActionText,
+                          { color: colors.emerald600 },
+                          isRTL && dynamicStyles.rtlText,
+                        ]}
+                      >
+                        {t("ai_chat.breakfast") || "ארוחת בוקר"}
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={dynamicStyles.quickAction}
+                      onPress={() =>
+                        sendMessage(
+                          t("ai_chat.suggestion_quick") || "משהו מהיר להכנה"
+                        )
+                      }
+                    >
+                      <Clock
+                        size={16}
+                        color={colors.emerald600}
+                        strokeWidth={2}
+                      />
+                      <Text
+                        style={[
+                          dynamicStyles.quickActionText,
+                          { color: colors.emerald600 },
+                          isRTL && dynamicStyles.rtlText,
+                        ]}
+                      >
+                        {t("ai_chat.quick") || "מהיר"}
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={dynamicStyles.quickAction}
+                      onPress={() =>
+                        sendMessage(
+                          t("ai_chat.suggestion_healthy") || "משהו בריא ומזין"
+                        )
+                      }
+                    >
+                      <Heart
+                        size={16}
+                        color={colors.emerald600}
+                        strokeWidth={2}
+                      />
+                      <Text
+                        style={[
+                          dynamicStyles.quickActionText,
+                          { color: colors.emerald600 },
+                          isRTL && dynamicStyles.rtlText,
+                        ]}
+                      >
+                        {t("ai_chat.healthy") || "בריא"}
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={dynamicStyles.quickAction}
+                      onPress={() =>
+                        sendMessage(
+                          t("ai_chat.suggestion_snacks") || "רעיונות לחטיפים"
+                        )
+                      }
+                    >
+                      <Apple
+                        size={16}
+                        color={colors.emerald600}
+                        strokeWidth={2}
+                      />
+                      <Text
+                        style={[
+                          dynamicStyles.quickActionText,
+                          { color: colors.emerald600 },
+                          isRTL && dynamicStyles.rtlText,
+                        ]}
+                      >
+                        {t("ai_chat.snacks") || "חטיפים"}
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </LinearGradient>
               </KeyboardAvoidingView>
             </SafeAreaView>
           </LinearGradient>
@@ -461,316 +695,399 @@ export default function ChatInterface({ children }: ChatInterfaceProps) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  mainContent: {
-    flex: 1,
-  },
-  floatingChatIcon: {
-    position: 'absolute',
-    bottom: 100,
-    right: 20,
-    zIndex: 999,
-  },
-  chatIconButton: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    overflow: 'hidden',
-    elevation: 12,
-    shadowColor: '#16A085',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-  },
-  chatIconGradient: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-    position: 'relative',
-  },
-  chatIconBadge: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  swipeIndicator: {
-    position: 'absolute',
-    left: 20,
-    top: '50%',
-    marginTop: -40,
-    borderRadius: 20,
-    overflow: 'hidden',
-    elevation: 8,
-    shadowColor: '#16A085',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-  },
-  swipeIndicatorGradient: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    alignItems: 'center',
-    gap: 8,
-  },
-  swipeIndicatorText: {
-    fontSize: 12,
-    fontFamily: 'Rubik-Medium',
-    color: '#FFFFFF',
-    textAlign: 'center',
-  },
-  chatContainer: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: 1000,
-  },
-  chatGradient: {
-    flex: 1,
-  },
-  chatSafeArea: {
-    flex: 1,
-  },
-  chatHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#E2E8F0',
-    backgroundColor: '#FFFFFF',
-  },
-  chatHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  chatIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    overflow: 'hidden',
-    marginRight: 12,
-  },
-  chatHeaderIconGradient: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  chatTitle: {
-    fontSize: 18,
-    fontFamily: 'Rubik-SemiBold',
-    color: '#1A202C',
-  },
-  chatSubtitle: {
-    fontSize: 14,
-    fontFamily: 'Rubik-Regular',
-    color: '#718096',
-    marginTop: 2,
-  },
-  closeButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#F7FAFC',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  messagesContainer: {
-    flex: 1,
-    backgroundColor: '#F8F9FA',
-  },
-  messagesContent: {
-    padding: 20,
-    paddingBottom: 40,
-  },
-  messageWrapper: {
-    marginBottom: 16,
-  },
-  messageBubble: {
-    maxWidth: '80%',
-    borderRadius: 20,
-    padding: 16,
-    position: 'relative',
-  },
-  userMessage: {
-    backgroundColor: '#16A085',
-    alignSelf: 'flex-end',
-    borderBottomRightRadius: 8,
-  },
-  botMessage: {
-    backgroundColor: '#FFFFFF',
-    alignSelf: 'flex-start',
-    borderBottomLeftRadius: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 1,
-    paddingTop: 20,
-  },
-  botIconContainer: {
-    position: 'absolute',
-    top: -8,
-    left: 16,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#E8F8F5',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  messageText: {
-    fontSize: 16,
-    fontFamily: 'Rubik-Regular',
-    lineHeight: 22,
-    textAlign: 'right',
-  },
-  userMessageText: {
-    color: '#FFFFFF',
-  },
-  botMessageText: {
-    color: '#1A202C',
-  },
-  messageTime: {
-    fontSize: 12,
-    fontFamily: 'Rubik-Regular',
-    marginTop: 8,
-    textAlign: 'right',
-  },
-  userMessageTime: {
-    color: 'rgba(255,255,255,0.8)',
-  },
-  botMessageTime: {
-    color: '#A0AEC0',
-  },
-  suggestionsContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 12,
-    alignSelf: 'flex-start',
-  },
-  suggestionButton: {
-    borderRadius: 16,
-    overflow: 'hidden',
-  },
-  suggestionGradient: {
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderWidth: 1,
-    borderColor: '#16A085',
-  },
-  suggestionText: {
-    fontSize: 14,
-    fontFamily: 'Rubik-Medium',
-    color: '#16A085',
-  },
-  typingContainer: {
-    alignSelf: 'flex-start',
-    marginBottom: 16,
-  },
-  typingBubble: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    borderBottomLeftRadius: 8,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 1,
-  },
-  typingDots: {
-    flexDirection: 'row',
-    gap: 4,
-  },
-  typingDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#16A085',
-  },
-  typingDot1: {
-    opacity: 0.4,
-  },
-  typingDot2: {
-    opacity: 0.7,
-  },
-  typingDot3: {
-    opacity: 1,
-  },
-  inputContainer: {
-    backgroundColor: '#FFFFFF',
-    borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
-    paddingHorizontal: 20,
-    paddingTop: 16,
-    paddingBottom: 20,
-  },
-  inputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    gap: 12,
-    marginBottom: 12,
-  },
-  textInput: {
-    flex: 1,
-    backgroundColor: '#F7FAFC',
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    fontSize: 16,
-    fontFamily: 'Rubik-Regular',
-    color: '#1A202C',
-    maxHeight: 100,
-    textAlignVertical: 'top',
-  },
-  sendButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    overflow: 'hidden',
-  },
-  sendButtonDisabled: {
-    opacity: 0.5,
-  },
-  sendButtonGradient: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  quickActions: {
-    flexDirection: 'row',
-    gap: 8,
-    flexWrap: 'wrap',
-  },
-  quickAction: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F7FAFC',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 16,
-    gap: 6,
-  },
-  quickActionText: {
-    fontSize: 12,
-    fontFamily: 'Rubik-Medium',
-    color: '#16A085',
-  },
-});
+const createChatStyles = (colors: any, isDark: boolean, isRTL: boolean) => {
+  return StyleSheet.create({
+    container: {
+      flex: 1,
+    },
+    mainContent: {
+      flex: 1,
+    },
+    floatingChatIcon: {
+      position: "absolute",
+      bottom: 120,
+      zIndex: 999,
+    },
+    chatIconButton: {
+      width: 72,
+      height: 72,
+      borderRadius: 36,
+      overflow: "hidden",
+      elevation: 16,
+      shadowColor: colors.emerald600,
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.4,
+      shadowRadius: 16,
+    },
+    chatIconGradient: {
+      width: "100%",
+      height: "100%",
+      justifyContent: "center",
+      alignItems: "center",
+      position: "relative",
+      borderWidth: 4,
+      borderColor: colors.background,
+    },
+    chatIconBadge: {
+      position: "absolute",
+      top: 8,
+      right: 8,
+      width: 24,
+      height: 24,
+      borderRadius: 12,
+      backgroundColor: "#FFFFFF",
+      justifyContent: "center",
+      alignItems: "center",
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.2,
+      shadowRadius: 4,
+      elevation: 4,
+    },
+    swipeIndicator: {
+      position: "absolute",
+      top: "50%",
+      marginTop: -50,
+      borderRadius: 25,
+      overflow: "hidden",
+      elevation: 12,
+      shadowColor: colors.emerald600,
+      shadowOffset: { width: 0, height: 6 },
+      shadowOpacity: 0.4,
+      shadowRadius: 12,
+    },
+    swipeIndicatorGradient: {
+      paddingHorizontal: 24,
+      paddingVertical: 20,
+      alignItems: "center",
+      gap: 12,
+      borderWidth: 2,
+      borderColor: "rgba(255, 255, 255, 0.2)",
+    },
+    swipeIndicatorText: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: "#FFFFFF",
+      textAlign: "center",
+      letterSpacing: 0.3,
+    },
+    chatContainer: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      zIndex: 1000,
+    },
+    chatGradient: {
+      flex: 1,
+    },
+    chatSafeArea: {
+      flex: 1,
+    },
+    chatHeader: {
+      borderBottomWidth: 1,
+      borderBottomColor: isDark
+        ? "rgba(255, 255, 255, 0.1)"
+        : "rgba(0, 0, 0, 0.05)",
+    },
+    chatHeaderGradient: {
+      flexDirection: isRTL ? "row-reverse" : "row",
+      alignItems: "center",
+      justifyContent: "space-between",
+      paddingHorizontal: 20,
+      paddingVertical: 20,
+      backdropFilter: "blur(20px)",
+    },
+    chatHeaderLeft: {
+      flexDirection: isRTL ? "row-reverse" : "row",
+      alignItems: "center",
+      flex: 1,
+      gap: 16,
+    },
+    rtlRow: {
+      flexDirection: "row-reverse",
+    },
+    rtlAlign: {
+      alignItems: isRTL ? "flex-end" : "flex-start",
+    },
+    rtlText: {
+      textAlign: isRTL ? "right" : "left",
+      writingDirection: isRTL ? "rtl" : "ltr",
+    },
+    chatIconContainer: {
+      width: 52,
+      height: 52,
+      borderRadius: 26,
+      overflow: "hidden",
+      shadowColor: colors.emerald600,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+      elevation: 8,
+    },
+    chatHeaderIconGradient: {
+      width: "100%",
+      height: "100%",
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    chatHeaderTextContainer: {
+      flex: 1,
+    },
+    chatTitle: {
+      fontSize: 20,
+      fontWeight: "700",
+      letterSpacing: -0.3,
+    },
+    chatSubtitle: {
+      fontSize: 14,
+      fontWeight: "500",
+      marginTop: 2,
+      opacity: 0.8,
+    },
+    closeButton: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: isDark
+        ? "rgba(255, 255, 255, 0.1)"
+        : "rgba(0, 0, 0, 0.05)",
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    messagesContainer: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    messagesContent: {
+      padding: 20,
+      paddingBottom: 40,
+    },
+    messageWrapper: {
+      marginBottom: 20,
+    },
+    messageBubble: {
+      maxWidth: "85%",
+      borderRadius: 24,
+      padding: 16,
+      position: "relative",
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 8,
+      elevation: 4,
+    },
+    userMessage: {
+      backgroundColor: colors.emerald600,
+      alignSelf: "flex-end",
+      borderBottomRightRadius: 8,
+    },
+    userMessageRTL: {
+      alignSelf: "flex-start",
+      borderBottomRightRadius: 24,
+      borderBottomLeftRadius: 8,
+    },
+    botMessage: {
+      backgroundColor: colors.card,
+      alignSelf: "flex-start",
+      borderBottomLeftRadius: 8,
+      paddingTop: 24,
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    botMessageRTL: {
+      alignSelf: "flex-end",
+      borderBottomLeftRadius: 24,
+      borderBottomRightRadius: 8,
+    },
+    botIconContainer: {
+      position: "absolute",
+      top: -8,
+      left: isRTL ? undefined : 16,
+      right: isRTL ? 16 : undefined,
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      backgroundColor: colors.emerald100,
+      justifyContent: "center",
+      alignItems: "center",
+      borderWidth: 2,
+      borderColor: colors.background,
+    },
+    messageText: {
+      fontSize: 16,
+      lineHeight: 24,
+      fontWeight: "400",
+    },
+    userMessageText: {
+      color: "#FFFFFF",
+    },
+    botMessageText: {
+      color: colors.text,
+    },
+    messageTime: {
+      fontSize: 12,
+      marginTop: 8,
+      opacity: 0.7,
+    },
+    userMessageTime: {
+      color: "rgba(255,255,255,0.8)",
+      textAlign: isRTL ? "left" : "right",
+    },
+    botMessageTime: {
+      color: colors.textSecondary,
+      textAlign: isRTL ? "right" : "left",
+    },
+    suggestionsContainer: {
+      flexDirection: "row",
+      flexWrap: "wrap",
+      gap: 8,
+      marginTop: 16,
+      alignSelf: "flex-start",
+    },
+    suggestionsContainerRTL: {
+      alignSelf: "flex-end",
+    },
+    suggestionButton: {
+      borderRadius: 20,
+      overflow: "hidden",
+      shadowColor: colors.emerald600,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 2,
+    },
+    suggestionGradient: {
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      borderWidth: 1,
+      borderColor: colors.emerald200,
+    },
+    suggestionText: {
+      fontSize: 14,
+      fontWeight: "600",
+      letterSpacing: 0.2,
+    },
+    typingContainer: {
+      alignSelf: "flex-start",
+      marginBottom: 20,
+    },
+    typingContainerRTL: {
+      alignSelf: "flex-end",
+    },
+    typingBubble: {
+      backgroundColor: colors.card,
+      borderRadius: 24,
+      borderBottomLeftRadius: isRTL ? 24 : 8,
+      borderBottomRightRadius: isRTL ? 8 : 24,
+      padding: 16,
+      borderWidth: 1,
+      borderColor: colors.border,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 2,
+    },
+    typingDots: {
+      flexDirection: "row",
+      gap: 6,
+      alignItems: "center",
+    },
+    typingDot: {
+      width: 8,
+      height: 8,
+      borderRadius: 4,
+    },
+    inputContainer: {
+      borderTopWidth: 1,
+      borderTopColor: isDark
+        ? "rgba(255, 255, 255, 0.1)"
+        : "rgba(0, 0, 0, 0.05)",
+    },
+    inputGradient: {
+      paddingHorizontal: 20,
+      paddingTop: 20,
+      paddingBottom: 24,
+      backdropFilter: "blur(20px)",
+    },
+    inputWrapper: {
+      flexDirection: "row",
+      alignItems: "flex-end",
+      gap: 12,
+      marginBottom: 16,
+    },
+    inputWrapperRTL: {
+      flexDirection: "row-reverse",
+    },
+    textInput: {
+      flex: 1,
+      borderRadius: 24,
+      paddingHorizontal: 20,
+      paddingVertical: 16,
+      fontSize: 16,
+      maxHeight: 120,
+      borderWidth: 2,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.05,
+      shadowRadius: 8,
+      elevation: 2,
+    },
+    rtlTextInput: {
+      textAlign: "right",
+    },
+    sendButton: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      overflow: "hidden",
+      shadowColor: colors.emerald600,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+      elevation: 8,
+    },
+    sendButtonDisabled: {
+      opacity: 0.5,
+      shadowOpacity: 0.1,
+    },
+    sendButtonGradient: {
+      width: "100%",
+      height: "100%",
+      justifyContent: "center",
+      alignItems: "center",
+    },
+    quickActions: {
+      flexDirection: "row",
+      gap: 12,
+      flexWrap: "wrap",
+      justifyContent: "center",
+    },
+    quickActionsRTL: {
+      flexDirection: "row-reverse",
+    },
+    quickAction: {
+      flexDirection: "row",
+      alignItems: "center",
+      backgroundColor: colors.emerald50,
+      paddingHorizontal: 16,
+      paddingVertical: 10,
+      borderRadius: 20,
+      gap: 8,
+      borderWidth: 1,
+      borderColor: colors.emerald200,
+      shadowColor: "#000",
+      shadowOffset: { width: 0, height: 1 },
+      shadowOpacity: 0.05,
+      shadowRadius: 2,
+      elevation: 1,
+    },
+    quickActionText: {
+      fontSize: 13,
+      fontWeight: "600",
+      letterSpacing: 0.2,
+    },
+  });
+};

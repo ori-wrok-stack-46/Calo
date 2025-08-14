@@ -69,46 +69,32 @@ export default function AIChatScreen() {
   const scrollViewRef = useRef<ScrollView>(null);
   const isRTL = i18n.language === "he";
   const texts = {
-    title: language === "he" ? "צ'אט AI תזונתי" : "Nutritional AI Chat",
-    subtitle:
-      language === "he"
-        ? "קבל המלצות תזונה מותאמות אישית"
-        : "Get personalized nutrition advice",
-    typePlaceholder:
-      language === "he" ? "הקלד שאלתך כאן..." : "Type your question here...",
-    send: language === "he" ? "שלח" : "Send",
-    typing: language === "he" ? "AI מקליד..." : "AI is typing...",
-    allergenWarning: language === "he" ? "אזהרת אלרגן!" : "Allergen Warning!",
-    clearChat: language === "he" ? "נקה צ'אט" : "Clear Chat",
-    tryThese: language === "he" ? "נסה את אלה:" : "Try these:",
-    welcomeMessage:
-      language === "he"
-        ? "שלום! אני היועץ התזונתי הדיגיטלי שלך. אני כאן לעזור לך עם שאלות תזונה, תכנון ארוחות והמלצות מותאמות אישית. איך אוכל לעזור לך היום?"
-        : "Hello! I'm your digital nutrition advisor. I'm here to help you with nutrition questions, meal planning, and personalized recommendations. How can I help you today?",
-    commonQuestions:
-      language === "he"
-        ? [
-            "איך אוכל לרדת במשקל בצורה בריאה?",
-            "מה המינון היומי הממולץ של חלבון?",
-            "אילו ירקות עשירים בוויטמין C?",
-            "איך לתכנן תפריט צמחוני מאוזן?",
-            "מה זה דיאטה קטוגנית?",
-          ]
-        : [
-            "How can I lose weight healthily?",
-            "What's the recommended daily protein intake?",
-            "Which vegetables are rich in vitamin C?",
-            "How to plan a balanced vegetarian menu?",
-            "What is a ketogenic diet?",
-          ],
-    loading: language === "he" ? "טוען..." : "Loading...",
-    error: language === "he" ? "שגיאה" : "Error",
-    networkError:
-      language === "he"
-        ? "אירעה שגיאה בתקשורת עם השרת"
-        : "Network error occurred",
+    title: t("ai_chat.title"),
+    subtitle: t("ai_chat.subtitle"),
+    typePlaceholder: t("ai_chat.type_message"),
+    send: t("ai_chat.send"),
+    typing: t("ai_chat.typing"),
+    allergenWarning:
+      t("ai_chat.allergen_warning") ||
+      (language === "he" ? "אזהרת אלרגן!" : "Allergen Warning!"),
+    clearChat: t("ai_chat.clear_history"),
+    tryThese:
+      t("ai_chat.try_these") ||
+      (language === "he" ? "נסה את אלה:" : "Try these:"),
+    welcomeMessage: t("ai_chat.welcome_message"),
+    commonQuestions: [
+      t("ai_chat.suggestion_breakfast"),
+      t("ai_chat.suggestion_healthy"),
+      t("ai_chat.suggestion_quick"),
+      t("ai_chat.suggestion_vegetarian"),
+      t("ai_chat.suggestion_snacks"),
+    ],
+    loading: t("common.loading"),
+    error: t("common.error"),
+    networkError: t("ai_chat.network_error"),
     loadingProfile:
-      language === "he" ? "טוען פרופיל משתמש..." : "Loading user profile...",
+      t("ai_chat.loading_profile") ||
+      (language === "he" ? "טוען פרופיל משתמש..." : "Loading user profile..."),
   };
 
   // Load user profile and chat history on component mount
