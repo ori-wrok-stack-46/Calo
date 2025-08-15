@@ -36,16 +36,14 @@ export const LanguageProvider: React.FC<{ children: React.ReactNode }> = ({
     const rtl = language === "he";
     setIsRTL(rtl);
 
-    if (Platform.OS !== "web") {
-      if (I18nManager.isRTL !== rtl) {
-        I18nManager.allowRTL(rtl);
-        I18nManager.forceRTL(rtl);
-        // Note: App reload might be needed to reflect RTL changes.
-      }
-    } else {
+    if (Platform.OS === "web") {
       document.documentElement.dir = rtl ? "rtl" : "ltr";
       document.documentElement.lang = language;
       document.body.style.direction = rtl ? "rtl" : "ltr";
+    } else {
+      // For React Native, just enable RTL support without forcing reload
+      I18nManager.allowRTL(true);
+      // Don't call forceRTL as it requires app restart
     }
   }, []);
 

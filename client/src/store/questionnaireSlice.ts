@@ -1,8 +1,12 @@
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
-import { QuestionnaireData } from "../types";
+import type { QuestionnaireData } from "../types";
 import { questionnaireAPI } from "../services/api";
-import { setQuestionnaireCompleted } from "./authSlice";
 
+// Import action dynamically to avoid cycles
+const setQuestionnaireCompletedAction = async (dispatch: any) => {
+  const { setQuestionnaireCompleted } = await import("./authSlice");
+  dispatch(setQuestionnaireCompleted());
+};
 interface QuestionnaireState {
   questionnaire: QuestionnaireData | null;
   isLoading: boolean;
@@ -67,7 +71,7 @@ export const saveQuestionnaire = createAsyncThunk(
 
       // Only update questionnaire completion status if not in edit mode
       if (!questionnaireData.isEditMode) {
-        dispatch(setQuestionnaireCompleted());
+        await setQuestionnaireCompletedAction(dispatch);
       }
 
       return response.data?.questionnaire || response.data;

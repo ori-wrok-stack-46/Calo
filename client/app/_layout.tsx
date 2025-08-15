@@ -3,13 +3,16 @@ import { Provider } from "react-redux";
 import { PersistGate } from "redux-persist/integration/react";
 import { store, persistor } from "@/src/store";
 import { StatusBar } from "expo-status-bar";
-import { Text, View, ActivityIndicator, StyleSheet } from "react-native";
+import {
+  Text,
+  View,
+  ActivityIndicator,
+  StyleSheet,
+  Platform,
+} from "react-native";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { useAppInitialization } from "@/hooks/useAppInitialization";
 import { ThemeProvider } from "@/src/context/ThemeContext";
-import { useSelector } from "react-redux";
-import { RootState } from "@/src/store";
 import { useRouter, useSegments } from "expo-router";
 import { useEffect, useMemo, useRef } from "react";
 import { queryClient } from "@/src/providers/QueryProvider";
@@ -20,26 +23,25 @@ import { useFonts } from "expo-font";
 import "react-native-reanimated";
 import { I18nextProvider } from "react-i18next";
 import i18n from "@/src/i18n";
-import { User } from "@/src/types";
 import LanguageToolbar from "@/components/ToolBar";
 import { NotificationService } from "@/src/services/notifications";
 import React from "react";
 import FloatingChatButton from "@/components/FloatingChatButton";
+import { I18nManager } from "react-native";
+import { useOptimizedAuthSelector } from "@/hooks/useOptimizedSelector";
+import { ErrorHandler } from "@/src/utils/errorHandler";
+import { useTranslation } from "react-i18next";
+
+// Enable RTL support globally
+if (Platform.OS !== "web") {
+  I18nManager.allowRTL(true);
+}
 
 SplashScreen.preventAutoHideAsync();
 
-// Memoized selector to prevent unnecessary rerenders
-const selectAuthState = useMemo(
-  () => (state: RootState) => ({
-    isAuthenticated: state.auth.isAuthenticated,
-    user: state.auth.user,
-  }),
-  []
-);
-
-// Update the navigation state logic:
+// Update the navigation state logic with proper memoization
 function useNavigationState(
-  user: User | null,
+  user: any,
   isAuthenticated: boolean,
   segments: string[]
 ) {
@@ -49,34 +51,27 @@ function useNavigationState(
     const inTabsGroup = currentPath === "(tabs)";
     const onPaymentPlan = currentPath === "payment-plan";
     const onPayment = currentPath === "payment";
-    // Update this line to check for questionnaire in tabs:
     const onQuestionnaire = inTabsGroup && segments?.[1] === "questionnaire";
     const onEmailVerification =
       inAuthGroup && segments?.[1] === "email-verification";
 
-    // Create current route string for comparison
     const currentRoute = "/" + segments.join("/");
 
     let targetRoute: string | null = null;
 
-    // Enhanced redirect logic with token validation
     if (!isAuthenticated || !user) {
-      // Not authenticated at all - go to signin
       if (!inAuthGroup) {
         targetRoute = "/(auth)/signin";
       }
     } else if (user && !user.email_verified && !onEmailVerification) {
-      // User exists but email not verified
       targetRoute = "/(auth)/email-verification";
     } else if (
       user?.subscription_type === "FREE" &&
       !onPaymentPlan &&
       !onPayment
     ) {
-      // User verified but needs subscription
       targetRoute = "/payment-plan";
     } else if (!user?.is_questionnaire_completed && !onQuestionnaire) {
-      // User has subscription but needs questionnaire
       targetRoute = "/(tabs)/questionnaire";
     } else if (
       !inTabsGroup &&
@@ -105,7 +100,6 @@ function useNavigationState(
   ]);
 }
 
-// Add a flag to temporarily disable auto-navigation during manual navigation
 function useNavigationManager(
   targetRoute: string | null,
   currentRoute: string,
@@ -122,7 +116,6 @@ function useNavigationManager(
       return;
     }
 
-    // Don't auto-navigate if we're on specific pages that should not be interrupted
     const currentPath = segments?.[0] || "";
     const currentFullPath = "/" + segments.join("/");
 
@@ -136,25 +129,15 @@ function useNavigationManager(
       return;
     }
 
-    // Prevent duplicate navigations
     if (lastNavigationRef.current === targetRoute) {
       return;
     }
 
-    // Immediate navigation without setTimeout to prevent delays
     isNavigatingRef.current = true;
     lastNavigationRef.current = targetRoute;
 
-    router.replace(
-      targetRoute as typeof router.replace extends (
-        url: infer U,
-        ...args: any
-      ) => any
-        ? U
-        : never
-    );
+    router.replace(targetRoute as any);
 
-    // Reset navigation flag after a short delay
     const resetTimeout = setTimeout(() => {
       isNavigatingRef.current = false;
     }, 100);
@@ -165,16 +148,14 @@ function useNavigationManager(
   }, [loaded, shouldNavigate, targetRoute, router, segments]);
 }
 
-// Memoized loading screen component
-const LoadingScreen = () => (
+const LoadingScreen = React.memo(() => (
   <View style={styles.loadingContainer}>
-    <ActivityIndicator size="large" color="#007AFF" />
+    <ActivityIndicator size="large" color="#10b981" />
     <Text style={styles.loadingText}>Loading...</Text>
   </View>
-);
+));
 
-// Memoized stack screens to prevent re-creation
-const StackScreens = () => (
+const StackScreens = React.memo(() => (
   <Stack screenOptions={{ headerShown: false }}>
     <Stack.Screen name="(auth)" />
     <Stack.Screen name="(tabs)" />
@@ -184,123 +165,93 @@ const StackScreens = () => (
     <Stack.Screen name="menu/[id]" />
     <Stack.Screen name="+not-found" />
   </Stack>
-);
+));
 
-// Fixed help content hook with proper memoization
 function useHelpContent(): { title: string; description: string } | undefined {
   const segments = useSegments();
+  const { t } = useTranslation();
 
   return useMemo(() => {
     const route = "/" + segments.join("/");
 
-    switch (route) {
-      case "/questionnaire":
-        return {
-          title: "Health Questionnaire",
-          description:
-            "Complete your health profile to receive personalized nutrition recommendations. This questionnaire helps us understand your goals, lifestyle, and dietary needs.",
-        };
-      case "/(tabs)":
-      case "/(tabs)/index":
-        return {
-          title: "Home Dashboard",
-          description:
-            "Welcome to your nutrition dashboard! Here you can view your daily progress, recent meals, and quick access to all features. Use the toolbar to switch languages or get help on any page.",
-        };
-      case "/(tabs)/calendar":
-        return {
-          title: "Calendar & Meal Planning",
-          description:
-            "Plan your meals for the week ahead. View scheduled meals, track your nutrition goals, and see your eating patterns over time. Tap any date to add or view planned meals.",
-        };
-      case "/(tabs)/statistics":
-        return {
-          title: "Nutrition Statistics",
-          description:
-            "Track your nutritional progress with detailed charts and metrics. Monitor your intake of macronutrients, micronutrients, and lifestyle factors. Use the time filters to view daily, weekly, or monthly trends.",
-        };
-      case "/(tabs)/camera":
-        return {
-          title: "Food Camera",
-          description:
-            "Take photos of your meals to automatically log nutrition information. The AI will analyze your food and provide detailed nutritional breakdown. Make sure to capture the entire meal for accurate results.",
-        };
-      case "/(tabs)/food-scanner":
-        return {
-          title: "Food Scanner",
-          description:
-            "Scan barcodes or upload food images to get instant nutrition information. Perfect for packaged foods and restaurant meals. The scanner works best with clear, well-lit images.",
-        };
-      case "/(tabs)/ai-chat":
-        return {
-          title: "AI Nutrition Assistant",
-          description:
-            "Chat with your personal AI nutrition assistant. Ask questions about food, get meal recommendations, and receive personalized advice based on your goals and dietary preferences.",
-        };
-      case "/(tabs)/recommended-menus":
-        return {
-          title: "Recommended Menus",
-          description:
-            "Discover personalized meal plans created just for you. Based on your dietary preferences, goals, and restrictions, these menus help you maintain a balanced and enjoyable diet.",
-        };
-      case "/(tabs)/history":
-        return {
-          title: "Meal History",
-          description:
-            "Review your past meals and track your eating patterns. Rate your meals, add notes, and learn from your nutrition journey. Use filters to find specific meals or time periods.",
-        };
-      case "/(tabs)/profile":
-        return {
-          title: "Profile & Settings",
-          description:
-            "Manage your personal information, dietary preferences, and app settings. Update your goals, allergies, and notification preferences to customize your experience.",
-        };
-      case "/(tabs)/devices":
-        return {
-          title: "Device Integration",
-          description:
-            "Connect your fitness trackers and health apps to get a complete picture of your wellness. Sync data from Apple Health, Google Fit, Fitbit, and other supported devices.",
-        };
-      case "/(tabs)/questionnaire":
-        return {
-          title: "Health Questionnaire",
-          description:
-            "Complete your health profile to receive personalized nutrition recommendations. This questionnaire helps us understand your goals, lifestyle, and dietary needs.",
-        };
-      default:
-        return {
-          title: "App Help",
-          description:
-            "Welcome to your nutrition tracking app! Use the navigation tabs to explore different features. Each page has specific help content available through this help button.",
-        };
-    }
-  }, [segments]);
+    const helpContentMap: Record<
+      string,
+      { title: string; description: string }
+    > = {
+      "/questionnaire": {
+        title: t("questionnaire.title"),
+        description: t("tabs.questionnaire_description"),
+      },
+      "/(tabs)": {
+        title: t("tabs.home"),
+        description: t("tabs.home_description"),
+      },
+      "/(tabs)/index": {
+        title: t("tabs.home"),
+        description: t("tabs.home_description"),
+      },
+      "/(tabs)/calendar": {
+        title: t("tabs.calendar"),
+        description: t("tabs.calendar_description"),
+      },
+      "/(tabs)/statistics": {
+        title: t("tabs.statistics"),
+        description: t("tabs.statistics_description"),
+      },
+      "/(tabs)/camera": {
+        title: t("tabs.camera"),
+        description: t("tabs.camera_description"),
+      },
+      "/(tabs)/food-scanner": {
+        title: t("tabs.food_scanner"),
+        description: t("tabs.food_scanner_description"),
+      },
+      "/(tabs)/ai-chat": {
+        title: t("tabs.ai_chat"),
+        description: t("tabs.ai_chat_description"),
+      },
+      "/(tabs)/recommended-menus": {
+        title: t("tabs.recommended_menus"),
+        description: t("tabs.recommended_menus_description"),
+      },
+      "/(tabs)/history": {
+        title: t("tabs.history"),
+        description: t("tabs.history_description"),
+      },
+      "/(tabs)/profile": {
+        title: t("tabs.profile"),
+        description: t("tabs.profile_description"),
+      },
+      "/(tabs)/devices": {
+        title: t("tabs.devices"),
+        description: t("tabs.devices_description"),
+      },
+      "/(tabs)/questionnaire": {
+        title: t("questionnaire.title"),
+        description: t("tabs.questionnaire_description"),
+      },
+    };
+
+    return (
+      helpContentMap[route] || {
+        title: t("common.help"),
+        description: t("tabs.home_description"),
+      }
+    );
+  }, [segments, t]);
 }
 
-// Fixed AppContent component
-const AppContent = () => {
-  const authState = useSelector(selectAuthState);
-  const questionnaireState = useSelector(
-    (state: any) => state?.questionnaire || {}
-  );
-
+const AppContent = React.memo(() => {
+  const authState = useOptimizedAuthSelector();
   const { isAuthenticated = false, user = null } = authState || {};
-  const { questionnaire = null } = questionnaireState || {};
 
-  useAppInitialization();
-
-  // Font loading
   const [loaded] = useFonts({
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
 
-  // Memoized navigation state selector
   const segments = useSegments() as string[];
-
-  // Memoized navigation state
   const navigationState = useNavigationState(user, isAuthenticated, segments);
 
-  // Navigation management
   useNavigationManager(
     navigationState.targetRoute,
     navigationState.currentRoute,
@@ -308,28 +259,26 @@ const AppContent = () => {
     loaded
   );
 
-  // Splash screen handling
   useEffect(() => {
     if (loaded) {
       SplashScreen.hideAsync();
-      // Initialize notifications
-      NotificationService.requestPermissions();
+      NotificationService.requestPermissions().catch((error) => {
+        console.warn("Failed to request notification permissions:", error);
+      });
     }
   }, [loaded]);
 
-  // Early return for loading state
   if (!loaded) {
     return null;
   }
 
   return <StackScreens />;
-};
+});
 
-// Fixed main component with proper help content integration
-const MainApp = () => {
+const MainApp = React.memo(() => {
   const helpContent = useHelpContent();
-  const authState = useSelector(selectAuthState);
-  const { isAuthenticated = false, user = null } = authState || {};
+  const authState = useOptimizedAuthSelector();
+  const { isAuthenticated = false } = authState || {};
 
   return (
     <View style={styles.container}>
@@ -338,7 +287,7 @@ const MainApp = () => {
       {isAuthenticated && <FloatingChatButton />}
     </View>
   );
-};
+});
 
 export default function RootLayout() {
   return (
@@ -374,8 +323,11 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
+    backgroundColor: "#f8f9fa",
   },
   loadingText: {
     marginTop: 10,
+    fontSize: 16,
+    color: "#666",
   },
 });

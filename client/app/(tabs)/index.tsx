@@ -114,10 +114,20 @@ interface GoalProgress {
   label: string;
 }
 
+// Memoized selectors to prevent unnecessary rerenders
+const selectMealState = (state: RootState) => ({
+  meals: state.meal.meals,
+  isLoading: state.meal.isLoading,
+});
+
+const selectAuthState = (state: RootState) => ({
+  user: state.auth.user,
+});
+
 const HomeScreen = React.memo(() => {
   const dispatch = useDispatch<AppDispatch>();
-  const { meals, isLoading } = useSelector((state: RootState) => state.meal);
-  const { user } = useSelector((state: RootState) => state.auth);
+  const { meals, isLoading } = useSelector(selectMealState);
+  const { user } = useSelector(selectAuthState);
 
   // ALL HOOKS MUST BE DECLARED FIRST - BEFORE ANY CONDITIONAL LOGIC
   const [userStats, setUserStats] = useState<UserStats | null>(null);
@@ -218,7 +228,7 @@ const HomeScreen = React.memo(() => {
     }));
   }, [processedMealsData.dailyTotals]);
 
-  // Optimized user stats loading with caching
+  // Optimized user stats loading with caching - FIXED API ROUTE
   const loadUserStats = useCallback(async () => {
     if (!user?.user_id) return;
 
@@ -230,7 +240,8 @@ const HomeScreen = React.memo(() => {
     }
 
     try {
-      const response = await api.get(`/calendar/statistics/${user.user_id}`); // Assuming user_id is needed
+      // Fixed: Use the correct API route
+      const response = await api.get(`/user/statistics/${user.user_id}`);
       if (response.data.success) {
         const stats = response.data.data;
         const summaryStats: UserStats = {

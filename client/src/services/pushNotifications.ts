@@ -15,8 +15,9 @@ Notifications.setNotificationHandler({
 
 export class PushNotificationService {
   static async registerForPushNotifications() {
-    if (!Device.isDevice) {
-      console.log("Must use physical device for Push Notifications");
+    // Skip push notifications in Expo Go
+    if (!Device.isDevice || __DEV__) {
+      console.log("Push notifications not available in Expo Go or development");
       return null;
     }
 
@@ -38,19 +39,18 @@ export class PushNotificationService {
       // Try to get project ID from multiple sources
       let projectId =
         Constants?.expoConfig?.extra?.eas?.projectId ||
-        Constants?.easConfig?.projectId;
+        Constants?.easConfig?.projectId ||
+        "your-project-id-here"; // Fallback
 
       // If still not found, try from app config
       if (!projectId && Constants?.expoConfig?.extra) {
         projectId = Constants.expoConfig.extra.eas?.projectId;
       }
 
-      if (!projectId) {
-        console.error(
-          "Project ID not found in app configuration. Please add it to app.json"
+      if (!projectId || projectId === "your-project-id-here") {
+        console.warn(
+          "Using fallback project ID - push notifications may not work properly"
         );
-        console.log("Add this to your app.json:");
-        console.log('"extra": { "eas": { "projectId": "your-project-id" } }');
         return null;
       }
 

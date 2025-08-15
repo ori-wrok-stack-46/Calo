@@ -55,13 +55,30 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
   const colors = isDark ? Colors.dark : Colors.light;
   const theme = isDark ? "dark" : "light";
 
+  // Enhanced colors object with additional properties
+  const enhancedColors = {
+    ...colors,
+    // Ensure we have all the properties needed by components
+    emerald: colors.emerald || colors.emerald500,
+    emerald500: colors.emerald500,
+    emerald600: colors.emerald600,
+    emerald700: colors.emerald700,
+    primary: colors.primary || colors.emerald,
+    textSecondary: colors.textSecondary || colors.icon,
+    card: colors.card || colors.surface,
+    border: colors.border || colors.outline,
+    shadow: colors.shadow || "rgba(0, 0, 0, 0.1)",
+  };
+
   // Don't render children until theme is loaded to prevent flash
   if (!isLoaded) {
     return null;
   }
 
   return (
-    <ThemeContext.Provider value={{ isDark, toggleTheme, colors, theme }}>
+    <ThemeContext.Provider
+      value={{ isDark, toggleTheme, colors: enhancedColors, theme }}
+    >
       {children}
     </ThemeContext.Provider>
   );

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   StyleSheet,
   ScrollView,
   Dimensions,
+  Platform,
 } from "react-native";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
@@ -16,7 +17,6 @@ import Animated, {
   withSpring,
   withTiming,
   interpolate,
-  runOnJS,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
@@ -26,6 +26,8 @@ import {
   Moon,
   CircleHelp as HelpCircle,
   X,
+  ChevronRight,
+  ChevronLeft,
 } from "lucide-react-native";
 import { useLanguage } from "../src/i18n/context/LanguageContext";
 import { useTheme } from "../src/context/ThemeContext";
@@ -42,7 +44,6 @@ interface ToolBarProps {
 const { width: screenWidth } = Dimensions.get("window");
 const AnimatedTouchableOpacity =
   Animated.createAnimatedComponent(TouchableOpacity);
-const AnimatedBlurView = Animated.createAnimatedComponent(BlurView);
 
 const ToolBar: React.FC<ToolBarProps> = ({ helpContent }) => {
   const { language, changeLanguage, isRTL } = useLanguage();
@@ -63,33 +64,30 @@ const ToolBar: React.FC<ToolBarProps> = ({ helpContent }) => {
   const button2Position = useSharedValue({ x: 0, y: 0 });
   const button3Position = useSharedValue({ x: 0, y: 0 });
 
-  const handleToggleMenu = () => {
+  const handleToggleMenu = useCallback(() => {
     const newExpanded = !isExpanded;
     setIsExpanded(newExpanded);
 
-    // Determine expansion direction based on language
-    // English (left positioned) -> expand right (positive values)
-    // Hebrew (right positioned) -> expand left (negative values)
-    const expandLeft = language === "he"; // Hebrew expands left, English expands right
-    const xMultiplier = expandLeft ? -1 : 1;
+    // Fixed RTL expansion logic
+    const expandDirection = isRTL ? -1 : 1;
 
     if (newExpanded) {
       // Expand animation
-      fabRotation.value = withSpring(180, { damping: 15, stiffness: 200 });
+      fabRotation.value = withSpring(45, { damping: 15, stiffness: 200 });
       menuOpacity.value = withTiming(1, { duration: 300 });
       backdropOpacity.value = withTiming(0.3, { duration: 300 });
 
-      // Directional radial positions
+      // Radial positions - properly adjusted for RTL
       button1Position.value = withSpring(
-        { x: 90 * xMultiplier, y: -10 },
+        { x: 80 * expandDirection, y: -10 },
         { damping: 12, stiffness: 180 }
       );
       button2Position.value = withSpring(
-        { x: 75 * xMultiplier, y: -60 },
+        { x: 65 * expandDirection, y: -55 },
         { damping: 12, stiffness: 180 }
       );
       button3Position.value = withSpring(
-        { x: 40 * xMultiplier, y: -90 },
+        { x: 35 * expandDirection, y: -85 },
         { damping: 12, stiffness: 180 }
       );
     } else {
@@ -112,74 +110,113 @@ const ToolBar: React.FC<ToolBarProps> = ({ helpContent }) => {
         { damping: 15, stiffness: 150 }
       );
     }
-  };
+  }, [
+    isExpanded,
+    isRTL,
+    fabRotation,
+    menuOpacity,
+    backdropOpacity,
+    button1Position,
+    button2Position,
+    button3Position,
+  ]);
 
-  const handleLanguageToggle = () => {
+  const handleLanguageToggle = useCallback(() => {
     const newLanguage = language === "he" ? "en" : "he";
     changeLanguage(newLanguage);
     handleToggleMenu();
-  };
+  }, [language, changeLanguage, handleToggleMenu]);
 
-  const handleThemeToggle = () => {
+  const handleThemeToggle = useCallback(() => {
     toggleTheme();
     handleToggleMenu();
-  };
+  }, [toggleTheme, handleToggleMenu]);
 
-  const handleHelpPress = () => {
+  const handleHelpPress = useCallback(() => {
     setShowHelp(true);
     modalScale.value = withSpring(1, { damping: 15, stiffness: 150 });
     handleToggleMenu();
-  };
+  }, [modalScale, handleToggleMenu]);
 
-  const handleCloseHelp = () => {
+  const handleCloseHelp = useCallback(() => {
     modalScale.value = withTiming(0, { duration: 200 });
-    runOnJS(() => setShowHelp(false))();
-  };
+    setTimeout(() => setShowHelp(false), 200);
+  }, [modalScale]);
 
-  // Animated styles
-  const fabStyle = useAnimatedStyle(() => ({
-    transform: [
-      { scale: fabScale.value },
-      { rotate: `${fabRotation.value}deg` },
-    ],
-  }));
+  // Memoized animated styles
+  const fabStyle = useAnimatedStyle(
+    () => ({
+      transform: [
+        { scale: fabScale.value },
+        { rotate: `${fabRotation.value}deg` },
+      ],
+    }),
+    []
+  );
 
-  const backdropStyle = useAnimatedStyle(() => ({
-    opacity: backdropOpacity.value,
-  }));
+  const backdropStyle = useAnimatedStyle(
+    () => ({
+      opacity: backdropOpacity.value,
+    }),
+    []
+  );
 
-  const menuContainerStyle = useAnimatedStyle(() => ({
-    opacity: menuOpacity.value,
-  }));
+  const menuContainerStyle = useAnimatedStyle(
+    () => ({
+      opacity: menuOpacity.value,
+    }),
+    []
+  );
 
-  const button1Style = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: button1Position.value.x },
-      { translateY: button1Position.value.y },
-      { scale: interpolate(menuOpacity.value, [0, 1], [0.3, 1]) },
-    ],
-  }));
+  const button1Style = useAnimatedStyle(
+    () => ({
+      transform: [
+        { translateX: button1Position.value.x },
+        { translateY: button1Position.value.y },
+        { scale: interpolate(menuOpacity.value, [0, 1], [0.3, 1]) },
+      ],
+    }),
+    []
+  );
 
-  const button2Style = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: button2Position.value.x },
-      { translateY: button2Position.value.y },
-      { scale: interpolate(menuOpacity.value, [0, 1], [0.3, 1]) },
-    ],
-  }));
+  const button2Style = useAnimatedStyle(
+    () => ({
+      transform: [
+        { translateX: button2Position.value.x },
+        { translateY: button2Position.value.y },
+        { scale: interpolate(menuOpacity.value, [0, 1], [0.3, 1]) },
+      ],
+    }),
+    []
+  );
 
-  const button3Style = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: button3Position.value.x },
-      { translateY: button3Position.value.y },
-      { scale: interpolate(menuOpacity.value, [0, 1], [0.3, 1]) },
-    ],
-  }));
+  const button3Style = useAnimatedStyle(
+    () => ({
+      transform: [
+        { translateX: button3Position.value.x },
+        { translateY: button3Position.value.y },
+        { scale: interpolate(menuOpacity.value, [0, 1], [0.3, 1]) },
+      ],
+    }),
+    []
+  );
 
-  const modalStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: modalScale.value }],
-    opacity: modalScale.value,
-  }));
+  const modalStyle = useAnimatedStyle(
+    () => ({
+      transform: [{ scale: modalScale.value }],
+      opacity: modalScale.value,
+    }),
+    []
+  );
+
+  // Dynamic positioning based on language
+  const toolbarPosition = useMemo(
+    () => ({
+      bottom: insets.bottom + 100, // Position above tab bar
+      [isRTL ? "left" : "right"]: 24,
+    }),
+    [insets.bottom, isRTL]
+  );
 
   return (
     <>
@@ -196,16 +233,7 @@ const ToolBar: React.FC<ToolBarProps> = ({ helpContent }) => {
       </Animated.View>
 
       {/* Main Container */}
-      <View
-        style={[
-          styles.container,
-          {
-            bottom: insets.bottom + 30,
-            right: language === "en" ? 24 : undefined,
-            left: language === "he" ? 24 : undefined,
-          },
-        ]}
-      >
+      <View style={[styles.container, toolbarPosition]}>
         {/* Menu Items */}
         <Animated.View style={[styles.menuContainer, menuContainerStyle]}>
           {/* Language Button */}
@@ -216,16 +244,12 @@ const ToolBar: React.FC<ToolBarProps> = ({ helpContent }) => {
           >
             <BlurView intensity={80} style={styles.blurButton}>
               <LinearGradient
-                colors={
-                  isDark
-                    ? ["rgba(255,255,255,0.15)", "rgba(255,255,255,0.08)"]
-                    : ["rgba(0,0,0,0.08)", "rgba(0,0,0,0.15)"]
-                }
+                colors={[`${colors.primary}20`, `${colors.primary}15`]}
                 style={styles.gradientButton}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
               >
-                <View style={[styles.iconContainer, { marginBottom: 4 }]}>
+                <View style={styles.iconContainer}>
                   <Globe size={18} color={colors.primary} strokeWidth={2.5} />
                 </View>
                 <Text
@@ -233,9 +257,6 @@ const ToolBar: React.FC<ToolBarProps> = ({ helpContent }) => {
                     styles.buttonLabel,
                     {
                       color: colors.primary,
-                      fontSize: 8,
-                      fontWeight: "900",
-                      letterSpacing: 1.2,
                     },
                   ]}
                 >
@@ -253,16 +274,12 @@ const ToolBar: React.FC<ToolBarProps> = ({ helpContent }) => {
           >
             <BlurView intensity={80} style={styles.blurButton}>
               <LinearGradient
-                colors={
-                  isDark
-                    ? ["rgba(255,255,255,0.15)", "rgba(255,255,255,0.08)"]
-                    : ["rgba(0,0,0,0.08)", "rgba(0,0,0,0.15)"]
-                }
+                colors={[`${colors.primary}20`, `${colors.primary}15`]}
                 style={styles.gradientButton}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
               >
-                <View style={[styles.iconContainer, { padding: 2 }]}>
+                <View style={styles.iconContainer}>
                   {isDark ? (
                     <Sun size={18} color={colors.primary} strokeWidth={2.5} />
                   ) : (
@@ -282,16 +299,12 @@ const ToolBar: React.FC<ToolBarProps> = ({ helpContent }) => {
             >
               <BlurView intensity={80} style={styles.blurButton}>
                 <LinearGradient
-                  colors={
-                    isDark
-                      ? ["rgba(255,255,255,0.15)", "rgba(255,255,255,0.08)"]
-                      : ["rgba(0,0,0,0.08)", "rgba(0,0,0,0.15)"]
-                  }
+                  colors={[`${colors.primary}20`, `${colors.primary}15`]}
                   style={styles.gradientButton}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                 >
-                  <View style={[styles.iconContainer, { padding: 2 }]}>
+                  <View style={styles.iconContainer}>
                     <HelpCircle
                       size={18}
                       color={colors.primary}
@@ -311,20 +324,16 @@ const ToolBar: React.FC<ToolBarProps> = ({ helpContent }) => {
           activeOpacity={0.85}
         >
           <LinearGradient
-            colors={[
-              colors.primary,
-              `${colors.primary}E6`,
-              `${colors.primary}B3`,
-            ]}
+            colors={[colors.primary, `${colors.primary}E6`]}
             style={styles.fabGradient}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
           >
             <BlurView intensity={25} style={styles.fabBlur}>
               {isExpanded ? (
-                <X size={26} color="#FFFFFF" strokeWidth={3} />
+                <X size={24} color="#FFFFFF" strokeWidth={3} />
               ) : (
-                <Settings size={26} color="#FFFFFF" strokeWidth={3} />
+                <Settings size={24} color="#FFFFFF" strokeWidth={3} />
               )}
             </BlurView>
           </LinearGradient>
@@ -355,10 +364,23 @@ const ToolBar: React.FC<ToolBarProps> = ({ helpContent }) => {
               style={styles.modalGradient}
             >
               {/* Modal Header */}
-              <View style={styles.modalHeader}>
-                <View style={styles.modalTitleContainer}>
+              <View
+                style={[styles.modalHeader, isRTL && styles.modalHeaderRTL]}
+              >
+                <View
+                  style={[
+                    styles.modalTitleContainer,
+                    isRTL && styles.modalTitleContainerRTL,
+                  ]}
+                >
                   <HelpCircle size={24} color={colors.primary} />
-                  <Text style={[styles.modalTitle, { color: colors.text }]}>
+                  <Text
+                    style={[
+                      styles.modalTitle,
+                      { color: colors.text },
+                      isRTL && styles.rtlText,
+                    ]}
+                  >
                     {helpContent?.title || "Help"}
                   </Text>
                 </View>
@@ -380,7 +402,13 @@ const ToolBar: React.FC<ToolBarProps> = ({ helpContent }) => {
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.modalBodyContent}
               >
-                <Text style={[styles.modalText, { color: colors.text }]}>
+                <Text
+                  style={[
+                    styles.modalText,
+                    { color: colors.text },
+                    isRTL && styles.rtlText,
+                  ]}
+                >
                   {helpContent?.description || "No help content available."}
                 </Text>
               </ScrollView>
@@ -415,61 +443,62 @@ const styles = StyleSheet.create({
   },
   menuButton: {
     position: "absolute",
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     overflow: "hidden",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 12 },
+    shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.2,
-    shadowRadius: 20,
-    elevation: 12,
+    shadowRadius: 16,
+    elevation: 8,
   },
   blurButton: {
     flex: 1,
-    borderRadius: 30,
+    borderRadius: 28,
     overflow: "hidden",
   },
   gradientButton: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 30,
-    borderWidth: 2,
+    borderRadius: 28,
+    borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.2)",
-    paddingVertical: 10,
+    paddingVertical: 8,
   },
   iconContainer: {
     alignItems: "center",
     justifyContent: "center",
+    marginBottom: 2,
   },
   buttonLabel: {
     fontSize: 8,
     fontWeight: "800",
-    letterSpacing: 1.2,
+    letterSpacing: 1,
     textTransform: "uppercase",
     textAlign: "center",
   },
   fab: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     overflow: "hidden",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 16 },
+    shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.3,
-    shadowRadius: 24,
-    elevation: 16,
+    shadowRadius: 20,
+    elevation: 12,
   },
   fabGradient: {
     flex: 1,
-    borderRadius: 34,
+    borderRadius: 32,
   },
   fabBlur: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 34,
+    borderRadius: 32,
     borderWidth: 1,
     borderColor: "rgba(255, 255, 255, 0.1)",
   },
@@ -506,10 +535,16 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "rgba(255, 255, 255, 0.1)",
   },
+  modalHeaderRTL: {
+    flexDirection: "row-reverse",
+  },
   modalTitleContainer: {
     flexDirection: "row",
     alignItems: "center",
     flex: 1,
+  },
+  modalTitleContainerRTL: {
+    flexDirection: "row-reverse",
   },
   modalTitle: {
     fontSize: 20,
@@ -534,6 +569,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 26,
     letterSpacing: 0.3,
+  },
+  rtlText: {
+    textAlign: "right",
+    writingDirection: "rtl",
   },
 });
 

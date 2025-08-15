@@ -1,6 +1,6 @@
 import { Tabs } from "expo-router";
 import React, { useMemo } from "react";
-import { View, Platform } from "react-native";
+import { View, Platform, I18nManager } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useLanguage } from "@/src/i18n/context/LanguageContext";
@@ -10,28 +10,14 @@ import { useColorScheme } from "@/hooks/useColorScheme";
 import { ScrollableTabBar } from "@/components/ScrollableTabBar";
 import { useTheme } from "@/src/context/ThemeContext";
 
+// Enable RTL support
+I18nManager.allowRTL(true);
+
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const { t } = useTranslation();
   const { isRTL } = useLanguage();
   const { colors } = useTheme();
-
-  const routes = useMemo(
-    () => [
-      "index",
-      "history",
-      "recommended-menus",
-      "camera",
-      "food-scanner",
-      "calendar",
-      "statistics",
-      "ai-chat",
-      "devices",
-      "questionnaire",
-      "profile",
-    ],
-    []
-  );
 
   return (
     <ProtectedRoute>
@@ -39,7 +25,6 @@ export default function TabLayout() {
         style={{
           flex: 1,
           backgroundColor: colors.background,
-          direction: isRTL ? "rtl" : "ltr",
         }}
         edges={["top"]}
       >
@@ -47,9 +32,6 @@ export default function TabLayout() {
           style={{
             flex: 1,
             backgroundColor: colors.background,
-            ...(Platform.OS === "web" && {
-              direction: isRTL ? "rtl" : "ltr",
-            }),
           }}
         >
           <Tabs
@@ -64,7 +46,7 @@ export default function TabLayout() {
               options={{
                 title: t("tabs.home"),
                 tabBarIcon: ({ color }) => (
-                  <IconSymbol size={28} name="house.fill" color={color} />
+                  <IconSymbol size={24} name="house.fill" color={color} />
                 ),
               }}
             />
@@ -73,7 +55,7 @@ export default function TabLayout() {
               options={{
                 title: t("tabs.history"),
                 tabBarIcon: ({ color }) => (
-                  <IconSymbol size={28} name="clock.fill" color={color} />
+                  <IconSymbol size={24} name="clock.fill" color={color} />
                 ),
               }}
             />
@@ -82,7 +64,7 @@ export default function TabLayout() {
               options={{
                 title: t("tabs.recommended_menus"),
                 tabBarIcon: ({ color }) => (
-                  <IconSymbol size={28} name="dining" color={color} />
+                  <IconSymbol size={24} name="dining" color={color} />
                 ),
               }}
             />
@@ -91,7 +73,7 @@ export default function TabLayout() {
               options={{
                 title: t("tabs.camera"),
                 tabBarIcon: ({ color }) => (
-                  <IconSymbol size={28} name="camera.fill" color={color} />
+                  <IconSymbol size={24} name="camera.fill" color={color} />
                 ),
               }}
             />
@@ -101,7 +83,7 @@ export default function TabLayout() {
                 title: t("tabs.food_scanner"),
                 tabBarIcon: ({ color }) => (
                   <IconSymbol
-                    size={28}
+                    size={24}
                     name="barcode.viewfinder"
                     color={color}
                   />
@@ -113,7 +95,7 @@ export default function TabLayout() {
               options={{
                 title: t("tabs.calendar"),
                 tabBarIcon: ({ color }) => (
-                  <IconSymbol size={28} name="calendar" color={color} />
+                  <IconSymbol size={24} name="calendar" color={color} />
                 ),
               }}
             />
@@ -122,7 +104,7 @@ export default function TabLayout() {
               options={{
                 title: t("tabs.statistics"),
                 tabBarIcon: ({ color }) => (
-                  <IconSymbol size={28} name="chart.bar.fill" color={color} />
+                  <IconSymbol size={24} name="chart.bar.fill" color={color} />
                 ),
               }}
             />
@@ -131,7 +113,7 @@ export default function TabLayout() {
               options={{
                 title: t("tabs.ai_chat"),
                 tabBarIcon: ({ color }) => (
-                  <IconSymbol size={28} name="message.fill" color={color} />
+                  <IconSymbol size={24} name="message.fill" color={color} />
                 ),
               }}
             />
@@ -140,7 +122,7 @@ export default function TabLayout() {
               options={{
                 title: t("tabs.devices"),
                 tabBarIcon: ({ color }) => (
-                  <IconSymbol size={28} name="watch.digital" color={color} />
+                  <IconSymbol size={24} name="watch.digital" color={color} />
                 ),
               }}
             />
@@ -149,7 +131,7 @@ export default function TabLayout() {
               options={{
                 title: t("tabs.questionnaire"),
                 tabBarIcon: ({ color }) => (
-                  <IconSymbol size={28} name="doc.text.fill" color={color} />
+                  <IconSymbol size={24} name="doc.text.fill" color={color} />
                 ),
               }}
             />
@@ -158,7 +140,7 @@ export default function TabLayout() {
               options={{
                 title: t("tabs.profile"),
                 tabBarIcon: ({ color }) => (
-                  <IconSymbol size={28} name="person.fill" color={color} />
+                  <IconSymbol size={24} name="person.fill" color={color} />
                 ),
               }}
             />

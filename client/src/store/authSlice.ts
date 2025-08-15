@@ -1,8 +1,12 @@
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
-import { User, SignUpData, SignInData, AuthResponse } from "../types";
 import { authAPI } from "../services/api";
-import { clearAllQueries } from "../services/queryClient";
+import type { User, SignUpData, SignInData, AuthResponse } from "../types";
 
+// Import clearAllQueries dynamically to avoid cycles
+const clearQueries = async () => {
+  const { clearAllQueries } = await import("../services/queryClient");
+  clearAllQueries();
+};
 interface AuthState {
   user: User | null;
   token: string | null;
@@ -119,7 +123,7 @@ export const signOut = createAsyncThunk(
       console.log("✅ AsyncStorage cleared");
 
       // Clear TanStack Query cache
-      clearAllQueries();
+      await clearQueries();
 
       // Clear API auth
       await authAPI.signOut();
