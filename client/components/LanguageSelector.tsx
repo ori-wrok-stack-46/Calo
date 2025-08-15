@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -6,10 +6,15 @@ import {
   StyleSheet,
   Modal,
   Pressable,
+  Animated,
+  Dimensions,
 } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useLanguage } from "@/src/i18n/context/LanguageContext";
 import { Ionicons } from "@expo/vector-icons";
+import { LinearGradient } from "expo-linear-gradient";
+
+const { width: screenWidth } = Dimensions.get("window");
 
 interface LanguageSelectorProps {
   showModal?: boolean;
@@ -22,92 +27,209 @@ const LanguageSelector: React.FC<LanguageSelectorProps> = ({
 }) => {
   const { t } = useTranslation();
   const { currentLanguage, changeLanguage, isRTL } = useLanguage();
-  const [modalVisible, setModalVisible] = React.useState(false);
+  const [modalVisible, setModalVisible] = useState(false);
+  const [slideAnim] = useState(new Animated.Value(screenWidth));
 
   const languages = [
-    { code: "en", name: t("language.english"), flag: "🇺🇸" },
-    { code: "he", name: t("language.hebrew"), flag: "🇮🇱" },
+    {
+      code: "en",
+      name: t("language.english") || "English",
+      flag: "🇺🇸",
+      nativeName: "English",
+    },
+    {
+      code: "he",
+      name: t("language.hebrew") || "עברית",
+      flag: "🇮🇱",
+      nativeName: "עברית",
+    },
   ];
+
+  const currentLang = languages.find((lang) => lang.code === currentLanguage);
 
   const handleLanguageSelect = async (languageCode: string) => {
     await changeLanguage(languageCode);
-    setModalVisible(false);
-    onToggleModal?.();
+    closeModal();
   };
 
-  const toggleModal = () => {
-    if (onToggleModal) {
-      onToggleModal();
-    } else {
-      setModalVisible(!modalVisible);
+  const openModal = () => {
+    const isVisible = showModal || modalVisible;
+    if (!isVisible) {
+      setModalVisible(true);
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        useNativeDriver: true,
+        tension: 100,
+        friction: 8,
+      }).start();
     }
+  };
+
+  const closeModal = () => {
+    Animated.timing(slideAnim, {
+      toValue: screenWidth,
+      duration: 300,
+      useNativeDriver: true,
+    }).start(() => {
+      setModalVisible(false);
+      onToggleModal?.();
+    });
   };
 
   const isVisible = showModal || modalVisible;
 
   return (
     <View style={styles.container}>
+      {/* Language Toggle Button */}
       <TouchableOpacity
         style={[styles.languageButton, isRTL && styles.languageButtonRTL]}
-        onPress={toggleModal}
+        onPress={openModal}
+        activeOpacity={0.8}
       >
-        <Ionicons name="language" size={20} color="#007AFF" />
-        <Text style={[styles.languageText, isRTL && styles.languageTextRTL]}>
-          {languages.find((lang) => lang.code === currentLanguage)?.flag}{" "}
-          {t("profile.language")}
-        </Text>
-        <Ionicons name="chevron-down" size={16} color="#666" />
+        <LinearGradient
+          colors={["#f8f9fa", "#e9ecef"]}
+          style={styles.buttonGradient}
+        >
+          <View style={styles.flagContainer}>
+            <Text style={styles.flagEmoji}>{currentLang?.flag}</Text>
+          </View>
+          <View
+            style={[styles.textContainer, isRTL && styles.textContainerRTL]}
+          >
+            <Text style={[styles.languageLabel, isRTL && styles.textRTL]}>
+              {t("profile.language") || "Language"}
+            </Text>
+            <Text style={[styles.currentLanguage, isRTL && styles.textRTL]}>
+              {currentLang?.nativeName}
+            </Text>
+          </View>
+          <Ionicons
+            name="chevron-forward"
+            size={20}
+            color="#6c757d"
+            style={[isRTL && { transform: [{ scaleX: -1 }] }]}
+          />
+        </LinearGradient>
       </TouchableOpacity>
 
+      {/* Modal */}
       <Modal
-        animationType="slide"
+        animationType="fade"
         transparent={true}
         visible={isVisible}
-        onRequestClose={toggleModal}
+        onRequestClose={closeModal}
+        statusBarTranslucent
       >
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, isRTL && styles.modalContentRTL]}>
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, isRTL && styles.modalTitleRTL]}>
-                {t("language.select")}
-              </Text>
-              <TouchableOpacity
-                onPress={toggleModal}
-                style={styles.closeButton}
-              >
-                <Ionicons name="close" size={24} color="#666" />
-              </TouchableOpacity>
-            </View>
+          <Pressable style={styles.backdrop} onPress={closeModal} />
 
-            {languages.map((language) => (
-              <TouchableOpacity
-                key={language.code}
-                style={[
-                  styles.languageOption,
-                  currentLanguage === language.code && styles.selectedLanguage,
-                  isRTL && styles.languageOptionRTL,
-                ]}
-                onPress={() => handleLanguageSelect(language.code)}
+          <Animated.View
+            style={[
+              styles.modalContainer,
+              {
+                transform: [{ translateX: slideAnim }],
+              },
+              isRTL && styles.modalContainerRTL,
+            ]}
+          >
+            <LinearGradient
+              colors={["#ffffff", "#f8f9fa"]}
+              style={styles.modalContent}
+            >
+              {/* Header */}
+              <View
+                style={[styles.modalHeader, isRTL && styles.modalHeaderRTL]}
               >
-                <View
-                  style={[styles.languageInfo, isRTL && styles.languageInfoRTL]}
-                >
-                  <Text style={styles.flag}>{language.flag}</Text>
-                  <Text
-                    style={[
-                      styles.languageName,
-                      isRTL && styles.languageNameRTL,
-                    ]}
-                  >
-                    {language.name}
+                <View style={styles.headerTitleContainer}>
+                  <Ionicons name="language" size={24} color="#007AFF" />
+                  <Text style={[styles.modalTitle, isRTL && styles.textRTL]}>
+                    {t("language.select") || "Select Language"}
                   </Text>
                 </View>
-                {currentLanguage === language.code && (
-                  <Ionicons name="checkmark" size={20} color="#007AFF" />
-                )}
-              </TouchableOpacity>
-            ))}
-          </View>
+                <TouchableOpacity
+                  onPress={closeModal}
+                  style={styles.closeButton}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="close" size={28} color="#6c757d" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Language Options */}
+              <View style={styles.languageList}>
+                {languages.map((language) => (
+                  <TouchableOpacity
+                    key={language.code}
+                    style={[
+                      styles.languageOption,
+                      currentLanguage === language.code &&
+                        styles.selectedLanguage,
+                      isRTL && styles.languageOptionRTL,
+                    ]}
+                    onPress={() => handleLanguageSelect(language.code)}
+                    activeOpacity={0.7}
+                  >
+                    <LinearGradient
+                      colors={
+                        currentLanguage === language.code
+                          ? ["#007AFF15", "#007AFF08"]
+                          : ["transparent", "transparent"]
+                      }
+                      style={styles.languageOptionGradient}
+                    >
+                      <View
+                        style={[
+                          styles.languageInfo,
+                          isRTL && styles.languageInfoRTL,
+                        ]}
+                      >
+                        <View style={styles.flagCircle}>
+                          <Text style={styles.flag}>{language.flag}</Text>
+                        </View>
+                        <View style={styles.languageTextInfo}>
+                          <Text
+                            style={[
+                              styles.languageName,
+                              isRTL && styles.textRTL,
+                            ]}
+                          >
+                            {language.nativeName}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.languageSubname,
+                              isRTL && styles.textRTL,
+                            ]}
+                          >
+                            {language.name}
+                          </Text>
+                        </View>
+                      </View>
+
+                      {currentLanguage === language.code && (
+                        <View style={styles.checkmarkContainer}>
+                          <Ionicons
+                            name="checkmark-circle"
+                            size={24}
+                            color="#007AFF"
+                          />
+                        </View>
+                      )}
+                    </LinearGradient>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Footer */}
+              <View style={styles.modalFooter}>
+                <Text style={[styles.footerText, isRTL && styles.textRTL]}>
+                  {isRTL
+                    ? "השפה תשתנה לאחר הבחירה"
+                    : "Language will change after selection"}
+                </Text>
+              </View>
+            </LinearGradient>
+          </Animated.View>
         </View>
       </Modal>
     </View>
@@ -119,96 +241,195 @@ const styles = StyleSheet.create({
     marginVertical: 8,
   },
   languageButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: "#f8f9fa",
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#e9ecef",
+    borderRadius: 16,
+    overflow: "hidden",
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   languageButtonRTL: {
-    flexDirection: "row-reverse",
+    // RTL specific button styles if needed
   },
-  languageText: {
+  buttonGradient: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  flagContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#ffffff",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 16,
+    elevation: 1,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  flagEmoji: {
+    fontSize: 20,
+  },
+  textContainer: {
     flex: 1,
-    marginLeft: 8,
+  },
+  textContainerRTL: {
+    alignItems: "flex-end",
+  },
+  languageLabel: {
+    fontSize: 14,
+    color: "#6c757d",
+    fontWeight: "500",
+    marginBottom: 2,
+  },
+  currentLanguage: {
     fontSize: 16,
     color: "#333",
+    fontWeight: "600",
   },
-  languageTextRTL: {
-    marginLeft: 0,
-    marginRight: 8,
+  textRTL: {
     textAlign: "right",
+    writingDirection: "rtl",
   },
+
+  // Modal Styles
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "center",
-    alignItems: "center",
+  },
+  backdrop: {
+    flex: 1,
+  },
+  modalContainer: {
+    position: "absolute",
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: screenWidth * 0.85,
+    maxWidth: 400,
+  },
+  modalContainerRTL: {
+    right: undefined,
+    left: 0,
   },
   modalContent: {
-    backgroundColor: "white",
-    borderRadius: 12,
-    padding: 20,
-    width: "80%",
-    maxWidth: 300,
-  },
-  modalContentRTL: {
-    alignItems: "flex-end",
+    flex: 1,
+    paddingTop: 50,
   },
   modalHeader: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 20,
+    justifyContent: "space-between",
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: "#e9ecef",
+  },
+  modalHeaderRTL: {
+    flexDirection: "row-reverse",
+  },
+  headerTitleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: 20,
     fontWeight: "bold",
     color: "#333",
-  },
-  modalTitleRTL: {
-    textAlign: "right",
+    marginLeft: 12,
   },
   closeButton: {
-    padding: 4,
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: "#f8f9fa",
+  },
+
+  // Language List
+  languageList: {
+    flex: 1,
+    paddingTop: 12,
   },
   languageOption: {
+    marginHorizontal: 16,
+    marginVertical: 4,
+    borderRadius: 16,
+    overflow: "hidden",
+  },
+  languageOptionRTL: {
+    // RTL specific option styles if needed
+  },
+  selectedLanguage: {
+    // Additional styles for selected language if needed
+  },
+  languageOptionGradient: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  languageOptionRTL: {
-    flexDirection: "row-reverse",
-  },
-  selectedLanguage: {
-    backgroundColor: "#e3f2fd",
+    paddingHorizontal: 20,
+    paddingVertical: 16,
   },
   languageInfo: {
     flexDirection: "row",
     alignItems: "center",
+    flex: 1,
   },
   languageInfoRTL: {
     flexDirection: "row-reverse",
   },
+  flagCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "#ffffff",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 16,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
   flag: {
     fontSize: 24,
-    marginRight: 12,
+  },
+  languageTextInfo: {
+    flex: 1,
   },
   languageName: {
-    fontSize: 16,
+    fontSize: 18,
+    fontWeight: "600",
     color: "#333",
+    marginBottom: 2,
   },
-  languageNameRTL: {
-    marginRight: 0,
-    marginLeft: 12,
-    textAlign: "right",
+  languageSubname: {
+    fontSize: 14,
+    color: "#6c757d",
+    fontWeight: "400",
+  },
+  checkmarkContainer: {
+    marginLeft: 16,
+  },
+
+  // Footer
+  modalFooter: {
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+    borderTopWidth: 1,
+    borderTopColor: "#e9ecef",
+    backgroundColor: "#f8f9fa",
+  },
+  footerText: {
+    fontSize: 12,
+    color: "#6c757d",
+    textAlign: "center",
+    fontStyle: "italic",
   },
 });
 

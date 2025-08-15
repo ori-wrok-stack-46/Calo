@@ -1,11 +1,10 @@
 import { Tabs } from "expo-router";
 import React, { useMemo } from "react";
-import { View } from "react-native";
+import { View, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useLanguage } from "@/src/i18n/context/LanguageContext";
 import { ProtectedRoute } from "@/components/ProtectedRoutes";
-
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import { useColorScheme } from "@/hooks/useColorScheme";
 import { ScrollableTabBar } from "@/components/ScrollableTabBar";
@@ -21,14 +20,14 @@ export default function TabLayout() {
     () => [
       "index",
       "history",
-      "questionnaire",
-      "camera",
-      "statistics",
-      "calendar",
-      "devices",
       "recommended-menus",
-      "ai-chat",
+      "camera",
       "food-scanner",
+      "calendar",
+      "statistics",
+      "ai-chat",
+      "devices",
+      "questionnaire",
       "profile",
     ],
     []
@@ -37,13 +36,26 @@ export default function TabLayout() {
   return (
     <ProtectedRoute>
       <SafeAreaView
-        style={{ flex: 1, backgroundColor: colors.background }}
+        style={{
+          flex: 1,
+          backgroundColor: colors.background,
+          direction: isRTL ? "rtl" : "ltr",
+        }}
         edges={["top"]}
       >
-        <View style={{ flex: 1, backgroundColor: colors.background }}>
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: colors.background,
+            ...(Platform.OS === "web" && {
+              direction: isRTL ? "rtl" : "ltr",
+            }),
+          }}
+        >
           <Tabs
             screenOptions={{
               headerShown: false,
+              tabBarHideOnKeyboard: true,
             }}
             tabBar={(props) => <ScrollableTabBar {...props} />}
           >
@@ -137,7 +149,7 @@ export default function TabLayout() {
               options={{
                 title: t("tabs.questionnaire"),
                 tabBarIcon: ({ color }) => (
-                  <IconSymbol size={28} name="dining" color={color} />
+                  <IconSymbol size={28} name="doc.text.fill" color={color} />
                 ),
               }}
             />

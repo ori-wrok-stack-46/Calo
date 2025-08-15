@@ -422,7 +422,7 @@ export default function CameraScreen() {
   // Re-analysis after edits
   const handleReAnalyze = async () => {
     if (!selectedImage || !hasBeenAnalyzed) {
-      Alert.alert(t("common.error"), "No meal to re-analyze");
+      Alert.alert(t("common.error") || "Error", "No meal to re-analyze");
       return;
     }
 
@@ -432,17 +432,33 @@ export default function CameraScreen() {
       const base64Image = await processImage(selectedImage);
       if (!base64Image) {
         Alert.alert(
-          t("common.error"),
+          t("common.error") || "Error",
           "Could not process image for re-analysis."
         );
         return;
       }
 
+      // Create update text based on user comment and edited ingredients
+      let updateText = userComment.trim();
+      if (editedIngredients.length > 0) {
+        const ingredientsList = editedIngredients
+          .map((ing) => ing.name)
+          .join(", ");
+        updateText +=
+          (updateText ? " " : "") +
+          `Please re-analyze considering these ingredients: ${ingredientsList}. Provide updated nutritional information.`;
+      }
+      if (!updateText) {
+        updateText =
+          "Please re-analyze this meal with updated nutritional information.";
+      }
+
       const reAnalysisParams = {
         imageBase64: base64Image,
         language: isRTL ? "hebrew" : "english",
-        updateText: userComment.trim() || "User edited ingredients",
-        editedIngredients: editedIngredients, // Send the currently edited ingredients
+        includeDetailedIngredients: true,
+        includeNutritionBreakdown: true,
+        updateText: updateText,
       };
 
       const result = await dispatch(analyzeMeal(reAnalysisParams));
@@ -450,13 +466,15 @@ export default function CameraScreen() {
       if (analyzeMeal.fulfilled.match(result)) {
         console.log("✅ Re-analysis completed successfully");
         Alert.alert(
-          t("common.success"),
+          t("common.success") || "Success",
           "Meal re-analyzed successfully with your edits!"
         );
+        // Scroll to top to see updated results
+        scrollViewRef.current?.scrollTo({ y: 0, animated: true });
       } else {
         console.error("❌ Re-analysis failed:", result.payload);
         Alert.alert(
-          t("camera.re_analysis_failed"),
+          "Re-analysis Failed",
           typeof result.payload === "string"
             ? result.payload
             : "Failed to re-analyze meal. Please try again."
@@ -465,7 +483,7 @@ export default function CameraScreen() {
     } catch (error) {
       console.error("💥 Re-analysis error:", error);
       Alert.alert(
-        t("camera.re_analysis_failed"),
+        "Re-analysis Failed",
         error instanceof Error ? error.message : "Re-analysis failed"
       );
     }

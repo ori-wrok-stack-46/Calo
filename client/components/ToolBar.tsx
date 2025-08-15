@@ -6,13 +6,29 @@ import {
   Modal,
   StyleSheet,
   ScrollView,
-  Platform,
-  Animated,
+  Dimensions,
 } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
+import { BlurView } from "expo-blur";
+import { LinearGradient } from "expo-linear-gradient";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+  interpolate,
+  runOnJS,
+} from "react-native-reanimated";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  Settings,
+  Globe,
+  Sun,
+  Moon,
+  CircleHelp as HelpCircle,
+  X,
+} from "lucide-react-native";
 import { useLanguage } from "../src/i18n/context/LanguageContext";
 import { useTheme } from "../src/context/ThemeContext";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface HelpContent {
   title: string;
@@ -23,364 +39,501 @@ interface ToolBarProps {
   helpContent?: HelpContent;
 }
 
+const { width: screenWidth } = Dimensions.get("window");
+const AnimatedTouchableOpacity =
+  Animated.createAnimatedComponent(TouchableOpacity);
+const AnimatedBlurView = Animated.createAnimatedComponent(BlurView);
+
 const ToolBar: React.FC<ToolBarProps> = ({ helpContent }) => {
   const { language, changeLanguage, isRTL } = useLanguage();
   const { isDark, toggleTheme, colors } = useTheme();
   const [showHelp, setShowHelp] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
-  const [expandAnimation] = useState(new Animated.Value(0));
   const insets = useSafeAreaInsets();
+
+  // Animation values
+  const fabScale = useSharedValue(1);
+  const fabRotation = useSharedValue(0);
+  const menuOpacity = useSharedValue(0);
+  const backdropOpacity = useSharedValue(0);
+  const modalScale = useSharedValue(0);
+
+  // Button positions for radial menu
+  const button1Position = useSharedValue({ x: 0, y: 0 });
+  const button2Position = useSharedValue({ x: 0, y: 0 });
+  const button3Position = useSharedValue({ x: 0, y: 0 });
+
+  const handleToggleMenu = () => {
+    const newExpanded = !isExpanded;
+    setIsExpanded(newExpanded);
+
+    // Determine expansion direction based on language
+    // English (left positioned) -> expand right (positive values)
+    // Hebrew (right positioned) -> expand left (negative values)
+    const expandLeft = language === "he"; // Hebrew expands left, English expands right
+    const xMultiplier = expandLeft ? -1 : 1;
+
+    if (newExpanded) {
+      // Expand animation
+      fabRotation.value = withSpring(180, { damping: 15, stiffness: 200 });
+      menuOpacity.value = withTiming(1, { duration: 300 });
+      backdropOpacity.value = withTiming(0.3, { duration: 300 });
+
+      // Directional radial positions
+      button1Position.value = withSpring(
+        { x: 90 * xMultiplier, y: -10 },
+        { damping: 12, stiffness: 180 }
+      );
+      button2Position.value = withSpring(
+        { x: 75 * xMultiplier, y: -60 },
+        { damping: 12, stiffness: 180 }
+      );
+      button3Position.value = withSpring(
+        { x: 40 * xMultiplier, y: -90 },
+        { damping: 12, stiffness: 180 }
+      );
+    } else {
+      // Collapse animation
+      fabRotation.value = withSpring(0, { damping: 15, stiffness: 200 });
+      menuOpacity.value = withTiming(0, { duration: 200 });
+      backdropOpacity.value = withTiming(0, { duration: 200 });
+
+      // Reset positions
+      button1Position.value = withSpring(
+        { x: 0, y: 0 },
+        { damping: 15, stiffness: 150 }
+      );
+      button2Position.value = withSpring(
+        { x: 0, y: 0 },
+        { damping: 15, stiffness: 150 }
+      );
+      button3Position.value = withSpring(
+        { x: 0, y: 0 },
+        { damping: 15, stiffness: 150 }
+      );
+    }
+  };
 
   const handleLanguageToggle = () => {
     const newLanguage = language === "he" ? "en" : "he";
     changeLanguage(newLanguage);
+    handleToggleMenu();
+  };
+
+  const handleThemeToggle = () => {
+    toggleTheme();
+    handleToggleMenu();
   };
 
   const handleHelpPress = () => {
-    console.log("🔍 Help button pressed, helpContent:", helpContent);
     setShowHelp(true);
+    modalScale.value = withSpring(1, { damping: 15, stiffness: 150 });
+    handleToggleMenu();
   };
 
   const handleCloseHelp = () => {
-    setShowHelp(false);
+    modalScale.value = withTiming(0, { duration: 200 });
+    runOnJS(() => setShowHelp(false))();
   };
 
-  const toggleExpanded = () => {
-    const toValue = isExpanded ? 0 : 1;
-    setIsExpanded(!isExpanded);
+  // Animated styles
+  const fabStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scale: fabScale.value },
+      { rotate: `${fabRotation.value}deg` },
+    ],
+  }));
 
-    Animated.spring(expandAnimation, {
-      toValue,
-      useNativeDriver: false,
-      tension: 100,
-      friction: 8,
-    }).start();
-  };
+  const backdropStyle = useAnimatedStyle(() => ({
+    opacity: backdropOpacity.value,
+  }));
 
-  const expandedWidth = expandAnimation.interpolate({
-    inputRange: [0, 1],
-    outputRange: [40, helpContent ? 180 : 140],
-  });
+  const menuContainerStyle = useAnimatedStyle(() => ({
+    opacity: menuOpacity.value,
+  }));
 
-  const translateX = expandAnimation.interpolate({
-    inputRange: [0, 1],
-    outputRange: [isRTL ? -20 : 20, 0],
-  });
+  const button1Style = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: button1Position.value.x },
+      { translateY: button1Position.value.y },
+      { scale: interpolate(menuOpacity.value, [0, 1], [0.3, 1]) },
+    ],
+  }));
 
-  const gearRotation = expandAnimation.interpolate({
-    inputRange: [0, 1],
-    outputRange: ["0deg", "90deg"],
-  });
+  const button2Style = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: button2Position.value.x },
+      { translateY: button2Position.value.y },
+      { scale: interpolate(menuOpacity.value, [0, 1], [0.3, 1]) },
+    ],
+  }));
 
-  const buttonOpacity = expandAnimation.interpolate({
-    inputRange: [0, 0.3, 1],
-    outputRange: [0, 0, 1],
-  });
+  const button3Style = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: button3Position.value.x },
+      { translateY: button3Position.value.y },
+      { scale: interpolate(menuOpacity.value, [0, 1], [0.3, 1]) },
+    ],
+  }));
 
-  const buttonScale = expandAnimation.interpolate({
-    inputRange: [0, 0.3, 1],
-    outputRange: [0.7, 0.7, 1],
-  });
-
-  console.log(
-    "🔍 LanguageToolbar render - helpContent available:",
-    !!helpContent
-  );
-  console.log("🔍 showHelp state:", showHelp);
+  const modalStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: modalScale.value }],
+    opacity: modalScale.value,
+  }));
 
   return (
     <>
+      {/* Backdrop */}
+      <Animated.View
+        style={[styles.backdrop, backdropStyle]}
+        pointerEvents={isExpanded ? "auto" : "none"}
+      >
+        <TouchableOpacity
+          style={StyleSheet.absoluteFillObject}
+          onPress={handleToggleMenu}
+          activeOpacity={1}
+        />
+      </Animated.View>
+
+      {/* Main Container */}
       <View
         style={[
           styles.container,
           {
-            top: insets.top + 50,
-            [isRTL ? "left" : "right"]: 0,
+            bottom: insets.bottom + 30,
+            right: language === "en" ? 24 : undefined,
+            left: language === "he" ? 24 : undefined,
           },
         ]}
       >
-        <Animated.View
-          style={[
-            styles.toolbar,
-            isRTL && styles.toolbarRTL,
-            {
-              width: expandedWidth,
-              transform: [{ translateX }],
-              backgroundColor: colors.background,
-              borderColor: colors.border,
-            },
-          ]}
-        >
-          <TouchableOpacity
-            style={[styles.gearButton, { backgroundColor: colors.card }]}
-            onPress={toggleExpanded}
-            accessibilityLabel="Settings"
-            accessibilityRole="button"
-            activeOpacity={0.7}
+        {/* Menu Items */}
+        <Animated.View style={[styles.menuContainer, menuContainerStyle]}>
+          {/* Language Button */}
+          <AnimatedTouchableOpacity
+            style={[styles.menuButton, button1Style]}
+            onPress={handleLanguageToggle}
+            activeOpacity={0.8}
           >
-            <Animated.View style={{ transform: [{ rotate: gearRotation }] }}>
-              <Ionicons name="settings-outline" size={18} color={colors.text} />
-            </Animated.View>
-          </TouchableOpacity>
-
-          <View
-            style={[styles.expandedButtons, isRTL && styles.expandedButtonsRTL]}
-          >
-            <Animated.View
-              style={{
-                opacity: buttonOpacity,
-                transform: [{ scale: buttonScale }],
-                marginHorizontal: 4,
-              }}
-            >
-              <TouchableOpacity
-                style={[
-                  styles.languageButton,
-                  { backgroundColor: colors.primary },
-                ]}
-                onPress={handleLanguageToggle}
-                accessibilityLabel="Change Language"
-                accessibilityRole="button"
-                activeOpacity={0.8}
+            <BlurView intensity={80} style={styles.blurButton}>
+              <LinearGradient
+                colors={
+                  isDark
+                    ? ["rgba(255,255,255,0.15)", "rgba(255,255,255,0.08)"]
+                    : ["rgba(0,0,0,0.08)", "rgba(0,0,0,0.15)"]
+                }
+                style={styles.gradientButton}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
               >
-                <Text style={styles.languageText}>
-                  {language === "he" ? "EN" : "עב"}
-                </Text>
-              </TouchableOpacity>
-            </Animated.View>
-
-            <Animated.View
-              style={{
-                opacity: buttonOpacity,
-                transform: [{ scale: buttonScale }],
-                marginHorizontal: 4,
-              }}
-            >
-              <TouchableOpacity
-                style={[
-                  styles.themeButton,
-                  { backgroundColor: colors.card, borderColor: colors.border },
-                ]}
-                onPress={toggleTheme}
-                accessibilityLabel="Toggle Theme"
-                accessibilityRole="button"
-                activeOpacity={0.7}
-              >
-                <Ionicons
-                  name={isDark ? "sunny-outline" : "moon-outline"}
-                  size={16}
-                  color={colors.primary}
-                />
-              </TouchableOpacity>
-            </Animated.View>
-
-            {helpContent && (
-              <Animated.View
-                style={{
-                  opacity: buttonOpacity,
-                  transform: [{ scale: buttonScale }],
-                  marginHorizontal: 4,
-                }}
-              >
-                <TouchableOpacity
+                <View style={[styles.iconContainer, { marginBottom: 4 }]}>
+                  <Globe size={18} color={colors.primary} strokeWidth={2.5} />
+                </View>
+                <Text
                   style={[
-                    styles.helpButton,
+                    styles.buttonLabel,
                     {
-                      backgroundColor: colors.card,
-                      borderColor: colors.border,
+                      color: colors.primary,
+                      fontSize: 8,
+                      fontWeight: "900",
+                      letterSpacing: 1.2,
                     },
                   ]}
-                  onPress={handleHelpPress}
-                  accessibilityLabel="Help"
-                  accessibilityRole="button"
-                  activeOpacity={0.7}
                 >
-                  <Ionicons
-                    name="help-circle-outline"
-                    size={16}
-                    color={colors.text}
-                  />
-                </TouchableOpacity>
-              </Animated.View>
-            )}
-          </View>
+                  {language === "he" ? "EN" : "עב"}
+                </Text>
+              </LinearGradient>
+            </BlurView>
+          </AnimatedTouchableOpacity>
+
+          {/* Theme Button */}
+          <AnimatedTouchableOpacity
+            style={[styles.menuButton, button2Style]}
+            onPress={handleThemeToggle}
+            activeOpacity={0.8}
+          >
+            <BlurView intensity={80} style={styles.blurButton}>
+              <LinearGradient
+                colors={
+                  isDark
+                    ? ["rgba(255,255,255,0.15)", "rgba(255,255,255,0.08)"]
+                    : ["rgba(0,0,0,0.08)", "rgba(0,0,0,0.15)"]
+                }
+                style={styles.gradientButton}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+              >
+                <View style={[styles.iconContainer, { padding: 2 }]}>
+                  {isDark ? (
+                    <Sun size={18} color={colors.primary} strokeWidth={2.5} />
+                  ) : (
+                    <Moon size={18} color={colors.primary} strokeWidth={2.5} />
+                  )}
+                </View>
+              </LinearGradient>
+            </BlurView>
+          </AnimatedTouchableOpacity>
+
+          {/* Help Button */}
+          {helpContent && (
+            <AnimatedTouchableOpacity
+              style={[styles.menuButton, button3Style]}
+              onPress={handleHelpPress}
+              activeOpacity={0.8}
+            >
+              <BlurView intensity={80} style={styles.blurButton}>
+                <LinearGradient
+                  colors={
+                    isDark
+                      ? ["rgba(255,255,255,0.15)", "rgba(255,255,255,0.08)"]
+                      : ["rgba(0,0,0,0.08)", "rgba(0,0,0,0.15)"]
+                  }
+                  style={styles.gradientButton}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                >
+                  <View style={[styles.iconContainer, { padding: 2 }]}>
+                    <HelpCircle
+                      size={18}
+                      color={colors.primary}
+                      strokeWidth={2.5}
+                    />
+                  </View>
+                </LinearGradient>
+              </BlurView>
+            </AnimatedTouchableOpacity>
+          )}
         </Animated.View>
+
+        {/* Main FAB */}
+        <AnimatedTouchableOpacity
+          style={[styles.fab, fabStyle]}
+          onPress={handleToggleMenu}
+          activeOpacity={0.85}
+        >
+          <LinearGradient
+            colors={[
+              colors.primary,
+              `${colors.primary}E6`,
+              `${colors.primary}B3`,
+            ]}
+            style={styles.fabGradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <BlurView intensity={25} style={styles.fabBlur}>
+              {isExpanded ? (
+                <X size={26} color="#FFFFFF" strokeWidth={3} />
+              ) : (
+                <Settings size={26} color="#FFFFFF" strokeWidth={3} />
+              )}
+            </BlurView>
+          </LinearGradient>
+        </AnimatedTouchableOpacity>
       </View>
 
+      {/* Help Modal */}
       <Modal
         visible={showHelp}
-        animationType="fade"
-        transparent={true}
+        transparent
+        animationType="none"
         onRequestClose={handleCloseHelp}
       >
-        <View style={styles.modalOverlay}>
-          <View
-            style={[
-              styles.modalContent,
-              { backgroundColor: colors.background },
-            ]}
-          >
-            <View
-              style={[styles.modalHeader, { borderBottomColor: colors.border }]}
+        <BlurView intensity={100} style={styles.modalContainer}>
+          <TouchableOpacity
+            style={StyleSheet.absoluteFillObject}
+            onPress={handleCloseHelp}
+            activeOpacity={1}
+          />
+
+          <Animated.View style={[styles.modalContent, modalStyle]}>
+            <LinearGradient
+              colors={
+                isDark
+                  ? ["rgba(30,30,30,0.95)", "rgba(20,20,20,0.98)"]
+                  : ["rgba(255,255,255,0.95)", "rgba(250,250,250,0.98)"]
+              }
+              style={styles.modalGradient}
             >
-              <Text style={[styles.modalTitle, { color: colors.text }]}>
-                {helpContent?.title || "Help"}
-              </Text>
-              <TouchableOpacity
-                onPress={handleCloseHelp}
-                style={[styles.closeButton, { backgroundColor: colors.card }]}
-                accessibilityLabel="Close"
-                accessibilityRole="button"
-                activeOpacity={0.7}
+              {/* Modal Header */}
+              <View style={styles.modalHeader}>
+                <View style={styles.modalTitleContainer}>
+                  <HelpCircle size={24} color={colors.primary} />
+                  <Text style={[styles.modalTitle, { color: colors.text }]}>
+                    {helpContent?.title || "Help"}
+                  </Text>
+                </View>
+                <TouchableOpacity
+                  onPress={handleCloseHelp}
+                  style={[
+                    styles.closeButton,
+                    { backgroundColor: `${colors.primary}15` },
+                  ]}
+                  activeOpacity={0.7}
+                >
+                  <X size={18} color={colors.primary} />
+                </TouchableOpacity>
+              </View>
+
+              {/* Modal Body */}
+              <ScrollView
+                style={styles.modalBody}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={styles.modalBodyContent}
               >
-                <Ionicons name="close" size={20} color={colors.text} />
-              </TouchableOpacity>
-            </View>
-            <ScrollView style={styles.modalBody}>
-              <Text style={[styles.modalText, { color: colors.text }]}>
-                {helpContent?.description || "No help content available."}
-              </Text>
-            </ScrollView>
-          </View>
-        </View>
+                <Text style={[styles.modalText, { color: colors.text }]}>
+                  {helpContent?.description || "No help content available."}
+                </Text>
+              </ScrollView>
+            </LinearGradient>
+          </Animated.View>
+        </BlurView>
       </Modal>
     </>
   );
 };
 
 const styles = StyleSheet.create({
+  backdrop: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "rgba(0, 0, 0, 0.2)",
+    zIndex: 998,
+  },
   container: {
     position: "absolute",
-    zIndex: 1000,
-    elevation: 10,
-  },
-  toolbar: {
-    flexDirection: "row",
+    zIndex: 999,
     alignItems: "center",
-    backgroundColor: "#ffffff",
-    borderRadius: 20,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
+    justifyContent: "center",
+  },
+  menuContainer: {
+    position: "absolute",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  menuButton: {
+    position: "absolute",
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     overflow: "hidden",
-    height: 40,
-    borderWidth: 0.5,
-    borderColor: "#ddd",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    elevation: 12,
   },
-  toolbarRTL: {
-    flexDirection: "row-reverse",
-  },
-  gearButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#f8f8f8",
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 0.5,
-    borderColor: "#ccc",
-  },
-  expandedButtons: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginLeft: 8,
-  },
-  expandedButtonsRTL: {
-    flexDirection: "row-reverse",
-    marginLeft: 0,
-    marginRight: 8,
-  },
-  languageButton: {
-    backgroundColor: "#333",
-    width: 32,
-    height: 24,
-    borderRadius: 12,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  themeButton: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: "#f8f8f8",
-    borderWidth: 0.5,
-    borderColor: "#ccc",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  languageText: {
-    color: "#fff",
-    fontSize: 10,
-    fontWeight: "700",
-  },
-  helpButton: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: "#f8f8f8",
-    borderWidth: 0.5,
-    borderColor: "#ccc",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  modalOverlay: {
+  blurButton: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    borderRadius: 30,
+    overflow: "hidden",
+  },
+  gradientButton: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 30,
+    borderWidth: 2,
+    borderColor: "rgba(255, 255, 255, 0.2)",
+    paddingVertical: 10,
+  },
+  iconContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  buttonLabel: {
+    fontSize: 8,
+    fontWeight: "800",
+    letterSpacing: 1.2,
+    textTransform: "uppercase",
+    textAlign: "center",
+  },
+  fab: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.3,
+    shadowRadius: 24,
+    elevation: 16,
+  },
+  fabGradient: {
+    flex: 1,
+    borderRadius: 34,
+  },
+  fabBlur: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 34,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
+  },
+  modalContainer: {
+    flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    padding: 20,
+    padding: 24,
   },
   modalContent: {
-    backgroundColor: "#ffffff",
-    borderRadius: 16,
     width: "100%",
-    maxWidth: 400,
-    maxHeight: "70%",
+    maxWidth: 420,
+    maxHeight: "80%",
+    borderRadius: 24,
+    overflow: "hidden",
     shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 10,
-    },
+    shadowOffset: { width: 0, height: 20 },
     shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 25,
+    shadowRadius: 30,
+    elevation: 30,
+  },
+  modalGradient: {
+    flex: 1,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
   },
   modalHeader: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 24,
+    paddingVertical: 20,
     borderBottomWidth: 1,
-    borderBottomColor: "#eee",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    borderBottomColor: "rgba(255, 255, 255, 0.1)",
   },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#333",
+  modalTitleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
     flex: 1,
   },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    marginLeft: 12,
+    letterSpacing: 0.5,
+  },
   closeButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "#f0f0f0",
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
   },
   modalBody: {
-    padding: 20,
-    maxHeight: 400,
+    flex: 1,
+  },
+  modalBodyContent: {
+    padding: 24,
   },
   modalText: {
     fontSize: 16,
-    lineHeight: 24,
-    color: "#666",
+    lineHeight: 26,
+    letterSpacing: 0.3,
   },
 });
 

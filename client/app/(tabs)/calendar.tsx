@@ -371,6 +371,7 @@ export default function CalendarScreen() {
   };
 
   const handleEditEvent = () => {
+    if (!selectedEvent) return;
     setEventTitle(selectedEvent.title);
     setEventType(selectedEvent.type);
     setEventDescription(selectedEvent.description || "");
@@ -378,6 +379,11 @@ export default function CalendarScreen() {
     setIsEditingEvent(true);
     setShowEventDetailsModal(false);
     setShowEventModal(true);
+  };
+
+  const handleViewEvent = (event: any, dayData: DayData) => {
+    setSelectedEvent({ ...event, date: dayData.date });
+    setShowEventDetailsModal(true);
   };
 
   const submitEvent = async () => {
@@ -855,33 +861,143 @@ export default function CalendarScreen() {
 
                 {selectedDay.events.length > 0 && (
                   <View style={styles.eventsSection}>
-                    <Text style={styles.eventsTitle}>Events</Text>
-                    {selectedDay.events.map((event) => (
-                      <TouchableOpacity
-                        key={event.id}
-                        style={styles.eventItem}
-                        onPress={() => handleEventPress(event, selectedDay)}
+                    <View
+                      style={[
+                        styles.eventsSectionHeader,
+                        isRTL && styles.eventsSectionHeaderRTL,
+                      ]}
+                    >
+                      <Ionicons name="calendar" size={20} color="#16A085" />
+                      <Text
+                        style={[styles.eventsTitle, isRTL && styles.textRTL]}
                       >
-                        <Ionicons name="calendar" size={16} color="#16A085" />
-                        <Text style={styles.eventText}>{event.title}</Text>
-                        <View style={styles.eventActions}>
+                        {isRTL ? "אירועים" : "Events"}
+                      </Text>
+                    </View>
+                    {selectedDay.events.map((event, index) => (
+                      <View key={event.id} style={styles.eventItem}>
+                        <LinearGradient
+                          colors={[
+                            "rgba(255, 255, 255, 0.95)",
+                            "rgba(248, 250, 252, 0.95)",
+                          ]}
+                          style={styles.eventGradient}
+                        >
                           <TouchableOpacity
-                            style={styles.eventActionButton}
-                            onPress={() => handleEventPress(event, selectedDay)}
+                            style={[
+                              styles.eventMainContent,
+                              isRTL && styles.eventMainContentRTL,
+                            ]}
+                            onPress={() => handleViewEvent(event, selectedDay)}
+                            activeOpacity={0.8}
                           >
-                            <Eye size={16} color="#3498DB" />
+                            <View style={styles.eventIconContainer}>
+                              <LinearGradient
+                                colors={["#16A085", "#1ABC9C"]}
+                                style={styles.eventIconGradient}
+                              >
+                                <Ionicons
+                                  name="calendar"
+                                  size={18}
+                                  color="#fff"
+                                />
+                              </LinearGradient>
+                            </View>
+                            <View
+                              style={[
+                                styles.eventTextContainer,
+                                isRTL && styles.eventTextContainerRTL,
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.eventText,
+                                  isRTL && styles.textRTL,
+                                ]}
+                              >
+                                {event.title}
+                              </Text>
+                              <Text
+                                style={[
+                                  styles.eventTypeText,
+                                  isRTL && styles.textRTL,
+                                ]}
+                              >
+                                {event.type}
+                              </Text>
+                              <Text
+                                style={[
+                                  styles.eventTimeText,
+                                  isRTL && styles.textRTL,
+                                ]}
+                              >
+                                {new Date(event.created_at).toLocaleTimeString(
+                                  [],
+                                  {
+                                    hour: "2-digit",
+                                    minute: "2-digit",
+                                  }
+                                )}
+                              </Text>
+                            </View>
+                            <View style={styles.eventNumberBadge}>
+                              <Text style={styles.eventNumberText}>
+                                {index + 1}
+                              </Text>
+                            </View>
                           </TouchableOpacity>
-                          <TouchableOpacity
-                            style={styles.deleteEventButton}
-                            onPress={() =>
-                              handleDeleteEvent(event.id, selectedDay.date)
-                            }
-                            disabled={isDeletingEvent}
+                          <View
+                            style={[
+                              styles.eventActions,
+                              isRTL && styles.eventActionsRTL,
+                            ]}
                           >
-                            <Ionicons name="trash" size={16} color="#F44336" />
-                          </TouchableOpacity>
-                        </View>
-                      </TouchableOpacity>
+                            <TouchableOpacity
+                              style={styles.eventActionButton}
+                              onPress={() => {
+                                setSelectedEvent({
+                                  ...event,
+                                  date: selectedDay.date,
+                                });
+                                handleEditEvent();
+                              }}
+                              activeOpacity={0.8}
+                            >
+                              <Edit size={16} color="#3B82F6" />
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              style={styles.eventActionButton}
+                              onPress={() =>
+                                handleViewEvent(event, selectedDay)
+                              }
+                              activeOpacity={0.8}
+                            >
+                              <Eye size={16} color="#10B981" />
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                              style={styles.deleteEventButton}
+                              onPress={() =>
+                                handleDeleteEvent(event.id, selectedDay.date)
+                              }
+                              disabled={isDeletingEvent}
+                              activeOpacity={0.8}
+                            >
+                              {isDeletingEvent ? (
+                                <ActivityIndicator
+                                  size="small"
+                                  color="#EF4444"
+                                />
+                              ) : (
+                                <Ionicons
+                                  name="trash"
+                                  size={16}
+                                  color="#EF4444"
+                                />
+                              )}
+                            </TouchableOpacity>
+                          </View>
+                        </LinearGradient>
+                      </View>
                     ))}
                   </View>
                 )}
@@ -1598,35 +1714,136 @@ const styles = StyleSheet.create({
   eventsSection: {
     marginTop: 20,
   },
-  eventsTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#2C3E50",
-    marginBottom: 10,
-  },
-  eventItem: {
+  eventsSectionHeader: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 10,
-    backgroundColor: "rgba(255,255,255,0.9)",
-    borderRadius: 8,
-    marginBottom: 5,
+    marginBottom: 16,
+  },
+  eventsSectionHeaderRTL: {
+    flexDirection: "row-reverse",
+  },
+  eventsTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#2C3E50",
+    marginLeft: 8,
+    letterSpacing: 0.3,
+  },
+  eventGradient: {
+    borderRadius: 16,
+    overflow: "hidden",
+  },
+  eventMainContentRTL: {
+    flexDirection: "row-reverse",
+  },
+  eventIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    overflow: "hidden",
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  eventIconGradient: {
+    width: "100%",
+    height: "100%",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  eventTextContainerRTL: {
+    marginLeft: 0,
+    marginRight: 12,
+    alignItems: "flex-end",
+  },
+  eventTimeText: {
+    fontSize: 11,
+    color: "#9CA3AF",
+    fontWeight: "500",
+    marginTop: 2,
+    letterSpacing: 0.2,
+  },
+  eventNumberBadge: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: "#F3F4F6",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  eventNumberText: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#6B7280",
+  },
+  eventActionsRTL: {
+    flexDirection: "row-reverse",
+  },
+  eventItem: {
+    borderRadius: 16,
+    marginBottom: 12,
+    overflow: "hidden",
+    elevation: 3,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    backgroundColor: "transparent",
+  },
+  eventMainContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    padding: 16,
+    flex: 1,
+  },
+  eventTextContainer: {
+    flex: 1,
+    marginLeft: 12,
   },
   eventText: {
-    flex: 1,
-    marginLeft: 8,
-    fontSize: 14,
-    color: "#333",
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#1a202c",
+    marginBottom: 4,
+    lineHeight: 20,
+  },
+  eventTypeText: {
+    fontSize: 13,
+    color: "#718096",
+    textTransform: "capitalize",
+    fontWeight: "500",
+    letterSpacing: 0.3,
   },
   eventActions: {
     flexDirection: "row",
-    gap: 8,
+    justifyContent: "flex-end",
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    gap: 10,
   },
   eventActionButton: {
-    padding: 5,
+    padding: 10,
+    borderRadius: 12,
+    backgroundColor: "rgba(59, 130, 246, 0.15)",
+    borderWidth: 1,
+    borderColor: "rgba(59, 130, 246, 0.2)",
+    minWidth: 40,
+    alignItems: "center",
+    justifyContent: "center",
   },
   deleteEventButton: {
-    padding: 5,
+    padding: 10,
+    borderRadius: 12,
+    backgroundColor: "rgba(239, 68, 68, 0.15)",
+    borderWidth: 1,
+    borderColor: "rgba(239, 68, 68, 0.2)",
+    minWidth: 40,
+    alignItems: "center",
+    justifyContent: "center",
   },
   modalOverlay: {
     flex: 1,

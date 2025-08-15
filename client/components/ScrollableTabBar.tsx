@@ -92,8 +92,8 @@ export function ScrollableTabBar({
 
   // Create dynamic styles based on theme
   const dynamicStyles = useMemo(
-    () => createDynamicStyles(colors, isDark),
-    [colors, isDark]
+    () => createDynamicStyles(colors, isDark, isRTL),
+    [colors, isDark, isRTL]
   );
 
   // Memoize calculations with enhanced scrolling logic
@@ -113,12 +113,18 @@ export function ScrollableTabBar({
     const indicatorTargetX =
       activeIndex * tabItemWidth + tabItemWidth / 2 - (tabItemWidth * 0.8) / 2;
 
-    // Enhanced scroll offset calculation
+    // Enhanced scroll offset calculation for RTL
     let scrollOffset = 0;
     if (shouldScroll) {
       const maxScrollX = totalContentWidth - SCREEN_WIDTH;
-      const targetScrollX =
+      let targetScrollX =
         activeIndex * tabItemWidth - (SCREEN_WIDTH / 2 - tabItemWidth / 2);
+
+      // Adjust for RTL
+      if (isRTL) {
+        targetScrollX = maxScrollX - targetScrollX;
+      }
+
       scrollOffset = Math.max(0, Math.min(maxScrollX, targetScrollX));
     }
 
@@ -143,7 +149,7 @@ export function ScrollableTabBar({
       cameraIndex,
       maxScrollX: totalContentWidth - SCREEN_WIDTH,
     };
-  }, [state.index, state.routes.length]);
+  }, [state.index, state.routes.length, isRTL]);
 
   // Enhanced animation function with better scrolling
   const animateToTab = useCallback(
@@ -362,6 +368,7 @@ export function ScrollableTabBar({
             {
               color: isFocused ? colors.emerald600 : colors.textSecondary,
               fontWeight: isFocused ? "700" : "500",
+              textAlign: isRTL ? "right" : "center",
             },
           ]}
           numberOfLines={1}
@@ -413,6 +420,7 @@ export function ScrollableTabBar({
               {
                 width: tabCalculations.totalContentWidth,
                 minWidth: SCREEN_WIDTH,
+                flexDirection: isRTL ? "row-reverse" : "row",
               },
               !tabCalculations.shouldScroll && {
                 flexGrow: 1,
@@ -538,6 +546,7 @@ export function ScrollableTabBar({
                             ? colors.emerald600
                             : colors.textSecondary,
                           fontWeight: isFocused ? "700" : "500",
+                          textAlign: isRTL ? "right" : "center",
                         },
                       ]}
                       numberOfLines={1}
@@ -580,7 +589,11 @@ interface DynamicStyles {
 }
 
 // Dynamic styles function that adapts to theme
-const createDynamicStyles = (colors: any, isDark: boolean): DynamicStyles => {
+const createDynamicStyles = (
+  colors: any,
+  isDark: boolean,
+  isRTL: boolean
+): DynamicStyles => {
   const emeraldPrimary = isDark ? colors.emerald500 : colors.emerald600;
   const emeraldGradient = isDark
     ? [colors.emerald600, colors.emerald500]
@@ -625,7 +638,6 @@ const createDynamicStyles = (colors: any, isDark: boolean): DynamicStyles => {
       flex: 1,
     } as ViewStyle,
     scrollViewContent: {
-      flexDirection: "row",
       alignItems: "center",
       minHeight: 52,
       paddingHorizontal: 0,
@@ -656,10 +668,10 @@ const createDynamicStyles = (colors: any, isDark: boolean): DynamicStyles => {
     } as ViewStyle,
     label: {
       fontSize: TAB_LABEL_FONT_SIZE,
-      textAlign: "center",
       letterSpacing: 0.2,
       fontFamily: "Rubik-Medium",
       color: colors.text,
+      writingDirection: isRTL ? "rtl" : "ltr",
     } as TextStyle,
     floatingCameraButton: {
       position: "absolute",
@@ -698,10 +710,10 @@ const createDynamicStyles = (colors: any, isDark: boolean): DynamicStyles => {
     } as ViewStyle,
     cameraLabel: {
       fontSize: TAB_LABEL_FONT_SIZE,
-      textAlign: "center",
       letterSpacing: 0.2,
       fontFamily: "Rubik-Medium",
       marginTop: 2,
+      writingDirection: isRTL ? "rtl" : "ltr",
     } as TextStyle,
   });
 
@@ -719,5 +731,5 @@ export default function TabLayout() {
         headerShown: false,
       }}
     ></Tabs>
-  );  
+  );
 }
