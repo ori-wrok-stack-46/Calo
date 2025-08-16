@@ -1454,7 +1454,7 @@ export const getStatistics = async (
 
 // NEW CHAT API
 export const chatAPI = {
-  sendMessage: async (message: string, language: string = "hebrew") => {
+  sendMessage: async (message: string, language: string = "hebrew", p0?: { signal: AbortSignal; }) => {
     try {
       console.log("💬 Sending chat message:", message);
 
@@ -1471,7 +1471,7 @@ export const chatAPI = {
     }
   },
 
-  getChatHistory: async (limit: number = 50) => {
+  getChatHistory: async (limit: number = 50, p0?: { signal: AbortSignal; }) => {
     try {
       console.log("📜 Getting chat history...");
 
@@ -1488,7 +1488,7 @@ export const chatAPI = {
     }
   },
 
-  clearHistory: async () => {
+  clearHistory: async (p0?: { signal: AbortSignal; }) => {
     try {
       console.log("🗑️ Clearing chat history...");
 
@@ -1527,7 +1527,7 @@ export const questionnaireAPI = {
     }
   },
 
-  getQuestionnaire: async () => {
+  getQuestionnaire: async (p0?: { signal: AbortSignal; }) => {
     try {
       console.log("📖 Getting questionnaire...");
 
