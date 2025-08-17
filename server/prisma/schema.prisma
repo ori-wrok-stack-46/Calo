@@ -13,7 +13,8 @@ model User {
   user_id                    String                @id @default(cuid())
   email                      String                @unique
   password_hash              String
-  name                       String?
+  name                       String?  
+  avatar_url                 String?
   signup_date                DateTime              @default(now())
   subscription_type          SubscriptionType
   subscription_start         DateTime?

@@ -3,6 +3,11 @@ import { prisma } from "../lib/database";
 import { updateProfileSchema } from "../types/auth";
 import { authenticateToken, AuthRequest } from "../middleware/auth";
 import { StatisticsService } from "../services/statistics";
+import { z } from "zod";
+
+const avatarUploadSchema = z.object({
+  avatar_base64: z.string().min(100, "Avatar image data is required"),
+});
 
 const router = Router();
 
@@ -43,6 +48,75 @@ router.put(
     }
   }
 );
+
+// Upload avatar endpoint
+router.post("/avatar", authenticateToken, async (req: AuthRequest, res) => {
+  try {
+    const userId = req.user.user_id;
+
+    const validationResult = avatarUploadSchema.safeParse(req.body);
+    if (!validationResult.success) {
+      return res.status(400).json({
+        success: false,
+        error: "Invalid avatar data",
+        details: validationResult.error.errors,
+      });
+    }
+
+    const { avatar_base64 } = validationResult.data;
+
+    // Clean base64 data
+    let cleanBase64 = avatar_base64;
+    if (avatar_base64.startsWith("data:image/")) {
+      cleanBase64 = avatar_base64.split(",")[1];
+    }
+
+    // Validate base64
+    const base64Regex = /^[A-Za-z0-9+/]*={0,2}$/;
+    if (!base64Regex.test(cleanBase64)) {
+      return res.status(400).json({
+        success: false,
+        error: "Invalid image format",
+      });
+    }
+
+    // Create data URL for storage
+    const avatarUrl = `data:image/jpeg;base64,${cleanBase64}`;
+
+    // Update user avatar in database
+    const updatedUser = await prisma.user.update({
+      where: { user_id: userId },
+      data: { avatar_url: avatarUrl },
+      select: {
+        user_id: true,
+        email: true,
+        name: true,
+        avatar_url: true,
+        subscription_type: true,
+        birth_date: true,
+        ai_requests_count: true,
+        created_at: true,
+      },
+    });
+
+    console.log("✅ Avatar uploaded successfully for user:", userId);
+
+    res.json({
+      success: true,
+      message: "Avatar uploaded successfully",
+      avatar_url: avatarUrl,
+      user: updatedUser,
+    });
+  } catch (error) {
+    console.error("💥 Avatar upload error:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to upload avatar",
+      details: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+});
+
 // src/routes/user.ts
 router.put(
   "/subscription",

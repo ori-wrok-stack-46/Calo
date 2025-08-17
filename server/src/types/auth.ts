@@ -25,6 +25,7 @@ export const signInSchema = z.object({
 
 export const updateProfileSchema = z.object({
   name: z.string().min(1).optional(),
+  avatar_url: z.string().optional(),
   birth_date: z.preprocess((arg) => {
     if (typeof arg === "string" || arg instanceof Date) return new Date(arg);
   }, z.date()),
