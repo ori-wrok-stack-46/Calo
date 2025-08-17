@@ -722,7 +722,10 @@ const HomeScreen = React.memo(() => {
             </Text>
             <View style={styles.mainGoalContainer}>
               <LinearGradient
-                colors={[EmeraldSpectrum.emerald600, EmeraldSpectrum.emerald500]}
+                colors={[
+                  EmeraldSpectrum.emerald600,
+                  EmeraldSpectrum.emerald500,
+                ]}
                 style={styles.mainGoalGradient}
               >
                 <View style={styles.mainGoalContent}>
@@ -801,7 +804,10 @@ const HomeScreen = React.memo(() => {
           <View style={styles.section}>
             <View style={styles.waterTrackingContainer}>
               <LinearGradient
-                colors={[EmeraldSpectrum.emerald500, EmeraldSpectrum.emerald600]}
+                colors={[
+                  EmeraldSpectrum.emerald500,
+                  EmeraldSpectrum.emerald600,
+                ]}
                 style={styles.waterTrackingGradient}
               >
                 <View style={styles.waterTrackingHeader}>
@@ -908,7 +914,10 @@ const HomeScreen = React.memo(() => {
               <LinearGradient
                 colors={
                   calorieStatus === "ahead"
-                    ? [EmeraldSpectrum.emerald500 + "15", EmeraldSpectrum.emerald500 + "05"]
+                    ? [
+                        EmeraldSpectrum.emerald500 + "15",
+                        EmeraldSpectrum.emerald500 + "05",
+                      ]
                     : calorieStatus === "behind"
                     ? ["#E74C3C15", "#E74C3C05"]
                     : ["#F39C1215", "#F39C1205"]
@@ -918,7 +927,10 @@ const HomeScreen = React.memo(() => {
                 <View style={styles.statusContent}>
                   <View style={styles.statusIcon}>
                     {calorieStatus === "ahead" ? (
-                      <TrendingUp size={24} color={EmeraldSpectrum.emerald500} />
+                      <TrendingUp
+                        size={24}
+                        color={EmeraldSpectrum.emerald500}
+                      />
                     ) : calorieStatus === "behind" ? (
                       <Target size={24} color="#E74C3C" />
                     ) : (
@@ -968,7 +980,10 @@ const HomeScreen = React.memo(() => {
                 onPress={() => router.push("/(tabs)/camera")}
               >
                 <LinearGradient
-                  colors={[EmeraldSpectrum.emerald600, EmeraldSpectrum.emerald600 + "E6"]}
+                  colors={[
+                    EmeraldSpectrum.emerald600,
+                    EmeraldSpectrum.emerald600 + "E6",
+                  ]}
                   style={styles.quickActionGradient}
                 >
                   <View style={styles.quickActionIconContainer}>
@@ -985,7 +1000,10 @@ const HomeScreen = React.memo(() => {
                 onPress={() => router.push("/(tabs)/food-scanner")}
               >
                 <LinearGradient
-                  colors={[EmeraldSpectrum.emerald500, EmeraldSpectrum.emerald500 + "E6"]}
+                  colors={[
+                    EmeraldSpectrum.emerald500,
+                    EmeraldSpectrum.emerald500 + "E6",
+                  ]}
                   style={styles.quickActionGradient}
                 >
                   <View style={styles.quickActionIconContainer}>
@@ -1002,7 +1020,10 @@ const HomeScreen = React.memo(() => {
                 onPress={() => router.push("/(tabs)/statistics")}
               >
                 <LinearGradient
-                  colors={[EmeraldSpectrum.emerald700, EmeraldSpectrum.emerald700 + "E6"]}
+                  colors={[
+                    EmeraldSpectrum.emerald700,
+                    EmeraldSpectrum.emerald700 + "E6",
+                  ]}
                   style={styles.quickActionGradient}
                 >
                   <View style={styles.quickActionIconContainer}>
