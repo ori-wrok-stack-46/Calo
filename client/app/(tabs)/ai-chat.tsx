@@ -27,6 +27,8 @@ import {
   Trash2,
   RotateCcw,
   Info,
+  Minus,
+  X,
 } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
 import { useLanguage } from "@/src/i18n/context/LanguageContext";
@@ -35,6 +37,11 @@ import i18n from "@/src/i18n";
 import LoadingScreen from "@/components/LoadingScreen";
 
 const { width } = Dimensions.get("window");
+
+interface AIChatScreenProps {
+  onClose?: () => void;
+  onMinimize?: () => void;
+}
 
 interface Message {
   id: string;
@@ -53,7 +60,10 @@ interface UserProfile {
   goals: string[];
 }
 
-export default function AIChatScreen() {
+export default function AIChatScreen({
+  onClose,
+  onMinimize,
+}: AIChatScreenProps = {}) {
   const { t } = useTranslation();
   const { language } = useLanguage();
   const [messages, setMessages] = useState<Message[]>([]);
@@ -518,9 +528,21 @@ export default function AIChatScreen() {
             <Text style={styles.subtitle}>{texts.subtitle}</Text>
           </View>
         </View>
-        <TouchableOpacity style={styles.headerButton} onPress={clearChat}>
-          <Trash2 size={22} color="#E74C3C" />
-        </TouchableOpacity>
+        <View style={styles.headerButtons}>
+          {onMinimize && (
+            <TouchableOpacity style={styles.headerButton} onPress={onMinimize}>
+              <Minus size={20} color="#6B7280" />
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity style={styles.headerButton} onPress={clearChat}>
+            <Trash2 size={20} color="#E74C3C" />
+          </TouchableOpacity>
+          {onClose && (
+            <TouchableOpacity style={styles.headerButton} onPress={onClose}>
+              <X size={20} color="#6B7280" />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       {/* Messages */}
@@ -658,6 +680,10 @@ const styles = StyleSheet.create({
   },
   headerLeft: {
     flex: 1,
+  },
+  headerButtons: {
+    flexDirection: "row",
+    gap: 8,
   },
   titleContainer: {
     flex: 1,
