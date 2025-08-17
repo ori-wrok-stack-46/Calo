@@ -31,6 +31,7 @@ import {
 } from "lucide-react-native";
 import { useLanguage } from "../src/i18n/context/LanguageContext";
 import { useTheme } from "../src/context/ThemeContext";
+import { Colors, EmeraldSpectrum } from "@/constants/Colors";
 
 interface HelpContent {
   title: string;
@@ -271,7 +272,11 @@ const ToolBar: React.FC<ToolBarProps> = ({ helpContent }) => {
                 end={{ x: 1, y: 1 }}
               >
                 <View style={styles.iconContainer}>
-                  <Globe size={18} color={colors.primary} strokeWidth={2.5} />
+                  <Globe
+                    size={18}
+                    color={Colors.dark.text}
+                    strokeWidth={2.5}
+                  />
                 </View>
                 <Text
                   style={[
@@ -302,9 +307,17 @@ const ToolBar: React.FC<ToolBarProps> = ({ helpContent }) => {
               >
                 <View style={styles.iconContainer}>
                   {isDark ? (
-                    <Sun size={18} color={colors.primary} strokeWidth={2.5} />
+                    <Sun
+                      size={18}
+                      color={Colors.dark.text}
+                      strokeWidth={2.5}
+                    />
                   ) : (
-                    <Moon size={18} color={colors.primary} strokeWidth={2.5} />
+                    <Moon
+                      size={18}
+                      color={Colors.dark.text}
+                      strokeWidth={2.5}
+                    />
                   )}
                 </View>
               </LinearGradient>
@@ -328,7 +341,7 @@ const ToolBar: React.FC<ToolBarProps> = ({ helpContent }) => {
                   <View style={styles.iconContainer}>
                     <HelpCircle
                       size={18}
-                      color={colors.primary}
+                      color={Colors.dark.text}
                       strokeWidth={2.5}
                     />
                   </View>
@@ -396,7 +409,7 @@ const ToolBar: React.FC<ToolBarProps> = ({ helpContent }) => {
                     isRTL && styles.modalTitleContainerRTL,
                   ]}
                 >
-                  <HelpCircle size={24} color={colors.primary} />
+                  <HelpCircle size={24} color={Colors.dark.text} />
                   <Text
                     style={[
                       styles.modalTitle,
@@ -415,7 +428,7 @@ const ToolBar: React.FC<ToolBarProps> = ({ helpContent }) => {
                   ]}
                   activeOpacity={0.7}
                 >
-                  <X size={18} color={colors.primary} />
+                  <X size={18} color={Colors.dark.text} />
                 </TouchableOpacity>
               </View>
 
@@ -465,6 +478,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   menuButton: {
+    backgroundColor: `${EmeraldSpectrum.emerald500}`,
     position: "absolute",
     width: 56,
     height: 56,
@@ -472,9 +486,8 @@ const styles = StyleSheet.create({
     overflow: "hidden",
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.8,
     shadowRadius: 16,
-    elevation: 8,
   },
   blurButton: {
     flex: 1,

@@ -20,6 +20,7 @@ import {
 } from "../../src/services/deviceAPI";
 import { HealthData } from "../../src/services/healthKit";
 import LoadingScreen from "@/components/LoadingScreen";
+import ErrorBoundary from "@/components/ErrorBoundary";
 
 type DeviceType =
   | "APPLE_HEALTH"
@@ -113,6 +114,7 @@ export default function DevicesScreen() {
   const [connectingDevices, setConnectingDevices] = useState<Set<string>>(
     new Set()
   );
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadDeviceData();
@@ -122,6 +124,7 @@ export default function DevicesScreen() {
     try {
       console.log("📱 Loading device data...");
       setIsLoading(true);
+      setError(null);
 
       // Get connected devices
       const devices = await deviceAPI.getConnectedDevices();
@@ -145,7 +148,7 @@ export default function DevicesScreen() {
       }
     } catch (error) {
       console.error("💥 Failed to load device data:", error);
-      Alert.alert("Error", "Failed to load device data. Please try again.");
+      setError("Failed to load device data. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -203,6 +206,7 @@ export default function DevicesScreen() {
           onPress: async () => {
             console.log("🔄 User pressed Connect for:", deviceType);
             setConnectingDevices((prev) => new Set(prev).add(deviceType));
+            setError(null);
 
             try {
               console.log(
@@ -226,11 +230,8 @@ export default function DevicesScreen() {
               }
             } catch (error) {
               console.error("💥 Connection error:", error);
-              const errorMessage =
-                error instanceof Error ? error.message : "Unknown error";
-              Alert.alert(
-                "Connection Error",
-                `Failed to connect to ${deviceInfo.name}:\n\n${errorMessage}\n\nPlease check your internet connection and try again.`
+              setError(
+                `Failed to connect to ${deviceInfo.name}. Please try again.`
               );
             } finally {
               setConnectingDevices((prev) => {
@@ -506,162 +507,182 @@ export default function DevicesScreen() {
     );
   }
 
+  if (error) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorText}>{error}</Text>
+        <TouchableOpacity
+          style={styles.retryButton}
+          onPress={() => {
+            setError(null);
+            loadDeviceData();
+          }}
+        >
+          <Text style={styles.retryButtonText}>Retry</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
   return (
-    <ScrollView
-      style={styles.container}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-      }
-    >
-      {/* No Devices Connected State */}
-      {connectedDevices.length === 0 && (
-        <View style={styles.emptyState}>
-          <Ionicons name="watch-outline" size={64} color="#ccc" />
-          <Text style={styles.emptyStateTitle}>No Devices Connected</Text>
-          <Text style={styles.emptyStateText}>
-            Connect your smart devices to track calories burned, steps, and
-            other activity data for a complete picture of your health.
-          </Text>
-        </View>
-      )}
-
-      {/* Daily Balance Section */}
-      {dailyBalance && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>📊 Today's Calorie Balance</Text>
-          <View
-            style={[
-              styles.balanceCard,
-              { borderLeftColor: getBalanceColor(dailyBalance.balanceStatus) },
-            ]}
-          >
-            <View style={styles.balanceStats}>
-              <View style={styles.balanceStat}>
-                <Text style={styles.balanceValue}>
-                  {dailyBalance.caloriesIn}
-                </Text>
-                <Text style={styles.balanceLabel}>Calories In</Text>
-              </View>
-              <View style={styles.balanceStat}>
-                <Text style={styles.balanceValue}>
-                  {dailyBalance.caloriesOut}
-                </Text>
-                <Text style={styles.balanceLabel}>Calories Out</Text>
-              </View>
-              <View style={styles.balanceStat}>
-                <Text
-                  style={[
-                    styles.balanceValue,
-                    { color: getBalanceColor(dailyBalance.balanceStatus) },
-                  ]}
-                >
-                  {dailyBalance.balance > 0 ? "+" : ""}
-                  {dailyBalance.balance}
-                </Text>
-                <Text style={styles.balanceLabel}>Net Balance</Text>
-              </View>
-            </View>
-            <Text style={styles.balanceMessage}>
-              {getBalanceMessage(
-                dailyBalance.balance,
-                dailyBalance.balanceStatus
-              )}
+    <ErrorBoundary>
+      <ScrollView
+        style={styles.container}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+        }
+      >
+        {/* No Devices Connected State */}
+        {connectedDevices.length === 0 && (
+          <View style={styles.emptyState}>
+            <Ionicons name="watch-outline" size={64} color="#ccc" />
+            <Text style={styles.emptyStateTitle}>No Devices Connected</Text>
+            <Text style={styles.emptyStateText}>
+              Connect your smart devices to track calories burned, steps, and
+              other activity data for a complete picture of your health.
             </Text>
           </View>
-        </View>
-      )}
+        )}
 
-      {/* Activity Data Section */}
-      {activityData && (
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>🏃‍♂️ Today's Activity</Text>
-          <View style={styles.activityGrid}>
-            <View style={styles.activityCard}>
-              <Ionicons name="walk" size={24} color="#4CAF50" />
-              <Text style={styles.activityValue}>
-                {activityData.steps.toLocaleString()}
-              </Text>
-              <Text style={styles.activityLabel}>Steps</Text>
-            </View>
-            <View style={styles.activityCard}>
-              <Ionicons name="flame" size={24} color="#FF5722" />
-              <Text style={styles.activityValue}>
-                {activityData.caloriesBurned}
-              </Text>
-              <Text style={styles.activityLabel}>Calories Burned</Text>
-            </View>
-            <View style={styles.activityCard}>
-              <Ionicons name="time" size={24} color="#2196F3" />
-              <Text style={styles.activityValue}>
-                {activityData.activeMinutes}
-              </Text>
-              <Text style={styles.activityLabel}>Active Minutes</Text>
-            </View>
-            {activityData.heartRate && (
-              <View style={styles.activityCard}>
-                <Ionicons name="heart" size={24} color="#E91E63" />
-                <Text style={styles.activityValue}>
-                  {activityData.heartRate}
-                </Text>
-                <Text style={styles.activityLabel}>Avg Heart Rate</Text>
+        {/* Daily Balance Section */}
+        {dailyBalance && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>📊 Today's Calorie Balance</Text>
+            <View
+              style={[
+                styles.balanceCard,
+                {
+                  borderLeftColor: getBalanceColor(dailyBalance.balanceStatus),
+                },
+              ]}
+            >
+              <View style={styles.balanceStats}>
+                <View style={styles.balanceStat}>
+                  <Text style={styles.balanceValue}>
+                    {dailyBalance.caloriesIn}
+                  </Text>
+                  <Text style={styles.balanceLabel}>Calories In</Text>
+                </View>
+                <View style={styles.balanceStat}>
+                  <Text style={styles.balanceValue}>
+                    {dailyBalance.caloriesOut}
+                  </Text>
+                  <Text style={styles.balanceLabel}>Calories Out</Text>
+                </View>
+                <View style={styles.balanceStat}>
+                  <Text
+                    style={[
+                      styles.balanceValue,
+                      { color: getBalanceColor(dailyBalance.balanceStatus) },
+                    ]}
+                  >
+                    {dailyBalance.balance > 0 ? "+" : ""}
+                    {dailyBalance.balance}
+                  </Text>
+                  <Text style={styles.balanceLabel}>Net Balance</Text>
+                </View>
               </View>
-            )}
+              <Text style={styles.balanceMessage}>
+                {getBalanceMessage(
+                  dailyBalance.balance,
+                  dailyBalance.balanceStatus
+                )}
+              </Text>
+            </View>
           </View>
-        </View>
-      )}
+        )}
 
-      {/* Connected Devices Section */}
-      {connectedDevices.length > 0 && (
+        {/* Activity Data Section */}
+        {activityData && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>🏃‍♂️ Today's Activity</Text>
+            <View style={styles.activityGrid}>
+              <View style={styles.activityCard}>
+                <Ionicons name="walk" size={24} color="#4CAF50" />
+                <Text style={styles.activityValue}>
+                  {activityData.steps.toLocaleString()}
+                </Text>
+                <Text style={styles.activityLabel}>Steps</Text>
+              </View>
+              <View style={styles.activityCard}>
+                <Ionicons name="flame" size={24} color="#FF5722" />
+                <Text style={styles.activityValue}>
+                  {activityData.caloriesBurned}
+                </Text>
+                <Text style={styles.activityLabel}>Calories Burned</Text>
+              </View>
+              <View style={styles.activityCard}>
+                <Ionicons name="time" size={24} color="#2196F3" />
+                <Text style={styles.activityValue}>
+                  {activityData.activeMinutes}
+                </Text>
+                <Text style={styles.activityLabel}>Active Minutes</Text>
+              </View>
+              {activityData.heartRate && (
+                <View style={styles.activityCard}>
+                  <Ionicons name="heart" size={24} color="#E91E63" />
+                  <Text style={styles.activityValue}>
+                    {activityData.heartRate}
+                  </Text>
+                  <Text style={styles.activityLabel}>Avg Heart Rate</Text>
+                </View>
+              )}
+            </View>
+          </View>
+        )}
+
+        {/* Connected Devices Section */}
+        {connectedDevices.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>🔗 Connected Devices</Text>
+            {connectedDevices.map(renderDeviceCard)}
+
+            {/* Sync All Button */}
+            <TouchableOpacity
+              style={styles.syncAllButton}
+              onPress={handleSyncAllDevices}
+            >
+              <Ionicons name="refresh-circle" size={24} color="white" />
+              <Text style={styles.syncAllButtonText}>Sync All Devices</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Available Devices Section */}
+        {renderAvailableDevices()}
+
+        {/* Help Section */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>🔗 Connected Devices</Text>
-          {connectedDevices.map(renderDeviceCard)}
-
-          {/* Sync All Button */}
-          <TouchableOpacity
-            style={styles.syncAllButton}
-            onPress={handleSyncAllDevices}
-          >
-            <Ionicons name="refresh-circle" size={24} color="white" />
-            <Text style={styles.syncAllButtonText}>Sync All Devices</Text>
-          </TouchableOpacity>
+          <Text style={styles.sectionTitle}>ℹ️ About Device Integration</Text>
+          <Text style={styles.helpText}>
+            • <Text style={styles.bold}>Apple Health:</Text> Available on iOS
+            devices with Health app
+          </Text>
+          <Text style={styles.helpText}>
+            • <Text style={styles.bold}>Google Fit:</Text> Available on Android
+            devices for comprehensive activity tracking
+          </Text>
+          <Text style={styles.helpText}>
+            • <Text style={styles.bold}>Fitbit:</Text> Connect your Fitbit
+            account for sleep and activity data
+          </Text>
+          <Text style={styles.helpText}>
+            • <Text style={styles.bold}>Garmin:</Text> Sync detailed fitness
+            metrics from Garmin devices
+          </Text>
+          <Text style={styles.helpText}>
+            • <Text style={styles.bold}>Whoop:</Text> Track recovery, strain,
+            and sleep patterns
+          </Text>
+          <Text style={styles.helpText}>
+            • <Text style={styles.bold}>Polar:</Text> Heart rate and training
+            data integration
+          </Text>
+          <Text style={styles.helpText}>
+            • Your health data is processed securely and stored with encryption
+          </Text>
         </View>
-      )}
-
-      {/* Available Devices Section */}
-      {renderAvailableDevices()}
-
-      {/* Help Section */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>ℹ️ About Device Integration</Text>
-        <Text style={styles.helpText}>
-          • <Text style={styles.bold}>Apple Health:</Text> Available on iOS
-          devices with Health app
-        </Text>
-        <Text style={styles.helpText}>
-          • <Text style={styles.bold}>Google Fit:</Text> Available on Android
-          devices for comprehensive activity tracking
-        </Text>
-        <Text style={styles.helpText}>
-          • <Text style={styles.bold}>Fitbit:</Text> Connect your Fitbit account
-          for sleep and activity data
-        </Text>
-        <Text style={styles.helpText}>
-          • <Text style={styles.bold}>Garmin:</Text> Sync detailed fitness
-          metrics from Garmin devices
-        </Text>
-        <Text style={styles.helpText}>
-          • <Text style={styles.bold}>Whoop:</Text> Track recovery, strain, and
-          sleep patterns
-        </Text>
-        <Text style={styles.helpText}>
-          • <Text style={styles.bold}>Polar:</Text> Heart rate and training data
-          integration
-        </Text>
-        <Text style={styles.helpText}>
-          • Your health data is processed securely and stored with encryption
-        </Text>
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </ErrorBoundary>
   );
 }
 
@@ -888,5 +909,29 @@ const styles = StyleSheet.create({
   },
   bold: {
     fontWeight: "bold",
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+    backgroundColor: "#f5f5f5",
+  },
+  errorText: {
+    fontSize: 16,
+    color: "#E74C3C",
+    textAlign: "center",
+    marginBottom: 20,
+  },
+  retryButton: {
+    backgroundColor: "#007AFF",
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "600",
   },
 });

@@ -379,7 +379,12 @@
     "cups": "כוסות",
     "todays_summary": "סקירת ארוחות אחרונות",
     "water": "מים",
-    "completed": "הושלם"
+    "completed": "הושלם",
+    "user_stats": "מידע",
+    "xp": "Xp",
+    "level": "דרגה",
+    "current_streak": "רצף עכשוי",
+    "best_streak": "שיא רצף"
   },
   "meals": {
     "kcal": "קלוריות",

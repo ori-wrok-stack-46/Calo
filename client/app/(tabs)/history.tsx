@@ -167,13 +167,10 @@ const SwipeableMealCard = ({
 
       if (result) {
         Alert.alert("Success", "Ratings saved successfully!");
-        // Update local meal state immediately
         meal.taste_rating = ratings.taste_rating;
         meal.satiety_rating = ratings.satiety_rating;
         meal.energy_rating = ratings.energy_rating;
         meal.heaviness_rating = ratings.heaviness_rating;
-
-        // Refresh the meals list
         await dispatch(fetchMeals());
       }
     } catch (error) {
@@ -190,8 +187,8 @@ const SwipeableMealCard = ({
         style={[styles.swipeAction, { backgroundColor: "#10b981" }]}
         onPress={() => onDuplicate(meal.id || meal.meal_id?.toString())}
       >
-        <Copy size={24} color="#fff" />
-        <Text style={styles.swipeActionText}>Duplicate</Text>
+        <Copy size={20} color="#fff" />
+        <Text style={styles.swipeActionText}>Copy</Text>
       </TouchableOpacity>
     </View>
   );
@@ -202,7 +199,7 @@ const SwipeableMealCard = ({
         style={[styles.swipeAction, { backgroundColor: "#ef4444" }]}
         onPress={() => onDelete(meal.id || meal.meal_id?.toString())}
       >
-        <Trash2 size={24} color="#fff" />
+        <Trash2 size={20} color="#fff" />
         <Text style={styles.swipeActionText}>Delete</Text>
       </TouchableOpacity>
     </View>
@@ -222,7 +219,7 @@ const SwipeableMealCard = ({
             activeOpacity={0.7}
           >
             <Star
-              size={20}
+              size={18}
               color={star <= rating ? "#fbbf24" : colors.border}
               fill={star <= rating ? "#fbbf24" : "transparent"}
             />
@@ -273,24 +270,23 @@ const SwipeableMealCard = ({
       <Swipeable
         renderLeftActions={renderLeftActions}
         renderRightActions={renderRightActions}
-        rightThreshold={80}
-        leftThreshold={80}
+        rightThreshold={60}
+        leftThreshold={60}
       >
         <View
           style={[
             styles.enhancedMealCard,
             {
               backgroundColor: colors.card,
+              borderColor: colors.border,
             },
           ]}
         >
-          {/* Header Section */}
           <TouchableOpacity
             style={styles.cardHeader}
             onPress={() => setIsExpanded(!isExpanded)}
             activeOpacity={0.9}
           >
-            {/* Meal Image */}
             <View style={styles.imageContainer}>
               {meal.image_url ? (
                 <Image
@@ -299,22 +295,20 @@ const SwipeableMealCard = ({
                 />
               ) : (
                 <LinearGradient
-                  colors={[colors.primary + "20", colors.primary + "10"]}
+                  colors={[colors.emerald500 + "20", colors.emerald500 + "10"]}
                   style={styles.imagePlaceholder}
                 >
-                  <Camera size={24} color={colors.primary} />
+                  <Camera size={20} color={colors.emerald500} />
                 </LinearGradient>
               )}
 
-              {/* Favorite indicator */}
               {meal.is_favorite && (
                 <View style={styles.favoriteIndicator}>
-                  <Heart size={12} color="#fff" fill="#ef4444" />
+                  <Heart size={10} color="#fff" fill="#ef4444" />
                 </View>
               )}
             </View>
 
-            {/* Meal Info */}
             <View style={styles.mealInfo}>
               <Text
                 style={[styles.mealNameEnhanced, { color: colors.text }]}
@@ -325,16 +319,8 @@ const SwipeableMealCard = ({
 
               <View style={styles.mealMeta}>
                 <View style={styles.metaItem}>
-                  <Clock
-                    size={12}
-                    color={colors.textSecondary || colors.icon}
-                  />
-                  <Text
-                    style={[
-                      styles.metaText,
-                      { color: colors.textSecondary || colors.icon },
-                    ]}
-                  >
+                  <Clock size={12} color={colors.icon} />
+                  <Text style={[styles.metaText, { color: colors.icon }]}>
                     {new Date(
                       meal.created_at || meal.upload_time
                     ).toLocaleDateString("en-US", {
@@ -347,19 +333,13 @@ const SwipeableMealCard = ({
                 {(meal.taste_rating || 0) > 0 && (
                   <View style={styles.metaItem}>
                     <Star size={12} color="#fbbf24" fill="#fbbf24" />
-                    <Text
-                      style={[
-                        styles.metaText,
-                        { color: colors.textSecondary || colors.icon },
-                      ]}
-                    >
+                    <Text style={[styles.metaText, { color: colors.icon }]}>
                       {meal.taste_rating.toFixed(1)}
                     </Text>
                   </View>
                 )}
               </View>
 
-              {/* Quick nutrition preview */}
               <View style={styles.nutritionPreview}>
                 {Object.entries(NUTRITION_ICONS)
                   .slice(0, 3)
@@ -368,7 +348,7 @@ const SwipeableMealCard = ({
                     const value = getNutritionValue(key);
                     return (
                       <View key={key} style={styles.nutritionPreviewItem}>
-                        <IconComponent size={14} color={config.color} />
+                        <IconComponent size={12} color={config.color} />
                         <Text
                           style={[
                             styles.nutritionPreviewValue,
@@ -376,7 +356,6 @@ const SwipeableMealCard = ({
                           ]}
                         >
                           {value}
-                          {config.unit}
                         </Text>
                       </View>
                     );
@@ -384,42 +363,39 @@ const SwipeableMealCard = ({
               </View>
             </View>
 
-            {/* Actions */}
             <View style={styles.cardActions}>
               <TouchableOpacity
                 onPress={() =>
                   onToggleFavorite(meal.id || meal.meal_id?.toString())
                 }
-                style={[styles.actionButton, styles.favoriteAction]}
+                style={[
+                  styles.actionButton,
+                  meal.is_favorite && { backgroundColor: "#ef444420" },
+                ]}
                 activeOpacity={0.7}
               >
                 <Heart
-                  size={18}
-                  color={
-                    meal.is_favorite
-                      ? "#fff"
-                      : colors.textSecondary || colors.icon
-                  }
-                  fill={meal.is_favorite ? "#fff" : "transparent"}
+                  size={16}
+                  color={meal.is_favorite ? "#ef4444" : colors.icon}
+                  fill={meal.is_favorite ? "#ef4444" : "transparent"}
                 />
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={[
                   styles.actionButton,
-                  { backgroundColor: colors.border || colors.icon + "20" },
+                  { backgroundColor: colors.surface },
                 ]}
               >
                 {isExpanded ? (
-                  <ChevronUp size={18} color={colors.text} />
+                  <ChevronUp size={16} color={colors.text} />
                 ) : (
-                  <ChevronDown size={18} color={colors.text} />
+                  <ChevronDown size={16} color={colors.text} />
                 )}
               </TouchableOpacity>
             </View>
           </TouchableOpacity>
 
-          {/* Expanded Content */}
           <Animated.View
             style={[
               styles.expandedSection,
@@ -434,7 +410,6 @@ const SwipeableMealCard = ({
           >
             {isExpanded && (
               <View style={styles.expandedContent}>
-                {/* Complete Nutrition Grid */}
                 <View style={styles.nutritionSection}>
                   <Text style={[styles.sectionTitle, { color: colors.text }]}>
                     Nutrition Information
@@ -448,7 +423,7 @@ const SwipeableMealCard = ({
                           key={key}
                           style={[
                             styles.nutritionCard,
-                            { backgroundColor: colors.background },
+                            { backgroundColor: colors.surface },
                           ]}
                         >
                           <View style={styles.nutritionCardHeader}>
@@ -458,12 +433,12 @@ const SwipeableMealCard = ({
                                 { backgroundColor: config.color + "15" },
                               ]}
                             >
-                              <IconComponent size={16} color={config.color} />
+                              <IconComponent size={14} color={config.color} />
                             </View>
                             <Text
                               style={[
                                 styles.nutritionCardName,
-                                { color: colors.textSecondary || colors.icon },
+                                { color: colors.icon },
                               ]}
                             >
                               {config.name}
@@ -483,7 +458,6 @@ const SwipeableMealCard = ({
                   </View>
                 </View>
 
-                {/* Ingredients Section */}
                 {ingredients && ingredients.length > 0 && (
                   <View style={styles.ingredientsSection}>
                     <Text style={[styles.sectionTitle, { color: colors.text }]}>
@@ -492,10 +466,7 @@ const SwipeableMealCard = ({
                     <ScrollView
                       horizontal
                       showsHorizontalScrollIndicator={false}
-                      contentContainerStyle={[
-                        styles.ingredientsScrollContainer,
-                        isRTL && styles.rtlContainer,
-                      ]}
+                      contentContainerStyle={styles.ingredientsScrollContainer}
                     >
                       {ingredients.map((ingredient: any, index: number) => {
                         const ingredientName =
@@ -505,39 +476,25 @@ const SwipeableMealCard = ({
                               ingredient.ingredient_name ||
                               `Ingredient ${index + 1}`;
 
-                        const hasNutrition =
-                          typeof ingredient === "object" &&
-                          (ingredient.calories > 0 ||
-                            ingredient.protein > 0 ||
-                            ingredient.carbs > 0);
-
                         return (
                           <View
                             key={`ingredient-${index}`}
                             style={[
                               styles.ingredientChipEnhanced,
                               {
-                                backgroundColor: colors.primary + "10",
-                                borderColor: colors.primary + "20",
+                                backgroundColor: colors.emerald500 + "10",
+                                borderColor: colors.emerald500 + "20",
                               },
                             ]}
                           >
                             <Text
                               style={[
                                 styles.ingredientTextEnhanced,
-                                { color: colors.primary },
-                                isRTL && styles.rtlText,
+                                { color: colors.emerald500 },
                               ]}
                             >
                               {ingredientName}
                             </Text>
-                            {hasNutrition && (
-                              <View style={styles.ingredientNutritionBadge}>
-                                <Text style={styles.ingredientNutritionText}>
-                                  {Math.round(ingredient.calories || 0)} cal
-                                </Text>
-                              </View>
-                            )}
                           </View>
                         );
                       })}
@@ -545,7 +502,6 @@ const SwipeableMealCard = ({
                   </View>
                 )}
 
-                {/* Enhanced Rating Section */}
                 <View style={styles.ratingSection}>
                   <Text style={[styles.sectionTitle, { color: colors.text }]}>
                     Rate Your Experience
@@ -566,7 +522,7 @@ const SwipeableMealCard = ({
                         key={key}
                         style={[
                           styles.ratingItemEnhanced,
-                          { backgroundColor: colors.background },
+                          { backgroundColor: colors.surface },
                         ]}
                       >
                         <View style={styles.ratingItemHeader}>
@@ -591,7 +547,7 @@ const SwipeableMealCard = ({
                   <TouchableOpacity
                     style={[
                       styles.saveButton,
-                      { backgroundColor: colors.primary },
+                      { backgroundColor: colors.emerald500 },
                     ]}
                     onPress={handleSaveRatings}
                     disabled={savingRatings}
@@ -601,7 +557,7 @@ const SwipeableMealCard = ({
                       <ActivityIndicator size="small" color="#fff" />
                     ) : (
                       <>
-                        <Award size={18} color="#fff" />
+                        <Award size={16} color="#fff" />
                         <Text style={styles.saveButtonText}>Save Ratings</Text>
                       </>
                     )}
@@ -668,8 +624,8 @@ const ExpandableSearch = ({
         style={[
           styles.expandableSearchContainer,
           {
-            backgroundColor: colors.background,
-            borderColor: colors.border || colors.icon + "20",
+            backgroundColor: colors.surface,
+            borderColor: colors.border,
             width: searchWidth,
           },
         ]}
@@ -679,7 +635,7 @@ const ExpandableSearch = ({
           style={styles.searchIconButton}
           activeOpacity={0.7}
         >
-          <Search size={18} color={colors.textSecondary || colors.icon} />
+          <Search size={18} color={colors.icon} />
         </TouchableOpacity>
 
         <Animated.View
@@ -690,7 +646,7 @@ const ExpandableSearch = ({
             placeholder="Search meals..."
             value={searchQuery}
             onChangeText={setSearchQuery}
-            placeholderTextColor={colors.textSecondary || colors.icon}
+            placeholderTextColor={colors.icon}
             onBlur={collapseSearch}
             autoFocus={isExpanded}
           />
@@ -700,7 +656,7 @@ const ExpandableSearch = ({
               style={styles.clearSearchButton}
               activeOpacity={0.7}
             >
-              <X size={16} color={colors.textSecondary || colors.icon} />
+              <X size={16} color={colors.icon} />
             </TouchableOpacity>
           )}
         </Animated.View>
@@ -710,21 +666,20 @@ const ExpandableSearch = ({
         style={[
           styles.filterButtonCompact,
           {
-            backgroundColor: colors.primary + "15",
-            borderColor: colors.primary + "30",
+            backgroundColor: colors.emerald500 + "15",
+            borderColor: colors.emerald500 + "30",
           },
         ]}
         onPress={onFilterPress}
         activeOpacity={0.8}
       >
-        <Filter size={18} color={colors.primary} />
+        <Filter size={18} color={colors.emerald500} />
       </TouchableOpacity>
     </View>
   );
 };
 
 export default function HistoryScreen() {
-  // ALL hooks must be called before any conditional logic or early returns
   const { t } = useTranslation();
   const { isRTL } = useLanguage();
   const dispatch = useDispatch<AppDispatch>();
@@ -755,7 +710,6 @@ export default function HistoryScreen() {
   const handleToggleFavorite = useCallback(
     async (mealId: string) => {
       try {
-        // Optimistically update the UI
         const mealToUpdate = meals.find(
           (m) => (m.id || m.meal_id?.toString()) === mealId
         );
@@ -766,20 +720,16 @@ export default function HistoryScreen() {
         const result = await dispatch(toggleMealFavorite(mealId)).unwrap();
 
         if (result) {
-          // Show success feedback
           Alert.alert(
             "Success",
             mealToUpdate?.is_favorite
               ? "Added to favorites!"
               : "Removed from favorites!"
           );
-
-          // Refresh the meals list to ensure consistency
           await dispatch(fetchMeals());
         }
       } catch (error) {
         console.error("Failed to toggle favorite:", error);
-        // Revert optimistic update on error
         const mealToRevert = meals.find(
           (m) => (m.id || m.meal_id?.toString()) === mealId
         );
@@ -805,7 +755,6 @@ export default function HistoryScreen() {
           })
         ).unwrap();
         Alert.alert("Success", "Meal duplicated successfully!");
-        // Refresh the meals list
         dispatch(fetchMeals());
       } catch (error) {
         console.error("Failed to duplicate meal:", error);
@@ -826,7 +775,6 @@ export default function HistoryScreen() {
             try {
               await dispatch(removeMeal(mealId)).unwrap();
               Alert.alert("Success", "Meal deleted successfully!");
-              // Refresh the meals list
               dispatch(fetchMeals());
             } catch (error) {
               console.error("Failed to remove meal:", error);
@@ -843,7 +791,6 @@ export default function HistoryScreen() {
     if (!meals) return [];
 
     return meals.filter((meal: any) => {
-      // Search filter
       if (searchQuery.trim() !== "") {
         const query = searchQuery.toLowerCase();
         const matchesSearch =
@@ -853,7 +800,6 @@ export default function HistoryScreen() {
         if (!matchesSearch) return false;
       }
 
-      // Category filter
       if (filters.category !== "all") {
         const calories = meal.calories || 0;
         const protein = meal.protein || meal.protein_g || 0;
@@ -892,18 +838,15 @@ export default function HistoryScreen() {
         }
       }
 
-      // Calorie range filter
       const calories = meal.calories || 0;
       if (calories < filters.minCalories || calories > filters.maxCalories) {
         return false;
       }
 
-      // Favorites filter
       if (filters.showFavoritesOnly && !meal.is_favorite) {
         return false;
       }
 
-      // Date range filter
       if (filters.dateRange !== "all") {
         const mealDate = new Date(meal.created_at || meal.upload_time);
         const now = new Date();
@@ -972,21 +915,21 @@ export default function HistoryScreen() {
         <View
           style={[
             styles.insightsCardEnhanced,
-            { backgroundColor: colors.card },
+            { backgroundColor: colors.card, borderColor: colors.border },
           ]}
         >
           <LinearGradient
-            colors={[colors.primary + "08", colors.primary + "15"]}
+            colors={[colors.emerald500 + "08", colors.emerald500 + "15"]}
             style={styles.insightsGradientEnhanced}
           >
             <View style={styles.insightsHeaderEnhanced}>
               <View
                 style={[
                   styles.insightsIconContainer,
-                  { backgroundColor: colors.primary + "20" },
+                  { backgroundColor: colors.emerald500 + "20" },
                 ]}
               >
-                <TrendingUp size={20} color={colors.primary} />
+                <TrendingUp size={20} color={colors.emerald500} />
               </View>
               <View>
                 <Text
@@ -994,12 +937,7 @@ export default function HistoryScreen() {
                 >
                   Your Insights
                 </Text>
-                <Text
-                  style={[
-                    styles.insightsSubtitle,
-                    { color: colors.textSecondary || colors.icon },
-                  ]}
-                >
+                <Text style={[styles.insightsSubtitle, { color: colors.icon }]}>
                   Track your progress
                 </Text>
               </View>
@@ -1009,16 +947,16 @@ export default function HistoryScreen() {
               <View
                 style={[
                   styles.insightItemEnhanced,
-                  { backgroundColor: colors.background },
+                  { backgroundColor: colors.surface },
                 ]}
               >
                 <View
                   style={[
                     styles.insightIconBox,
-                    { backgroundColor: colors.primary + "15" },
+                    { backgroundColor: colors.emerald500 + "15" },
                   ]}
                 >
-                  <Target size={16} color={colors.primary} />
+                  <Target size={16} color={colors.emerald500} />
                 </View>
                 <Text
                   style={[styles.insightValueEnhanced, { color: colors.text }]}
@@ -1026,10 +964,7 @@ export default function HistoryScreen() {
                   {item.data.totalMeals}
                 </Text>
                 <Text
-                  style={[
-                    styles.insightLabelEnhanced,
-                    { color: colors.textSecondary || colors.icon },
-                  ]}
+                  style={[styles.insightLabelEnhanced, { color: colors.icon }]}
                 >
                   Total Meals
                 </Text>
@@ -1038,7 +973,7 @@ export default function HistoryScreen() {
               <View
                 style={[
                   styles.insightItemEnhanced,
-                  { backgroundColor: colors.background },
+                  { backgroundColor: colors.surface },
                 ]}
               >
                 <View
@@ -1055,10 +990,7 @@ export default function HistoryScreen() {
                   {item.data.avgCalories}
                 </Text>
                 <Text
-                  style={[
-                    styles.insightLabelEnhanced,
-                    { color: colors.textSecondary || colors.icon },
-                  ]}
+                  style={[styles.insightLabelEnhanced, { color: colors.icon }]}
                 >
                   Avg Calories
                 </Text>
@@ -1067,7 +999,7 @@ export default function HistoryScreen() {
               <View
                 style={[
                   styles.insightItemEnhanced,
-                  { backgroundColor: colors.background },
+                  { backgroundColor: colors.surface },
                 ]}
               >
                 <View
@@ -1084,10 +1016,7 @@ export default function HistoryScreen() {
                   {item.data.favoriteMeals}
                 </Text>
                 <Text
-                  style={[
-                    styles.insightLabelEnhanced,
-                    { color: colors.textSecondary || colors.icon },
-                  ]}
+                  style={[styles.insightLabelEnhanced, { color: colors.icon }]}
                 >
                   Favorites
                 </Text>
@@ -1096,7 +1025,7 @@ export default function HistoryScreen() {
               <View
                 style={[
                   styles.insightItemEnhanced,
-                  { backgroundColor: colors.background },
+                  { backgroundColor: colors.surface },
                 ]}
               >
                 <View
@@ -1113,10 +1042,7 @@ export default function HistoryScreen() {
                   {item.data.avgRating}
                 </Text>
                 <Text
-                  style={[
-                    styles.insightLabelEnhanced,
-                    { color: colors.textSecondary || colors.icon },
-                  ]}
+                  style={[styles.insightLabelEnhanced, { color: colors.icon }]}
                 >
                   Avg Rating
                 </Text>
@@ -1139,7 +1065,6 @@ export default function HistoryScreen() {
     );
   };
 
-  // Only show loading screen if truly loading and no meals exist
   if (isLoading && !meals.length) {
     return (
       <LoadingScreen text={isRTL ? "טוען היסטוריה..." : "Loading history..."} />
@@ -1151,8 +1076,9 @@ export default function HistoryScreen() {
       <SafeAreaView
         style={[styles.container, { backgroundColor: colors.background }]}
       >
-        {/* Compact Header */}
-        <View style={[styles.headerCompact, { backgroundColor: colors.card }]}>
+        <View
+          style={[styles.headerCompact, { backgroundColor: colors.background }]}
+        >
           <View style={styles.headerContentCompact}>
             <Text style={[styles.titleCompact, { color: colors.text }]}>
               {t("history.title") || "History"}
@@ -1167,7 +1093,6 @@ export default function HistoryScreen() {
           </View>
         </View>
 
-        {/* Content */}
         {listData.length > 0 ? (
           <FlatList
             data={listData}
@@ -1181,8 +1106,8 @@ export default function HistoryScreen() {
               <RefreshControl
                 refreshing={refreshing}
                 onRefresh={onRefresh}
-                colors={[colors.primary]}
-                tintColor={colors.primary}
+                colors={[colors.emerald500]}
+                tintColor={colors.emerald500}
               />
             }
           />
@@ -1191,20 +1116,15 @@ export default function HistoryScreen() {
             <View
               style={[
                 styles.emptyStateIcon,
-                { backgroundColor: colors.primary + "15" },
+                { backgroundColor: colors.emerald500 + "15" },
               ]}
             >
-              <Clock size={48} color={colors.primary} />
+              <Clock size={48} color={colors.emerald500} />
             </View>
             <Text style={[styles.emptyTitleEnhanced, { color: colors.text }]}>
               No meals found
             </Text>
-            <Text
-              style={[
-                styles.emptyTextEnhanced,
-                { color: colors.textSecondary || colors.icon },
-              ]}
-            >
+            <Text style={[styles.emptyTextEnhanced, { color: colors.icon }]}>
               {searchQuery ||
               filters.category !== "all" ||
               filters.showFavoritesOnly
@@ -1214,7 +1134,6 @@ export default function HistoryScreen() {
           </View>
         )}
 
-        {/* Enhanced Filter Modal */}
         <Modal
           visible={showFilters}
           animationType="slide"
@@ -1231,7 +1150,7 @@ export default function HistoryScreen() {
               <View
                 style={[
                   styles.modalHeaderEnhanced,
-                  { borderBottomColor: colors.border || colors.icon + "20" },
+                  { borderBottomColor: colors.border },
                 ]}
               >
                 <View>
@@ -1240,12 +1159,7 @@ export default function HistoryScreen() {
                   >
                     Filter & Sort
                   </Text>
-                  <Text
-                    style={[
-                      styles.modalSubtitle,
-                      { color: colors.textSecondary || colors.icon },
-                    ]}
-                  >
+                  <Text style={[styles.modalSubtitle, { color: colors.icon }]}>
                     Customize your meal view
                   </Text>
                 </View>
@@ -1253,7 +1167,7 @@ export default function HistoryScreen() {
                   onPress={() => setShowFilters(false)}
                   style={[
                     styles.closeButton,
-                    { backgroundColor: colors.border || colors.icon + "20" },
+                    { backgroundColor: colors.surface },
                   ]}
                   activeOpacity={0.8}
                 >
@@ -1265,7 +1179,6 @@ export default function HistoryScreen() {
                 style={styles.filterContentEnhanced}
                 showsVerticalScrollIndicator={false}
               >
-                {/* Category Filter */}
                 <View style={styles.filterSectionEnhanced}>
                   <Text
                     style={[
@@ -1286,11 +1199,11 @@ export default function HistoryScreen() {
                             styles.categoryChipEnhanced,
                             {
                               backgroundColor: isSelected
-                                ? colors.primary + "15"
-                                : colors.background,
+                                ? colors.emerald500 + "15"
+                                : colors.surface,
                               borderColor: isSelected
-                                ? colors.primary
-                                : colors.border || colors.icon + "20",
+                                ? colors.emerald500
+                                : colors.border,
                             },
                           ]}
                           onPress={() =>
@@ -1303,14 +1216,14 @@ export default function HistoryScreen() {
                         >
                           <IconComponent
                             size={16}
-                            color={isSelected ? colors.primary : colors.text}
+                            color={isSelected ? colors.emerald500 : colors.text}
                           />
                           <Text
                             style={[
                               styles.categoryChipTextEnhanced,
                               {
                                 color: isSelected
-                                  ? colors.primary
+                                  ? colors.emerald500
                                   : colors.text,
                               },
                             ]}
@@ -1323,7 +1236,6 @@ export default function HistoryScreen() {
                   </View>
                 </View>
 
-                {/* Date Range Filter */}
                 <View style={styles.filterSectionEnhanced}>
                   <Text
                     style={[
@@ -1344,11 +1256,11 @@ export default function HistoryScreen() {
                             styles.dateRangeChipEnhanced,
                             {
                               backgroundColor: isSelected
-                                ? colors.primary + "15"
-                                : colors.background,
+                                ? colors.emerald500 + "15"
+                                : colors.surface,
                               borderColor: isSelected
-                                ? colors.primary
-                                : colors.border || colors.icon + "20",
+                                ? colors.emerald500
+                                : colors.border,
                             },
                           ]}
                           onPress={() =>
@@ -1361,14 +1273,14 @@ export default function HistoryScreen() {
                         >
                           <IconComponent
                             size={16}
-                            color={isSelected ? colors.primary : colors.text}
+                            color={isSelected ? colors.emerald500 : colors.text}
                           />
                           <Text
                             style={[
                               styles.dateRangeChipTextEnhanced,
                               {
                                 color: isSelected
-                                  ? colors.primary
+                                  ? colors.emerald500
                                   : colors.text,
                               },
                             ]}
@@ -1381,16 +1293,15 @@ export default function HistoryScreen() {
                   </View>
                 </View>
 
-                {/* Favorites Toggle */}
                 <View style={styles.filterSectionEnhanced}>
                   <TouchableOpacity
                     style={[
                       styles.favoritesToggleEnhanced,
                       {
-                        backgroundColor: colors.background,
+                        backgroundColor: colors.surface,
                         borderColor: filters.showFavoritesOnly
-                          ? colors.primary
-                          : colors.border || colors.icon + "20",
+                          ? colors.emerald500
+                          : colors.border,
                       },
                     ]}
                     onPress={() =>
@@ -1405,9 +1316,7 @@ export default function HistoryScreen() {
                       <Heart
                         size={18}
                         color={
-                          filters.showFavoritesOnly
-                            ? "#ef4444"
-                            : colors.textSecondary || colors.icon
+                          filters.showFavoritesOnly ? "#ef4444" : colors.icon
                         }
                         fill={
                           filters.showFavoritesOnly ? "#ef4444" : "transparent"
@@ -1423,10 +1332,7 @@ export default function HistoryScreen() {
                           Show Favorites Only
                         </Text>
                         <Text
-                          style={[
-                            styles.toggleSubtext,
-                            { color: colors.textSecondary || colors.icon },
-                          ]}
+                          style={[styles.toggleSubtext, { color: colors.icon }]}
                         >
                           Filter by your favorite meals
                         </Text>
@@ -1437,8 +1343,8 @@ export default function HistoryScreen() {
                         styles.toggleSwitch,
                         {
                           backgroundColor: filters.showFavoritesOnly
-                            ? colors.primary
-                            : colors.border || colors.icon + "20",
+                            ? colors.emerald500
+                            : colors.border,
                         },
                       ]}
                     >
@@ -1459,14 +1365,13 @@ export default function HistoryScreen() {
                   </TouchableOpacity>
                 </View>
 
-                {/* Action Buttons */}
                 <View style={styles.modalActions}>
                   <TouchableOpacity
                     style={[
                       styles.resetButtonEnhanced,
                       {
-                        backgroundColor: colors.background,
-                        borderColor: colors.border || colors.icon + "20",
+                        backgroundColor: colors.surface,
+                        borderColor: colors.border,
                       },
                     ]}
                     onPress={() =>
@@ -1490,7 +1395,7 @@ export default function HistoryScreen() {
                   <TouchableOpacity
                     style={[
                       styles.applyButtonEnhanced,
-                      { backgroundColor: colors.primary },
+                      { backgroundColor: colors.emerald500 },
                     ]}
                     onPress={() => setShowFilters(false)}
                     activeOpacity={0.8}
@@ -1514,27 +1419,27 @@ const styles = StyleSheet.create({
 
   // Compact Header Styles
   headerCompact: {
-    paddingTop: 8,
-    paddingBottom: 12,
+    paddingTop: 4,
+    paddingBottom: 8,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 2,
   },
 
   headerContentCompact: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
   },
 
   titleCompact: {
-    fontSize: 24,
-    fontWeight: "800",
-    letterSpacing: -0.5,
+    fontSize: 22,
+    fontWeight: "700",
+    letterSpacing: -0.3,
   },
 
   // Expandable Search Styles
@@ -1547,8 +1452,8 @@ const styles = StyleSheet.create({
   expandableSearchContainer: {
     flexDirection: "row",
     alignItems: "center",
-    height: 44,
-    borderRadius: 22,
+    height: 38,
+    borderRadius: 19,
     borderWidth: 1,
     paddingHorizontal: 4,
     shadowColor: "#000",
@@ -1559,9 +1464,9 @@ const styles = StyleSheet.create({
   },
 
   searchIconButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -1585,23 +1490,23 @@ const styles = StyleSheet.create({
   },
 
   filterButtonCompact: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     justifyContent: "center",
     alignItems: "center",
     borderWidth: 1,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
     elevation: 2,
   },
 
   // Swipe Container Styles
   swipeContainer: {
-    marginHorizontal: 20,
-    marginVertical: 8,
+    marginHorizontal: 16,
+    marginVertical: 6,
     position: "relative",
   },
 
@@ -1617,6 +1522,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 20,
     minWidth: "100%",
+    borderRadius: 16,
   },
 
   swipeActionText: {
@@ -1628,7 +1534,7 @@ const styles = StyleSheet.create({
 
   // Enhanced Insights Card
   insightsCardEnhanced: {
-    marginHorizontal: 20,
+    marginHorizontal: 16,
     marginVertical: 12,
     borderRadius: 20,
     overflow: "hidden",
@@ -1637,6 +1543,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 12,
     elevation: 5,
+    borderWidth: 1,
   },
 
   insightsGradientEnhanced: {
@@ -1696,7 +1603,7 @@ const styles = StyleSheet.create({
   },
 
   insightValueEnhanced: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "800",
     marginBottom: 4,
   },
@@ -1711,6 +1618,13 @@ const styles = StyleSheet.create({
   enhancedMealCard: {
     borderRadius: 20,
     overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+    borderWidth: 1,
+    marginBottom: 8,
   },
 
   cardHeader: {
@@ -1725,15 +1639,15 @@ const styles = StyleSheet.create({
   },
 
   mealImageEnhanced: {
-    width: 64,
-    height: 64,
-    borderRadius: 16,
+    width: 56,
+    height: 56,
+    borderRadius: 14,
   },
 
   imagePlaceholder: {
-    width: 64,
-    height: 64,
-    borderRadius: 16,
+    width: 56,
+    height: 56,
+    borderRadius: 14,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -1742,9 +1656,9 @@ const styles = StyleSheet.create({
     position: "absolute",
     top: -4,
     right: -4,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
     backgroundColor: "#ef4444",
     justifyContent: "center",
     alignItems: "center",
@@ -1760,7 +1674,7 @@ const styles = StyleSheet.create({
   },
 
   mealNameEnhanced: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: "700",
     marginBottom: 6,
   },
@@ -1769,7 +1683,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
-    marginBottom: 12,
+    marginBottom: 10,
   },
 
   metaItem: {
@@ -1785,7 +1699,7 @@ const styles = StyleSheet.create({
 
   nutritionPreview: {
     flexDirection: "row",
-    gap: 16,
+    gap: 14,
   },
 
   nutritionPreviewItem: {
@@ -1795,7 +1709,7 @@ const styles = StyleSheet.create({
   },
 
   nutritionPreviewValue: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: "600",
   },
 
@@ -1811,10 +1725,6 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     justifyContent: "center",
     alignItems: "center",
-  },
-
-  favoriteAction: {
-    backgroundColor: "#ef444420",
   },
 
   // Expanded Content
@@ -1857,9 +1767,9 @@ const styles = StyleSheet.create({
   },
 
   nutritionIconContainer: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 6,
@@ -1872,7 +1782,7 @@ const styles = StyleSheet.create({
   },
 
   nutritionCardValue: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: "800",
   },
 
@@ -1886,39 +1796,16 @@ const styles = StyleSheet.create({
     gap: 8,
   },
 
-  rtlContainer: {
-    flexDirection: "row-reverse",
-    paddingLeft: 16,
-    paddingRight: 0,
-  },
-
-  rtlText: {
-    textAlign: "right",
-  },
-
   ingredientChipEnhanced: {
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 12,
     borderWidth: 1,
+    marginRight: 8,
   },
 
   ingredientTextEnhanced: {
     fontSize: 12,
-    fontWeight: "600",
-  },
-
-  ingredientNutritionBadge: {
-    backgroundColor: "rgba(16, 185, 129, 0.1)",
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 8,
-    marginTop: 4,
-  },
-
-  ingredientNutritionText: {
-    fontSize: 10,
-    color: "#059669",
     fontWeight: "600",
   },
 
@@ -1936,7 +1823,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    padding: 16,
+    padding: 14,
     borderRadius: 12,
   },
 
@@ -1947,7 +1834,7 @@ const styles = StyleSheet.create({
   },
 
   ratingEmoji: {
-    fontSize: 20,
+    fontSize: 18,
   },
 
   ratingLabelEnhanced: {
@@ -1957,7 +1844,7 @@ const styles = StyleSheet.create({
 
   starContainer: {
     flexDirection: "row",
-    gap: 4,
+    gap: 2,
   },
 
   starButton: {
@@ -1968,7 +1855,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 14,
+    paddingVertical: 12,
     paddingHorizontal: 20,
     borderRadius: 14,
     gap: 8,
@@ -1976,13 +1863,14 @@ const styles = StyleSheet.create({
 
   saveButtonText: {
     color: "#fff",
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: "700",
   },
 
   // Lists
   mealsListEnhanced: {
     paddingBottom: 24,
+    paddingTop: 8,
   },
 
   // Empty State

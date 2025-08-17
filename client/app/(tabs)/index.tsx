@@ -22,7 +22,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useSelector, useDispatch } from "react-redux";
 import { router } from "expo-router";
-import { useFocusEffect } from "@react-navigation/native";
+import { useFocusEffect, useTheme } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
 import {
   Target,
@@ -38,50 +38,21 @@ import {
   ChartBar as BarChart3,
   Check,
 } from "lucide-react-native";
-import { api } from "@/src/services/api";
+import { api, APIError } from "@/src/services/api";
 import { RootState, AppDispatch } from "@/src/store";
 import { fetchMeals } from "../../src/store/mealSlice";
 import { useTranslation } from "react-i18next";
 import { useLanguage } from "@/src/i18n/context/LanguageContext";
 import LoadingScreen from "@/components/LoadingScreen";
+import ErrorBoundary from "@/components/ErrorBoundary";
 import XPNotification from "@/components/XPNotification";
-
+import { Colors, EmeraldSpectrum } from "@/constants/Colors";
 // Enable RTL support
 I18nManager.allowRTL(true);
 
 const { width } = Dimensions.get("window");
 
 // Define color constants to fix the undefined error
-const COLORS = {
-  emerald: {
-    50: "#ecfdf5",
-    100: "#d1fae5",
-    200: "#a7f3d0",
-    300: "#6ee7b7",
-    400: "#34d399",
-    500: "#10b981",
-    600: "#059669",
-    700: "#047857",
-    800: "#065f46",
-    900: "#064e3b",
-  },
-  gray: {
-    50: "#f9fafb",
-    100: "#f3f4f6",
-    200: "#e5e7eb",
-    300: "#d1d5db",
-    400: "#9ca3af",
-    500: "#6b7280",
-    600: "#4b5563",
-    700: "#374151",
-    800: "#1f2937",
-    900: "#111827",
-  },
-  white: "#ffffff",
-  success: "#10b981",
-  error: "#ef4444",
-  warning: "#f59e0b",
-};
 
 interface UserStats {
   totalMeals: number;
@@ -156,6 +127,8 @@ const HomeScreen = React.memo(() => {
   const [pendingWaterRequests, setPendingWaterRequests] = useState(0);
   const [waterSyncErrors, setWaterSyncErrors] = useState<string[]>([]);
   const [waterSyncInProgress, setWaterSyncInProgress] = useState(false);
+  const [dataError, setDataError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   // XP Notification State
   const [showXPNotification, setShowXPNotification] = useState(false);
@@ -297,6 +270,7 @@ const HomeScreen = React.memo(() => {
 
       isLoadingRef.current = true;
       setIsDataLoading(true);
+      setDataError(null);
 
       try {
         // Use Promise.allSettled with timeout for better error handling
@@ -311,21 +285,28 @@ const HomeScreen = React.memo(() => {
 
         if (statsResult.status === "rejected") {
           console.error("Stats loading failed:", statsResult.reason);
+          setDataError("Failed to load user statistics");
         }
         if (mealsResult.status === "rejected") {
           console.error("Meals loading failed:", mealsResult.reason);
+          setDataError("Failed to load meals data");
         }
 
         lastDataLoadRef.current = now;
+        setRetryCount(0); // Reset retry count on success
       } catch (error) {
         console.error("💥 Error loading data:", error);
+        setDataError(
+          error instanceof APIError ? error.message : "Failed to load data"
+        );
+        setRetryCount((prev) => prev + 1);
       } finally {
         setIsDataLoading(false);
         setInitialLoading(false);
         isLoadingRef.current = false;
       }
     },
-    [user?.user_id, loadUserStats, dispatch]
+    [user?.user_id, loadUserStats, dispatch, retryCount]
   );
 
   // Optimized refresh with proper state management
@@ -429,7 +410,12 @@ const HomeScreen = React.memo(() => {
         return;
       }
       console.error("Error syncing water intake:", error);
-      // Don't show sync errors to user - handle silently in background
+
+      // Add error to sync errors for user feedback
+      setWaterSyncErrors((prev) => [
+        ...prev,
+        `Sync failed for action ${actionId}`,
+      ]);
     } finally {
       clearTimeout(timeoutId);
       setWaterSyncInProgress(false);
@@ -496,8 +482,8 @@ const HomeScreen = React.memo(() => {
         current: dailyGoals.calories,
         target: dailyGoals.targetCalories,
         unit: t("meals.kcal") || "kcal",
-        color: COLORS.emerald[600],
-        icon: <Flame size={24} color={COLORS.emerald[600]} />,
+        color: EmeraldSpectrum.emerald600,
+        icon: <Flame size={24} color={EmeraldSpectrum.emerald600} />,
         label: t("meals.calories") || "Calories",
       },
       {
@@ -505,8 +491,8 @@ const HomeScreen = React.memo(() => {
         current: dailyGoals.protein,
         target: dailyGoals.targetProtein,
         unit: "g",
-        color: COLORS.emerald[700],
-        icon: <Zap size={24} color={COLORS.emerald[700]} />,
+        color: EmeraldSpectrum.emerald700,
+        icon: <Zap size={24} color={EmeraldSpectrum.emerald700} />,
         label: t("meals.protein") || "Protein",
       },
       {
@@ -514,8 +500,8 @@ const HomeScreen = React.memo(() => {
         current: optimisticWaterCups * 250,
         target: 2500,
         unit: "ml",
-        color: COLORS.emerald[500],
-        icon: <Droplets size={24} color={COLORS.emerald[500]} />,
+        color: EmeraldSpectrum.emerald500,
+        icon: <Droplets size={24} color={EmeraldSpectrum.emerald500} />,
         label: t("home.water") || "Water",
       },
     ],
@@ -642,446 +628,465 @@ const HomeScreen = React.memo(() => {
     );
   }
 
+  // Show error state with retry option
+  if (dataError && retryCount > 0) {
+    return (
+      <View style={styles.errorContainer}>
+        <Text style={styles.errorText}>{dataError}</Text>
+        <TouchableOpacity
+          style={styles.retryButton}
+          onPress={() => loadAllData(true)}
+        >
+          <Text style={styles.retryButtonText}>Retry</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar
-        barStyle="light-content"
-        backgroundColor={COLORS.emerald[600]}
-      />
+    <ErrorBoundary>
+      <SafeAreaView style={styles.container}>
+        <StatusBar
+          barStyle="light-content"
+          backgroundColor={EmeraldSpectrum.emerald600}
+        />
 
-      <XPNotification
-        visible={showXPNotification}
-        xpGained={xpNotificationData.xpGained}
-        leveledUp={xpNotificationData.leveledUp}
-        newLevel={xpNotificationData.newLevel}
-        newAchievements={xpNotificationData.newAchievements}
-        onHide={() => setShowXPNotification(false)}
-        language={language}
-      />
+        <XPNotification
+          visible={showXPNotification}
+          xpGained={xpNotificationData.xpGained}
+          leveledUp={xpNotificationData.leveledUp}
+          newLevel={xpNotificationData.newLevel}
+          newAchievements={xpNotificationData.newAchievements}
+          onHide={() => setShowXPNotification(false)}
+          language={language}
+        />
 
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={onRefresh}
-            colors={[COLORS.emerald[500]]}
-            tintColor={COLORS.emerald[500]}
-          />
-        }
-      >
-        {/* Header */}
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.greeting}>
-              {t("home.welcome")}
-              {user?.name ? `, ${user.name}` : ""}!
-            </Text>
-            <Text style={styles.subtitle}>
-              {t("home.track_goals") || "Let's track your goals today"}
-            </Text>
-          </View>
-        </View>
-
-        {/* User XP and Level */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            {t("home.user_stats") || "Your Stats"}
-          </Text>
-          <View style={styles.statsContainer}>
-            <View style={styles.xpLevelContainer}>
-              <Text style={styles.xpText}>
-                {t("home.xp") || "XP"}: {userStats?.xp || 0}
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[EmeraldSpectrum.emerald500]}
+              tintColor={EmeraldSpectrum.emerald500}
+            />
+          }
+        >
+          {/* Header */}
+          <View style={styles.header}>
+            <View>
+              <Text style={styles.greeting}>
+                {t("home.welcome")}
+                {user?.name ? `, ${user.name}` : ""}!
               </Text>
-              <Text style={styles.levelText}>
-                {t("home.level") || "Level"}: {userStats?.level || 1}
-              </Text>
-            </View>
-            <View style={styles.streakContainer}>
-              <Text style={styles.streakLabel}>
-                {t("home.current_streak") || "Current Streak"}:
-              </Text>
-              <Text style={styles.streakValue}>
-                {userStats?.streakDays || 0} days
-              </Text>
-              <Text style={styles.streakLabel}>
-                {t("home.best_streak") || "Best Streak"}:
-              </Text>
-              <Text style={styles.streakValue}>
-                {userStats?.bestStreak || 0} days
+              <Text style={styles.subtitle}>
+                {t("home.track_goals") || "Let's track your goals today"}
               </Text>
             </View>
           </View>
-        </View>
 
-        {/* Main Goal Progress - Calories */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            {t("home.goal_progress") || "Goal Progress"}
-          </Text>
-          <View style={styles.mainGoalContainer}>
-            <LinearGradient
-              colors={[COLORS.emerald[600], COLORS.emerald[500]]}
-              style={styles.mainGoalGradient}
-            >
-              <View style={styles.mainGoalContent}>
-                <View style={styles.mainGoalHeader}>
-                  <Flame size={32} color="#FFFFFF" />
-                  <Text style={styles.mainGoalTitle}>
-                    {t("meals.calories") || "Calories"}
-                  </Text>
-                </View>
-                <View style={styles.mainGoalValues}>
-                  <Text style={styles.mainGoalCurrent}>
-                    {dailyGoals.calories.toLocaleString()}
-                  </Text>
-                  <Text style={styles.mainGoalTarget}>
-                    / {dailyGoals.targetCalories.toLocaleString()}{" "}
-                    {t("meals.kcal") || "kcal"}
-                  </Text>
-                </View>
-                <View style={styles.mainGoalProgress}>
-                  <View style={styles.mainGoalProgressBg}>
-                    <View
-                      style={[
-                        styles.mainGoalProgressFill,
-                        {
-                          width: `${Math.min(
-                            (dailyGoals.calories / dailyGoals.targetCalories) *
-                              100,
-                            100
-                          )}%`,
-                        },
-                      ]}
-                    />
+          {/* User XP and Level */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
+              {t("home.user_stats") || "Your Stats"}
+            </Text>
+            <View style={styles.statsContainer}>
+              <View style={styles.xpLevelContainer}>
+                <Text style={styles.xpText}>
+                  {t("home.xp") || "XP"}: {userStats?.xp || 0}
+                </Text>
+                <Text style={styles.levelText}>
+                  {t("home.level") || "Level"}: {userStats?.level || 1}
+                </Text>
+              </View>
+              <View style={styles.streakContainer}>
+                <Text style={styles.streakLabel}>
+                  {t("home.current_streak") || "Current Streak"}:
+                </Text>
+                <Text style={styles.streakValue}>
+                  {userStats?.streakDays || 0} days
+                </Text>
+                <Text style={styles.streakLabel}>
+                  {t("home.best_streak") || "Best Streak"}:
+                </Text>
+                <Text style={styles.streakValue}>
+                  {userStats?.bestStreak || 0} days
+                </Text>
+              </View>
+            </View>
+          </View>
+
+          {/* Main Goal Progress - Calories */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
+              {t("home.goal_progress") || "Goal Progress"}
+            </Text>
+            <View style={styles.mainGoalContainer}>
+              <LinearGradient
+                colors={[EmeraldSpectrum.emerald600, EmeraldSpectrum.emerald500]}
+                style={styles.mainGoalGradient}
+              >
+                <View style={styles.mainGoalContent}>
+                  <View style={styles.mainGoalHeader}>
+                    <Flame size={32} color="#FFFFFF" />
+                    <Text style={styles.mainGoalTitle}>
+                      {t("meals.calories") || "Calories"}
+                    </Text>
                   </View>
-                  <Text style={styles.mainGoalPercentage}>
-                    {Math.min(
-                      (dailyGoals.calories / dailyGoals.targetCalories) * 100,
-                      100
-                    ).toFixed(0)}
-                    %
-                  </Text>
+                  <View style={styles.mainGoalValues}>
+                    <Text style={styles.mainGoalCurrent}>
+                      {dailyGoals.calories.toLocaleString()}
+                    </Text>
+                    <Text style={styles.mainGoalTarget}>
+                      / {dailyGoals.targetCalories.toLocaleString()}{" "}
+                      {t("meals.kcal") || "kcal"}
+                    </Text>
+                  </View>
+                  <View style={styles.mainGoalProgress}>
+                    <View style={styles.mainGoalProgressBg}>
+                      <View
+                        style={[
+                          styles.mainGoalProgressFill,
+                          {
+                            width: `${Math.min(
+                              (dailyGoals.calories /
+                                dailyGoals.targetCalories) *
+                                100,
+                              100
+                            )}%`,
+                          },
+                        ]}
+                      />
+                    </View>
+                    <Text style={styles.mainGoalPercentage}>
+                      {Math.min(
+                        (dailyGoals.calories / dailyGoals.targetCalories) * 100,
+                        100
+                      ).toFixed(0)}
+                      %
+                    </Text>
+                  </View>
+                  <View style={styles.mainGoalRemaining}>
+                    <Text style={styles.mainGoalRemainingText}>
+                      {Math.max(
+                        dailyGoals.targetCalories - dailyGoals.calories,
+                        0
+                      )}{" "}
+                      {t("meals.kcal") || "kcal"}{" "}
+                      {t("home.remaining") || "remaining"}
+                    </Text>
+                    <View style={styles.mainGoalStatus}>
+                      <Clock size={16} color="rgba(255,255,255,0.8)" />
+                      <Text style={styles.mainGoalStatusText}>
+                        {hoursLeft} {t("home.hours_left") || "hours left"}
+                      </Text>
+                    </View>
+                  </View>
                 </View>
-                <View style={styles.mainGoalRemaining}>
-                  <Text style={styles.mainGoalRemainingText}>
-                    {Math.max(
-                      dailyGoals.targetCalories - dailyGoals.calories,
-                      0
-                    )}{" "}
-                    {t("meals.kcal") || "kcal"}{" "}
-                    {t("home.remaining") || "remaining"}
+              </LinearGradient>
+            </View>
+          </View>
+
+          {/* Goal Gauges */}
+          <View style={styles.section}>
+            <View style={styles.goalGaugesContainer}>
+              {goalProgress.slice(1).map((goal, index) => (
+                <View key={index} style={styles.goalGaugeWrapper}>
+                  {renderGoalGauge(goal)}
+                </View>
+              ))}
+            </View>
+          </View>
+
+          {/* Water Tracking Section */}
+          <View style={styles.section}>
+            <View style={styles.waterTrackingContainer}>
+              <LinearGradient
+                colors={[EmeraldSpectrum.emerald500, EmeraldSpectrum.emerald600]}
+                style={styles.waterTrackingGradient}
+              >
+                <View style={styles.waterTrackingHeader}>
+                  <Droplets size={24} color="#FFFFFF" />
+                  <Text style={styles.waterTrackingTitle}>
+                    {t("home.daily_water") || "Daily Water Intake"}
                   </Text>
-                  <View style={styles.mainGoalStatus}>
-                    <Clock size={16} color="rgba(255,255,255,0.8)" />
-                    <Text style={styles.mainGoalStatusText}>
-                      {hoursLeft} {t("home.hours_left") || "hours left"}
+                  <View style={styles.waterBadge}>
+                    <Text style={styles.waterBadgeText}>
+                      {optimisticWaterCups >= 10 ? "🏆" : "💧"}
                     </Text>
                   </View>
                 </View>
-              </View>
-            </LinearGradient>
-          </View>
-        </View>
 
-        {/* Goal Gauges */}
-        <View style={styles.section}>
-          <View style={styles.goalGaugesContainer}>
-            {goalProgress.slice(1).map((goal, index) => (
-              <View key={index} style={styles.goalGaugeWrapper}>
-                {renderGoalGauge(goal)}
-              </View>
-            ))}
-          </View>
-        </View>
-
-        {/* Water Tracking Section */}
-        <View style={styles.section}>
-          <View style={styles.waterTrackingContainer}>
-            <LinearGradient
-              colors={[COLORS.emerald[500], COLORS.emerald[600]]}
-              style={styles.waterTrackingGradient}
-            >
-              <View style={styles.waterTrackingHeader}>
-                <Droplets size={24} color="#FFFFFF" />
-                <Text style={styles.waterTrackingTitle}>
-                  {t("home.daily_water") || "Daily Water Intake"}
-                </Text>
-                <View style={styles.waterBadge}>
-                  <Text style={styles.waterBadgeText}>
-                    {optimisticWaterCups >= 10 ? "🏆" : "💧"}
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.waterTrackingContent}>
-                <View style={styles.waterValueContainer}>
-                  <Text style={styles.waterTrackingValue}>
-                    {optimisticWaterCups} / 10 {t("home.cups") || "cups"}
-                  </Text>
-                </View>
-                <Text style={styles.waterTrackingTarget}>
-                  {(optimisticWaterCups * 250).toLocaleString()} ml / 2,500 ml
-                </Text>
-              </View>
-
-              <View style={styles.waterControls}>
-                <TouchableOpacity
-                  style={[
-                    styles.waterButton,
-                    styles.waterButtonMinus,
-                    { opacity: optimisticWaterCups <= 0 ? 0.4 : 1 },
-                  ]}
-                  onPress={decrementWater}
-                  disabled={optimisticWaterCups <= 0}
-                  activeOpacity={0.7}
-                >
-                  <Plus
-                    size={24}
-                    color="#FFFFFF"
-                    style={{ transform: [{ rotate: "45deg" }] }}
-                  />
-                </TouchableOpacity>
-
-                <View style={styles.waterProgress}>
-                  <View style={styles.waterProgressBg}>
-                    <View
-                      style={[
-                        styles.waterProgressFill,
-                        {
-                          width: `${Math.min(
-                            (optimisticWaterCups / 10) * 100,
-                            100
-                          )}%`,
-                          backgroundColor: "#FFFFFF",
-                        },
-                      ]}
-                    />
+                <View style={styles.waterTrackingContent}>
+                  <View style={styles.waterValueContainer}>
+                    <Text style={styles.waterTrackingValue}>
+                      {optimisticWaterCups} / 10 {t("home.cups") || "cups"}
+                    </Text>
                   </View>
-                  <Text style={styles.waterProgressText}>
-                    {Math.min((optimisticWaterCups / 10) * 100, 100).toFixed(0)}
-                    %
+                  <Text style={styles.waterTrackingTarget}>
+                    {(optimisticWaterCups * 250).toLocaleString()} ml / 2,500 ml
                   </Text>
                 </View>
 
-                <TouchableOpacity
-                  style={[
-                    styles.waterButton,
-                    styles.waterButtonPlus,
-                    { opacity: optimisticWaterCups >= 10 ? 0.4 : 1 },
-                  ]}
-                  onPress={incrementWater}
-                  disabled={optimisticWaterCups >= 10}
-                  activeOpacity={0.7}
-                >
-                  <Plus size={24} color="#FFFFFF" />
-                </TouchableOpacity>
-              </View>
+                <View style={styles.waterControls}>
+                  <TouchableOpacity
+                    style={[
+                      styles.waterButton,
+                      styles.waterButtonMinus,
+                      { opacity: optimisticWaterCups <= 0 ? 0.4 : 1 },
+                    ]}
+                    onPress={decrementWater}
+                    disabled={optimisticWaterCups <= 0}
+                    activeOpacity={0.7}
+                  >
+                    <Plus
+                      size={24}
+                      color="#FFFFFF"
+                      style={{ transform: [{ rotate: "45deg" }] }}
+                    />
+                  </TouchableOpacity>
 
-              <View style={styles.waterTrackingFooter}>
-                <Text style={styles.waterTrackingRemaining}>
-                  {Math.max(10 - optimisticWaterCups, 0)}{" "}
-                  {t("home.cups") || "cups"}{" "}
-                  {t("home.remaining") || "remaining"}
-                </Text>
-                <Text style={styles.waterXP}>
-                  {optimisticWaterCups >= 8
-                    ? "🎉 +50 XP"
-                    : optimisticWaterCups >= 4
-                    ? "⭐ +25 XP"
-                    : optimisticWaterCups > 0
-                    ? "💧 +10 XP"
-                    : ""}
-                </Text>
-              </View>
-            </LinearGradient>
-          </View>
-        </View>
-
-        {/* Status Indicator */}
-        <View style={styles.section}>
-          <View style={styles.statusContainer}>
-            <LinearGradient
-              colors={
-                calorieStatus === "ahead"
-                  ? [COLORS.emerald[500] + "15", COLORS.emerald[500] + "05"]
-                  : calorieStatus === "behind"
-                  ? ["#E74C3C15", "#E74C3C05"]
-                  : ["#F39C1215", "#F39C1205"]
-              }
-              style={styles.statusGradient}
-            >
-              <View style={styles.statusContent}>
-                <View style={styles.statusIcon}>
-                  {calorieStatus === "ahead" ? (
-                    <TrendingUp size={24} color={COLORS.emerald[500]} />
-                  ) : calorieStatus === "behind" ? (
-                    <Target size={24} color="#E74C3C" />
-                  ) : (
-                    <Award size={24} color="#F39C12" />
-                  )}
-                </View>
-                <View style={styles.statusInfo}>
-                  <Text style={styles.statusTitle}>
-                    {calorieStatus === "ahead"
-                      ? t("home.ahead_schedule") || "Ahead of Schedule"
-                      : calorieStatus === "behind"
-                      ? t("home.behind_schedule") || "Behind Schedule"
-                      : t("home.on_track") || "On Track"}
-                  </Text>
-                  <Text style={styles.statusDescription}>
-                    {calorieStatus === "ahead"
-                      ? t("home.ahead_description") ||
-                        "You're ahead of schedule - excellent!"
-                      : calorieStatus === "behind"
-                      ? t("home.behind_description") ||
-                        "Time to add a meal or snack"
-                      : t("home.track_description") ||
-                        "You're on track to reach your goal"}
-                  </Text>
-                </View>
-                <View style={styles.statusStreak}>
-                  <Text style={styles.statusStreakNumber}>
-                    {userStats?.streakDays || 0}
-                  </Text>
-                  <Text style={styles.statusStreakLabel}>
-                    {t("home.days") || "days"}
-                  </Text>
-                </View>
-              </View>
-            </LinearGradient>
-          </View>
-        </View>
-
-        {/* Quick Actions */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            {t("home.quick_actions") || "Quick Actions"}
-          </Text>
-          <View style={styles.quickActionsContainer}>
-            <TouchableOpacity
-              style={styles.quickActionButton}
-              onPress={() => router.push("/(tabs)/camera")}
-            >
-              <LinearGradient
-                colors={[COLORS.emerald[600], COLORS.emerald[600] + "E6"]}
-                style={styles.quickActionGradient}
-              >
-                <View style={styles.quickActionIconContainer}>
-                  <Camera size={22} color="#FFFFFF" />
-                </View>
-                <Text style={styles.quickActionText}>
-                  {t("home.add_meal") || "Add Meal"}
-                </Text>
-              </LinearGradient>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.quickActionButton}
-              onPress={() => router.push("/(tabs)/food-scanner")}
-            >
-              <LinearGradient
-                colors={[COLORS.emerald[500], COLORS.emerald[500] + "E6"]}
-                style={styles.quickActionGradient}
-              >
-                <View style={styles.quickActionIconContainer}>
-                  <Target size={22} color="#FFFFFF" />
-                </View>
-                <Text style={styles.quickActionText}>
-                  {t("home.scan_meal") || "Scan Food"}
-                </Text>
-              </LinearGradient>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.quickActionButton}
-              onPress={() => router.push("/(tabs)/statistics")}
-            >
-              <LinearGradient
-                colors={[COLORS.emerald[700], COLORS.emerald[700] + "E6"]}
-                style={styles.quickActionGradient}
-              >
-                <View style={styles.quickActionIconContainer}>
-                  <BarChart3 size={22} color="#FFFFFF" />
-                </View>
-                <Text style={styles.quickActionText}>
-                  {t("home.statistics") || "Statistics"}
-                </Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Today's Summary */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>
-            {t("home.todays_summary") || "Today's Summary"}
-          </Text>
-          <View style={styles.mealsContainer}>
-            {isLoading ? (
-              <ActivityIndicator
-                size="large"
-                color={COLORS.emerald[500]}
-                style={styles.loader}
-              />
-            ) : processedMealsData.recentMeals.length > 0 ? (
-              processedMealsData.recentMeals.map((meal, index) => (
-                <TouchableOpacity
-                  key={meal.meal_id || `meal-${index}`}
-                  style={styles.mealCard}
-                  onPress={() => router.push("/(tabs)/history")}
-                >
-                  <View style={styles.mealImageContainer}>
-                    {meal.image_url ? (
-                      <Image
-                        source={{ uri: meal.image_url }}
-                        style={styles.mealImage}
-                        resizeMode="cover"
+                  <View style={styles.waterProgress}>
+                    <View style={styles.waterProgressBg}>
+                      <View
+                        style={[
+                          styles.waterProgressFill,
+                          {
+                            width: `${Math.min(
+                              (optimisticWaterCups / 10) * 100,
+                              100
+                            )}%`,
+                            backgroundColor: "#FFFFFF",
+                          },
+                        ]}
                       />
+                    </View>
+                    <Text style={styles.waterProgressText}>
+                      {Math.min((optimisticWaterCups / 10) * 100, 100).toFixed(
+                        0
+                      )}
+                      %
+                    </Text>
+                  </View>
+
+                  <TouchableOpacity
+                    style={[
+                      styles.waterButton,
+                      styles.waterButtonPlus,
+                      { opacity: optimisticWaterCups >= 10 ? 0.4 : 1 },
+                    ]}
+                    onPress={incrementWater}
+                    disabled={optimisticWaterCups >= 10}
+                    activeOpacity={0.7}
+                  >
+                    <Plus size={24} color="#FFFFFF" />
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.waterTrackingFooter}>
+                  <Text style={styles.waterTrackingRemaining}>
+                    {Math.max(10 - optimisticWaterCups, 0)}{" "}
+                    {t("home.cups") || "cups"}{" "}
+                    {t("home.remaining") || "remaining"}
+                  </Text>
+                  <Text style={styles.waterXP}>
+                    {optimisticWaterCups >= 8
+                      ? "🎉 +50 XP"
+                      : optimisticWaterCups >= 4
+                      ? "⭐ +25 XP"
+                      : optimisticWaterCups > 0
+                      ? "💧 +10 XP"
+                      : ""}
+                  </Text>
+                </View>
+              </LinearGradient>
+            </View>
+          </View>
+
+          {/* Status Indicator */}
+          <View style={styles.section}>
+            <View style={styles.statusContainer}>
+              <LinearGradient
+                colors={
+                  calorieStatus === "ahead"
+                    ? [EmeraldSpectrum.emerald500 + "15", EmeraldSpectrum.emerald500 + "05"]
+                    : calorieStatus === "behind"
+                    ? ["#E74C3C15", "#E74C3C05"]
+                    : ["#F39C1215", "#F39C1205"]
+                }
+                style={styles.statusGradient}
+              >
+                <View style={styles.statusContent}>
+                  <View style={styles.statusIcon}>
+                    {calorieStatus === "ahead" ? (
+                      <TrendingUp size={24} color={EmeraldSpectrum.emerald500} />
+                    ) : calorieStatus === "behind" ? (
+                      <Target size={24} color="#E74C3C" />
                     ) : (
-                      <View style={styles.mealPlaceholder}>
-                        <Target size={32} color="rgba(255,255,255,0.6)" />
-                      </View>
+                      <Award size={24} color="#F39C12" />
                     )}
                   </View>
-                  <View style={styles.mealInfo}>
-                    <View style={styles.mealDetails}>
-                      <Text style={styles.mealName} numberOfLines={2}>
-                        {meal.name || t("meals.unknown_meal")}
-                      </Text>
-                      {meal.created_at && (
-                        <Text style={styles.mealTime}>
-                          {formatTime(meal.created_at)}
-                        </Text>
+                  <View style={styles.statusInfo}>
+                    <Text style={styles.statusTitle}>
+                      {calorieStatus === "ahead"
+                        ? t("home.ahead_schedule") || "Ahead of Schedule"
+                        : calorieStatus === "behind"
+                        ? t("home.behind_schedule") || "Behind Schedule"
+                        : t("home.on_track") || "On Track"}
+                    </Text>
+                    <Text style={styles.statusDescription}>
+                      {calorieStatus === "ahead"
+                        ? t("home.ahead_description") ||
+                          "You're ahead of schedule - excellent!"
+                        : calorieStatus === "behind"
+                        ? t("home.behind_description") ||
+                          "Time to add a meal or snack"
+                        : t("home.track_description") ||
+                          "You're on track to reach your goal"}
+                    </Text>
+                  </View>
+                  <View style={styles.statusStreak}>
+                    <Text style={styles.statusStreakNumber}>
+                      {userStats?.streakDays || 0}
+                    </Text>
+                    <Text style={styles.statusStreakLabel}>
+                      {t("home.days") || "days"}
+                    </Text>
+                  </View>
+                </View>
+              </LinearGradient>
+            </View>
+          </View>
+
+          {/* Quick Actions */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
+              {t("home.quick_actions") || "Quick Actions"}
+            </Text>
+            <View style={styles.quickActionsContainer}>
+              <TouchableOpacity
+                style={styles.quickActionButton}
+                onPress={() => router.push("/(tabs)/camera")}
+              >
+                <LinearGradient
+                  colors={[EmeraldSpectrum.emerald600, EmeraldSpectrum.emerald600 + "E6"]}
+                  style={styles.quickActionGradient}
+                >
+                  <View style={styles.quickActionIconContainer}>
+                    <Camera size={22} color="#FFFFFF" />
+                  </View>
+                  <Text style={styles.quickActionText}>
+                    {t("home.add_meal") || "Add Meal"}
+                  </Text>
+                </LinearGradient>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.quickActionButton}
+                onPress={() => router.push("/(tabs)/food-scanner")}
+              >
+                <LinearGradient
+                  colors={[EmeraldSpectrum.emerald500, EmeraldSpectrum.emerald500 + "E6"]}
+                  style={styles.quickActionGradient}
+                >
+                  <View style={styles.quickActionIconContainer}>
+                    <Target size={22} color="#FFFFFF" />
+                  </View>
+                  <Text style={styles.quickActionText}>
+                    {t("home.scan_meal") || "Scan Food"}
+                  </Text>
+                </LinearGradient>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.quickActionButton}
+                onPress={() => router.push("/(tabs)/statistics")}
+              >
+                <LinearGradient
+                  colors={[EmeraldSpectrum.emerald700, EmeraldSpectrum.emerald700 + "E6"]}
+                  style={styles.quickActionGradient}
+                >
+                  <View style={styles.quickActionIconContainer}>
+                    <BarChart3 size={22} color="#FFFFFF" />
+                  </View>
+                  <Text style={styles.quickActionText}>
+                    {t("home.statistics") || "Statistics"}
+                  </Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Today's Summary */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>
+              {t("home.todays_summary") || "Today's Summary"}
+            </Text>
+            <View style={styles.mealsContainer}>
+              {isLoading ? (
+                <ActivityIndicator
+                  size="large"
+                  color={EmeraldSpectrum.emerald500}
+                  style={styles.loader}
+                />
+              ) : processedMealsData.recentMeals.length > 0 ? (
+                processedMealsData.recentMeals.map((meal, index) => (
+                  <TouchableOpacity
+                    key={meal.meal_id || `meal-${index}`}
+                    style={styles.mealCard}
+                    onPress={() => router.push("/(tabs)/history")}
+                  >
+                    <View style={styles.mealImageContainer}>
+                      {meal.image_url ? (
+                        <Image
+                          source={{ uri: meal.image_url }}
+                          style={styles.mealImage}
+                          resizeMode="cover"
+                        />
+                      ) : (
+                        <View style={styles.mealPlaceholder}>
+                          <Target size={32} color="rgba(255,255,255,0.6)" />
+                        </View>
                       )}
                     </View>
-                    <View style={styles.mealCaloriesContainer}>
-                      <Text style={styles.mealCalories}>
-                        {meal.calories || 0} {t("meals.kcal") || "kcal"}
-                      </Text>
+                    <View style={styles.mealInfo}>
+                      <View style={styles.mealDetails}>
+                        <Text style={styles.mealName} numberOfLines={2}>
+                          {meal.name || t("meals.unknown_meal")}
+                        </Text>
+                        {meal.created_at && (
+                          <Text style={styles.mealTime}>
+                            {formatTime(meal.created_at)}
+                          </Text>
+                        )}
+                      </View>
+                      <View style={styles.mealCaloriesContainer}>
+                        <Text style={styles.mealCalories}>
+                          {meal.calories || 0} {t("meals.kcal") || "kcal"}
+                        </Text>
+                      </View>
                     </View>
-                  </View>
-                  <View style={styles.chevronContainer}>
-                    <ChevronLeft size={16} color="#BDC3C7" />
-                  </View>
-                </TouchableOpacity>
-              ))
-            ) : (
-              <View style={styles.emptyState}>
-                <Target size={48} color="#ccc" />
-                <Text style={styles.emptyText}>
-                  {t("meals.no_meals") || "No meals today"}
-                </Text>
-                <Text style={styles.emptySubtext}>
-                  {t("home.add_meal_hint") ||
-                    "Add your first meal to get started"}
-                </Text>
-              </View>
-            )}
+                    <View style={styles.chevronContainer}>
+                      <ChevronLeft size={16} color="#BDC3C7" />
+                    </View>
+                  </TouchableOpacity>
+                ))
+              ) : (
+                <View style={styles.emptyState}>
+                  <Target size={48} color="#ccc" />
+                  <Text style={styles.emptyText}>
+                    {t("meals.no_meals") || "No meals today"}
+                  </Text>
+                  <Text style={styles.emptySubtext}>
+                    {t("home.add_meal_hint") ||
+                      "Add your first meal to get started"}
+                  </Text>
+                </View>
+              )}
+            </View>
           </View>
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+        </ScrollView>
+      </SafeAreaView>
+    </ErrorBoundary>
   );
 });
 
@@ -1164,7 +1169,7 @@ const styles = StyleSheet.create({
   levelText: {
     fontSize: 16,
     fontWeight: "500",
-    color: COLORS.emerald[600],
+    color: EmeraldSpectrum.emerald600,
   },
   streakContainer: {
     alignItems: "flex-end",
@@ -1185,7 +1190,7 @@ const styles = StyleSheet.create({
   mainGoalContainer: {
     borderRadius: 24,
     overflow: "hidden",
-    shadowColor: COLORS.emerald[600],
+    shadowColor: EmeraldSpectrum.emerald600,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 12,
@@ -1360,7 +1365,7 @@ const styles = StyleSheet.create({
   waterTrackingContainer: {
     borderRadius: 24,
     overflow: "hidden",
-    shadowColor: COLORS.emerald[500],
+    shadowColor: EmeraldSpectrum.emerald500,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 12,
@@ -1501,7 +1506,7 @@ const styles = StyleSheet.create({
   statusStreakNumber: {
     fontSize: 24,
     fontWeight: "bold",
-    color: COLORS.emerald[600],
+    color: EmeraldSpectrum.emerald600,
   },
   statusStreakLabel: {
     fontSize: 12,
@@ -1600,7 +1605,7 @@ const styles = StyleSheet.create({
   mealCalories: {
     fontSize: 15,
     fontWeight: "600",
-    color: COLORS.emerald[600],
+    color: EmeraldSpectrum.emerald600,
   },
   chevronContainer: {
     paddingRight: 16,
@@ -1745,7 +1750,7 @@ const styles = StyleSheet.create({
   retryButton: {
     paddingHorizontal: 16,
     paddingVertical: 6,
-    backgroundColor: COLORS.emerald[600],
+    backgroundColor: EmeraldSpectrum.emerald600,
     borderRadius: 6,
   },
   retryButtonText: {
@@ -1763,5 +1768,12 @@ const styles = StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 12,
     fontWeight: "500",
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+    backgroundColor: "#FAFBFC",
   },
 });

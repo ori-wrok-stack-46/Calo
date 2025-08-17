@@ -203,7 +203,12 @@
     "cups": "Cups",
     "todays_summary": "Last meals breakdown",
     "water": "Water",
-    "completed": "Completed"
+    "completed": "Completed",
+    "user_stats": "User Stats",
+    "xp": "Xp",
+    "level": "Level",
+    "current_streak": "Current Streak",
+    "best_streak": "Best Streak"
   },
   "meals": {
     "title": "My Meals",

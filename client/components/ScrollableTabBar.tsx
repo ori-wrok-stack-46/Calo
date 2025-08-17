@@ -2,14 +2,13 @@ import React, { useRef, useEffect, useMemo, useCallback } from "react";
 import { ViewStyle, TextStyle } from "react-native";
 import { Tabs } from "expo-router";
 import {
-  ScrollView,
   View,
   StyleSheet,
   Dimensions,
-  Animated,
   Platform,
   TouchableOpacity,
   Text,
+  ScrollView,
 } from "react-native";
 import {
   Home,
@@ -21,46 +20,289 @@ import {
   Watch,
   UtensilsCrossed,
   Bot,
-  Scan,
+  ScanLine,
   ClipboardList,
-  BarChart3,
 } from "lucide-react-native";
 import { LinearGradient } from "expo-linear-gradient";
 import {
   useSafeAreaInsets,
   SafeAreaView,
 } from "react-native-safe-area-context";
-import { useTheme } from "@/src/context/ThemeContext";
-import { useTranslation } from "react-i18next";
-import { useLanguage } from "@/src/i18n/context/LanguageContext";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withSpring,
+  withTiming,
+  interpolateColor,
+} from "react-native-reanimated";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
-const MAX_ICONS_VISIBLE = 5;
-const TAB_LABEL_FONT_SIZE = 11;
-const TAB_ICON_SIZE = 22;
-const ACTIVE_TAB_SCALE = 1.08;
-const CAMERA_BUTTON_SIZE = 56;
 
-// Icon mapping for your tabs with better Lucide icons
-const iconMap = {
-  index: Home,
-  history: History,
-  camera: Camera,
-  statistics: TrendingUp,
-  calendar: Calendar,
-  devices: Watch,
-  "recommended-menus": UtensilsCrossed,
-  "ai-chat": Bot,
-  "food-scanner": Scan,
-  questionnaire: ClipboardList,
-  profile: User,
+// Design constants
+const TAB_CONFIG = {
+  labelFontSize: 11,
+  iconSize: 20,
+  cameraIconSize: 24,
+  tabHeight: 45,
+  cameraHeight: 56,
+  barHeight: 45,
+  barPaddingHorizontal: 16,
+  barPaddingVertical: 2,
+  tabMinWidth: 80,
+  tabMaxWidth: 120,
+  tabPaddingHorizontal: 12,
+  tabPaddingVertical: 8,
+  borderRadius: 25,
+  cameraBorderRadius: 28,
+  spacing: 8,
+} as const;
+
+// Animation configs
+const INSTANT_CONFIG = {
+  damping: 40,
+  stiffness: 800,
+  mass: 0.2,
+} as const;
+
+const SMOOTH_CONFIG = {
+  damping: 25,
+  stiffness: 400,
+  mass: 0.5,
+} as const;
+
+// Safe icon mapping
+const getIconComponent = (routeName: string) => {
+  const iconMap: { [key: string]: React.ComponentType<any> } = {
+    index: Home,
+    history: History,
+    camera: Camera,
+    statistics: TrendingUp,
+    calendar: Calendar,
+    devices: Watch,
+    "recommended-menus": UtensilsCrossed,
+    "ai-chat": Bot,
+    "food-scanner": ScanLine,
+    questionnaire: ClipboardList,
+    profile: User,
+  };
+  return iconMap[routeName] || Home;
 };
 
+// Safe tab label mapping
+const getTabLabel = (routeName: string): string => {
+  const labelMap: { [key: string]: string } = {
+    index: "Home",
+    history: "History",
+    camera: "Camera",
+    statistics: "Stats",
+    calendar: "Calendar",
+    devices: "Devices",
+    "recommended-menus": "Menus",
+    "ai-chat": "AI Chat",
+    "food-scanner": "Scanner",
+    questionnaire: "Survey",
+    profile: "Profile",
+  };
+  return labelMap[routeName] || routeName;
+};
+
+interface RouteInfo {
+  key: string;
+  name: string;
+}
+
+interface TabState {
+  routes: RouteInfo[];
+  index: number;
+}
+
 interface CustomTabBarProps {
-  state: any;
-  descriptors: any;
+  state: TabState;
+  descriptors: { [key: string]: any };
   navigation: any;
 }
+
+// Enhanced Camera Tab Component
+const CameraTab = React.memo(
+  ({
+    route,
+    isFocused,
+    onPress,
+    onLongPress,
+  }: {
+    route: RouteInfo;
+    isFocused: boolean;
+    onPress: () => void;
+    onLongPress: () => void;
+  }) => {
+    const scaleValue = useSharedValue(1);
+    const elevationValue = useSharedValue(0);
+
+    useEffect(() => {
+      scaleValue.value = withSpring(isFocused ? 1.08 : 1, SMOOTH_CONFIG);
+      elevationValue.value = withTiming(isFocused ? 1 : 0, { duration: 200 });
+    }, [isFocused]);
+
+    const handlePressIn = useCallback(() => {
+      scaleValue.value = withSpring(0.92, INSTANT_CONFIG);
+    }, []);
+
+    const handlePressOut = useCallback(() => {
+      scaleValue.value = withSpring(isFocused ? 1.08 : 1, INSTANT_CONFIG);
+    }, [isFocused]);
+
+    const animatedStyle = useAnimatedStyle(() => ({
+      transform: [{ scale: scaleValue.value }],
+    }));
+
+    const glowStyle = useAnimatedStyle(() => ({
+      opacity: elevationValue.value * 0.4,
+      transform: [{ scale: 1 + elevationValue.value * 0.15 }],
+    }));
+
+    return (
+      <View style={styles.cameraTabContainer}>
+        {/* Glow effect */}
+        <Animated.View style={[styles.cameraGlow, glowStyle]} />
+
+        <Animated.View style={animatedStyle}>
+          <TouchableOpacity
+            onPress={onPress}
+            onLongPress={onLongPress}
+            onPressIn={handlePressIn}
+            onPressOut={handlePressOut}
+            style={styles.cameraTab}
+            activeOpacity={1}
+          >
+            <LinearGradient
+              colors={
+                isFocused
+                  ? ["#059669", "#10B981", "#34D399"]
+                  : ["#F3F4F6", "#FFFFFF", "#F9FAFB"]
+              }
+              style={styles.cameraGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <Camera
+                color={isFocused ? "#FFFFFF" : "#059669"}
+                size={TAB_CONFIG.cameraIconSize}
+                strokeWidth={isFocused ? 2.5 : 2}
+              />
+            </LinearGradient>
+          </TouchableOpacity>
+        </Animated.View>
+      </View>
+    );
+  }
+);
+
+CameraTab.displayName = "CameraTab";
+
+// Enhanced Regular Tab Component
+const RegularTab = React.memo(
+  ({
+    route,
+    isFocused,
+    onPress,
+    onLongPress,
+    tabWidth,
+  }: {
+    route: RouteInfo;
+    isFocused: boolean;
+    onPress: () => void;
+    onLongPress: () => void;
+    tabWidth: number;
+  }) => {
+    const scaleValue = useSharedValue(1);
+    const backgroundValue = useSharedValue(isFocused ? 1 : 0);
+
+    const IconComponent = getIconComponent(route.name);
+    const label = getTabLabel(route.name);
+
+    useEffect(() => {
+      scaleValue.value = withSpring(isFocused ? 1.02 : 1, SMOOTH_CONFIG);
+      backgroundValue.value = withTiming(isFocused ? 1 : 0, { duration: 150 });
+    }, [isFocused]);
+
+    const handlePressIn = useCallback(() => {
+      scaleValue.value = withSpring(0.96, INSTANT_CONFIG);
+    }, []);
+
+    const handlePressOut = useCallback(() => {
+      scaleValue.value = withSpring(isFocused ? 1.02 : 1, INSTANT_CONFIG);
+    }, [isFocused]);
+
+    const animatedTabStyle = useAnimatedStyle(() => ({
+      transform: [{ scale: scaleValue.value }],
+    }));
+
+    const animatedBackgroundStyle = useAnimatedStyle(() => {
+      const backgroundColor = interpolateColor(
+        backgroundValue.value,
+        [0, 1],
+        ["transparent", "#10B981"]
+      );
+
+      return {
+        backgroundColor,
+        borderColor:
+          backgroundColor === "transparent" 
+      };
+    });
+
+    const animatedTextStyle = useAnimatedStyle(() => {
+      const color = interpolateColor(
+        backgroundValue.value,
+        [0, 1],
+        ["#6B7280", "#FFFFFF"]
+      );
+
+      return {
+        color,
+      };
+    });
+
+    return (
+      <Animated.View style={[{ width: tabWidth }, animatedTabStyle]}>
+        <TouchableOpacity
+          onPress={onPress}
+          onLongPress={onLongPress}
+          onPressIn={handlePressIn}
+          onPressOut={handlePressOut}
+          style={styles.regularTab}
+          activeOpacity={1}
+        >
+          <Animated.View
+            style={[styles.tabBackground, animatedBackgroundStyle]}
+          >
+            <View style={styles.tabContent}>
+              <IconComponent
+                color={isFocused ? "#FFFFFF" : "#6B7280"}
+                size={TAB_CONFIG.iconSize}
+                strokeWidth={isFocused ? 2.5 : 2}
+              />
+              <Animated.Text
+                style={[
+                  styles.tabLabel,
+                  animatedTextStyle,
+                  {
+                    fontWeight: isFocused ? "600" : "500",
+                  },
+                ]}
+                numberOfLines={1}
+              >
+                {label}
+              </Animated.Text>
+            </View>
+          </Animated.View>
+        </TouchableOpacity>
+      </Animated.View>
+    );
+  }
+);
+
+RegularTab.displayName = "RegularTab";
 
 export function ScrollableTabBar({
   state,
@@ -68,648 +310,354 @@ export function ScrollableTabBar({
   navigation,
 }: CustomTabBarProps) {
   const insets = useSafeAreaInsets();
-  const { colors, isDark } = useTheme();
-  const { t } = useTranslation();
-  const { isRTL } = useLanguage();
-
   const scrollViewRef = useRef<ScrollView>(null);
-  const indicatorTranslateX = useRef(new Animated.Value(0)).current;
-  const iconScales = useRef(
-    state.routes.map(() => new Animated.Value(1))
-  ).current;
-  const iconTranslateY = useRef(
-    state.routes.map(() => new Animated.Value(0))
-  ).current;
-  const cameraButtonScale = useRef(new Animated.Value(1)).current;
 
-  // Track scroll position
-  const scrollX = useRef(new Animated.Value(0)).current;
-  const currentScrollX = useRef(0);
+  // Separate camera from regular tabs with proper error handling
+  const { regularTabs, cameraTab } = useMemo(() => {
+    try {
+      if (!state?.routes || !Array.isArray(state.routes)) {
+        return { regularTabs: [], cameraTab: null };
+      }
 
-  // Calculate proper tab bar height with safe area
-  const baseTabHeight = 60; // Base height for tab content
-  const totalTabBarHeight = baseTabHeight; // SafeAreaView handles the bottom inset
+      const validRoutes = state.routes.filter(
+        (route): route is RouteInfo =>
+          route &&
+          typeof route === "object" &&
+          typeof route.name === "string" &&
+          typeof route.key === "string"
+      );
 
-  // Create dynamic styles based on theme
-  const dynamicStyles = useMemo(
-    () => createDynamicStyles(colors, isDark),
-    [colors, isDark]
-  );
+      const camera =
+        validRoutes.find((route) => route.name === "camera") || null;
+      const regular = validRoutes.filter((route) => route.name !== "camera");
 
-  // Memoize calculations with enhanced scrolling logic
-  const tabCalculations = useMemo(() => {
-    const activeIndex = state.index;
-    const routesCount = state.routes.length;
-
-    // Always use consistent tab width calculation
-    const tabItemWidth =
-      SCREEN_WIDTH / Math.min(routesCount, MAX_ICONS_VISIBLE);
-    const totalContentWidth = routesCount * tabItemWidth;
-
-    // Determine if scrolling is needed
-    const shouldScroll = totalContentWidth > SCREEN_WIDTH;
-
-    // Calculate actual indicator position based on active tab
-    const indicatorTargetX =
-      activeIndex * tabItemWidth + tabItemWidth / 2 - (tabItemWidth * 0.8) / 2;
-
-    // Enhanced scroll offset calculation
-    let scrollOffset = 0;
-    if (shouldScroll) {
-      const maxScrollX = totalContentWidth - SCREEN_WIDTH;
-      const targetScrollX =
-        activeIndex * tabItemWidth - (SCREEN_WIDTH / 2 - tabItemWidth / 2);
-      scrollOffset = Math.max(0, Math.min(maxScrollX, targetScrollX));
+      return {
+        regularTabs: regular,
+        cameraTab: camera,
+      };
+    } catch (error) {
+      console.warn("Error filtering tabs:", error);
+      return { regularTabs: [], cameraTab: null };
     }
+  }, [state?.routes]);
 
-    // Calculate camera button position
-    const cameraIndex = state.routes.findIndex(
-      (route: any) => route.name === "camera"
-    );
-    const cameraButtonX =
-      cameraIndex >= 0
-        ? cameraIndex * tabItemWidth + tabItemWidth / 2 - CAMERA_BUTTON_SIZE / 2
-        : 0;
+  // Calculate tab width
+  const calculateTabWidth = useCallback(
+    (label: string, isFocused: boolean): number => {
+      const baseWidth = TAB_CONFIG.tabMinWidth;
+      const labelWidth = Math.min(label.length * 7.5, 64);
+      const contentWidth =
+        TAB_CONFIG.tabPaddingHorizontal * 2 +
+        TAB_CONFIG.iconSize +
+        8 +
+        labelWidth;
 
-    return {
-      activeIndex,
-      routesCount,
-      tabItemWidth,
-      totalContentWidth,
-      indicatorTargetX,
-      scrollOffset,
-      shouldScroll,
-      cameraButtonX,
-      cameraIndex,
-      maxScrollX: totalContentWidth - SCREEN_WIDTH,
-    };
-  }, [state.index, state.routes.length]);
-
-  // Enhanced animation function with better scrolling
-  const animateToTab = useCallback(
-    (calculations: {
-      activeIndex: number;
-      indicatorTargetX: number;
-      scrollOffset: number;
-      shouldScroll: boolean;
-      cameraIndex: number;
-      maxScrollX: number;
-    }) => {
-      const {
-        activeIndex,
-        indicatorTargetX,
-        scrollOffset,
-        shouldScroll,
-        cameraIndex,
-        maxScrollX,
-      } = calculations;
-
-      // Animate indicator with bounds checking
-      const clampedIndicatorX = Math.max(
-        0,
-        Math.min(indicatorTargetX, maxScrollX + SCREEN_WIDTH)
+      return Math.min(
+        Math.max(baseWidth, contentWidth + (isFocused ? 8 : 0)),
+        TAB_CONFIG.tabMaxWidth
       );
-      Animated.spring(indicatorTranslateX, {
-        toValue: clampedIndicatorX,
-        useNativeDriver: true,
-        tension: 300,
-        friction: 25,
-      }).start();
-
-      // Animate icons (excluding camera)
-      iconScales.forEach(
-        (scale: Animated.Value | Animated.ValueXY, index: number) => {
-          if (index !== cameraIndex) {
-            Animated.spring(scale, {
-              toValue: index === activeIndex ? ACTIVE_TAB_SCALE : 1,
-              useNativeDriver: true,
-              tension: 300,
-              friction: 20,
-            }).start();
-          }
-        }
-      );
-
-      // Animate camera button
-      Animated.spring(cameraButtonScale, {
-        toValue: activeIndex === cameraIndex ? 1.1 : 1,
-        useNativeDriver: true,
-        tension: 300,
-        friction: 20,
-      }).start();
-
-      // Animate icon positions (excluding camera)
-      iconTranslateY.forEach(
-        (translateY: Animated.Value | Animated.ValueXY, index: number) => {
-          if (index !== cameraIndex) {
-            Animated.spring(translateY, {
-              toValue: index === activeIndex ? -3 : 0,
-              useNativeDriver: true,
-              tension: 300,
-              friction: 20,
-            }).start();
-          }
-        }
-      );
-
-      // Enhanced scrolling with bounds checking
-      if (shouldScroll) {
-        const clampedScrollOffset = Math.max(
-          0,
-          Math.min(scrollOffset, maxScrollX)
-        );
-        scrollViewRef.current?.scrollTo({
-          x: clampedScrollOffset,
-          animated: true,
-        });
-        currentScrollX.current = clampedScrollOffset;
-      } else {
-        scrollViewRef.current?.scrollTo({ x: 0, animated: false });
-        currentScrollX.current = 0;
-      }
     },
-    [indicatorTranslateX, iconScales, iconTranslateY, cameraButtonScale]
+    []
   );
 
-  useEffect(() => {
-    animateToTab(tabCalculations);
-  }, [tabCalculations, animateToTab]);
-
-  // Enhanced scroll event handler with bounds checking
-  const handleScroll = useCallback(
-    (event: any) => {
-      const offsetX = event.nativeEvent.contentOffset.x;
-      const clampedOffsetX = Math.max(
-        0,
-        Math.min(offsetX, tabCalculations.maxScrollX || 0)
-      );
-
-      scrollX.setValue(clampedOffsetX);
-      currentScrollX.current = clampedOffsetX;
-    },
-    [tabCalculations.maxScrollX]
-  );
-
-  // Handle momentum scroll end to ensure proper positioning
-  const handleScrollEnd = useCallback(() => {
-    // Ensure we're within bounds
-    if (tabCalculations.shouldScroll && scrollViewRef.current) {
-      const maxScroll = Math.max(
-        0,
-        tabCalculations.totalContentWidth - SCREEN_WIDTH
-      );
-      if (currentScrollX.current > maxScroll) {
-        scrollViewRef.current.scrollTo({
-          x: maxScroll,
-          animated: true,
-        });
-      } else if (currentScrollX.current < 0) {
-        scrollViewRef.current.scrollTo({
-          x: 0,
-          animated: true,
-        });
-      }
-    }
-  }, [tabCalculations.shouldScroll, tabCalculations.totalContentWidth]);
-
-  // Render floating camera button with enhanced positioning
-  const renderFloatingCameraButton = () => {
-    const cameraRoute = state.routes.find(
-      (route: any) => route.name === "camera"
-    );
-    if (!cameraRoute) return null;
-
-    const cameraIndex = state.routes.findIndex(
-      (route: any) => route.name === "camera"
-    );
-    const { options } = descriptors[cameraRoute.key];
-    const isFocused = state.index === cameraIndex;
-    const isDisabled = options.tabBarButton === null;
-
-    const onPress = () => {
-      if (isDisabled) return;
-
-      const event = navigation.emit({
-        type: "tabPress",
-        target: cameraRoute.key,
-        canPreventDefault: true,
-      });
-
-      if (!isFocused && !event.defaultPrevented) {
-        navigation.navigate(cameraRoute.name);
-      }
-    };
-
-    const onLongPress = () => {
-      if (isDisabled) return;
-      navigation.emit({
-        type: "tabLongPress",
-        target: cameraRoute.key,
-      });
-    };
-
-    // Enhanced camera button positioning with bounds checking
-    const cameraButtonAnimatedX = tabCalculations.shouldScroll
-      ? Animated.add(
-          new Animated.Value(tabCalculations.cameraButtonX),
-          Animated.multiply(scrollX, -1)
-        )
-      : new Animated.Value(tabCalculations.cameraButtonX);
+  // Calculate total width for regular tabs
+  const totalTabsWidth = useMemo(() => {
+    if (!state?.routes) return 0;
 
     return (
-      <Animated.View
-        style={[
-          dynamicStyles.floatingCameraButton,
-          {
-            transform: [
-              { translateX: cameraButtonAnimatedX },
-              { scale: cameraButtonScale },
-            ],
-          },
-        ]}
-      >
-        <TouchableOpacity
-          accessibilityRole="tab"
-          accessibilityState={{
-            selected: isFocused,
-            disabled: isDisabled,
-          }}
-          onPress={onPress}
-          onLongPress={onLongPress}
-          style={[
-            dynamicStyles.cameraButton,
-            {
-              opacity: isDisabled ? 0.4 : 1,
-            },
-          ]}
-          activeOpacity={0.8}
-          disabled={isDisabled}
-        >
-          <LinearGradient
-            colors={dynamicStyles.cameraGradientColors}
-            style={[
-              dynamicStyles.cameraGradient,
-              { borderColor: colors.background },
-            ]}
-          >
-            <Camera size={28} color="#FFFFFF" strokeWidth={2} />
-          </LinearGradient>
-        </TouchableOpacity>
-
-        <Text
-          style={[
-            dynamicStyles.cameraLabel,
-            {
-              color: isFocused ? colors.emerald600 : colors.textSecondary,
-              fontWeight: isFocused ? "700" : "500",
-            },
-          ]}
-          numberOfLines={1}
-          allowFontScaling={false}
-        >
-          {t("tabs.camera")}
-        </Text>
-      </Animated.View>
+      regularTabs.reduce((total, route) => {
+        const label = getTabLabel(route.name);
+        const routeIndex = state.routes.findIndex((r) => r?.key === route.key);
+        const isFocused = routeIndex !== -1 && state.index === routeIndex;
+        return total + calculateTabWidth(label, isFocused) + TAB_CONFIG.spacing;
+      }, 0) +
+      TAB_CONFIG.barPaddingHorizontal * 2
     );
-  };
+  }, [regularTabs, state?.index, state?.routes, calculateTabWidth]);
+
+  // Navigation handlers with better error handling
+  const createTabPressHandler = useCallback(
+    (route: RouteInfo) => {
+      return () => {
+        try {
+          if (!route?.name || !navigation) {
+            console.warn("Invalid route or navigation object");
+            return;
+          }
+
+          navigation.navigate(route.name);
+        } catch (error) {
+          console.warn("Error in tab press handler:", error);
+        }
+      };
+    },
+    [navigation]
+  );
+
+  const createTabLongPressHandler = useCallback(
+    (route: RouteInfo) => {
+      return () => {
+        try {
+          if (!route?.key || !navigation) {
+            console.warn("Invalid route or navigation object");
+            return;
+          }
+
+          navigation.emit({
+            type: "tabLongPress",
+            target: route.key,
+          });
+        } catch (error) {
+          console.warn("Error in tab long press handler:", error);
+        }
+      };
+    },
+    [navigation]
+  );
+
+  // Dynamic styles
+  const dynamicStyles = useMemo(() => {
+    return createOptimizedStyles(insets, totalTabsWidth <= SCREEN_WIDTH);
+  }, [insets, totalTabsWidth]);
+
+  // Fallback for invalid state
+  if (!state || !state.routes || !descriptors || !navigation) {
+    return (
+      <SafeAreaView edges={["bottom"]} style={dynamicStyles.safeAreaWrapper}>
+        <View style={dynamicStyles.fallbackContainer}>
+          <Text style={dynamicStyles.fallbackText}>Loading tabs...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // Check if camera is focused
+  const cameraIndex = cameraTab
+    ? state.routes.findIndex((r) => r?.key === cameraTab.key)
+    : -1;
+  const isCameraFocused = cameraIndex !== -1 && state.index === cameraIndex;
 
   return (
-    <SafeAreaView edges={["bottom"]} style={[dynamicStyles.safeAreaWrapper]}>
-      <View style={dynamicStyles.wrapper}>
-        <View
-          style={[
-            dynamicStyles.container,
-            {
-              paddingBottom: Platform.OS === "ios" ? 4 : 8,
-            },
+    <SafeAreaView edges={["bottom"]} style={dynamicStyles.safeAreaWrapper}>
+      <View style={dynamicStyles.container}>
+        {/* Regular tabs */}
+        <ScrollView
+          ref={scrollViewRef}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={[
+            dynamicStyles.scrollContent,
+            totalTabsWidth <= SCREEN_WIDTH && dynamicStyles.centeredContent,
           ]}
+          style={dynamicStyles.scrollView}
+          bounces={false}
+          decelerationRate="fast"
+          scrollEventThrottle={16}
+          directionalLockEnabled={true}
+          alwaysBounceHorizontal={false}
+          keyboardShouldPersistTaps="handled"
+          scrollEnabled={totalTabsWidth > SCREEN_WIDTH}
         >
-          {/* Active tab indicator - positioned relative to scroll content with bounds checking */}
-          <Animated.View
-            style={[
-              dynamicStyles.indicator,
-              {
-                width: tabCalculations.tabItemWidth * 0.8,
-                transform: [
-                  {
-                    translateX: tabCalculations.shouldScroll
-                      ? Animated.add(
-                          indicatorTranslateX,
-                          Animated.multiply(scrollX, -1)
-                        )
-                      : indicatorTranslateX,
-                  },
-                ],
-              },
-            ]}
-          />
+          {regularTabs.map((route) => {
+            if (!route?.key || !descriptors[route.key]) {
+              return null;
+            }
 
-          <ScrollView
-            ref={scrollViewRef}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={[
-              dynamicStyles.scrollViewContent,
-              {
-                width: tabCalculations.totalContentWidth,
-                minWidth: SCREEN_WIDTH,
-              },
-              !tabCalculations.shouldScroll && {
-                flexGrow: 1,
-                justifyContent: "space-around",
-              },
-            ]}
-            decelerationRate="fast"
-            bounces={true}
-            bouncesZoom={false}
-            alwaysBounceHorizontal={tabCalculations.shouldScroll}
-            onScroll={handleScroll}
-            onMomentumScrollEnd={handleScrollEnd}
-            onScrollEndDrag={handleScrollEnd}
-            scrollEventThrottle={16}
-            style={dynamicStyles.scrollView}
-          >
-            {state.routes.map((route: any, index: number) => {
+            try {
               const { options } = descriptors[route.key];
+              const label = getTabLabel(route.name);
 
-              const label =
-                options.tabBarLabel !== undefined
-                  ? options.tabBarLabel
-                  : options.title !== undefined
-                  ? options.title
-                  : route.name;
+              const routeIndex = state.routes.findIndex(
+                (r) => r?.key === route.key
+              );
+              const isFocused = routeIndex !== -1 && state.index === routeIndex;
+              const isDisabled = options?.tabBarButton === null;
 
-              const isFocused = state.index === index;
-              const isDisabled = options.tabBarButton === null;
-              const IconComponent =
-                iconMap[route.name as keyof typeof iconMap] || Home;
+              if (isDisabled) return null;
 
-              const onPress = () => {
-                if (isDisabled) return;
-
-                const event = navigation.emit({
-                  type: "tabPress",
-                  target: route.key,
-                  canPreventDefault: true,
-                });
-
-                if (!isFocused && !event.defaultPrevented) {
-                  navigation.navigate(route.name);
-                }
-              };
-
-              const onLongPress = () => {
-                if (isDisabled) return;
-                navigation.emit({
-                  type: "tabLongPress",
-                  target: route.key,
-                });
-              };
-
-              // Skip rendering camera tab here since it's rendered as floating button
-              if (route.name === "camera") {
-                return (
-                  <View
-                    key={route.key}
-                    style={[
-                      dynamicStyles.tabButton,
-                      dynamicStyles.cameraPlaceholder,
-                      {
-                        width: tabCalculations.tabItemWidth,
-                      },
-                    ]}
-                  />
-                );
-              }
+              const tabWidth = calculateTabWidth(label, isFocused);
 
               return (
-                <TouchableOpacity
+                <RegularTab
                   key={route.key}
-                  accessibilityRole="tab"
-                  accessibilityState={{
-                    selected: isFocused,
-                    disabled: isDisabled,
-                  }}
-                  onPress={onPress}
-                  onLongPress={onLongPress}
-                  style={[
-                    dynamicStyles.tabButton,
-                    {
-                      width: tabCalculations.tabItemWidth,
-                      opacity: isDisabled ? 0.4 : 1,
-                    },
-                  ]}
-                  activeOpacity={0.7}
-                  disabled={isDisabled}
-                >
-                  <Animated.View
-                    style={[
-                      dynamicStyles.iconContainer,
-                      {
-                        transform: [
-                          { scale: iconScales[index] },
-                          { translateY: iconTranslateY[index] },
-                        ],
-                      },
-                    ]}
-                  >
-                    <IconComponent
-                      color={
-                        isFocused ? colors.emerald600 : colors.textSecondary
-                      }
-                      size={TAB_ICON_SIZE}
-                      strokeWidth={isFocused ? 2.2 : 1.8}
-                    />
-                  </Animated.View>
-
-                  <Animated.View
-                    style={[
-                      dynamicStyles.labelContainer,
-                      {
-                        opacity: isFocused ? 1 : 0.7,
-                      },
-                    ]}
-                  >
-                    <Text
-                      style={[
-                        dynamicStyles.label,
-                        {
-                          color: isFocused
-                            ? colors.emerald600
-                            : colors.textSecondary,
-                          fontWeight: isFocused ? "700" : "500",
-                        },
-                      ]}
-                      numberOfLines={1}
-                      allowFontScaling={false}
-                    >
-                      {label}
-                    </Text>
-                  </Animated.View>
-                </TouchableOpacity>
+                  route={route}
+                  isFocused={isFocused}
+                  onPress={createTabPressHandler(route)}
+                  onLongPress={createTabLongPressHandler(route)}
+                  tabWidth={tabWidth}
+                />
               );
-            })}
-          </ScrollView>
+            } catch (error) {
+              console.warn(`Error rendering tab ${route.name}:`, error);
+              return null;
+            }
+          })}
+        </ScrollView>
 
-          {/* Floating Camera Button */}
-          {renderFloatingCameraButton()}
-        </View>
+        {/* Camera Tab - Integrated but Special */}
+        {cameraTab && (
+          <View style={styles.cameraTabWrapper}>
+            <CameraTab
+              route={cameraTab}
+              isFocused={isCameraFocused}
+              onPress={createTabPressHandler(cameraTab)}
+              onLongPress={createTabLongPressHandler(cameraTab)}
+            />
+          </View>
+        )}
       </View>
     </SafeAreaView>
   );
 }
 
-// Define proper types for your styles
-interface DynamicStyles {
+// Optimized styles with proper typing
+interface OptimizedStyles {
   safeAreaWrapper: ViewStyle;
-  wrapper: ViewStyle;
   container: ViewStyle;
-  indicator: ViewStyle;
   scrollView: ViewStyle;
-  scrollViewContent: ViewStyle;
-  tabButton: ViewStyle;
-  cameraPlaceholder: ViewStyle;
-  iconContainer: ViewStyle;
-  labelContainer: ViewStyle;
-  label: TextStyle;
-  floatingCameraButton: ViewStyle;
-  cameraButton: ViewStyle;
-  cameraGradient: ViewStyle;
-  cameraGradientColors: string[];
-  cameraLabel: TextStyle;
+  scrollContent: ViewStyle;
+  centeredContent: ViewStyle;
+  fallbackContainer: ViewStyle;
+  fallbackText: TextStyle;
 }
 
-// Dynamic styles function that adapts to theme
-const createDynamicStyles = (colors: any, isDark: boolean): DynamicStyles => {
-  const emeraldPrimary = isDark ? colors.emerald500 : colors.emerald600;
-  const emeraldGradient = isDark
-    ? [colors.emerald600, colors.emerald500]
-    : [colors.emerald600, colors.emerald500];
+const createOptimizedStyles = (
+  insets: { bottom?: number } = {},
+  shouldCenter: boolean
+): OptimizedStyles => {
+  const safeBottomPadding =
+    Platform.OS === "ios" ? 0 : Math.max(insets?.bottom || 0, 8);
 
-  const styles = StyleSheet.create({
+  return StyleSheet.create({
     safeAreaWrapper: {
-      backgroundColor: colors.background,
-      position: "relative",
-      bottom: 0,
-      left: 0,
-      right: 0,
-    } as ViewStyle,
-    wrapper: {
-      backgroundColor: colors.background,
-    } as ViewStyle,
+      backgroundColor: "transparent",
+    },
+
     container: {
-      backgroundColor: colors.background,
-      borderTopWidth: 1,
-      borderTopColor: colors.border,
-      shadowColor: colors.shadow,
-      shadowOffset: {
-        width: 0,
-        height: -4,
-      },
-      shadowOpacity: isDark ? 0.3 : 0.08,
-      shadowRadius: 12,
-      elevation: 12,
-      paddingTop: 6,
-      paddingHorizontal: 0,
-      minHeight: 60,
-    } as ViewStyle,
-    indicator: {
-      position: "absolute",
-      top: 0,
-      height: 3,
-      backgroundColor: emeraldPrimary,
-      borderRadius: 2,
-      zIndex: 1,
-    } as ViewStyle,
-    scrollView: {
-      flex: 1,
-    } as ViewStyle,
-    scrollViewContent: {
       flexDirection: "row",
       alignItems: "center",
-      minHeight: 52,
-      paddingHorizontal: 0,
-    } as ViewStyle,
-    tabButton: {
-      flexDirection: "column",
-      justifyContent: "center",
-      alignItems: "center",
-      paddingVertical: 6,
-      paddingHorizontal: 8,
-      zIndex: 2,
-      minHeight: 52,
-    } as ViewStyle,
-    cameraPlaceholder: {
-      opacity: 0,
-    } as ViewStyle,
-    iconContainer: {
-      marginBottom: 4,
-      justifyContent: "center",
-      alignItems: "center",
-      height: 28,
-      width: 28,
-    } as ViewStyle,
-    labelContainer: {
-      justifyContent: "center",
-      alignItems: "center",
-      minHeight: 16,
-    } as ViewStyle,
-    label: {
-      fontSize: TAB_LABEL_FONT_SIZE,
-      textAlign: "center",
-      letterSpacing: 0.2,
-      fontFamily: "Rubik-Medium",
-      color: colors.text,
-    } as TextStyle,
-    floatingCameraButton: {
-      position: "absolute",
-      top: -32,
-      left: 0,
-      width: CAMERA_BUTTON_SIZE,
-      height: CAMERA_BUTTON_SIZE + 35,
-      justifyContent: "flex-start",
-      alignItems: "center",
-      zIndex: 10,
-    } as ViewStyle,
-    cameraButton: {
-      width: CAMERA_BUTTON_SIZE,
-      height: CAMERA_BUTTON_SIZE,
-      borderRadius: CAMERA_BUTTON_SIZE / 2,
-      justifyContent: "center",
-      alignItems: "center",
-      marginBottom: 4,
-    } as ViewStyle,
-    cameraGradient: {
-      width: CAMERA_BUTTON_SIZE,
-      height: CAMERA_BUTTON_SIZE,
-      borderRadius: CAMERA_BUTTON_SIZE / 2,
-      justifyContent: "center",
-      alignItems: "center",
-      elevation: 12,
-      shadowColor: emeraldPrimary,
-      shadowOffset: {
-        width: 0,
-        height: 6,
-      },
-      shadowOpacity: 0.4,
+      backgroundColor: "transparent",
+      paddingTop: TAB_CONFIG.barPaddingVertical,
+      paddingBottom: TAB_CONFIG.barPaddingVertical + safeBottomPadding,
+      paddingHorizontal: TAB_CONFIG.barPaddingHorizontal,
+      height: TAB_CONFIG.barHeight + safeBottomPadding,
+      shadowColor: "#000000",
+      shadowOffset: { width: 0, height: -2 },
+      shadowOpacity: 0.1,
       shadowRadius: 12,
-      borderWidth: 4,
-      borderColor: colors.background,
-    } as ViewStyle,
-    cameraLabel: {
-      fontSize: TAB_LABEL_FONT_SIZE,
-      textAlign: "center",
-      letterSpacing: 0.2,
-      fontFamily: "Rubik-Medium",
-      marginTop: 2,
-    } as TextStyle,
-  });
+    },
 
-  return {
-    ...styles,
-    cameraGradientColors: emeraldGradient,
-  };
+    scrollView: {
+      flex: 1,
+      height: TAB_CONFIG.tabHeight,
+    },
+
+    scrollContent: {
+      alignItems: "center",
+      gap: TAB_CONFIG.spacing,
+      paddingRight: 16, // Space for camera tab
+      minWidth: shouldCenter
+        ? SCREEN_WIDTH - TAB_CONFIG.barPaddingHorizontal * 2 - 80
+        : undefined,
+    },
+
+    centeredContent: {
+      justifyContent: "center",
+    },
+
+    fallbackContainer: {
+      height: TAB_CONFIG.barHeight,
+      justifyContent: "center",
+      alignItems: "center",
+      backgroundColor: "#FFFFFF",
+    },
+
+    fallbackText: {
+      fontSize: 13,
+      color: "#6B7280",
+      fontWeight: "500",
+    },
+  });
 };
+
+// Static styles
+const styles = StyleSheet.create({
+  // Regular tab styles
+  regularTab: {
+    flex: 1,
+    height: TAB_CONFIG.tabHeight,
+  },
+
+  tabBackground: {
+    flex: 1,
+    borderRadius: TAB_CONFIG.borderRadius,
+    borderWidth: 1,
+    borderColor: "transparent",
+  },
+
+  tabContent: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    paddingHorizontal: TAB_CONFIG.tabPaddingHorizontal,
+    paddingVertical: TAB_CONFIG.tabPaddingVertical,
+  },
+
+  tabLabel: {
+    fontSize: TAB_CONFIG.labelFontSize,
+    textAlign: "center",
+    letterSpacing: 0.2,
+    lineHeight: TAB_CONFIG.labelFontSize * 1.2,
+    flexShrink: 1,
+  },
+
+  // Camera tab styles
+  cameraTabWrapper: {
+    marginLeft: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  cameraTabContainer: {
+    position: "relative",
+    width: TAB_CONFIG.cameraHeight,
+    height: TAB_CONFIG.cameraHeight,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  cameraGlow: {
+    position: "absolute",
+    width: TAB_CONFIG.cameraHeight + 12,
+    height: TAB_CONFIG.cameraHeight + 12,
+    borderRadius: (TAB_CONFIG.cameraHeight + 12) / 2,
+    backgroundColor: "#10B981",
+    opacity: 0,
+  },
+
+  cameraTab: {
+    width: TAB_CONFIG.cameraHeight,
+    height: TAB_CONFIG.cameraHeight,
+    borderRadius: TAB_CONFIG.cameraHeight / 2,
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 6,
+  },
+
+  cameraGradient: {
+    width: TAB_CONFIG.cameraHeight,
+    height: TAB_CONFIG.cameraHeight,
+    borderRadius: TAB_CONFIG.cameraHeight / 2,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "#FFFFFF",
+  },
+});
 
 export default function TabLayout() {
   return (
@@ -718,6 +666,6 @@ export default function TabLayout() {
       screenOptions={{
         headerShown: false,
       }}
-    ></Tabs>
+    />
   );
 }
