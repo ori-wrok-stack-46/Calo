@@ -223,45 +223,54 @@ export default function FloatingChatButton() {
         </TouchableOpacity>
       </Animated.View>
 
-      <Modal
-        visible={showChat}
-        animationType="slide"
-        presentationStyle="fullScreen"
-        onRequestClose={handleClose}
-        statusBarTranslucent={false}
-      >
-        <View style={styles.modalContainer}>
-          <StatusBar
-            barStyle="dark-content"
-            backgroundColor={COLORS.white}
-            translucent={false}
-          />
+      {showChat && (
+        <Modal
+          visible={showChat}
+          animationType="slide"
+          presentationStyle="fullScreen"
+          onRequestClose={handleClose}
+          statusBarTranslucent={false}
+        >
+          <View style={styles.modalContainer}>
+            <StatusBar
+              barStyle="dark-content"
+              backgroundColor={COLORS.white}
+              translucent={false}
+            />
 
-          {/* Clean header */}
-          <View style={styles.header}>
-            <TouchableOpacity
-              onPress={handleMinimize}
-              style={styles.headerButton}
-            >
-              <Minus size={20} color={COLORS.gray600} strokeWidth={2} />
-            </TouchableOpacity>
+            {/* Clean header */}
+            <View style={styles.header}>
+              <TouchableOpacity
+                onPress={handleMinimize}
+                style={styles.headerButton}
+              >
+                <Minus size={20} color={COLORS.gray600} strokeWidth={2} />
+              </TouchableOpacity>
 
-            <View style={styles.headerTitle}>
-              <MessageCircle size={20} color={COLORS.emerald} strokeWidth={2} />
-              <Text style={styles.headerTitleText}>AI Chat</Text>
+              <View style={styles.headerTitle}>
+                <MessageCircle
+                  size={20}
+                  color={COLORS.emerald}
+                  strokeWidth={2}
+                />
+                <Text style={styles.headerTitleText}>AI Chat</Text>
+              </View>
+
+              <TouchableOpacity
+                onPress={handleClose}
+                style={styles.headerButton}
+              >
+                <X size={20} color={COLORS.gray600} strokeWidth={2} />
+              </TouchableOpacity>
             </View>
 
-            <TouchableOpacity onPress={handleClose} style={styles.headerButton}>
-              <X size={20} color={COLORS.gray600} strokeWidth={2} />
-            </TouchableOpacity>
+            {/* Chat content */}
+            <View style={styles.chatContent}>
+              <AIChatScreen />
+            </View>
           </View>
-
-          {/* Chat content */}
-          <View style={styles.chatContent}>
-            <AIChatScreen />
-          </View>
-        </View>
-      </Modal>
+        </Modal>
+      )}
     </>
   );
 }

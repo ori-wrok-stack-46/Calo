@@ -404,7 +404,7 @@ const ToolBar: React.FC<ToolBarProps> = ({ helpContent }) => {
                     isRTL && styles.modalTitleContainerRTL,
                   ]}
                 >
-                  <HelpCircle size={24} color={Colors.dark.text} />
+                  <HelpCircle size={24} color={colors.primary} />
                   <Text
                     style={[
                       styles.modalTitle,
@@ -423,7 +423,7 @@ const ToolBar: React.FC<ToolBarProps> = ({ helpContent }) => {
                   ]}
                   activeOpacity={0.7}
                 >
-                  <X size={18} color={Colors.dark.text} />
+                  <X size={18} color={colors.primary} />
                 </TouchableOpacity>
               </View>
 

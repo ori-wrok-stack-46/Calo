@@ -36,7 +36,7 @@ import NotificationSettings from "@/components/NotificationSettings";
 import PrivacySettings from "@/components/PrivacySettings";
 import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch, RootState } from "@/src/store";
-import { signOut } from "@/src/store/authSlice";
+import { signOut, updateUser } from "@/src/store/authSlice";
 import { router } from "expo-router";
 import { userAPI } from "@/src/services/api";
 import * as ImagePicker from "expo-image-picker";
@@ -235,13 +235,11 @@ export default function ProfileScreen() {
 
       if (response.success) {
         // Update user in Redux store
-        dispatch({
-          type: "auth/setUser",
-          payload: {
-            ...user,
+        dispatch(
+          updateUser({
             avatar_url: response.avatar_url,
-          },
-        });
+          })
+        );
 
         Alert.alert("Success", "Profile picture updated successfully!");
       } else {
@@ -527,18 +525,21 @@ export default function ProfileScreen() {
               onPress={handleAvatarPress}
               disabled={isUploadingAvatar}
             >
-              <Image
-                source={{
-                  uri:
-                    user?.avatar_url ||
-                    `https://via.placeholder.com/80x80/FFFFFF/16A085?text=${(
-                      user?.name || "U"
-                    )
-                      .charAt(0)
-                      .toUpperCase()}`,
-                }}
-                style={styles.avatarImage}
-              />
+              {user?.avatar_url ? (
+                <Image
+                  source={{ uri: user.avatar_url }}
+                  style={styles.avatarImage}
+                  onError={(error) => {
+                    console.warn("Avatar image failed to load:", error);
+                  }}
+                />
+              ) : (
+                <View style={[styles.avatarImage, styles.avatarPlaceholder]}>
+                  <Text style={styles.avatarPlaceholderText}>
+                    {(user?.name || "U").charAt(0).toUpperCase()}
+                  </Text>
+                </View>
+              )}
               <View style={styles.avatarOverlay}>
                 {isUploadingAvatar ? (
                   <ActivityIndicator size="small" color="#FFFFFF" />
@@ -762,6 +763,16 @@ const styles = StyleSheet.create({
     borderRadius: 40,
     borderWidth: 3,
     borderColor: "rgba(255,255,255,0.3)",
+  },
+  avatarPlaceholder: {
+    backgroundColor: "rgba(255,255,255,0.9)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  avatarPlaceholderText: {
+    fontSize: 32,
+    fontWeight: "bold",
+    color: "#16A085",
   },
   avatarOverlay: {
     position: "absolute",

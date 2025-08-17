@@ -217,15 +217,33 @@ export const authAPI = {
     }
   },
 
-  async signOut(): Promise<void> {
+  signOut: async (): Promise<void> => {
     try {
-      await api.post("/auth/signout");
-      await clearStoredToken();
-      console.log("✅ Signout successful");
+      await AsyncStorage.removeItem("auth_token");
+      if (Platform.OS !== "web") {
+        const SecureStore = require("expo-secure-store");
+        await SecureStore.deleteItemAsync("auth_token_secure");
+      }
+      delete api.defaults.headers.common["Authorization"];
     } catch (error) {
-      console.error("💥 Signout error:", error);
-      // Always clear token even if server request fails
-      await clearStoredToken();
+      console.error("Error during sign out:", error);
+    }
+  },
+
+  uploadAvatar: async (
+    base64Image: string
+  ): Promise<{ success: boolean; avatar_url?: string; error?: string }> => {
+    try {
+      const response = await api.post("/user/avatar", {
+        avatar_base64: base64Image,
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error("Upload avatar error:", error);
+      return {
+        success: false,
+        error: error.response?.data?.error || "Failed to upload avatar",
+      };
     }
   },
 

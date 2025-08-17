@@ -220,7 +220,8 @@ const authSlice = createSlice({
         currentUserData.email_verified !== newUserData.email_verified ||
         currentUserData.subscription_type !== newUserData.subscription_type ||
         currentUserData.is_questionnaire_completed !==
-          newUserData.is_questionnaire_completed
+          newUserData.is_questionnaire_completed ||
+        currentUserData.avatar_url !== newUserData.avatar_url // Check avatar_url
       ) {
         state.user = newUserData;
         state.isAuthenticated = true;
@@ -230,6 +231,18 @@ const authSlice = createSlice({
     },
     setToken: (state, action) => {
       state.token = action.payload;
+    },
+    signOut: (state) => {
+      state.user = null;
+      state.token = null;
+      state.isAuthenticated = false;
+      state.isLoading = false;
+      state.error = null;
+    },
+    updateUser: (state, action: PayloadAction<Partial<User>>) => {
+      if (state.user) {
+        state.user = { ...state.user, ...action.payload };
+      }
     },
   },
   extraReducers: (builder) => {
@@ -371,5 +384,6 @@ export const {
   loginSuccess,
   setUser,
   setToken,
+  updateUser,
 } = authSlice.actions;
 export default authSlice.reducer;
