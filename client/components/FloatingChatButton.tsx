@@ -226,15 +226,15 @@ export default function FloatingChatButton() {
       <Modal
         visible={showChat}
         animationType="slide"
-        presentationStyle="pageSheet"
+        presentationStyle="fullScreen"
         onRequestClose={handleClose}
-        statusBarTranslucent={Platform.OS === "android"}
+        statusBarTranslucent={false}
       >
-        <SafeAreaView style={styles.modalContainer}>
+        <View style={styles.modalContainer}>
           <StatusBar
             barStyle="dark-content"
             backgroundColor={COLORS.white}
-            translucent={Platform.OS === "android"}
+            translucent={false}
           />
 
           {/* Clean header */}
@@ -248,7 +248,7 @@ export default function FloatingChatButton() {
 
             <View style={styles.headerTitle}>
               <MessageCircle size={20} color={COLORS.emerald} strokeWidth={2} />
-              <Text style={styles.headerTitleText}>Chat</Text>
+              <Text style={styles.headerTitleText}>AI Chat</Text>
             </View>
 
             <TouchableOpacity onPress={handleClose} style={styles.headerButton}>
@@ -258,9 +258,9 @@ export default function FloatingChatButton() {
 
           {/* Chat content */}
           <View style={styles.chatContent}>
-            <AIChatScreen onClose={handleClose} onMinimize={handleMinimize} />
+            <AIChatScreen />
           </View>
-        </SafeAreaView>
+        </View>
       </Modal>
     </>
   );
@@ -309,6 +309,7 @@ const styles = StyleSheet.create({
     backgroundColor: COLORS.white,
     borderBottomWidth: 1,
     borderBottomColor: COLORS.gray200,
+    paddingTop: Platform.OS === "ios" ? 50 : 16,
   },
   headerButton: {
     padding: 8,

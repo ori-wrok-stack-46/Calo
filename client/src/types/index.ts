@@ -71,6 +71,7 @@ export interface User {
   email: string;
   name?: string;
   birth_date?: string;
+  avatar_url?: string;
   subscription_type: string;
   signup_date: string;
   is_questionnaire_completed: boolean;

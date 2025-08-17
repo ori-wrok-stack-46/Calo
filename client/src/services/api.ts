@@ -488,6 +488,26 @@ export const userAPI = {
     }
   },
 
+  async uploadAvatar(base64Image: string): Promise<any> {
+    try {
+      console.log("🔄 Uploading avatar...");
+      const response = await api.post("/user/avatar", {
+        avatar_base64: base64Image,
+      });
+
+      if (response.data.success) {
+        console.log("✅ Avatar uploaded successfully");
+        return response.data;
+      }
+
+      throw new APIError(response.data.error || "Failed to upload avatar");
+    } catch (error) {
+      console.error("💥 Upload avatar error:", error);
+      if (error instanceof APIError) throw error;
+      throw new APIError("Network error while uploading avatar");
+    }
+  },
+
   async getGlobalStatistics(): Promise<any> {
     try {
       const response = await api.get("/user/global-statistics");

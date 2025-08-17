@@ -60,6 +60,15 @@ export default function TabLayout() {
               }}
             />
             <Tabs.Screen
+              name="questionnaire"
+              options={{
+                title: t("tabs.questionnaire"),
+                tabBarIcon: ({ color }) => (
+                  <IconSymbol size={24} name="doc.text.fill" color={color} />
+                ),
+              }}
+            />
+            <Tabs.Screen
               name="recommended-menus"
               options={{
                 title: t("tabs.recommended_menus"),
@@ -123,15 +132,6 @@ export default function TabLayout() {
                 title: t("tabs.devices"),
                 tabBarIcon: ({ color }) => (
                   <IconSymbol size={24} name="watch.digital" color={color} />
-                ),
-              }}
-            />
-            <Tabs.Screen
-              name="questionnaire"
-              options={{
-                title: t("tabs.questionnaire"),
-                tabBarIcon: ({ color }) => (
-                  <IconSymbol size={24} name="doc.text.fill" color={color} />
                 ),
               }}
             />

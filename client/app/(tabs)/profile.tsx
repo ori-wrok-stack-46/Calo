@@ -5,10 +5,10 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   Image,
   StatusBar,
   Switch,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -28,6 +28,8 @@ import {
   Globe,
   Moon,
   ChevronRight,
+  Camera,
+  Image as ImageIcon,
 } from "lucide-react-native";
 import EditProfile from "@/components/EditProfile";
 import NotificationSettings from "@/components/NotificationSettings";
@@ -37,6 +39,8 @@ import { AppDispatch, RootState } from "@/src/store";
 import { signOut } from "@/src/store/authSlice";
 import { router } from "expo-router";
 import { userAPI } from "@/src/services/api";
+import * as ImagePicker from "expo-image-picker";
+import { Alert } from "react-native";
 
 // Define the interface for menu items
 interface MenuItem {
@@ -63,6 +67,7 @@ export default function ProfileScreen() {
   const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [notifications, setNotifications] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [notificationSettings, setNotificationSettings] = useState({
     pushNotifications: true,
     emailNotifications: false,
@@ -154,14 +159,99 @@ export default function ProfileScreen() {
     } else if (itemId === "personalData") {
       router.push("/(tabs)/questionnaire?mode=edit");
     } else if (itemId === "privacy") {
-      // Handle privacy policy - you can implement this as a modal or external link
-      Alert.alert(
-        "Privacy Policy",
-        "Privacy policy content would be displayed here. You can implement this as a modal, web view, or external link.",
-        [{ text: "OK" }]
-      );
+      router.push("/privacy-policy");
     } else {
       setActiveSection(activeSection === itemId ? null : itemId);
+    }
+  };
+
+  const handleAvatarPress = () => {
+    Alert.alert(
+      "Change Avatar",
+      "Choose how you'd like to update your profile picture",
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Take Photo", onPress: handleTakePhoto },
+        { text: "Choose from Gallery", onPress: handleChooseFromGallery },
+      ]
+    );
+  };
+
+  const handleTakePhoto = async () => {
+    try {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert("Permission needed", "Camera permission is required");
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets[0].base64) {
+        await uploadAvatar(result.assets[0].base64);
+      }
+    } catch (error) {
+      console.error("Camera error:", error);
+      Alert.alert("Error", "Failed to take photo");
+    }
+  };
+
+  const handleChooseFromGallery = async () => {
+    try {
+      const { status } =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert("Permission needed", "Gallery permission is required");
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets[0].base64) {
+        await uploadAvatar(result.assets[0].base64);
+      }
+    } catch (error) {
+      console.error("Gallery error:", error);
+      Alert.alert("Error", "Failed to choose image");
+    }
+  };
+
+  const uploadAvatar = async (base64: string) => {
+    try {
+      setIsUploadingAvatar(true);
+
+      const response = await userAPI.uploadAvatar(base64);
+
+      if (response.success) {
+        // Update user in Redux store
+        dispatch({
+          type: "auth/setUser",
+          payload: {
+            ...user,
+            avatar_url: response.avatar_url,
+          },
+        });
+
+        Alert.alert("Success", "Profile picture updated successfully!");
+      } else {
+        throw new Error(response.error || "Failed to upload avatar");
+      }
+    } catch (error: any) {
+      console.error("Avatar upload error:", error);
+      Alert.alert("Error", error.message || "Failed to upload avatar");
+    } finally {
+      setIsUploadingAvatar(false);
     }
   };
 
@@ -174,6 +264,12 @@ export default function ProfileScreen() {
           title: t("profile.edit_profile") || "Edit Profile",
           icon: <Edit size={20} color="#2C3E50" />,
           onPress: () => handleMenuPress("editProfile"),
+        },
+        {
+          id: "changeAvatar",
+          title: "Change Avatar",
+          icon: <Camera size={20} color="#2C3E50" />,
+          onPress: handleAvatarPress,
         },
         {
           id: "personalData",
@@ -403,7 +499,7 @@ export default function ProfileScreen() {
       icon: <Activity size={20} color="#16A085" />,
     },
   ];
-
+  console.log(user);
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#16A085" />
@@ -426,17 +522,31 @@ export default function ProfileScreen() {
             colors={["#16A085", "#1ABC9C"]}
             style={styles.profileGradient}
           >
-            <View style={styles.profileAvatar}>
+            <TouchableOpacity
+              style={styles.profileAvatar}
+              onPress={handleAvatarPress}
+              disabled={isUploadingAvatar}
+            >
               <Image
                 source={{
                   uri:
-                    // user?.avatar ||
-                    "https://via.placeholder.com/80x80/FFFFFF/16A085?text=U",
+                    user?.avatar_url ||
+                    `https://via.placeholder.com/80x80/FFFFFF/16A085?text=${(
+                      user?.name || "U"
+                    )
+                      .charAt(0)
+                      .toUpperCase()}`,
                 }}
                 style={styles.avatarImage}
               />
-              <View style={styles.onlineBadge} />
-            </View>
+              <View style={styles.avatarOverlay}>
+                {isUploadingAvatar ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <Camera size={16} color="#FFFFFF" />
+                )}
+              </View>
+            </TouchableOpacity>
             <View style={[styles.profileInfo, isRTL && styles.profileInfoRTL]}>
               <Text
                 style={[styles.profileName, isRTL && styles.profileNameRTL]}
@@ -653,16 +763,18 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: "rgba(255,255,255,0.3)",
   },
-  onlineBadge: {
+  avatarOverlay: {
     position: "absolute",
     bottom: 2,
     right: 2,
     width: 20,
     height: 20,
     borderRadius: 10,
-    backgroundColor: "#34C759",
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
     borderWidth: 2,
     borderColor: "white",
+    justifyContent: "center",
+    alignItems: "center",
   },
   profileInfo: {
     flex: 1,
