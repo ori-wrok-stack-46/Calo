@@ -54,7 +54,7 @@ import {
   Moon,
   Dumbbell,
   Gem,
-  Muscle,
+  DumbbellIcon,
 } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
 import { useLanguage } from "@/src/i18n/context/LanguageContext";
@@ -208,7 +208,7 @@ const getAchievementIcon = (
     case "calendar":
       return <Calendar {...iconProps} />;
     case "muscle":
-      return <Muscle {...iconProps} />;
+      return <DumbbellIcon {...iconProps} />;
     case "sunrise":
       return <Sunrise {...iconProps} />;
     case "moon":
@@ -889,7 +889,8 @@ export default function StatisticsScreen() {
     }
 
     const totalPoints = statisticsData.totalPoints || 0;
-    const level = Math.floor(totalPoints / 1000) + 1;
+    // Use the same level calculation as the server: level starts at 1, every 1000 XP = 1 level
+    const level = Math.max(1, Math.floor(totalPoints / 1000) + 1);
     const currentXP = totalPoints % 1000;
     const nextLevelXP = 1000;
     const dailyStreak = statisticsData.currentStreak || 0;
@@ -1258,8 +1259,7 @@ export default function StatisticsScreen() {
                             ]}
                           >
                             {typeof achievement.title === "object"
-                              ? achievement.title[language] ||
-                                achievement.title.en
+                              ? achievement.title.en
                               : achievement.title}
                           </Text>
                           <View
@@ -1298,8 +1298,7 @@ export default function StatisticsScreen() {
                           ]}
                         >
                           {typeof achievement.description === "object"
-                            ? achievement.description[language] ||
-                              achievement.description.en
+                            ? achievement.description.en
                             : achievement.description}
                         </Text>
 

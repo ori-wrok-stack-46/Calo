@@ -12,15 +12,23 @@ import {
   Animated,
   Dimensions,
   Modal,
+  StatusBar,
   Platform,
   Vibration,
+  Text,
+  SafeAreaView,
   PanResponder,
   Easing,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { MessageCircle, Minus, X } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AIChatScreen from "../app/(tabs)/ai-chat";
+
+// Enhanced interface
+interface AIChatScreenProps {
+  onClose?: () => void;
+  onMinimize?: () => void;
+}
 
 // Clean constants
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
@@ -162,6 +170,8 @@ export default function FloatingChatButton() {
   const handlePress = useCallback(() => {
     if (isDragging) return;
 
+    console.log("FloatingChatButton pressed - opening modal");
+
     Animated.sequence([
       Animated.timing(scaleAnim, {
         toValue: 0.95,
@@ -215,19 +225,44 @@ export default function FloatingChatButton() {
         </TouchableOpacity>
       </Animated.View>
 
-      {showChat && (
-        <Modal
-          visible={showChat}
-          animationType="slide"
-          presentationStyle="fullScreen"
-          onRequestClose={handleClose}
-          statusBarTranslucent={true}
-        >
-          <SafeAreaView style={styles.modalContainer}>
+      <Modal
+        visible={showChat}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={handleClose}
+      >
+        <View style={styles.modalContainer}>
+          <StatusBar
+            barStyle="dark-content"
+            backgroundColor={COLORS.white}
+            translucent={false}
+          />
+
+          {/* Clean header */}
+          <View style={styles.header}>
+            <TouchableOpacity
+              onPress={handleMinimize}
+              style={styles.headerButton}
+            >
+              <Minus size={20} color={COLORS.gray600} strokeWidth={2} />
+            </TouchableOpacity>
+
+            <View style={styles.headerTitle}>
+              <MessageCircle size={20} color={COLORS.emerald} strokeWidth={2} />
+              <Text style={styles.headerTitleText}>AI Chat</Text>
+            </View>
+
+            <TouchableOpacity onPress={handleClose} style={styles.headerButton}>
+              <X size={20} color={COLORS.gray600} strokeWidth={2} />
+            </TouchableOpacity>
+          </View>
+
+          {/* Chat content */}
+          <View style={styles.chatContent}>
             <AIChatScreen onClose={handleClose} onMinimize={handleMinimize} />
-          </SafeAreaView>
-        </Modal>
-      )}
+          </View>
+        </View>
+      </Modal>
     </>
   );
 }
@@ -264,6 +299,39 @@ const styles = StyleSheet.create({
   },
   modalContainer: {
     flex: 1,
-    backgroundColor: "#F8F9FA",
+    backgroundColor: COLORS.gray50,
+  },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    backgroundColor: COLORS.white,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.gray200,
+    paddingTop: Platform.OS === "ios" ? 50 : 16,
+  },
+  headerButton: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: COLORS.gray100,
+    minWidth: 36,
+    alignItems: "center",
+  },
+  headerTitle: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
+  headerTitleText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: COLORS.gray900,
+  },
+  chatContent: {
+    flex: 1,
   },
 });

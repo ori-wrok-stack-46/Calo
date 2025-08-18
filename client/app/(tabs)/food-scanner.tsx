@@ -120,9 +120,6 @@ export default function FoodScannerScreen() {
   const [slideAnim] = useState(new Animated.Value(50));
   const [scaleAnim] = useState(new Animated.Value(0.8));
 
-  // Refs
-  const cameraRef = useRef<Camera>(null);
-
   useEffect(() => {
     // Start animations
     Animated.parallel([

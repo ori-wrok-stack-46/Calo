@@ -36,6 +36,14 @@ const defaultSettings: NotificationSettings = {
 export class NotificationService {
   static async requestPermissions(): Promise<boolean> {
     try {
+      // In Expo Go, handle permissions gracefully
+      if (__DEV__ && !Device.isDevice) {
+        console.log(
+          "Development mode in simulator - skipping notification permissions"
+        );
+        return true;
+      }
+
       if (!Device.isDevice) {
         console.log("Must use physical device for Push Notifications");
         return false;
@@ -94,11 +102,25 @@ export class NotificationService {
 
   static async registerForPushNotifications(): Promise<string | null> {
     try {
-      // Skip push notifications in Expo Go
-      if (!Device.isDevice || __DEV__) {
+      // Skip push notifications in Expo Go but allow local notifications
+      if (!Device.isDevice) {
+        console.log("Push notifications not available in simulator");
+        return null;
+      }
+
+      if (__DEV__ && !Device.isDevice) {
+        console.log("Development mode in simulator - using mock token");
+        return "dev-token-simulator";
+      }
+
+      if (__DEV__) {
         console.log(
-          "Push notifications not available in Expo Go or development"
+          "Development mode on device - attempting local notifications"
         );
+        const hasPermissions = await this.requestPermissions();
+        if (hasPermissions) {
+          return "dev-token-device";
+        }
         return null;
       }
 

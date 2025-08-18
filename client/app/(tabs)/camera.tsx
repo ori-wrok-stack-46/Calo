@@ -620,31 +620,36 @@ export default function CameraScreen() {
 
     // If analysisData exists, use its overall totals first, then sum ingredients if needed for detail
     const totalCalories = analysisData?.calories || 0;
-    const totalProtein =
-      getNutritionValue(analysisData, "protein_g") ||
-      getNutritionValue(analysisData, "protein") ||
-      0;
-    const totalCarbs =
-      getNutritionValue(analysisData, "carbs_g") ||
-      getNutritionValue(analysisData, "carbs") ||
-      0;
-    const totalFat =
-      getNutritionValue(analysisData, "fats_g") ||
-      getNutritionValue(analysisData, "fat") ||
-      0;
-    const totalFiber =
-      getNutritionValue(analysisData, "fiber_g") ||
-      getNutritionValue(analysisData, "fiber") ||
-      0;
-    const totalSugar =
-      getNutritionValue(analysisData, "sugar_g") ||
-      getNutritionValue(analysisData, "sugar") ||
-      0;
-    const totalSodium =
-      getNutritionValue(analysisData, "sodium_mg") ||
-      getNutritionValue(analysisData, "sodium") ||
-      0;
-
+    const totalProtein = analysisData
+      ? getNutritionValue(analysisData, "protein_g") ||
+        getNutritionValue(analysisData, "protein") ||
+        0
+      : 0;
+    const totalCarbs = analysisData
+      ? getNutritionValue(analysisData, "carbs_g") ||
+        getNutritionValue(analysisData, "carbs") ||
+        0
+      : 0;
+    const totalFat = analysisData
+      ? getNutritionValue(analysisData, "fats_g") ||
+        getNutritionValue(analysisData, "fat") ||
+        0
+      : 0;
+    const totalFiber = analysisData
+      ? getNutritionValue(analysisData, "fiber_g") ||
+        getNutritionValue(analysisData, "fiber") ||
+        0
+      : 0;
+    const totalSugar = analysisData
+      ? getNutritionValue(analysisData, "sugar_g") ||
+        getNutritionValue(analysisData, "sugar") ||
+        0
+      : 0;
+    const totalSodium = analysisData
+      ? getNutritionValue(analysisData, "sodium_mg") ||
+        getNutritionValue(analysisData, "sodium") ||
+        0
+      : 0;
     // If ingredients are available, calculate their sum as a fallback or for finer detail
     if (currentIngredients.length > 0) {
       let ingredientSumCalories = 0;
@@ -754,7 +759,7 @@ export default function CameraScreen() {
             style={[
               styles.imageSelectionTitle,
               isRTL && styles.rtlText,
-              { color: colors.primaryDark },
+              { color: colors.primary },
             ]}
           >
             Smart Meal Analysis
@@ -777,7 +782,7 @@ export default function CameraScreen() {
             onPress={handleTakePhoto}
           >
             <LinearGradient
-              colors={[colors.primary, colors.primaryDark]}
+              colors={[colors.primary, colors.primary]}
               style={styles.imageButtonGradient}
             >
               <Camera size={24} color="#ffffff" />
@@ -799,19 +804,14 @@ export default function CameraScreen() {
           </TouchableOpacity>
         </View>
 
-        <View
-          style={[
-            styles.tipContainer,
-            { backgroundColor: colors.cardBackground },
-          ]}
-        >
+        <View style={[styles.tipContainer, { backgroundColor: colors.card }]}>
           <Info size={20} color={colors.primary} />
           <View style={styles.tipTextContainer}>
             <Text
               style={[
                 styles.tipTitle,
                 isRTL && styles.rtlText,
-                { color: colors.primaryDark },
+                { color: colors.primary },
               ]}
             >
               Pro Tips for Better Results
@@ -848,7 +848,7 @@ export default function CameraScreen() {
         ]}
       >
         <LinearGradient
-          colors={[colors.primary, colors.primaryDark]}
+          colors={[colors.primary, colors.primary]}
           style={styles.mealHeaderGradient}
         >
           <View style={styles.mealHeaderContent}>
@@ -920,7 +920,7 @@ export default function CameraScreen() {
         ]}
       >
         <LinearGradient
-          colors={[colors.cardBackground, colors.surface]}
+          colors={[colors.card, colors.surface]}
           style={styles.nutritionGradient}
         >
           <View style={styles.nutritionHeader}>
@@ -1148,7 +1148,7 @@ export default function CameraScreen() {
                 styles.commentInput,
                 isRTL && styles.rtlTextInput,
                 {
-                  backgroundColor: colors.cardBackground,
+                  backgroundColor: colors.card,
                   borderColor: colors.border,
                   color: colors.text,
                 },
@@ -1171,8 +1171,8 @@ export default function CameraScreen() {
             <LinearGradient
               colors={
                 isAnalyzing
-                  ? [colors.disabled, colors.textSecondary]
-                  : [colors.primary, colors.primaryDark]
+                  ? [colors.error, colors.textSecondary]
+                  : [colors.primary, colors.primary]
               }
               style={styles.analyzeButtonGradient}
             >
@@ -1468,7 +1468,7 @@ export default function CameraScreen() {
             <LinearGradient
               colors={
                 isPosting
-                  ? [colors.disabled, colors.textSecondary]
+                  ? [colors.error, colors.textSecondary]
                   : [colors.success, colors.emerald600]
               }
               style={styles.primaryButtonGradient}
@@ -1499,12 +1499,7 @@ export default function CameraScreen() {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.modalOverlay}
       >
-        <View
-          style={[
-            styles.modalContent,
-            { backgroundColor: colors.cardBackground },
-          ]}
-        >
+        <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
           <View
             style={[styles.modalHeader, { borderBottomColor: colors.border }]}
           >
@@ -1752,7 +1747,7 @@ export default function CameraScreen() {
               onPress={handleSaveIngredient}
             >
               <LinearGradient
-                colors={[colors.primary, colors.primaryDark]}
+                colors={[colors.primary, colors.primary]}
                 style={styles.modalSaveButtonGradient}
               >
                 <Text style={styles.modalSaveText}>Save</Text>
@@ -1773,10 +1768,7 @@ export default function CameraScreen() {
     >
       <View style={styles.modalOverlay}>
         <View
-          style={[
-            styles.confirmModalContent,
-            { backgroundColor: colors.cardBackground },
-          ]}
+          style={[styles.confirmModalContent, { backgroundColor: colors.card }]}
         >
           <View style={styles.warningIconContainer}>
             <AlertTriangle size={48} color={colors.error} />
@@ -1941,7 +1933,7 @@ export default function CameraScreen() {
       imageSelectionTitle: {
         fontSize: 28,
         fontWeight: "bold",
-        color: colors.primaryDark,
+        color: colors.primary,
         marginBottom: 12,
         textAlign: "center",
       },
@@ -1997,7 +1989,7 @@ export default function CameraScreen() {
       tipTitle: {
         fontSize: 16,
         fontWeight: "700",
-        color: colors.primaryDark,
+        color: colors.primary,
         marginBottom: 8,
       },
       tipDescription: {
@@ -2391,7 +2383,7 @@ export default function CameraScreen() {
       ingredientActionButton: {
         padding: 10,
         borderRadius: 12,
-        backgroundColor: colors.cardBackground,
+        backgroundColor: colors.card,
         elevation: 1,
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 1 },
@@ -2461,7 +2453,7 @@ export default function CameraScreen() {
         flexDirection: "row",
         alignItems: "center",
         justifyContent: "center",
-        backgroundColor: colors.cardBackground,
+        backgroundColor: colors.card,
         borderWidth: 2,
         borderColor: colors.border,
         borderRadius: 16,
@@ -2490,7 +2482,7 @@ export default function CameraScreen() {
         alignItems: "center",
       },
       modalContent: {
-        backgroundColor: colors.cardBackground,
+        backgroundColor: colors.card,
         borderRadius: 24,
         width: screenWidth - 48,
         maxHeight: "85%",
@@ -2597,7 +2589,7 @@ export default function CameraScreen() {
 
       // Confirm modal styles
       confirmModalContent: {
-        backgroundColor: colors.cardBackground,
+        backgroundColor: colors.card,
         borderRadius: 24,
         padding: 32,
         alignItems: "center",

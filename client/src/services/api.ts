@@ -496,13 +496,39 @@ export const userAPI = {
     }
   },
 
-  async getUserProfile(): Promise<any> {
+  getUserProfile: async (): Promise<any> => {
     try {
       const response = await api.get("/user/profile");
-      return response.data;
+      if (response.data.success) {
+        return {
+          success: true,
+          data: response.data.data,
+        };
+      }
+      throw new APIError(response.data.error || "Failed to fetch profile");
     } catch (error) {
-      console.error("💥 Get user profile error:", error);
-      throw new APIError("Failed to get user profile");
+      console.error("Get profile error:", error);
+      if (error instanceof APIError) throw error;
+      throw new APIError("Network error while fetching profile");
+    }
+  },
+
+  getUserStats: async (): Promise<any> => {
+    try {
+      const response = await api.get("/user/stats");
+      return response.data.data;
+    } catch (error: any) {
+      console.error("Error fetching user stats:", error);
+      // Return default stats if API fails
+      return {
+        totalMeals: 0,
+        todayWaterIntake: 0,
+        totalAchievements: 0,
+        streak: 0,
+        memberSince: new Date(),
+        subscriptionType: "free",
+        questionnaireCompleted: false,
+      };
     }
   },
 

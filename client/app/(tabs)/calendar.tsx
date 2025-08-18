@@ -1506,6 +1506,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 4,
   },
+  textRTL: {
+    textAlign: "right",
+  },
   monthText: {
     fontSize: 18,
     fontWeight: "600",

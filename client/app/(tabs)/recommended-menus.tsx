@@ -43,7 +43,7 @@ import {
   Flame,
   Activity,
 } from "lucide-react-native";
-import { api, mealPlanAPI } from "@/src/services/api";
+import { api, mealAPI } from "@/src/services/api";
 import LoadingScreen from "@/components/LoadingScreen";
 import { router, useFocusEffect } from "expo-router";
 import { useSelector } from "react-redux";
@@ -1213,9 +1213,7 @@ export default function RecommendedMenusScreen() {
         <FlatList
           data={listData}
           keyExtractor={(item, index) =>
-            item.type === "insights"
-              ? "insights"
-              : item.data.menu_id || index.toString()
+            item.type === "insights" ? "insights" : index.toString()
           }
           renderItem={renderItem}
           contentContainerStyle={styles.contentContainer}

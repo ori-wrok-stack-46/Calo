@@ -37,6 +37,9 @@ import {
   Camera,
   ChartBar as BarChart3,
   Check,
+  Trophy,
+  Star,
+  Calendar,
 } from "lucide-react-native";
 import { api, APIError } from "@/src/services/api";
 import { RootState, AppDispatch } from "@/src/store";
@@ -47,12 +50,12 @@ import LoadingScreen from "@/components/LoadingScreen";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import XPNotification from "@/components/XPNotification";
 import { Colors, EmeraldSpectrum } from "@/constants/Colors";
+import { getStatistics } from "@/src/store/calendarSlice";
+
 // Enable RTL support
 I18nManager.allowRTL(true);
 
 const { width } = Dimensions.get("window");
-
-// Define color constants to fix the undefined error
 
 interface UserStats {
   totalMeals: number;
@@ -85,29 +88,38 @@ interface GoalProgress {
   label: string;
 }
 
-// Optimized selectors with shallow comparison
-const selectMealState = useMemo(
-  () => (state: RootState) => ({
-    meals: state.meal.meals,
-    isLoading: state.meal.isLoading,
-  }),
-  []
-);
-
-const selectAuthState = useMemo(
-  () => (state: RootState) => ({
-    user: state.auth.user,
-  }),
-  []
-);
-
 const HomeScreen = React.memo(() => {
   const dispatch = useDispatch<AppDispatch>();
+
+  // Move the useMemo selectors INSIDE the component
+  const selectMealState = useMemo(
+    () => (state: RootState) => ({
+      meals: state.meal.meals,
+      isLoading: state.meal.isLoading,
+    }),
+    []
+  );
+
+  const selectAuthState = useMemo(
+    () => (state: RootState) => ({
+      user: state.auth.user,
+    }),
+    []
+  );
+
   const { meals, isLoading } = useSelector(selectMealState);
   const { user } = useSelector(selectAuthState);
-
+  const { colors } = useTheme();
   // ALL HOOKS MUST BE DECLARED FIRST - BEFORE ANY CONDITIONAL LOGIC
-  const [userStats, setUserStats] = useState<UserStats | null>(null);
+  const [userStats, setUserStats] = useState<UserStats>({
+    totalMeals: 0,
+    totalCalories: 0,
+    avgCaloriesPerDay: 0,
+    streakDays: 0,
+    xp: 0,
+    level: 1,
+    bestStreak: 0,
+  });
   const [dailyGoals, setDailyGoals] = useState<DailyGoals>({
     calories: 0,
     protein: 0,
@@ -129,6 +141,8 @@ const HomeScreen = React.memo(() => {
   const [waterSyncInProgress, setWaterSyncInProgress] = useState(false);
   const [dataError, setDataError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  const [userStatsLoading, setUserStatsLoading] = useState(false);
+  const [userStatsError, setUserStatsError] = useState<string | null>(null);
 
   // XP Notification State
   const [showXPNotification, setShowXPNotification] = useState(false);
@@ -208,14 +222,18 @@ const HomeScreen = React.memo(() => {
     }));
   }, [processedMealsData.dailyTotals]);
 
-  // Optimized user stats loading with caching and abort controller
+  // Optimized user stats loading with better error handling
   const loadUserStats = useCallback(async () => {
-    if (!user?.user_id) return;
+    if (!user?.user_id || userStatsLoading) return;
+
+    setUserStatsLoading(true);
+    setUserStatsError(null);
 
     const now = Date.now();
-    const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache
+    const CACHE_DURATION = 2 * 60 * 1000; // 2 minutes cache
 
     if (now - lastDataLoadRef.current < CACHE_DURATION) {
+      setUserStatsLoading(false);
       return;
     }
 
@@ -227,34 +245,65 @@ const HomeScreen = React.memo(() => {
     abortControllerRef.current = new AbortController();
 
     try {
-      const response = await api.get(`/user/statistics/${user.user_id}`, {
-        signal: abortControllerRef.current.signal,
-        timeout: 10000, // 10 second timeout
-      });
-      if (response.data.success) {
+      // Try multiple endpoints to find the working one
+      let response;
+
+      try { getStatistics
+        response = await api.get(`/user/statistics`, {
+          signal: abortControllerRef.current.signal,
+          timeout: 8000,
+        });
+      } catch (error: any) {
+        console.log("Trying alternative endpoint...");
+        response = await api.get(`/statistics`, {
+          signal: abortControllerRef.current.signal,
+          timeout: 8000,
+        });
+      }
+
+      if (response?.data?.success) {
         const stats = response.data.data;
         const summaryStats: UserStats = {
-          totalMeals: stats.totalMeals,
-          totalCalories: stats.totalCalories,
-          avgCaloriesPerDay: stats.avgCaloriesPerDay,
+          totalMeals: stats.totalMeals || 0,
+          totalCalories: stats.totalCalories || 0,
+          avgCaloriesPerDay: stats.avgCaloriesPerDay || 0,
           streakDays: stats.streakDays || 0,
-          xp: stats.xp,
-          level: stats.level,
-          bestStreak: stats.bestStreak,
+          xp: stats.xp || 0,
+          level: stats.level || 1,
+          bestStreak: stats.bestStreak || 0,
         };
         setUserStats(summaryStats);
         lastDataLoadRef.current = now;
+      } else {
+        throw new Error("Invalid API response");
       }
     } catch (error: any) {
       if (error.name === "AbortError") {
         console.log("Request aborted");
         return;
       }
-      console.error("💥 Error loading user stats:", error);
+
+      console.error("Error loading user stats:", error);
+
+      // Set fallback stats instead of showing error
+      setUserStats({
+        totalMeals: processedMealsData.recentMeals.length,
+        totalCalories: processedMealsData.dailyTotals.calories,
+        avgCaloriesPerDay: processedMealsData.dailyTotals.calories,
+        streakDays: 0,
+        xp: 0,
+        level: 1,
+        bestStreak: 0,
+      });
+
+      setUserStatsError(
+        "Unable to load stats from server. Showing local data."
+      );
     } finally {
       abortControllerRef.current = null;
+      setUserStatsLoading(false);
     }
-  }, [user?.user_id]);
+  }, [user?.user_id, userStatsLoading, processedMealsData]);
 
   // Optimized data loading with debouncing
   const loadAllData = useCallback(
@@ -273,7 +322,6 @@ const HomeScreen = React.memo(() => {
       setDataError(null);
 
       try {
-        // Use Promise.allSettled with timeout for better error handling
         const timeoutPromise = new Promise((_, reject) =>
           setTimeout(() => reject(new Error("Request timeout")), 15000)
         );
@@ -285,17 +333,15 @@ const HomeScreen = React.memo(() => {
 
         if (statsResult.status === "rejected") {
           console.error("Stats loading failed:", statsResult.reason);
-          setDataError("Failed to load user statistics");
         }
         if (mealsResult.status === "rejected") {
           console.error("Meals loading failed:", mealsResult.reason);
           setDataError("Failed to load meals data");
         }
 
-        lastDataLoadRef.current = now;
-        setRetryCount(0); // Reset retry count on success
+        setRetryCount(0);
       } catch (error) {
-        console.error("💥 Error loading data:", error);
+        console.error("Error loading data:", error);
         setDataError(
           error instanceof APIError ? error.message : "Failed to load data"
         );
@@ -330,7 +376,6 @@ const HomeScreen = React.memo(() => {
   const loadWaterIntake = useCallback(async () => {
     if (!user?.user_id) return;
 
-    // Add timeout and abort controller for water requests
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000);
 
@@ -377,10 +422,8 @@ const HomeScreen = React.memo(() => {
       );
 
       if (response.data.success) {
-        // Update server state to match
         setWaterCups(totalCups);
 
-        // Check for XP and achievements
         if (
           response.data.xpAwarded > 0 ||
           response.data.newAchievements?.length > 0
@@ -394,12 +437,10 @@ const HomeScreen = React.memo(() => {
           setShowXPNotification(true);
         }
 
-        // Remove completed action from pending
         setPendingSyncActions((prev) =>
           prev.filter((action) => action.id !== actionId)
         );
 
-        // Clear any previous errors for this action
         setWaterSyncErrors((prev) =>
           prev.filter((error) => !error.includes(actionId))
         );
@@ -411,7 +452,6 @@ const HomeScreen = React.memo(() => {
       }
       console.error("Error syncing water intake:", error);
 
-      // Add error to sync errors for user feedback
       setWaterSyncErrors((prev) => [
         ...prev,
         `Sync failed for action ${actionId}`,
@@ -423,7 +463,6 @@ const HomeScreen = React.memo(() => {
   };
 
   const optimisticWaterUpdate = (delta: number) => {
-    // Limit water input to the goal of 10 cups (2500ml)
     const goalMaxCups = 10;
     if (delta > 0 && optimisticWaterCups >= goalMaxCups) return;
     if (delta < 0 && optimisticWaterCups <= 0) return;
@@ -434,10 +473,8 @@ const HomeScreen = React.memo(() => {
       Math.min(goalMaxCups, optimisticWaterCups + delta)
     );
 
-    // Immediate UI update
     setOptimisticWaterCups(newTotal);
 
-    // Add to pending sync actions
     setPendingSyncActions((prev) => [
       ...prev,
       {
@@ -447,14 +484,13 @@ const HomeScreen = React.memo(() => {
       },
     ]);
 
-    // Background sync with debouncing to batch requests
     setTimeout(() => {
       syncWaterWithServer(newTotal, actionId);
-    }, 500); // Increased delay for better batching
+    }, 500);
   };
 
   const incrementWater = () => {
-    if (optimisticWaterCups >= 10) return; // Limit to goal maximum
+    if (optimisticWaterCups >= 10) return;
     optimisticWaterUpdate(1);
   };
 
@@ -463,7 +499,6 @@ const HomeScreen = React.memo(() => {
   }, [optimisticWaterCups]);
 
   const retryFailedSyncs = () => {
-    // Retry all pending actions
     pendingSyncActions.forEach((action) => {
       syncWaterWithServer(optimisticWaterCups, action.id);
     });
@@ -549,7 +584,7 @@ const HomeScreen = React.memo(() => {
       if (!user?.user_id || initialLoading) return;
 
       const now = Date.now();
-      const FOCUS_RELOAD_THROTTLE = 30 * 1000; // Increased throttle time
+      const FOCUS_RELOAD_THROTTLE = 30 * 1000;
 
       if (now - lastFocusTimeRef.current > FOCUS_RELOAD_THROTTLE) {
         lastFocusTimeRef.current = now;
@@ -621,6 +656,116 @@ const HomeScreen = React.memo(() => {
     );
   };
 
+  // User Stats Render Function
+  const renderUserStats = () => (
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>
+        {t("home.user_stats") || "Your Progress"}
+      </Text>
+
+      {userStatsError && (
+        <View style={styles.statsErrorBanner}>
+          <Text style={styles.statsErrorText}>{userStatsError}</Text>
+        </View>
+      )}
+
+      <View style={styles.statsMainContainer}>
+        <LinearGradient
+          colors={[EmeraldSpectrum.emerald600, EmeraldSpectrum.emerald500]}
+          style={styles.statsGradient}
+        >
+          {userStatsLoading ? (
+            <View style={styles.statsLoadingContainer}>
+              <ActivityIndicator size="large" color="#FFFFFF" />
+              <Text style={styles.statsLoadingText}>Loading stats...</Text>
+            </View>
+          ) : (
+            <>
+              {/* XP and Level Row */}
+              <View style={styles.statsTopRow}>
+                <View style={styles.statsXPContainer}>
+                  <View style={styles.statsIconWrapper}>
+                    <Star size={24} color="#FFD700" fill="#FFD700" />
+                  </View>
+                  <View style={styles.statsTextContainer}>
+                    <Text style={styles.statsLabel}>
+                      {t("home.total_xp") || "Total XP"}
+                    </Text>
+                    <Text style={styles.statsValue}>
+                      {userStats.xp?.toLocaleString() || "0"}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.statsLevelContainer}>
+                  <View style={styles.statsIconWrapper}>
+                    <Trophy size={24} color="#FFD700" fill="#FFD700" />
+                  </View>
+                  <View style={styles.statsTextContainer}>
+                    <Text style={styles.statsLabel}>
+                      {t("home.level") || "Level"}
+                    </Text>
+                    <Text style={styles.statsValue}>
+                      {userStats.level || 1}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Divider */}
+              <View style={styles.statsDivider} />
+
+              {/* Bottom Statistics Row */}
+              <View style={styles.statsBottomRow}>
+                <View style={styles.statsItem}>
+                  <View style={styles.statsIconWrapper}>
+                    <Flame size={20} color="#FF6B35" />
+                  </View>
+                  <View style={styles.statsTextContainer}>
+                    <Text style={styles.statsSmallLabel}>
+                      {t("home.streak") || "Streak"}
+                    </Text>
+                    <Text style={styles.statsSmallValue}>
+                      {userStats.streakDays || 0} days
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.statsItem}>
+                  <View style={styles.statsIconWrapper}>
+                    <Target size={20} color="#4ECDC4" />
+                  </View>
+                  <View style={styles.statsTextContainer}>
+                    <Text style={styles.statsSmallLabel}>
+                      {t("home.total_meals") || "Total Meals"}
+                    </Text>
+                    <Text style={styles.statsSmallValue}>
+                      {userStats.totalMeals?.toLocaleString() || "0"}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.statsItem}>
+                  <View style={styles.statsIconWrapper}>
+                    <Calendar size={20} color="#9B59B6" />
+                  </View>
+                  <View style={styles.statsTextContainer}>
+                    <Text style={styles.statsSmallLabel}>
+                      {t("home.best_streak") || "Best"}
+                    </Text>
+                    <Text style={styles.statsSmallValue}>
+                      {userStats.bestStreak || 0} days
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            </>
+          )}
+        </LinearGradient>
+      </View>
+    </View>
+  );
+
   // NOW WE CAN HAVE CONDITIONAL LOGIC
   if (initialLoading) {
     return (
@@ -642,6 +787,7 @@ const HomeScreen = React.memo(() => {
       </View>
     );
   }
+
   return (
     <ErrorBoundary>
       <SafeAreaView style={styles.container}>
@@ -684,36 +830,8 @@ const HomeScreen = React.memo(() => {
             </View>
           </View>
 
-          {/* User XP and Level */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
-              {t("home.user_stats") || "Your Stats"}
-            </Text>
-            <View style={styles.statsContainer}>
-              <View style={styles.xpLevelContainer}>
-                <Text style={styles.xpText}>
-                  {t("home.xp") || "XP"}: {userStats?.xp || 0}
-                </Text>
-                <Text style={styles.levelText}>
-                  {t("home.level") || "Level"}: {userStats?.level || 1}
-                </Text>
-              </View>
-              <View style={styles.streakContainer}>
-                <Text style={styles.streakLabel}>
-                  {t("home.current_streak") || "Current Streak"}:
-                </Text>
-                <Text style={styles.streakValue}>
-                  {userStats?.streakDays || 0} days
-                </Text>
-                <Text style={styles.streakLabel}>
-                  {t("home.best_streak") || "Best Streak"}:
-                </Text>
-                <Text style={styles.streakValue}>
-                  {userStats?.bestStreak || 0} days
-                </Text>
-              </View>
-            </View>
-          </View>
+          {/* User Stats */}
+          {renderUserStats()}
 
           {/* Main Goal Progress - Calories */}
           <View style={styles.section}>
@@ -958,7 +1076,7 @@ const HomeScreen = React.memo(() => {
                   </View>
                   <View style={styles.statusStreak}>
                     <Text style={styles.statusStreakNumber}>
-                      {userStats?.streakDays || 0}
+                      {userStats.streakDays || 0}
                     </Text>
                     <Text style={styles.statusStreakLabel}>
                       {t("home.days") || "days"}
@@ -1165,46 +1283,106 @@ const styles = StyleSheet.create({
     letterSpacing: -0.3,
   },
 
-  // User Stats Section
-  statsContainer: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
+  // Enhanced User Stats Styles
+  statsMainContainer: {
+    borderRadius: 24,
+    overflow: "hidden",
+    shadowColor: EmeraldSpectrum.emerald600,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  statsGradient: {
+    padding: 24,
+  },
+  statsLoadingContainer: {
+    alignItems: "center",
+    paddingVertical: 20,
+  },
+  statsLoadingText: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    marginTop: 12,
+    fontWeight: "500",
+  },
+  statsTopRow: {
     flexDirection: "row",
     justifyContent: "space-between",
+    marginBottom: 20,
+  },
+  statsXPContainer: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    marginRight: 16,
+  },
+  statsLevelContainer: {
+    flex: 1,
+    flexDirection: "row",
     alignItems: "center",
   },
-  xpLevelContainer: {
-    alignItems: "flex-start",
+  statsIconWrapper: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "rgba(255,255,255,0.2)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
   },
-  xpText: {
-    fontSize: 16,
+  statsTextContainer: {
+    flex: 1,
+  },
+  statsLabel: {
+    fontSize: 14,
+    color: "rgba(255,255,255,0.9)",
     fontWeight: "500",
-    color: "#2C3E50",
-    marginBottom: 4,
-  },
-  levelText: {
-    fontSize: 16,
-    fontWeight: "500",
-    color: EmeraldSpectrum.emerald600,
-  },
-  streakContainer: {
-    alignItems: "flex-end",
-  },
-  streakLabel: {
-    fontSize: 13,
-    color: "#7F8C8D",
     marginBottom: 2,
   },
-  streakValue: {
-    fontSize: 15,
+  statsValue: {
+    fontSize: 24,
+    fontWeight: "bold",
+    color: "#FFFFFF",
+  },
+  statsDivider: {
+    height: 1,
+    backgroundColor: "rgba(255,255,255,0.3)",
+    marginVertical: 16,
+  },
+  statsBottomRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  statsItem: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    marginHorizontal: 4,
+  },
+  statsSmallLabel: {
+    fontSize: 12,
+    color: "rgba(255,255,255,0.8)",
+    fontWeight: "500",
+    marginBottom: 2,
+  },
+  statsSmallValue: {
+    fontSize: 16,
     fontWeight: "600",
-    color: "#2C3E50",
-    marginBottom: 6,
+    color: "#FFFFFF",
+  },
+  statsErrorBanner: {
+    backgroundColor: "rgba(231, 76, 60, 0.1)",
+    borderLeftWidth: 4,
+    borderLeftColor: "#E74C3C",
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  statsErrorText: {
+    color: "#E74C3C",
+    fontSize: 13,
+    fontWeight: "500",
   },
 
   // Main Goal Progress
@@ -1374,7 +1552,7 @@ const styles = StyleSheet.create({
   completedContainer: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6, // if supported by your RN version
+    gap: 6,
     marginTop: 2,
   },
   completedText: {
@@ -1382,6 +1560,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "green",
   },
+
   // Water Tracking
   waterTrackingContainer: {
     borderRadius: 24,
