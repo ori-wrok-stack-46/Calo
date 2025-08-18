@@ -3,6 +3,8 @@ import { authenticateToken, AuthRequest } from "../middleware/auth";
 import { RecommendedMenuService } from "../services/recommendedMenu";
 import { prisma } from "../lib/database";
 import { Response } from "express";
+import { $Enums } from "@prisma/client";
+import { JsonValue } from "@prisma/client/runtime/library";
 
 const router = Router();
 
@@ -731,7 +733,29 @@ router.post(
         "🔄 Converting recommended meals to meal templates and schedules..."
       );
 
-      const createdTemplates = [];
+      const createdTemplates: {
+        name: string;
+        created_at: Date;
+        image_url: string | null;
+        calories: number | null;
+        protein_g: number | null;
+        carbs_g: number | null;
+        fats_g: number | null;
+        fiber_g: number | null;
+        sugar_g: number | null;
+        sodium_mg: number | null;
+        allergens_json: JsonValue | null;
+        updated_at: Date;
+        is_active: boolean;
+        template_id: string;
+        description: string | null;
+        dietary_category: $Enums.DietaryCategory;
+        prep_time_minutes: number | null;
+        difficulty_level: number | null;
+        meal_timing: $Enums.MealTiming;
+        ingredients_json: JsonValue | null;
+        instructions_json: JsonValue | null;
+      }[] = [];
       const scheduleData = [];
 
       for (const meal of menu.meals) {

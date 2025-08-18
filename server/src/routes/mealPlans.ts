@@ -1159,63 +1159,16 @@ router.post("/:planId/complete", authenticateToken, async (req, res) => {
     const { planId } = req.params;
     const { rating, liked, disliked, suggestions } = req.body;
 
-    // Check if plan exists first
-    const existingPlan = await prisma.userMealPlan.findFirst({
-      where: {
-        plan_id: planId,
-        user_id: user_id,
-      },
-    });
-
-    if (!existingPlan) {
-      // Try to find by menu_id in case it's a recommended menu
-      const recommendedMenu = await prisma.recommendedMenu.findFirst({
-        where: {
-          menu_id: planId,
-          user_id: user_id,
-        },
-      });
-
-      if (recommendedMenu) {
-        // Create a completion record for the recommended menu
-        await prisma.recommendedMenu.update({
-          where: {
-            menu_id: planId,
-          },
-          data: {
-            completed_at: new Date(),
-            rating: rating,
-            feedback_liked: liked,
-            feedback_disliked: disliked,
-            feedback_suggestions: suggestions,
-          },
-        });
-
-        console.log("✅ Recommended menu completed successfully");
-        return res.json({
-          success: true,
-          message: "Menu completed and feedback saved",
-        });
-      }
-
-      return res.status(404).json({
-        success: false,
-        error: "Plan or menu not found",
-      });
-    }
-
-    // Save feedback and mark plan as completed
-    await MealPlanService.completePlan(user_id, planId, {
+    const result = await MealPlanService.completePlan(user_id, planId, {
       rating,
       liked,
       disliked,
       suggestions,
     });
 
-    console.log("✅ Meal plan completed successfully");
     res.json({
       success: true,
-      message: "Meal plan completed and feedback saved",
+      message: result.message,
     });
   } catch (error) {
     console.error("💥 Error completing meal plan:", error);
@@ -1223,6 +1176,183 @@ router.post("/:planId/complete", authenticateToken, async (req, res) => {
       success: false,
       error:
         error instanceof Error ? error.message : "Failed to complete meal plan",
+    });
+  }
+});
+
+// Get meal plan progress
+router.get("/:planId/progress", authenticateToken, async (req, res) => {
+  try {
+    const user_id = req.user?.user_id;
+    if (!user_id) {
+      return res.status(401).json({
+        success: false,
+        error: "User not authenticated",
+      });
+    }
+
+    const { planId } = req.params;
+
+    // Get plan details
+    const plan = await prisma.userMealPlan.findFirst({
+      where: {
+        plan_id: planId,
+        user_id,
+      },
+    });
+
+    if (!plan) {
+      return res.status(404).json({
+        success: false,
+        error: "Plan not found",
+      });
+    }
+
+    // Calculate progress based on start date and current date
+    const startDate = plan.start_date || new Date();
+    const currentDate = new Date();
+    const totalDays = plan.rotation_frequency_days || 7;
+
+    const daysSinceStart = Math.floor(
+      (currentDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
+    );
+
+    const currentDay = (daysSinceStart % totalDays) + 1;
+    const completedCycles = Math.floor(daysSinceStart / totalDays);
+    const progressPercentage = Math.min(
+      100,
+      (daysSinceStart / totalDays) * 100
+    );
+
+    res.json({
+      success: true,
+      data: {
+        planId,
+        startDate: startDate.toISOString(),
+        currentDate: currentDate.toISOString(),
+        totalDays,
+        daysSinceStart,
+        currentDay,
+        completedCycles,
+        progressPercentage: Math.round(progressPercentage),
+        isActive: plan.is_active,
+        isCompleted: !!plan.completed_at,
+      },
+    });
+  } catch (error) {
+    console.error("💥 Error getting plan progress:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to get plan progress",
+    });
+  }
+});
+
+// Get today's meals from active plan
+router.get("/today", authenticateToken, async (req, res) => {
+  try {
+    const user_id = req.user?.user_id;
+    if (!user_id) {
+      return res.status(401).json({
+        success: false,
+        error: "User not authenticated",
+      });
+    }
+
+    // Get user's active plan
+    const user = await prisma.user.findUnique({
+      where: { user_id },
+      select: {
+        active_meal_plan_id: true,
+        active_menu_id: true,
+      },
+    });
+
+    if (!user?.active_meal_plan_id && !user?.active_menu_id) {
+      return res.json({
+        success: true,
+        data: {
+          hasActivePlan: false,
+          todayMeals: [],
+        },
+      });
+    }
+
+    // Get today's day of week (0 = Sunday)
+    const today = new Date();
+    const dayOfWeek = today.getDay();
+
+    let todayMeals: any[] = [];
+
+    if (user.active_meal_plan_id) {
+      // Get from meal plan
+      const schedules = await prisma.mealPlanSchedule.findMany({
+        where: {
+          plan_id: user.active_meal_plan_id,
+          day_of_week: dayOfWeek,
+        },
+        include: {
+          template: true,
+        },
+        orderBy: [{ meal_timing: "asc" }, { meal_order: "asc" }],
+      });
+
+      todayMeals = schedules.map((schedule) => ({
+        template_id: schedule.template.template_id,
+        name: schedule.template.name,
+        description: schedule.template.description,
+        meal_timing: schedule.meal_timing,
+        calories: schedule.template.calories,
+        protein_g: schedule.template.protein_g,
+        carbs_g: schedule.template.carbs_g,
+        fats_g: schedule.template.fats_g,
+        prep_time_minutes: schedule.template.prep_time_minutes,
+        difficulty_level: schedule.template.difficulty_level,
+        ingredients: schedule.template.ingredients_json,
+        instructions: schedule.template.instructions_json,
+      }));
+    } else if (user.active_menu_id) {
+      // Get from recommended menu
+      const menuMeals = await prisma.recommendedMeal.findMany({
+        where: {
+          menu_id: user.active_menu_id,
+          day_number: dayOfWeek + 1, // Recommended meals use 1-7 instead of 0-6
+        },
+        include: {
+          ingredients: true,
+        },
+        orderBy: [{ meal_type: "asc" }],
+      });
+
+      todayMeals = menuMeals.map((meal) => ({
+        meal_id: meal.meal_id,
+        name: meal.name,
+        description: meal.instructions,
+        meal_timing: meal.meal_type,
+        calories: meal.calories,
+        protein_g: meal.protein,
+        carbs_g: meal.carbs,
+        fats_g: meal.fat,
+        prep_time_minutes: meal.prep_time_minutes,
+        ingredients: meal.ingredients.map((ing) => ing.name),
+        instructions: meal.instructions ? [meal.instructions] : [],
+      }));
+    }
+
+    res.json({
+      success: true,
+      data: {
+        hasActivePlan: true,
+        todayMeals,
+        dayOfWeek,
+        planType: user.active_meal_plan_id ? "meal_plan" : "recommended_menu",
+      },
+    });
+  } catch (error) {
+    console.error("💥 Error getting today's meals:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to get today's meals",
     });
   }
 });

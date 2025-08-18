@@ -837,8 +837,10 @@ export default function RecommendedMenusScreen() {
 
       if (previousPlanFeedback && currentActivePlan) {
         try {
-          await mealPlanAPI.completePlan(
-            currentActivePlan.plan_id || currentActivePlan,
+          await api.post(
+            `/meal-plans/${
+              currentActivePlan.plan_id || currentActivePlan
+            }/complete`,
             previousPlanFeedback
           );
           console.log("✅ Previous plan feedback submitted");
@@ -902,7 +904,6 @@ export default function RecommendedMenusScreen() {
     }
 
     const previousPlanFeedback = {
-      planId: currentActivePlan.plan_id,
       rating: feedbackForm.rating,
       liked: feedbackForm.liked,
       disliked: feedbackForm.disliked,
@@ -1119,6 +1120,169 @@ export default function RecommendedMenusScreen() {
     );
   };
 
+  // Add missing modals at the end of the component
+  const renderFeedbackModal = () => (
+    <Modal
+      visible={showFeedbackModal}
+      transparent
+      animationType="slide"
+      onRequestClose={() => setShowFeedbackModal(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={[styles.modalContainer, { backgroundColor: colors.card }]}>
+          <View style={styles.modalHeader}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>
+              {language === "he"
+                ? "דרג את התוכנית הקודמת"
+                : "Rate Previous Plan"}
+            </Text>
+            <TouchableOpacity
+              onPress={() => setShowFeedbackModal(false)}
+              style={styles.closeButton}
+            >
+              <X size={24} color={colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.modalContent}>
+            <View style={styles.ratingSection}>
+              <Text style={[styles.ratingLabel, { color: colors.text }]}>
+                {language === "he"
+                  ? "דירוג כללי (1-5)"
+                  : "Overall Rating (1-5)"}
+              </Text>
+              <View style={styles.ratingStars}>
+                {[1, 2, 3, 4, 5].map((star) => (
+                  <TouchableOpacity
+                    key={star}
+                    onPress={() =>
+                      setFeedbackForm({ ...feedbackForm, rating: star })
+                    }
+                    style={styles.starButton}
+                  >
+                    <Text
+                      style={[
+                        styles.starText,
+                        {
+                          color:
+                            feedbackForm.rating >= star
+                              ? "#fbbf24"
+                              : colors.border,
+                        },
+                      ]}
+                    >
+                      ⭐
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={[styles.inputLabel, { color: colors.text }]}>
+                {language === "he" ? "מה אהבת?" : "What did you like?"}
+              </Text>
+              <TextInput
+                style={[
+                  styles.textArea,
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                    color: colors.text,
+                  },
+                ]}
+                value={feedbackForm.liked}
+                onChangeText={(text) =>
+                  setFeedbackForm({ ...feedbackForm, liked: text })
+                }
+                placeholder={
+                  language === "he"
+                    ? "ספר מה אהבת..."
+                    : "Tell us what you liked..."
+                }
+                placeholderTextColor={colors.textSecondary}
+                multiline
+                numberOfLines={3}
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={[styles.inputLabel, { color: colors.text }]}>
+                {language === "he" ? "מה לא אהבת?" : "What didn't you like?"}
+              </Text>
+              <TextInput
+                style={[
+                  styles.textArea,
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                    color: colors.text,
+                  },
+                ]}
+                value={feedbackForm.disliked}
+                onChangeText={(text) =>
+                  setFeedbackForm({ ...feedbackForm, disliked: text })
+                }
+                placeholder={
+                  language === "he"
+                    ? "ספר מה לא אהבת..."
+                    : "Tell us what you didn't like..."
+                }
+                placeholderTextColor={colors.textSecondary}
+                multiline
+                numberOfLines={3}
+              />
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={[styles.inputLabel, { color: colors.text }]}>
+                {language === "he"
+                  ? "הצעות לשיפור"
+                  : "Suggestions for improvement"}
+              </Text>
+              <TextInput
+                style={[
+                  styles.textArea,
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                    color: colors.text,
+                  },
+                ]}
+                value={feedbackForm.suggestions}
+                onChangeText={(text) =>
+                  setFeedbackForm({ ...feedbackForm, suggestions: text })
+                }
+                placeholder={
+                  language === "he"
+                    ? "הצעות נוספות..."
+                    : "Additional suggestions..."
+                }
+                placeholderTextColor={colors.textSecondary}
+                multiline
+                numberOfLines={3}
+              />
+            </View>
+
+            <TouchableOpacity
+              style={[
+                styles.submitFeedbackButton,
+                { backgroundColor: colors.emerald500 },
+              ]}
+              onPress={handleFeedbackSubmit}
+            >
+              <Text style={styles.submitFeedbackButtonText}>
+                {language === "he"
+                  ? "שלח משוב והתחל תוכנית חדשה"
+                  : "Submit Feedback & Start New Plan"}
+              </Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+
   // Only show loading screen if truly loading and no menus exist
   if (isLoading && !menus.length) {
     return (
@@ -1275,6 +1439,7 @@ export default function RecommendedMenusScreen() {
       </TouchableOpacity>
 
       {/* Modals would go here - keeping existing modal code but not showing for brevity */}
+      {renderFeedbackModal()}
     </SafeAreaView>
   );
 }
@@ -1790,5 +1955,83 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.4,
     shadowRadius: 10,
+  },
+
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContainer: {
+    width: "90%",
+    maxWidth: 400,
+    borderRadius: 20,
+    maxHeight: "80%",
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(0, 0, 0, 0.1)",
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  closeButton: {
+    padding: 4,
+  },
+  modalContent: {
+    padding: 20,
+  },
+  ratingSection: {
+    marginBottom: 24,
+    alignItems: "center",
+  },
+  ratingLabel: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 12,
+  },
+  ratingStars: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  starButton: {
+    padding: 4,
+  },
+  starText: {
+    fontSize: 24,
+  },
+  inputGroup: {
+    marginBottom: 20,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    marginBottom: 8,
+  },
+  textArea: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 16,
+    textAlignVertical: "top",
+    minHeight: 80,
+  },
+  submitFeedbackButton: {
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: "center",
+    marginTop: 20,
+  },
+  submitFeedbackButtonText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#ffffff",
   },
 });

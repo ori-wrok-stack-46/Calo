@@ -696,7 +696,7 @@ const HomeScreen = React.memo(() => {
                     </Text>
                   </View>
                 </View>
-
+            {user?.current_xp}
                 <View style={styles.statsLevelContainer}>
                   <View style={styles.statsIconWrapper}>
                     <Trophy size={24} color="#FFD700" fill="#FFD700" />

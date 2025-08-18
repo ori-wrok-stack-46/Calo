@@ -17,6 +17,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { api } from "@/src/services/api";
+import LoadingScreen from "@/components/LoadingScreen";
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
@@ -148,20 +149,7 @@ export default function MenuDetailsScreen() {
   });
 
   if (isLoading) {
-    return (
-      <View style={styles.container}>
-        <SafeAreaView style={styles.safeArea}>
-          <View style={styles.loadingContainer}>
-            <BlurView intensity={20} style={styles.loadingCard}>
-              <ActivityIndicator size="large" color="#10b981" />
-              <Text style={[styles.loadingText, isRTL && styles.rtlText]}>
-                {isRTL ? "טוען פרטי תפריט..." : "Loading menu details..."}
-              </Text>
-            </BlurView>
-          </View>
-        </SafeAreaView>
-      </View>
-    );
+    return LoadingScreen;
   }
 
   if (!menu) {

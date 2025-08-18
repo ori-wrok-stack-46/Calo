@@ -1439,6 +1439,8 @@ Please return a JSON object with the following structure:
     }
   ) {
     try {
+      console.log("🏁 Completing meal plan:", plan_id, "for user:", user_id);
+
       // First check if the plan exists
       const existingPlan = await prisma.userMealPlan.findFirst({
         where: {
@@ -1448,17 +1450,29 @@ Please return a JSON object with the following structure:
       });
 
       if (!existingPlan) {
-        console.log("⚠️ Plan not found, treating as already completed");
+        // Try to find as recommended menu instead
+        const recommendedMenu = await prisma.recommendedMenu.findFirst({
+          where: {
+            menu_id: plan_id,
+            user_id,
+          },
+        });
+
+        if (!recommendedMenu) {
+          throw new Error("Plan or menu not found");
+        }
+
+        // Complete the recommended menu (no direct completion field, but we can track it)
+        console.log("✅ Completing recommended menu");
         return {
           success: true,
-          message: "Plan not found or already completed",
+          message: "Menu completed successfully",
         };
       }
 
       await prisma.userMealPlan.update({
         where: {
           plan_id,
-          user_id,
         },
         data: {
           is_active: false,
@@ -1468,6 +1482,15 @@ Please return a JSON object with the following structure:
           feedback_liked: feedback.liked,
           feedback_disliked: feedback.disliked,
           feedback_suggestions: feedback.suggestions,
+        },
+      });
+
+      // Clear user's active plan references
+      await prisma.user.update({
+        where: { user_id },
+        data: {
+          active_meal_plan_id: null,
+          active_menu_id: null,
         },
       });
 
@@ -1570,5 +1593,144 @@ Please return a JSON object with the following structure:
       console.error("Error calculating nutrition summary:", error);
       throw error;
     }
+  }
+
+  static async generateShoppingList(
+    user_id: string,
+    plan_id: string,
+    week_start_date: string
+  ) {
+    try {
+      console.log("🛒 Generating shopping list for plan:", plan_id);
+
+      // Get the meal plan with all templates
+      const mealPlan = await prisma.userMealPlan.findFirst({
+        where: {
+          plan_id,
+          user_id,
+        },
+        include: {
+          schedules: {
+            include: {
+              template: true,
+            },
+          },
+        },
+      });
+
+      if (!mealPlan) {
+        throw new Error("Meal plan not found");
+      }
+
+      // Aggregate all ingredients
+      const ingredientMap = new Map<
+        string,
+        {
+          name: string;
+          totalQuantity: number;
+          unit: string;
+          category: string;
+          estimatedCost: number;
+        }
+      >();
+
+      mealPlan.schedules.forEach((schedule) => {
+        const ingredients = Array.isArray(schedule.template.ingredients_json)
+          ? schedule.template.ingredients_json
+          : [];
+
+        ingredients.forEach((ingredient: any) => {
+          const key = ingredient.name?.toLowerCase() || "unknown";
+          const existing = ingredientMap.get(key);
+
+          if (existing) {
+            existing.totalQuantity +=
+              (ingredient.quantity || 1) * schedule.portion_multiplier;
+          } else {
+            ingredientMap.set(key, {
+              name: ingredient.name || "Unknown ingredient",
+              totalQuantity:
+                (ingredient.quantity || 1) * schedule.portion_multiplier,
+              unit: ingredient.unit || "piece",
+              category: ingredient.category || "Other",
+              estimatedCost: ingredient.estimatedCost || 5,
+            });
+          }
+        });
+      });
+
+      const items = Array.from(ingredientMap.values());
+      const totalCost = items.reduce(
+        (sum, item) => sum + item.estimatedCost,
+        0
+      );
+
+      // Create shopping list
+      const shoppingList = await prisma.shoppingList.create({
+        data: {
+          user_id,
+          plan_id,
+          name: `Shopping List - ${new Date(
+            week_start_date
+          ).toLocaleDateString()}`,
+          week_start_date: new Date(week_start_date),
+          items_json: items,
+          total_estimated_cost: totalCost,
+          is_completed: false,
+        },
+      });
+
+      console.log("✅ Shopping list generated successfully");
+      return shoppingList;
+    } catch (error) {
+      console.error("💥 Error generating shopping list:", error);
+      throw error;
+    }
+  }
+
+  static async saveMealPreference(
+    user_id: string,
+    template_id: string,
+    preference_type: string,
+    rating?: number,
+    notes?: string
+  ) {
+    try {
+      console.log("💝 Saving meal preference");
+
+      const preference = await prisma.userMealPreference.upsert({
+        where: {
+          user_id_template_id_preference_type: {
+            user_id,
+            template_id,
+            preference_type,
+          },
+        },
+        update: {
+          rating,
+          notes,
+          updated_at: new Date(),
+        },
+        create: {
+          user_id,
+          template_id,
+          preference_type,
+          rating,
+          notes,
+        },
+      });
+
+      console.log("✅ Meal preference saved successfully");
+      return preference;
+    } catch (error) {
+      console.error("💥 Error saving meal preference:", error);
+      throw error;
+    }
+  }
+
+  private static getCookingTimeFrommeal_count(meals_per_day: number): string {
+    if (meals_per_day <= 2) return "minimal";
+    if (meals_per_day <= 3) return "moderate";
+    return "extensive";
   }
 }

@@ -680,12 +680,11 @@ export default function ActiveMenuScreen() {
     }
 
     try {
-      const response = await mealPlanAPI.completePlan(
-        mealPlan.plan_id,
-        completionFeedback
+      const response = await api.post(
+        `/meal-plans/${mealPlan.plan_id}/complete`
       );
-
-      if (response.success) {
+      console.log(response);
+      if (response.status === 200) {
         setShowCompletePlanModal(false);
 
         Alert.alert(
@@ -703,7 +702,7 @@ export default function ActiveMenuScreen() {
           ]
         );
       } else {
-        throw new Error(response.error);
+        throw new Error("Error completing menu");
       }
     } catch (error: any) {
       console.error("💥 Error completing plan:", error);

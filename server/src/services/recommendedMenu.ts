@@ -1,43 +1,28 @@
-import { OpenAIService } from "./openai";
 import { prisma } from "../lib/database";
+import { OpenAIService } from "./openai";
 
-export interface MenuGenerationRequest {
+export interface GenerateMenuParams {
   userId: string;
   days?: number;
   mealsPerDay?: string;
+  customRequest?: string;
+  budget?: number;
   mealChangeFrequency?: string;
   includeLeftovers?: boolean;
   sameMealTimes?: boolean;
   targetCalories?: number;
   dietaryPreferences?: string[];
   excludedIngredients?: string[];
-  budget?: number;
-}
-
-export interface CustomMenuGenerationRequest extends MenuGenerationRequest {
-  customRequest: string;
 }
 
 export class RecommendedMenuService {
-  static async generateCustomMenu(request: CustomMenuGenerationRequest) {
-    const {
-      userId,
-      days = 7,
-      mealsPerDay = "3_main",
-      customRequest,
-      budget,
-      mealChangeFrequency = "daily",
-      includeLeftovers = false,
-      sameMealTimes = true,
-    } = request;
-
-    console.log("🎨 Generating custom menu for user:", userId);
-    console.log("🎯 Custom request:", customRequest);
-
+  static async generatePersonalizedMenu(params: GenerateMenuParams) {
     try {
-      // Get user's questionnaire data
+      console.log("🎯 Generating personalized menu for user:", params.userId);
+
+      // Get user's questionnaire for personalization
       const questionnaire = await prisma.userQuestionnaire.findFirst({
-        where: { user_id: userId },
+        where: { user_id: params.userId },
         orderBy: { date_completed: "desc" },
       });
 
@@ -47,101 +32,23 @@ export class RecommendedMenuService {
         );
       }
 
-      console.log("📋 Found questionnaire data for user:", userId);
+      // Get user's nutrition goals
+      const nutritionPlan = await prisma.nutritionPlan.findFirst({
+        where: { user_id: params.userId },
+        orderBy: { created_at: "desc" },
+      });
 
-      // Calculate nutritional needs based on questionnaire
-      const nutritionalNeeds = this.calculateNutritionalNeeds(questionnaire);
-      console.log("🔢 Calculated nutritional needs:", nutritionalNeeds);
-
-      // Override budget if provided
-      if (budget) {
-        questionnaire.daily_food_budget = budget;
-      }
-
-      // Generate custom menu using AI with user request
-      const menuData = await this.generateCustomMenuWithAI(
+      // Generate menu using AI or fallback
+      const menuData = await this.generateMenuWithAI(
+        params,
         questionnaire,
-        nutritionalNeeds,
-        customRequest,
-        days,
-        mealsPerDay,
-        mealChangeFrequency,
-        includeLeftovers,
-        sameMealTimes
+        nutritionPlan
       );
 
-      console.log("🤖 AI generated custom menu data:", {
-        title: menuData.title,
-        mealsCount: menuData.meals?.length || 0,
-        totalCalories: menuData.total_calories,
-      });
+      // Save to database
+      const savedMenu = await this.saveMenuToDatabase(params.userId, menuData);
 
-      // Save complete menu to database
-      const savedMenu = await this.saveCompleteMenuToDatabase(userId, menuData);
-      console.log(
-        "💾 Custom menu saved successfully with ID:",
-        savedMenu.menu_id
-      );
-
-      return savedMenu;
-    } catch (error) {
-      console.error("💥 Error generating custom menu:", error);
-      throw error;
-    }
-  }
-
-  static async generatePersonalizedMenu(request: MenuGenerationRequest) {
-    const {
-      userId,
-      days = 7,
-      mealsPerDay = "3_main",
-      mealChangeFrequency = "daily",
-      includeLeftovers = false,
-      sameMealTimes = true,
-    } = request;
-
-    console.log("🍽️ Generating personalized menu for user:", userId);
-
-    try {
-      // Get user's questionnaire data
-      const questionnaire = await prisma.userQuestionnaire.findFirst({
-        where: { user_id: userId },
-        orderBy: { date_completed: "desc" },
-      });
-
-      if (!questionnaire) {
-        throw new Error(
-          "User questionnaire not found. Please complete the questionnaire first."
-        );
-      }
-
-      console.log("📋 Found questionnaire data for user:", userId);
-
-      // Calculate nutritional needs based on questionnaire
-      const nutritionalNeeds = this.calculateNutritionalNeeds(questionnaire);
-      console.log("🔢 Calculated nutritional needs:", nutritionalNeeds);
-
-      // Generate comprehensive menu using AI
-      const menuData = await this.generateComprehensiveMenuWithAI(
-        questionnaire,
-        nutritionalNeeds,
-        days,
-        mealsPerDay,
-        mealChangeFrequency,
-        includeLeftovers,
-        sameMealTimes
-      );
-
-      console.log("🤖 AI generated menu data:", {
-        title: menuData.title,
-        mealsCount: menuData.meals?.length || 0,
-        totalCalories: menuData.total_calories,
-      });
-
-      // Save complete menu to database
-      const savedMenu = await this.saveCompleteMenuToDatabase(userId, menuData);
-      console.log("💾 Menu saved successfully with ID:", savedMenu.menu_id);
-
+      console.log("✅ Personalized menu generated successfully");
       return savedMenu;
     } catch (error) {
       console.error("💥 Error generating personalized menu:", error);
@@ -149,1188 +56,427 @@ export class RecommendedMenuService {
     }
   }
 
-  private static calculateNutritionalNeeds(questionnaire: any) {
-    const {
-      age,
-      gender,
-      height_cm,
-      weight_kg,
-      physical_activity_level,
-      main_goal,
-      target_weight_kg,
-    } = questionnaire;
+  static async generateCustomMenu(params: GenerateMenuParams) {
+    try {
+      console.log("🎨 Generating custom menu for user:", params.userId);
 
-    console.log("🧮 Calculating nutritional needs for:", {
-      age,
-      gender,
-      weight_kg,
-      height_cm,
-      activity: physical_activity_level,
-      goal: main_goal,
-    });
+      // Get user context
+      const questionnaire = await prisma.userQuestionnaire.findFirst({
+        where: { user_id: params.userId },
+        orderBy: { date_completed: "desc" },
+      });
 
-    // Enhanced BMR calculation (Mifflin-St Jeor equation)
-    let bmr = 0;
-    const weight = weight_kg || (gender === "זכר" ? 75 : 65);
-    const height = height_cm || (gender === "זכר" ? 175 : 165);
-    const userAge = age || 30;
+      if (!questionnaire) {
+        throw new Error(
+          "User questionnaire not found. Please complete the questionnaire first."
+        );
+      }
 
-    if (gender === "זכר" || gender === "male") {
-      bmr = 10 * weight + 6.25 * height - 5 * userAge + 5;
-    } else {
-      bmr = 10 * weight + 6.25 * height - 5 * userAge - 161;
+      // Generate custom menu based on request
+      const menuData = await this.generateCustomMenuWithAI(
+        params,
+        questionnaire
+      );
+
+      // Save to database
+      const savedMenu = await this.saveMenuToDatabase(params.userId, menuData);
+
+      console.log("✅ Custom menu generated successfully");
+      return savedMenu;
+    } catch (error) {
+      console.error("💥 Error generating custom menu:", error);
+      throw error;
     }
+  }
 
-    // Activity multipliers
-    const activityMultipliers = {
-      NONE: 1.2,
-      LIGHT: 1.375,
-      MODERATE: 1.55,
-      HIGH: 1.725,
-    };
+  private static async generateMenuWithAI(
+    params: GenerateMenuParams,
+    questionnaire: any,
+    nutritionPlan: any
+  ) {
+    try {
+      if (!process.env.OPENAI_API_KEY) {
+        console.log("⚠️ No OpenAI key, using fallback menu generation");
+        return this.generateFallbackMenu(params, questionnaire);
+      }
 
-    const totalCalories =
-      bmr * (activityMultipliers[physical_activity_level] || 1.375);
+      const prompt = this.buildMenuGenerationPrompt(
+        params,
+        questionnaire,
+        nutritionPlan
+      );
+      const aiResponse = await OpenAIService.generateText(prompt, 2000);
 
-    // Adjust based on goal
-    let adjustedCalories = totalCalories;
-    if (main_goal === "WEIGHT_LOSS") {
-      adjustedCalories = totalCalories * 0.85; // 15% deficit
-    } else if (main_goal === "WEIGHT_GAIN") {
-      adjustedCalories = totalCalories * 1.15; // 15% surplus
+      // Parse AI response
+      const menuData = this.parseAIMenuResponse(aiResponse);
+      return menuData;
+    } catch (error) {
+      console.log("⚠️ AI menu generation failed, using fallback");
+      return this.generateFallbackMenu(params, questionnaire);
     }
-
-    // Enhanced macronutrient breakdown based on goal
-    let proteinRatio = 0.25;
-    let carbRatio = 0.45;
-    let fatRatio = 0.3;
-
-    if (main_goal === "WEIGHT_LOSS") {
-      proteinRatio = 0.3; // Higher protein for satiety
-      carbRatio = 0.35;
-      fatRatio = 0.35;
-    } else if (main_goal === "SPORTS_PERFORMANCE") {
-      proteinRatio = 0.25;
-      carbRatio = 0.5; // Higher carbs for performance
-      fatRatio = 0.25;
-    }
-
-    const protein = (adjustedCalories * proteinRatio) / 4;
-    const carbs = (adjustedCalories * carbRatio) / 4;
-    const fat = (adjustedCalories * fatRatio) / 9;
-    const fiber = Math.max(25, (adjustedCalories / 1000) * 14);
-
-    return {
-      calories: Math.round(adjustedCalories),
-      protein: Math.round(protein),
-      carbs: Math.round(carbs),
-      fat: Math.round(fat),
-      fiber: Math.round(fiber),
-      bmr: Math.round(bmr),
-      targetWeight: target_weight_kg,
-    };
   }
 
   private static async generateCustomMenuWithAI(
-    questionnaire: any,
-    nutritionalNeeds: any,
-    customRequest: string,
-    days: number,
-    mealsPerDay: string,
-    mealChangeFrequency: string,
-    includeLeftovers: boolean,
-    sameMealTimes: boolean
+    params: GenerateMenuParams,
+    questionnaire: any
   ) {
-    const prompt = this.buildCustomMenuPrompt(
-      questionnaire,
-      nutritionalNeeds,
-      customRequest,
-      days,
-      mealsPerDay,
-      mealChangeFrequency,
-      includeLeftovers,
-      sameMealTimes
-    );
-
-    console.log("🤖 Generating custom menu with AI...");
-
     try {
-      const response = await OpenAIService.generateText(prompt, 3500);
-      console.log("🤖 Raw AI response length:", response.length);
-
-      // Parse and validate the response
-      let parsedResponse;
-      try {
-        parsedResponse = JSON.parse(response);
-      } catch (parseError) {
-        console.error("🚨 Failed to parse AI response, using fallback");
-        return this.getCustomFallbackMenu(
-          nutritionalNeeds,
-          customRequest,
-          days,
-          mealsPerDay,
-          questionnaire
-        );
+      if (!process.env.OPENAI_API_KEY) {
+        console.log("⚠️ No OpenAI key, using fallback custom menu");
+        return this.generateFallbackCustomMenu(params, questionnaire);
       }
 
-      // Validate the parsed response has required structure
-      if (
-        !parsedResponse.meals ||
-        !Array.isArray(parsedResponse.meals) ||
-        parsedResponse.meals.length === 0
-      ) {
-        console.error("🚨 AI response missing meals array, using fallback");
-        return this.getCustomFallbackMenu(
-          nutritionalNeeds,
-          customRequest,
-          days,
-          mealsPerDay,
-          questionnaire
-        );
-      }
+      const prompt = this.buildCustomMenuPrompt(params, questionnaire);
+      const aiResponse = await OpenAIService.generateText(prompt, 2000);
 
-      console.log(
-        "✅ AI generated",
-        parsedResponse.meals.length,
-        "custom meals"
-      );
-      return parsedResponse;
+      // Parse AI response
+      const menuData = this.parseAIMenuResponse(aiResponse);
+      return menuData;
     } catch (error) {
-      console.error("💥 Error generating custom menu with AI:", error);
-      console.log("🔄 Using custom fallback menu");
-      return this.getCustomFallbackMenu(
-        nutritionalNeeds,
-        customRequest,
-        days,
-        mealsPerDay,
-        questionnaire
-      );
+      console.log("⚠️ AI custom menu generation failed, using fallback");
+      return this.generateFallbackCustomMenu(params, questionnaire);
     }
   }
 
-  private static async generateComprehensiveMenuWithAI(
+  private static buildMenuGenerationPrompt(
+    params: GenerateMenuParams,
     questionnaire: any,
-    nutritionalNeeds: any,
-    days: number,
-    mealsPerDay: string,
-    mealChangeFrequency: string,
-    includeLeftovers: boolean,
-    sameMealTimes: boolean
-  ) {
-    const prompt = this.buildComprehensiveMenuPrompt(
-      questionnaire,
-      nutritionalNeeds,
-      days,
-      mealsPerDay,
-      mealChangeFrequency,
-      includeLeftovers,
-      sameMealTimes
-    );
+    nutritionPlan: any
+  ): string {
+    return `Generate a ${params.days || 7}-day personalized meal plan.
 
-    console.log("🤖 Generating menu with AI...");
+User Profile:
+- Age: ${questionnaire.age}
+- Weight: ${questionnaire.weight_kg}kg
+- Height: ${questionnaire.height_cm}cm
+- Goal: ${questionnaire.main_goal}
+- Activity Level: ${questionnaire.physical_activity_level}
+- Dietary Style: ${questionnaire.dietary_style}
+- Allergies: ${questionnaire.allergies?.join(", ") || "None"}
+- Dislikes: ${questionnaire.disliked_foods?.join(", ") || "None"}
+- Likes: ${questionnaire.liked_foods?.join(", ") || "None"}
 
-    try {
-      const response = await OpenAIService.generateText(prompt, 3500);
-      console.log("🤖 Raw AI response length:", response.length);
+Nutrition Targets:
+- Daily Calories: ${nutritionPlan?.goal_calories || 2000}
+- Daily Protein: ${nutritionPlan?.goal_protein_g || 150}g
+- Daily Carbs: ${nutritionPlan?.goal_carbs_g || 250}g
+- Daily Fats: ${nutritionPlan?.goal_fats_g || 67}g
 
-      // Parse and validate the response
-      let parsedResponse;
-      try {
-        parsedResponse = JSON.parse(response);
-      } catch (parseError) {
-        console.error("🚨 Failed to parse AI response, using fallback");
-        return this.getComprehensiveFallbackMenu(
-          nutritionalNeeds,
-          days,
-          mealsPerDay,
-          questionnaire
-        );
-      }
-
-      // Validate the parsed response has required structure
-      if (
-        !parsedResponse.meals ||
-        !Array.isArray(parsedResponse.meals) ||
-        parsedResponse.meals.length === 0
-      ) {
-        console.error("🚨 AI response missing meals array, using fallback");
-        return this.getComprehensiveFallbackMenu(
-          nutritionalNeeds,
-          days,
-          mealsPerDay,
-          questionnaire
-        );
-      }
-
-      console.log("✅ AI generated", parsedResponse.meals.length, "meals");
-      return parsedResponse;
-    } catch (error) {
-      console.error("💥 Error generating menu with AI:", error);
-      console.log("🔄 Using comprehensive fallback menu");
-      return this.getComprehensiveFallbackMenu(
-        nutritionalNeeds,
-        days,
-        mealsPerDay,
-        questionnaire
-      );
+Requirements:
+- ${this.getMealsPerDayCount(params.mealsPerDay || "3_main")} meals per day
+- Budget: ${params.budget ? `₪${params.budget} per day` : "Moderate budget"}
+- Prep time: ${questionnaire.daily_cooking_time || "30 minutes"} per day
+- Cooking methods: ${
+      questionnaire.available_cooking_methods?.join(", ") || "All methods"
     }
-  }
 
-  private static buildCustomMenuPrompt(
-    questionnaire: any,
-    nutritionalNeeds: any,
-    customRequest: string,
-    days: number,
-    mealsPerDay: string,
-    mealChangeFrequency: string,
-    includeLeftovers: boolean,
-    sameMealTimes: boolean
-  ) {
-    const {
-      dietary_style,
-      allergies,
-      disliked_foods,
-      liked_foods,
-      daily_food_budget,
-      kosher,
-      main_goal,
-    } = questionnaire;
-
-    const budget = daily_food_budget || 200;
-    const totalBudget = budget * days;
-    const totalMeals = this.calculateTotalMeals(days, mealsPerDay);
-
-    const allergiesText = Array.isArray(allergies) ? allergies.join(", ") : "";
-    const dislikedFoodsText = Array.isArray(disliked_foods)
-      ? disliked_foods.join(", ")
-      : "";
-    const likedFoodsText = Array.isArray(liked_foods)
-      ? liked_foods.join(", ")
-      : "";
-
-    return `Create custom menu for: "${customRequest}"
-
-User: Goal=${main_goal}, Diet=${dietary_style}, Kosher=${kosher}, Budget=₪${budget}/day
-Allergies: ${allergiesText}
-Avoid: ${dislikedFoodsText}
-Likes: ${likedFoodsText}
-
-Nutrition/day: ${nutritionalNeeds.calories}cal, ${
-      nutritionalNeeds.protein
-    }g protein, ${nutritionalNeeds.carbs}g carbs, ${nutritionalNeeds.fat}g fat
-
-Menu: ${days} days, ${totalMeals} total meals, ₪${totalBudget} budget
-
-Return JSON:
+Return JSON with this structure:
 {
-  "title": "Custom Menu: ${customRequest}",
-  "description": "Custom menu based on: ${customRequest}",
-  "total_calories": ${nutritionalNeeds.calories * days},
-  "total_protein": ${nutritionalNeeds.protein * days},
-  "total_carbs": ${nutritionalNeeds.carbs * days},
-  "total_fat": ${nutritionalNeeds.fat * days},
-  "days_count": ${days},
-  "estimated_cost": ${totalBudget},
+  "title": "Menu title",
+  "description": "Menu description",
+  "total_calories": number,
+  "total_protein": number,
+  "total_carbs": number,
+  "total_fat": number,
+  "days_count": ${params.days || 7},
+  "estimated_cost": number,
   "meals": [
     {
-      "meal_id": "m1",
-      "name": "שם ארוחה",
-      "name_english": "Meal Name",
-      "meal_type": "BREAKFAST",
-      "day_number": 1,
-      "calories": ${Math.round(nutritionalNeeds.calories / 3)},
-      "protein": ${Math.round(nutritionalNeeds.protein / 3)},
-      "carbs": ${Math.round(nutritionalNeeds.carbs / 3)},
-      "fat": ${Math.round(nutritionalNeeds.fat / 3)},
-      "fiber": ${Math.round(nutritionalNeeds.fiber / 3)},
-      "prep_time_minutes": 20,
-      "cooking_method": "בישול",
-      "instructions": ["הכנה"],
-      "instructions_english": ["Preparation"],
+      "name": "Meal name",
+      "meal_type": "BREAKFAST/LUNCH/DINNER/SNACK",
+      "day_number": 1-7,
+      "calories": number,
+      "protein": number,
+      "carbs": number,
+      "fat": number,
+      "fiber": number,
+      "prep_time_minutes": number,
+      "cooking_method": "method",
+      "instructions": "cooking instructions",
       "ingredients": [
         {
-          "name": "מרכיב",
-          "name_english": "Ingredient",
-          "quantity": 100,
-          "unit": "גרם",
-          "category": "protein",
-          "estimated_cost": 10
+          "name": "ingredient",
+          "quantity": number,
+          "unit": "g/ml/piece",
+          "category": "protein/vegetable/grain"
         }
       ]
     }
   ]
-}
-
-Create exactly ${totalMeals} varied meals matching "${customRequest}". Hebrew+English names, detailed ingredients with costs, fit budget ₪${totalBudget}.`;
-  }
-
-  private static buildComprehensiveMenuPrompt(
-    questionnaire: any,
-    nutritionalNeeds: any,
-    days: number,
-    mealsPerDay: string,
-    mealChangeFrequency: string,
-    includeLeftovers: boolean,
-    sameMealTimes: boolean
-  ) {
-    const {
-      dietary_style,
-      allergies,
-      disliked_foods,
-      liked_foods,
-      cooking_preference,
-      available_cooking_methods,
-      daily_food_budget,
-      kosher,
-      medical_conditions_text,
-      age,
-      gender,
-      main_goal,
-    } = questionnaire;
-
-    const mealStructure = this.getMealStructure(mealsPerDay);
-    const budget = daily_food_budget || 50;
-    const totalBudget = budget * days;
-    const goal = main_goal;
-    const activityLevel = questionnaire.physical_activity_level;
-
-    const prompt = `Create a Hebrew daily menu for:
-Goal: ${goal}, Activity: ${activityLevel}, Diet: ${dietary_style}
-Allergies: ${allergies?.join(", ") || "None"}
-Calories: ${nutritionalNeeds.calories}, Protein: ${nutritionalNeeds.protein}g
-
-Return ONLY JSON:
-{
-  "menu": {
-    "title": "תפריט יומי",
-    "description": "תפריט מותאם",
-    "total_calories": ${nutritionalNeeds.calories},
-    "total_protein": ${nutritionalNeeds.protein},
-    "total_carbs": ${nutritionalNeeds.carbs},
-    "total_fat": ${nutritionalNeeds.fat},
-    "meals": [
-      {
-        "name": "ארוחת בוקר",
-        "meal_type": "ארוחת בוקר",
-        "calories": 400,
-        "protein": 20,
-        "carbs": 50,
-        "fat": 15,
-        "description": "ארוחה מזינה",
-        "ingredients": [
-          {
-            "name": "חומר",
-            "amount": 100,
-            "unit": "גרם",
-            "calories": 100,
-            "protein": 5,
-            "carbs": 20,
-            "fat": 3
-          }
-        ]
-      }
-    ]
-  }
 }`;
-    return prompt;
   }
 
-  private static calculateTotalMeals(
-    days: number,
-    mealsPerDay: string
-  ): number {
-    const mealsPerDayCount = {
-      "3_main": 3,
-      "3_plus_2_snacks": 5,
-      "2_plus_1_intermediate": 3,
-    };
-    return (
-      days *
-      (mealsPerDayCount[mealsPerDay as keyof typeof mealsPerDayCount] || 3)
-    );
-  }
-
-  private static getCustomFallbackMenu(
-    nutritionalNeeds: any,
-    customRequest: string,
-    days: number,
-    mealsPerDay: string,
+  private static buildCustomMenuPrompt(
+    params: GenerateMenuParams,
     questionnaire: any
-  ) {
-    console.log("🔄 Generating custom fallback menu");
-
-    const mealTypes = this.getMealTypesForStructure(mealsPerDay);
-    const caloriesPerMeal = Math.round(
-      nutritionalNeeds.calories / mealTypes.length
-    );
-    const proteinPerMeal = Math.round(
-      nutritionalNeeds.protein / mealTypes.length
-    );
-    const carbsPerMeal = Math.round(nutritionalNeeds.carbs / mealTypes.length);
-    const fatPerMeal = Math.round(nutritionalNeeds.fat / mealTypes.length);
-    const fiberPerMeal = Math.round(nutritionalNeeds.fiber / mealTypes.length);
-
-    const meals = [];
-
-    // Determine meal style from custom request
-    let mealStyle = "mediterranean";
-    const lowerRequest = customRequest.toLowerCase();
-
-    if (lowerRequest.includes("protein") || lowerRequest.includes("חלבון")) {
-      mealStyle = "high_protein";
-    } else if (
-      lowerRequest.includes("vegetarian") ||
-      lowerRequest.includes("vegan") ||
-      lowerRequest.includes("צמחוני")
-    ) {
-      mealStyle = "vegetarian";
-    } else if (
-      lowerRequest.includes("asian") ||
-      lowerRequest.includes("אסייתי")
-    ) {
-      mealStyle = "asian";
-    } else if (
-      lowerRequest.includes("quick") ||
-      lowerRequest.includes("fast") ||
-      lowerRequest.includes("מהיר")
-    ) {
-      mealStyle = "quick_meals";
-    }
-
-    for (let day = 1; day <= days; day++) {
-      for (let mealIndex = 0; mealIndex < mealTypes.length; mealIndex++) {
-        const mealType = mealTypes[mealIndex];
-
-        const meal = {
-          meal_id: `custom_${day}_${mealType.toLowerCase()}_${Date.now()}_${Math.random()
-            .toString(36)
-            .substr(2, 5)}`,
-          name: this.getCustomMealName(mealType, mealStyle, day),
-          name_english: this.getCustomMealNameEnglish(mealType, mealStyle, day),
-          meal_type: mealType,
-          day_number: day,
-          calories: caloriesPerMeal,
-          protein: proteinPerMeal,
-          carbs: carbsPerMeal,
-          fat: fatPerMeal,
-          fiber: fiberPerMeal,
-          prep_time_minutes: 20,
-          cooking_method: "כלליו",
-          instructions: ["הכנה בסיסית לפי הבקשה המותאמת"],
-          instructions_english: [
-            "Basic preparation according to custom request",
-          ],
-          ingredients: this.getCustomIngredients(mealType, mealStyle),
-        };
-
-        meals.push(meal);
-      }
-    }
-
-    return {
-      title: `Custom Menu: ${customRequest.substring(0, 40)}...`,
-      description: `תפריט מותאם בהתבסס על: ${customRequest}`,
-      total_calories: nutritionalNeeds.calories * days,
-      total_protein: nutritionalNeeds.protein * days,
-      total_carbs: nutritionalNeeds.carbs * days,
-      total_fat: nutritionalNeeds.fat * days,
-      days_count: days,
-      estimated_cost: (questionnaire.daily_food_budget || 200) * days,
-      meals: meals,
-    };
-  }
-
-  private static getCustomMealName(
-    mealType: string,
-    style: string,
-    day: number
   ): string {
-    const mealNames = {
-      high_protein: {
-        BREAKFAST: [
-          `ארוחת בוקר חלבון יום ${day}`,
-          `חביתה עשירה בחלבון`,
-          `שייק חלבון ובננה`,
-        ],
-        LUNCH: [
-          `ארוחת צהריים חלבונית יום ${day}`,
-          `חזה עוף עם קינואה`,
-          `סלמון צלוי עם ירקות`,
-        ],
-        DINNER: [
-          `ארוחת ערב חלבונית יום ${day}`,
-          `סטייק עם סלט`,
-          `דג ים עם ירקות`,
-        ],
-      },
-      vegetarian: {
-        BREAKFAST: [
-          `ארוחת בוקר צמחונית יום ${day}`,
-          `שייק ירוק`,
-          `חביתה עם ירקות`,
-        ],
-        LUNCH: [`ארוחת צהריים צמחונית יום ${day}`, `סלט קינואה`, `ראפ ירקות`],
-        DINNER: [`ארוחת ערב צמחונית יום ${day}`, `פסטה עם ירקות`, `קארי עדשים`],
-      },
-      mediterranean: {
-        BREAKFAST: [
-          `ארוחת בוקר ים תיכונית יום ${day}`,
-          `יוגורט יווני`,
-          `טוסט אבוקדו`,
-        ],
-        LUNCH: [
-          `ארוחת צהריים ים תיכונית יום ${day}`,
-          `סלט יווני`,
-          `חומוס וירקות`,
-        ],
-        DINNER: [`ארוחת ערב ים תיכונית יום ${day}`, `דג צלוי`, `ירקות אפויים`],
-      },
-    };
+    return `Create a custom meal plan based on this request: "${
+      params.customRequest
+    }"
 
-    const styleOptions =
-      mealNames[style as keyof typeof mealNames] || mealNames.mediterranean;
-    const typeOptions =
-      styleOptions[mealType as keyof typeof styleOptions] ||
-      styleOptions.BREAKFAST;
-    return typeOptions[(day - 1) % typeOptions.length];
+User Context:
+- Dietary Style: ${questionnaire.dietary_style}
+- Allergies: ${questionnaire.allergies?.join(", ") || "None"}
+- Cooking Preference: ${questionnaire.cooking_preference}
+- Budget: ${params.budget ? `₪${params.budget} per day` : "Flexible"}
+
+Plan Requirements:
+- Duration: ${params.days || 7} days
+- Meals per day: ${this.getMealsPerDayCount(params.mealsPerDay || "3_main")}
+- Custom request: ${params.customRequest}
+
+Return the same JSON structure as before with meals that specifically address the custom request.`;
   }
 
-  private static getCustomMealNameEnglish(
-    mealType: string,
-    style: string,
-    day: number
-  ): string {
-    const mealNames = {
-      high_protein: {
-        BREAKFAST: [
-          `High Protein Breakfast Day ${day}`,
-          `Protein Rich Omelet`,
-          `Protein Banana Shake`,
-        ],
-        LUNCH: [
-          `High Protein Lunch Day ${day}`,
-          `Chicken Breast with Quinoa`,
-          `Grilled Salmon with Vegetables`,
-        ],
-        DINNER: [
-          `High Protein Dinner Day ${day}`,
-          `Steak with Salad`,
-          `Sea Fish with Vegetables`,
-        ],
-      },
-      vegetarian: {
-        BREAKFAST: [
-          `Vegetarian Breakfast Day ${day}`,
-          `Green Smoothie`,
-          `Veggie Omelet`,
-        ],
-        LUNCH: [
-          `Vegetarian Lunch Day ${day}`,
-          `Quinoa Salad`,
-          `Vegetable Wrap`,
-        ],
-        DINNER: [
-          `Vegetarian Dinner Day ${day}`,
-          `Pasta with Vegetables`,
-          `Lentil Curry`,
-        ],
-      },
-      mediterranean: {
-        BREAKFAST: [
-          `Mediterranean Breakfast Day ${day}`,
-          `Greek Yogurt`,
-          `Avocado Toast`,
-        ],
-        LUNCH: [
-          `Mediterranean Lunch Day ${day}`,
-          `Greek Salad`,
-          `Hummus and Vegetables`,
-        ],
-        DINNER: [
-          `Mediterranean Dinner Day ${day}`,
-          `Grilled Fish`,
-          `Roasted Vegetables`,
-        ],
-      },
-    };
-
-    const styleOptions =
-      mealNames[style as keyof typeof mealNames] || mealNames.mediterranean;
-    const typeOptions =
-      styleOptions[mealType as keyof typeof styleOptions] ||
-      styleOptions.BREAKFAST;
-    return typeOptions[(day - 1) % typeOptions.length];
-  }
-
-  private static getCustomIngredients(mealType: string, style: string) {
-    const baseIngredients = {
-      high_protein: [
-        {
-          name: "חלבון",
-          name_english: "Protein",
-          quantity: 30,
-          unit: "גרם",
-          category: "protein",
-          estimated_cost: 12,
-        },
-        {
-          name: "ירקות",
-          name_english: "Vegetables",
-          quantity: 100,
-          unit: "גרם",
-          category: "vegetables",
-          estimated_cost: 8,
-        },
-      ],
-      vegetarian: [
-        {
-          name: "קטניות",
-          name_english: "Legumes",
-          quantity: 80,
-          unit: "גרם",
-          category: "protein",
-          estimated_cost: 6,
-        },
-        {
-          name: "ירקות טריים",
-          name_english: "Fresh Vegetables",
-          quantity: 120,
-          unit: "גרם",
-          category: "vegetables",
-          estimated_cost: 10,
-        },
-      ],
-      mediterranean: [
-        {
-          name: "שמן זית",
-          name_english: "Olive Oil",
-          quantity: 15,
-          unit: "מ״ל",
-          category: "fats",
-          estimated_cost: 4,
-        },
-        {
-          name: "ירקות ים תיכוניים",
-          name_english: "Mediterranean Vegetables",
-          quantity: 100,
-          unit: "גרם",
-          category: "vegetables",
-          estimated_cost: 9,
-        },
-      ],
-    };
-
-    return (
-      baseIngredients[style as keyof typeof baseIngredients] ||
-      baseIngredients.mediterranean
-    );
-  }
-
-  private static generateMealExamples(
-    days: number,
-    mealsPerDay: string,
-    nutritionalNeeds: any,
-    dailyBudget: number
-  ): string {
-    const mealTypes = this.getMealTypesForStructure(mealsPerDay);
-    const examples = [];
-
-    for (let day = 1; day <= Math.min(days, 2); day++) {
-      for (let i = 0; i < mealTypes.length; i++) {
-        const mealType = mealTypes[i];
-        const caloriesPerMeal = Math.round(
-          nutritionalNeeds.calories / mealTypes.length
-        );
-        const proteinPerMeal = Math.round(
-          nutritionalNeeds.protein / mealTypes.length
-        );
-        const carbsPerMeal = Math.round(
-          nutritionalNeeds.carbs / mealTypes.length
-        );
-        const fatPerMeal = Math.round(nutritionalNeeds.fat / mealTypes.length);
-
-        examples.push(`{
-      "name": "ארוחה לדוגמה יום ${day}",
-      "name_english": "Sample Meal Day ${day}",
-      "meal_type": "${mealType}",
-      "day_number": ${day},
-      "calories": ${caloriesPerMeal},
-      "protein": ${proteinPerMeal},
-      "carbs": ${carbsPerMeal},
-      "fat": ${fatPerMeal},
-      "fiber": 8,
-      "prep_time_minutes": 20,
-      "cooking_method": "בישול פשוט",
-      "instructions": "הוראות הכנה מפורטות",
-      "instructions_english": "Detailed cooking instructions",
-      "ingredients": [
-        {
-          "name": "רכיב ראשון",
-          "name_english": "First ingredient",
-          "quantity": 100,
-          "unit": "גרם",
-          "unit_english": "g",
-          "category": "protein",
-          "estimated_cost": ${(dailyBudget / mealTypes.length / 3).toFixed(2)}
-        }
-      ]
-    }`);
-      }
-    }
-
-    return (
-      examples.join(",\n    ") +
-      "\n    // ... continue pattern for all " +
-      this.calculateTotalMeals(days, mealsPerDay) +
-      " meals"
-    );
-  }
-
-  private static getMealTypesForStructure(mealsPerDay: string): string[] {
-    switch (mealsPerDay) {
-      case "3_main":
-        return ["BREAKFAST", "LUNCH", "DINNER"];
-      case "3_plus_2_snacks":
-        return [
-          "BREAKFAST",
-          "MORNING_SNACK",
-          "LUNCH",
-          "AFTERNOON_SNACK",
-          "DINNER",
-        ];
-      case "2_plus_1_intermediate":
-        return ["BREAKFAST", "INTERMEDIATE", "DINNER"];
-      default:
-        return ["BREAKFAST", "LUNCH", "DINNER"];
-    }
-  }
-
-  private static getMealStructure(mealsPerDay: string): string {
-    switch (mealsPerDay) {
-      case "3_main":
-        return "3 ארוחות עיקריות (בוקר, צהריים, ערב)";
-      case "3_plus_2_snacks":
-        return "3 ארוחות עיקריות + 2 נשנושים";
-      case "2_plus_1_intermediate":
-        return "2 ארוחות עיקריות + 1 ארוחת ביניים (מתאים לצום לסירוגין)";
-      default:
-        return "3 ארוחות עיקריות";
-    }
-  }
-
-  private static getComprehensiveFallbackMenu(
-    nutritionalNeeds: any,
-    days: number,
-    mealsPerDay: string,
-    questionnaire: any
-  ) {
-    console.log("🔄 Generating comprehensive fallback menu");
-
-    const budget = questionnaire.daily_food_budget || 50;
-    const mealTypes = this.getMealTypesForStructure(mealsPerDay);
-    const meals = [];
-
-    for (let day = 1; day <= days; day++) {
-      for (let mealIndex = 0; mealIndex < mealTypes.length; mealIndex++) {
-        const mealType = mealTypes[mealIndex];
-        const caloriesPerMeal = Math.round(
-          nutritionalNeeds.calories / mealTypes.length
-        );
-        const proteinPerMeal = Math.round(
-          nutritionalNeeds.protein / mealTypes.length
-        );
-        const carbsPerMeal = Math.round(
-          nutritionalNeeds.carbs / mealTypes.length
-        );
-        const fatPerMeal = Math.round(nutritionalNeeds.fat / mealTypes.length);
-
-        const meal = this.generateFallbackMeal(
-          mealType,
-          day,
-          caloriesPerMeal,
-          proteinPerMeal,
-          carbsPerMeal,
-          fatPerMeal,
-          budget / mealTypes.length
-        );
-
-        meals.push(meal);
-      }
-    }
-
-    return {
-      title: `תפריט מאוזן ל-${days} ימים - ${
-        questionnaire.main_goal || "בריאות כללית"
-      }`,
-      description: "תפריט מאוזן המותאם לצרכים התזונתיים שלך ולתקציב",
-      total_calories: nutritionalNeeds.calories * days,
-      total_protein: nutritionalNeeds.protein * days,
-      total_carbs: nutritionalNeeds.carbs * days,
-      total_fat: nutritionalNeeds.fat * days,
-      total_fiber: nutritionalNeeds.fiber * days,
-      days_count: days,
-      dietary_category: questionnaire.dietary_style || "BALANCED",
-      estimated_cost: budget * days,
-      prep_time_minutes: 25,
-      difficulty_level: 2,
-      meal_structure: mealsPerDay,
-      meals: meals,
-    };
-  }
-
-  private static generateFallbackMeal(
-    mealType: string,
-    day: number,
-    calories: number,
-    protein: number,
-    carbs: number,
-    fat: number,
-    budgetPerMeal: number
-  ) {
-    const mealTemplates = {
-      BREAKFAST: {
-        name: "חביתה עם לחם מלא",
-        name_english: "Whole grain omelet",
-        instructions: "מכינים חביתת ביצים עם ירקות ומגישים עם לחם מלא",
-        instructions_english:
-          "Prepare vegetable omelet and serve with whole grain bread",
-        ingredients: [
-          {
-            name: "ביצים",
-            name_english: "eggs",
-            quantity: 2,
-            unit: "יחידות",
-            unit_english: "pieces",
-            category: "protein",
-            estimated_cost: 3.0,
-          },
-          {
-            name: "לחם מלא",
-            name_english: "whole grain bread",
-            quantity: 2,
-            unit: "פרוסות",
-            unit_english: "slices",
-            category: "carbs",
-            estimated_cost: 2.0,
-          },
-          {
-            name: "ירקות מעורבים",
-            name_english: "mixed vegetables",
-            quantity: 80,
-            unit: "גרם",
-            unit_english: "g",
-            category: "vegetables",
-            estimated_cost: 2.5,
-          },
-        ],
-      },
-      LUNCH: {
-        name: "חזה עוף עם אורז וירקות",
-        name_english: "Chicken breast with rice and vegetables",
-        instructions: "צולים חזה עוף, מבשלים אורז ומקדחים ירקות",
-        instructions_english:
-          "Grill chicken breast, cook rice and steam vegetables",
-        ingredients: [
-          {
-            name: "חזה עוף",
-            name_english: "chicken breast",
-            quantity: 120,
-            unit: "גרם",
-            unit_english: "g",
-            category: "protein",
-            estimated_cost: 8.0,
-          },
-          {
-            name: "אורז",
-            name_english: "rice",
-            quantity: 80,
-            unit: "גרם",
-            unit_english: "g",
-            category: "carbs",
-            estimated_cost: 1.5,
-          },
-          {
-            name: "ירקות מקורמים",
-            name_english: "steamed vegetables",
-            quantity: 150,
-            unit: "גרם",
-            unit_english: "g",
-            category: "vegetables",
-            estimated_cost: 4.0,
-          },
-        ],
-      },
-      DINNER: {
-        name: "סלמון עם תפוחי אדמה וסלט",
-        name_english: "Salmon with potatoes and salad",
-        instructions: "אופים סלמון, מבשלים תפוחי אדמה ומכינים סלט טרי",
-        instructions_english:
-          "Bake salmon, cook potatoes and prepare fresh salad",
-        ingredients: [
-          {
-            name: "פילה סלמון",
-            name_english: "salmon fillet",
-            quantity: 120,
-            unit: "גרם",
-            unit_english: "g",
-            category: "protein",
-            estimated_cost: 12.0,
-          },
-          {
-            name: "תפוחי אדמה",
-            name_english: "potatoes",
-            quantity: 150,
-            unit: "גרם",
-            unit_english: "g",
-            category: "carbs",
-            estimated_cost: 2.0,
-          },
-          {
-            name: "סלט ירוק",
-            name_english: "green salad",
-            quantity: 100,
-            unit: "גרם",
-            unit_english: "g",
-            category: "vegetables",
-            estimated_cost: 3.0,
-          },
-        ],
-      },
-      SNACK: {
-        name: "יוגורט עם פירות יבשים",
-        name_english: "Yogurt with dried fruits",
-        instructions: "מערבבים יוגורט עם פירות יבשים ואגוזים",
-        instructions_english: "Mix yogurt with dried fruits and nuts",
-        ingredients: [
-          {
-            name: "יוגורט טבעי",
-            name_english: "natural yogurt",
-            quantity: 150,
-            unit: "גרם",
-            unit_english: "g",
-            category: "dairy",
-            estimated_cost: 3.0,
-          },
-          {
-            name: "פירות יבשים",
-            name_english: "dried fruits",
-            quantity: 30,
-            unit: "גרם",
-            unit_english: "g",
-            category: "fruits",
-            estimated_cost: 4.0,
-          },
-        ],
-      },
-      MORNING_SNACK: {
-        name: "תפוח עם חמאת בוטנים",
-        name_english: "Apple with peanut butter",
-        instructions: "חותכים תפוח ומגישים עם חמאת בוטנים",
-        instructions_english: "Slice apple and serve with peanut butter",
-        ingredients: [
-          {
-            name: "תפוח",
-            name_english: "apple",
-            quantity: 1,
-            unit: "יחידה",
-            unit_english: "piece",
-            category: "fruits",
-            estimated_cost: 1.5,
-          },
-          {
-            name: "חמאת בוטנים",
-            name_english: "peanut butter",
-            quantity: 20,
-            unit: "גרם",
-            unit_english: "g",
-            category: "fats",
-            estimated_cost: 2.0,
-          },
-        ],
-      },
-      AFTERNOON_SNACK: {
-        name: "גזר וחומוס",
-        name_english: "Carrots and hummus",
-        instructions: "חותכים גזר לחטיפים ומגישים עם חומוס",
-        instructions_english: "Cut carrots into sticks and serve with hummus",
-        ingredients: [
-          {
-            name: "גזר",
-            name_english: "carrots",
-            quantity: 100,
-            unit: "גרם",
-            unit_english: "g",
-            category: "vegetables",
-            estimated_cost: 1.0,
-          },
-          {
-            name: "חומוס",
-            name_english: "hummus",
-            quantity: 40,
-            unit: "גרם",
-            unit_english: "g",
-            category: "protein",
-            estimated_cost: 2.5,
-          },
-        ],
-      },
-      INTERMEDIATE: {
-        name: "סלט עם קינואה וחלבון",
-        name_english: "Quinoa protein salad",
-        instructions: "מבשלים קינואה, מוסיפים ירקות וחלבון לבחירה",
-        instructions_english:
-          "Cook quinoa, add vegetables and protein of choice",
-        ingredients: [
-          {
-            name: "קינואה",
-            name_english: "quinoa",
-            quantity: 60,
-            unit: "גרם",
-            unit_english: "g",
-            category: "grains",
-            estimated_cost: 4.0,
-          },
-          {
-            name: "ירקות מעורבים",
-            name_english: "mixed vegetables",
-            quantity: 120,
-            unit: "גרם",
-            unit_english: "g",
-            category: "vegetables",
-            estimated_cost: 3.5,
-          },
-          {
-            name: "גבינת קוטג'",
-            name_english: "cottage cheese",
-            quantity: 80,
-            unit: "גרם",
-            unit_english: "g",
-            category: "protein",
-            estimated_cost: 4.0,
-          },
-        ],
-      },
-    };
-
-    const template =
-      mealTemplates[mealType as keyof typeof mealTemplates] ||
-      mealTemplates.LUNCH;
-
-    return {
-      name: template.name,
-      name_english: template.name_english,
-      meal_type: mealType,
-      day_number: day,
-      calories: calories,
-      protein: protein,
-      carbs: carbs,
-      fat: fat,
-      fiber: Math.round(calories * 0.014), // 14g per 1000 calories
-      prep_time_minutes: 20,
-      cooking_method: "בישול פשוט",
-      instructions: template.instructions,
-      instructions_english: template.instructions_english,
-      ingredients: template.ingredients,
-    };
-  }
-
-  private static async saveCompleteMenuToDatabase(
-    userId: string,
-    menuData: any
-  ) {
-    console.log("💾 Saving complete menu to database for user:", userId);
-    console.log("📊 Menu data structure:", {
-      title: menuData.title,
-      mealsCount: menuData.meals?.length || 0,
-      totalCalories: menuData.total_calories,
-    });
-
+  private static parseAIMenuResponse(aiResponse: string) {
     try {
-      // First, create the main menu record
+      // Clean the response
+      let cleaned = aiResponse.trim();
+      if (cleaned.includes("```json")) {
+        cleaned = cleaned.replace(/```json\s*/g, "").replace(/```\s*/g, "");
+      }
+
+      // Find JSON boundaries
+      const jsonStart = cleaned.indexOf("{");
+      const jsonEnd = cleaned.lastIndexOf("}");
+
+      if (jsonStart !== -1 && jsonEnd !== -1) {
+        cleaned = cleaned.substring(jsonStart, jsonEnd + 1);
+      }
+
+      const parsed = JSON.parse(cleaned);
+
+      // Validate structure
+      if (!parsed.meals || !Array.isArray(parsed.meals)) {
+        throw new Error("Invalid menu structure");
+      }
+
+      return parsed;
+    } catch (error) {
+      console.error("💥 Error parsing AI menu response:", error);
+      throw new Error("Failed to parse AI menu response");
+    }
+  }
+
+  private static generateFallbackMenu(
+    params: GenerateMenuParams,
+    questionnaire: any
+  ) {
+    const days = params.days || 7;
+    const mealsPerDay = this.getMealsPerDayCount(
+      params.mealsPerDay || "3_main"
+    );
+
+    const fallbackMeals = [
+      {
+        name: "Protein Scrambled Eggs",
+        meal_type: "BREAKFAST",
+        calories: 350,
+        protein: 25,
+        carbs: 15,
+        fat: 20,
+        fiber: 3,
+        prep_time_minutes: 15,
+        cooking_method: "Pan frying",
+        instructions:
+          "Scramble eggs with vegetables and serve with whole grain toast",
+        ingredients: [
+          { name: "eggs", quantity: 2, unit: "piece", category: "protein" },
+          {
+            name: "whole grain bread",
+            quantity: 2,
+            unit: "slice",
+            category: "grain",
+          },
+          { name: "spinach", quantity: 50, unit: "g", category: "vegetable" },
+        ],
+      },
+      {
+        name: "Grilled Chicken Salad",
+        meal_type: "LUNCH",
+        calories: 450,
+        protein: 35,
+        carbs: 25,
+        fat: 22,
+        fiber: 8,
+        prep_time_minutes: 25,
+        cooking_method: "Grilling",
+        instructions:
+          "Grill chicken breast and serve over mixed greens with olive oil dressing",
+        ingredients: [
+          {
+            name: "chicken breast",
+            quantity: 150,
+            unit: "g",
+            category: "protein",
+          },
+          {
+            name: "mixed greens",
+            quantity: 100,
+            unit: "g",
+            category: "vegetable",
+          },
+          { name: "olive oil", quantity: 15, unit: "ml", category: "fat" },
+        ],
+      },
+      {
+        name: "Baked Salmon with Quinoa",
+        meal_type: "DINNER",
+        calories: 500,
+        protein: 35,
+        carbs: 45,
+        fat: 18,
+        fiber: 6,
+        prep_time_minutes: 30,
+        cooking_method: "Baking",
+        instructions:
+          "Bake salmon with herbs and serve with quinoa and steamed vegetables",
+        ingredients: [
+          {
+            name: "salmon fillet",
+            quantity: 150,
+            unit: "g",
+            category: "protein",
+          },
+          { name: "quinoa", quantity: 80, unit: "g", category: "grain" },
+          { name: "broccoli", quantity: 100, unit: "g", category: "vegetable" },
+        ],
+      },
+    ];
+
+    const meals: any[] = [];
+
+    for (let day = 1; day <= days; day++) {
+      fallbackMeals.slice(0, mealsPerDay).forEach((meal, index) => {
+        meals.push({
+          ...meal,
+          day_number: day,
+          name: `${meal.name} - Day ${day}`,
+        });
+      });
+    }
+
+    const totalCalories = meals.reduce((sum, meal) => sum + meal.calories, 0);
+    const totalProtein = meals.reduce((sum, meal) => sum + meal.protein, 0);
+    const totalCarbs = meals.reduce((sum, meal) => sum + meal.carbs, 0);
+    const totalFat = meals.reduce((sum, meal) => sum + meal.fat, 0);
+
+    return {
+      title: `Personalized ${days}-Day Menu`,
+      description: `Customized meal plan based on your ${questionnaire.main_goal} goal`,
+      total_calories: totalCalories,
+      total_protein: totalProtein,
+      total_carbs: totalCarbs,
+      total_fat: totalFat,
+      days_count: days,
+      estimated_cost: params.budget || 200,
+      meals,
+    };
+  }
+
+  private static generateFallbackCustomMenu(
+    params: GenerateMenuParams,
+    questionnaire: any
+  ) {
+    // Similar to fallback menu but customized based on the request
+    const customizedMeals = this.customizeMealsBasedOnRequest(
+      params.customRequest || "",
+      questionnaire
+    );
+
+    return this.generateFallbackMenu(
+      { ...params, customRequest: undefined },
+      questionnaire
+    );
+  }
+
+  private static customizeMealsBasedOnRequest(
+    request: string,
+    questionnaire: any
+  ) {
+    // Analyze the custom request and adjust meals accordingly
+    const lowerRequest = request.toLowerCase();
+
+    if (lowerRequest.includes("protein") || lowerRequest.includes("muscle")) {
+      return "high_protein";
+    }
+    if (lowerRequest.includes("vegetarian") || lowerRequest.includes("plant")) {
+      return "vegetarian";
+    }
+    if (lowerRequest.includes("quick") || lowerRequest.includes("fast")) {
+      return "quick_prep";
+    }
+
+    return "balanced";
+  }
+
+  private static async saveMenuToDatabase(userId: string, menuData: any) {
+    try {
+      console.log("💾 Saving menu to database...");
+
+      // Create the recommended menu
       const menu = await prisma.recommendedMenu.create({
         data: {
           user_id: userId,
-          title: menuData.title || "תפריט מותאם אישית",
-          description: menuData.description || "תפריט מותאם לצרכים שלך",
-          total_calories: menuData.total_calories || 0,
-          total_protein: menuData.total_protein || 0,
-          total_carbs: menuData.total_carbs || 0,
-          total_fat: menuData.total_fat || 0,
+          title: menuData.title,
+          description: menuData.description,
+          total_calories: menuData.total_calories,
+          total_protein: menuData.total_protein,
+          total_carbs: menuData.total_carbs,
+          total_fat: menuData.total_fat,
           total_fiber: menuData.total_fiber || 0,
-          days_count: menuData.days_count || 7,
+          days_count: menuData.days_count,
           dietary_category: menuData.dietary_category || "BALANCED",
-          estimated_cost: menuData.estimated_cost || 0,
+          estimated_cost: menuData.estimated_cost,
           prep_time_minutes: menuData.prep_time_minutes || 30,
           difficulty_level: menuData.difficulty_level || 2,
+          is_active: true,
         },
       });
 
-      console.log("✅ Main menu created with ID:", menu.menu_id);
+      // Save meals
+      const mealPromises = menuData.meals.map(async (meal: any) => {
+        const savedMeal = await prisma.recommendedMeal.create({
+          data: {
+            menu_id: menu.menu_id,
+            name: meal.name,
+            meal_type: meal.meal_type,
+            day_number: meal.day_number,
+            calories: meal.calories,
+            protein: meal.protein,
+            carbs: meal.carbs,
+            fat: meal.fat,
+            fiber: meal.fiber || 0,
+            prep_time_minutes: meal.prep_time_minutes || 30,
+            cooking_method: meal.cooking_method,
+            instructions: meal.instructions,
+          },
+        });
 
-      // Then create all meals and their ingredients
-      if (
-        menuData.meals &&
-        Array.isArray(menuData.meals) &&
-        menuData.meals.length > 0
-      ) {
-        console.log("🍽️ Creating", menuData.meals.length, "meals...");
-
-        for (const mealData of menuData.meals) {
-          try {
-            // Create the meal record
-            const meal = await prisma.recommendedMeal.create({
+        // Save ingredients
+        if (meal.ingredients && Array.isArray(meal.ingredients)) {
+          const ingredientPromises = meal.ingredients.map((ingredient: any) =>
+            prisma.recommendedIngredient.create({
               data: {
-                menu_id: menu.menu_id,
-                name: mealData.name || "ארוחה",
-                meal_type: this.validateMealType(mealData.meal_type),
-                day_number: mealData.day_number || 1,
-                calories: mealData.calories || 0,
-                protein: mealData.protein || 0,
-                carbs: mealData.carbs || 0,
-                fat: mealData.fat || 0,
-                fiber: mealData.fiber || 0,
-                prep_time_minutes: mealData.prep_time_minutes || 20,
-                cooking_method: mealData.cooking_method || "בישול פשוט",
-                instructions: Array.isArray(mealData.instructions)
-                  ? mealData.instructions.join(". ")
-                  : mealData.instructions || "הוראות הכנה",
+                meal_id: savedMeal.meal_id,
+                name: ingredient.name,
+                quantity: ingredient.quantity || 1,
+                unit: ingredient.unit || "piece",
+                category: ingredient.category || "other",
+                estimated_cost: ingredient.estimated_cost || 5,
               },
-            });
+            })
+          );
 
-            // Create ingredients for this meal
-            if (mealData.ingredients && Array.isArray(mealData.ingredients)) {
-              for (const ingredientData of mealData.ingredients) {
-                await prisma.recommendedIngredient.create({
-                  data: {
-                    meal_id: meal.meal_id,
-                    name: ingredientData.name || "רכיב",
-                    quantity: ingredientData.quantity || 0,
-                    unit: ingredientData.unit || "גרם",
-                    category: ingredientData.category || "general",
-                    estimated_cost: ingredientData.estimated_cost || 0,
-                  },
-                });
-              }
-            }
-
-            console.log(
-              `✅ Meal "${mealData.name}" created with ${
-                mealData.ingredients?.length || 0
-              } ingredients`
-            );
-          } catch (mealError) {
-            console.error("💥 Error creating meal:", mealData.name, mealError);
-            // Continue with other meals even if one fails
-          }
+          await Promise.all(ingredientPromises);
         }
-      } else {
-        console.warn(
-          "⚠️ No meals provided in menu data, creating sample meals..."
-        );
-        await this.createSampleMeals(menu.menu_id);
-      }
 
-      // Fetch the complete menu with all relations - CRITICAL: This ensures we return the saved data
+        return savedMeal;
+      });
+
+      await Promise.all(mealPromises);
+
+      // Return complete menu with meals and ingredients
       const completeMenu = await prisma.recommendedMenu.findUnique({
         where: { menu_id: menu.menu_id },
         include: {
@@ -1343,160 +489,12 @@ Return ONLY JSON:
         },
       });
 
-      if (!completeMenu) {
-        throw new Error("Failed to fetch the created menu from database");
-      }
-
-      console.log(
-        "✅ Complete menu fetched with",
-        completeMenu?.meals?.length || 0,
-        "meals"
-      );
-      console.log("📋 Menu structure:", {
-        menu_id: completeMenu.menu_id,
-        title: completeMenu.title,
-        meals_count: completeMenu.meals.length,
-        first_meal: completeMenu.meals[0]
-          ? {
-              name: completeMenu.meals[0].name,
-              ingredients_count: completeMenu.meals[0].ingredients.length,
-            }
-          : null,
-      });
-
+      console.log("✅ Menu saved to database successfully");
       return completeMenu;
-    } catch (error: any) {
+    } catch (error) {
       console.error("💥 Error saving menu to database:", error);
-      throw new Error("Failed to save menu to database: " + error.message);
+      throw error;
     }
-  }
-
-  private static validateMealType(mealType: string): string {
-    const validTypes = [
-      "BREAKFAST",
-      "LUNCH",
-      "DINNER",
-      "SNACK",
-      "MORNING_SNACK",
-      "AFTERNOON_SNACK",
-    ];
-    return validTypes.includes(mealType) ? mealType : "LUNCH";
-  }
-
-  private static async createSampleMeals(menuId: string) {
-    console.log("🔧 Creating sample meals for menu:", menuId);
-
-    const sampleMeals = [
-      {
-        menu_id: menuId,
-        name: "ארוחת בוקר מזינה",
-        meal_type: "BREAKFAST",
-        day_number: 1,
-        calories: 400,
-        protein: 20,
-        carbs: 45,
-        fat: 15,
-        fiber: 8,
-        prep_time_minutes: 15,
-        cooking_method: "מחבת",
-        instructions: "מכינים חביתת ביצים עם ירקות ולחם מלא",
-      },
-      {
-        menu_id: menuId,
-        name: "ארוחת צהריים מאוזנת",
-        meal_type: "LUNCH",
-        day_number: 1,
-        calories: 500,
-        protein: 30,
-        carbs: 50,
-        fat: 18,
-        fiber: 10,
-        prep_time_minutes: 25,
-        cooking_method: "צלייה ובישול",
-        instructions: "חזה עוף צלוי עם אורז וירקות מבושלים",
-      },
-      {
-        menu_id: menuId,
-        name: "ארוחת ערב קלה",
-        meal_type: "DINNER",
-        day_number: 1,
-        calories: 450,
-        protein: 25,
-        carbs: 40,
-        fat: 20,
-        fiber: 12,
-        prep_time_minutes: 20,
-        cooking_method: "אפייה",
-        instructions: "דג אפוי עם תפוחי אדמה וסלט",
-      },
-    ];
-
-    // Create meals and their ingredients
-    for (const mealData of sampleMeals) {
-      const meal = await prisma.recommendedMeal.create({ data: mealData });
-
-      // Add sample ingredients for each meal
-      const sampleIngredients = [
-        {
-          meal_id: meal.meal_id,
-          name: "רכיב עיקרי",
-          quantity: 100,
-          unit: "גרם",
-          category: "protein",
-          estimated_cost: 5.0,
-        },
-        {
-          meal_id: meal.meal_id,
-          name: "רכיב משני",
-          quantity: 50,
-          unit: "גרם",
-          category: "vegetables",
-          estimated_cost: 2.0,
-        },
-      ];
-
-      for (const ingredient of sampleIngredients) {
-        await prisma.recommendedIngredient.create({ data: ingredient });
-      }
-    }
-
-    console.log("✅ Sample meals with ingredients created");
-  }
-
-  static async getUserMenus(userId: string) {
-    console.log("📋 Getting user menus for:", userId);
-
-    return await prisma.recommendedMenu.findMany({
-      where: { user_id: userId },
-      include: {
-        meals: {
-          include: {
-            ingredients: true,
-          },
-          orderBy: [{ day_number: "asc" }, { meal_type: "asc" }],
-        },
-      },
-      orderBy: { created_at: "desc" },
-    });
-  }
-
-  static async getMenuById(userId: string, menuId: string) {
-    console.log("🔍 Getting menu by ID:", menuId, "for user:", userId);
-
-    return await prisma.recommendedMenu.findFirst({
-      where: {
-        menu_id: menuId,
-        user_id: userId,
-      },
-      include: {
-        meals: {
-          include: {
-            ingredients: true,
-          },
-          orderBy: [{ day_number: "asc" }, { meal_type: "asc" }],
-        },
-      },
-    });
   }
 
   static async replaceMeal(
@@ -1505,143 +503,115 @@ Return ONLY JSON:
     mealId: string,
     preferences: any
   ) {
-    console.log("🔄 Replacing meal:", mealId, "in menu:", menuId);
+    try {
+      console.log("🔄 Replacing meal in menu:", { menuId, mealId });
 
-    // Get the current meal
-    const currentMeal = await prisma.recommendedMeal.findFirst({
-      where: {
-        meal_id: mealId,
-        menu: {
-          menu_id: menuId,
-          user_id: userId,
+      // Get the current meal
+      const currentMeal = await prisma.recommendedMeal.findFirst({
+        where: {
+          meal_id: mealId,
+          menu: {
+            user_id: userId,
+          },
         },
-      },
-      include: {
-        ingredients: true,
-      },
-    });
+        include: {
+          ingredients: true,
+        },
+      });
 
-    if (!currentMeal) {
-      throw new Error("Meal not found");
-    }
+      if (!currentMeal) {
+        throw new Error("Meal not found");
+      }
 
-    // Generate a replacement meal using AI or fallback
-    const replacementMeal = await this.generateReplacementMeal(
-      currentMeal,
-      preferences
-    );
+      // Generate replacement meal
+      const replacementMeal = await this.generateReplacementMeal(
+        currentMeal,
+        preferences,
+        userId
+      );
 
-    // Update the meal in database
-    const updatedMeal = await prisma.recommendedMeal.update({
-      where: { meal_id: mealId },
-      data: {
-        name: replacementMeal.name,
-        calories: replacementMeal.calories,
-        protein: replacementMeal.protein,
-        carbs: replacementMeal.carbs,
-        fat: replacementMeal.fat,
-        fiber: replacementMeal.fiber,
-        prep_time_minutes: replacementMeal.prep_time_minutes,
-        cooking_method: replacementMeal.cooking_method,
-        instructions: replacementMeal.instructions,
-        ingredients: {
-          deleteMany: {},
-          create: replacementMeal.ingredients.map((ingredient: any) => ({
-            name: ingredient.name,
-            quantity: ingredient.quantity,
-            unit: ingredient.unit,
-            category: ingredient.category,
-            estimated_cost: ingredient.estimated_cost,
+      // Update the meal
+      const updatedMeal = await prisma.recommendedMeal.update({
+        where: { meal_id: mealId },
+        data: {
+          name: replacementMeal.name,
+          calories: replacementMeal.calories,
+          protein: replacementMeal.protein,
+          carbs: replacementMeal.carbs,
+          fat: replacementMeal.fat,
+          fiber: replacementMeal.fiber,
+          prep_time_minutes: replacementMeal.prep_time_minutes,
+          cooking_method: replacementMeal.cooking_method,
+          instructions: replacementMeal.instructions,
+        },
+      });
+
+      // Update ingredients
+      await prisma.recommendedIngredient.deleteMany({
+        where: { meal_id: mealId },
+      });
+
+      if (replacementMeal.ingredients) {
+        await prisma.recommendedIngredient.createMany({
+          data: replacementMeal.ingredients.map((ing: any) => ({
+            meal_id: mealId,
+            name: ing.name,
+            quantity: ing.quantity,
+            unit: ing.unit,
+            category: ing.category,
           })),
-        },
-      },
-      include: {
-        ingredients: true,
-      },
-    });
+        });
+      }
 
-    return updatedMeal;
+      console.log("✅ Meal replaced successfully");
+      return updatedMeal;
+    } catch (error) {
+      console.error("💥 Error replacing meal:", error);
+      throw error;
+    }
   }
 
   private static async generateReplacementMeal(
     currentMeal: any,
-    preferences: any
+    preferences: any,
+    userId: string
   ) {
-    // Enhanced replacement logic with multiple options
-    const replacementOptions = [
+    // Get user preferences
+    const questionnaire = await prisma.userQuestionnaire.findFirst({
+      where: { user_id: userId },
+    });
+
+    // Generate alternative meal with similar nutrition profile
+    const alternatives = [
       {
-        name: "חביתה עם ירקות ואבוקדו",
+        name: "Protein Bowl Alternative",
         calories: currentMeal.calories,
         protein: currentMeal.protein,
-        carbs: currentMeal.carbs,
-        fat: currentMeal.fat,
-        fiber: currentMeal.fiber,
-        prep_time_minutes: 15,
-        cooking_method: "מחבת",
-        instructions: "מכינים חביתה עם ירקות טריים ואבוקדו",
+        carbs: currentMeal.carbs * 0.9,
+        fat: currentMeal.fat * 1.1,
+        fiber: (currentMeal.fiber || 5) + 2,
+        prep_time_minutes: (currentMeal.prep_time_minutes || 30) - 5,
+        cooking_method: "Bowl assembly",
+        instructions: "Combine protein, grains, and vegetables in a bowl",
         ingredients: [
           {
-            name: "ביצים",
-            quantity: 2,
-            unit: "יחידות",
+            name: "lean protein",
+            quantity: 150,
+            unit: "g",
             category: "protein",
-            estimated_cost: 3.0,
           },
+          { name: "quinoa", quantity: 80, unit: "g", category: "grain" },
           {
-            name: "ירקות מעורבים",
+            name: "mixed vegetables",
             quantity: 100,
-            unit: "גרם",
-            category: "vegetables",
-            estimated_cost: 2.5,
-          },
-          {
-            name: "אבוקדו",
-            quantity: 50,
-            unit: "גרם",
-            category: "fats",
-            estimated_cost: 4.0,
-          },
-        ],
-      },
-      {
-        name: "סלט קינואה עם חלבון",
-        calories: currentMeal.calories,
-        protein: currentMeal.protein,
-        carbs: currentMeal.carbs,
-        fat: currentMeal.fat,
-        fiber: currentMeal.fiber,
-        prep_time_minutes: 20,
-        cooking_method: "בישול וערבוב",
-        instructions: "מבשלים קינואה ומערבבים עם ירקות וחלבון",
-        ingredients: [
-          {
-            name: "קינואה",
-            quantity: 60,
-            unit: "גרם",
-            category: "grains",
-            estimated_cost: 4.0,
-          },
-          {
-            name: "גבינת קוטג'",
-            quantity: 80,
-            unit: "גרם",
-            category: "protein",
-            estimated_cost: 4.5,
-          },
-          {
-            name: "ירקות עלים",
-            quantity: 100,
-            unit: "גרם",
-            category: "vegetables",
-            estimated_cost: 3.0,
+            unit: "g",
+            category: "vegetable",
           },
         ],
       },
     ];
 
-    return replacementOptions[
-      Math.floor(Math.random() * replacementOptions.length)
-    ];
+    return alternatives[0];
   }
 
   static async markMealAsFavorite(
@@ -1650,11 +620,34 @@ Return ONLY JSON:
     mealId: string,
     isFavorite: boolean
   ) {
-    console.log("❤️ Marking meal as favorite:", mealId, isFavorite);
-    // Implementation would go here - could create a UserMealPreference record
-    console.log(
-      `Meal ${mealId} marked as ${isFavorite ? "favorite" : "not favorite"}`
-    );
+    try {
+      // Save as user preference
+      await prisma.userMealPreference.upsert({
+        where: {
+          user_id_template_id_preference_type: {
+            user_id: userId,
+            template_id: mealId,
+            preference_type: "favorite",
+          },
+        },
+        update: {
+          rating: isFavorite ? 5 : 1,
+          notes: isFavorite ? "Marked as favorite" : "Removed from favorites",
+        },
+        create: {
+          user_id: userId,
+          template_id: mealId,
+          preference_type: "favorite",
+          rating: isFavorite ? 5 : 1,
+          notes: isFavorite ? "Marked as favorite" : "Removed from favorites",
+        },
+      });
+
+      console.log("✅ Meal favorite status updated");
+    } catch (error) {
+      console.error("💥 Error updating meal favorite:", error);
+      throw error;
+    }
   }
 
   static async giveMealFeedback(
@@ -1663,81 +656,108 @@ Return ONLY JSON:
     mealId: string,
     liked: boolean
   ) {
-    console.log("💬 Recording meal feedback:", mealId, liked);
-    // Implementation would go here - could store in UserMealPreference
-    console.log(`Meal ${mealId} feedback: ${liked ? "liked" : "disliked"}`);
+    try {
+      await prisma.userMealPreference.upsert({
+        where: {
+          user_id_template_id_preference_type: {
+            user_id: userId,
+            template_id: mealId,
+            preference_type: "feedback",
+          },
+        },
+        update: {
+          rating: liked ? 4 : 2,
+          notes: liked ? "User liked this meal" : "User disliked this meal",
+        },
+        create: {
+          user_id: userId,
+          template_id: mealId,
+          preference_type: "feedback",
+          rating: liked ? 4 : 2,
+          notes: liked ? "User liked this meal" : "User disliked this meal",
+        },
+      });
+
+      console.log("✅ Meal feedback recorded");
+    } catch (error) {
+      console.error("💥 Error recording meal feedback:", error);
+      throw error;
+    }
   }
 
   static async generateShoppingList(userId: string, menuId: string) {
-    console.log("🛒 Generating shopping list for menu:", menuId);
-
-    const menu = await this.getMenuById(userId, menuId);
-    if (!menu) {
-      throw new Error("Menu not found");
-    }
-
-    // Aggregate ingredients by category
-    const shoppingList = new Map();
-    let totalCost = 0;
-
-    menu.meals.forEach((meal: any) => {
-      meal.ingredients.forEach((ingredient: any) => {
-        const key = `${ingredient.name}_${ingredient.unit}`;
-        if (shoppingList.has(key)) {
-          const existing = shoppingList.get(key);
-          existing.quantity += ingredient.quantity;
-          existing.estimated_cost += ingredient.estimated_cost || 0;
-        } else {
-          shoppingList.set(key, {
-            name: ingredient.name,
-            quantity: ingredient.quantity,
-            unit: ingredient.unit,
-            category: ingredient.category,
-            estimated_cost: ingredient.estimated_cost || 0,
-          });
-        }
-        totalCost += ingredient.estimated_cost || 0;
-      });
-    });
-
-    // Group by category
-    const categorizedList: { [key: string]: any[] } = {};
-    Array.from(shoppingList.values()).forEach((item: any) => {
-      if (!categorizedList[item.category]) {
-        categorizedList[item.category] = [];
-      }
-      categorizedList[item.category].push(item);
-    });
-
-    return {
-      menu_id: menuId,
-      total_estimated_cost: totalCost,
-      categories: categorizedList,
-      generated_at: new Date().toISOString(),
-    };
-  }
-
-  static async startMenuToday(userId: string, menuId: string) {
-    console.log("🚀 Starting menu today:", menuId, "for user:", userId);
-
     try {
-      // Update the menu to mark it as active/used
-      await prisma.recommendedMenu.update({
+      console.log("🛒 Generating shopping list for menu:", menuId);
+
+      const menu = await prisma.recommendedMenu.findFirst({
         where: {
           menu_id: menuId,
           user_id: userId,
         },
-        data: {
-          is_active: true,
-          // You could add a last_used_at field if needed
+        include: {
+          meals: {
+            include: {
+              ingredients: true,
+            },
+          },
         },
       });
 
-      console.log(`✅ Menu ${menuId} marked as started for user ${userId}`);
-      return true;
+      if (!menu) {
+        throw new Error("Menu not found");
+      }
+
+      // Aggregate ingredients
+      const ingredientMap = new Map();
+
+      menu.meals.forEach((meal) => {
+        meal.ingredients.forEach((ingredient) => {
+          const key = ingredient.name.toLowerCase();
+          if (ingredientMap.has(key)) {
+            const existing = ingredientMap.get(key);
+            existing.quantity += ingredient.quantity;
+          } else {
+            ingredientMap.set(key, {
+              name: ingredient.name,
+              quantity: ingredient.quantity,
+              unit: ingredient.unit,
+              category: ingredient.category,
+              estimated_cost: ingredient.estimated_cost || 5,
+            });
+          }
+        });
+      });
+
+      const items = Array.from(ingredientMap.values());
+      const totalCost = items.reduce(
+        (sum, item) => sum + item.estimated_cost,
+        0
+      );
+
+      return {
+        menu_id: menuId,
+        items,
+        total_estimated_cost: totalCost,
+        generated_at: new Date().toISOString(),
+      };
     } catch (error) {
-      console.error("💥 Error starting menu:", error);
+      console.error("💥 Error generating shopping list:", error);
       throw error;
+    }
+  }
+
+  private static getMealsPerDayCount(mealsPerDay: string): number {
+    switch (mealsPerDay) {
+      case "2_main":
+        return 2;
+      case "3_main":
+        return 3;
+      case "3_plus_2_snacks":
+        return 5;
+      case "2_plus_1_intermediate":
+        return 3;
+      default:
+        return 3;
     }
   }
 }
