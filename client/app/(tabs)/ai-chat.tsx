@@ -717,7 +717,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
-    elevation: 4,
   },
   profileHeader: {
     flexDirection: "row",
@@ -827,7 +826,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 2,
   },
   userBubble: {
     backgroundColor: "#16A085",
@@ -885,7 +883,8 @@ const styles = StyleSheet.create({
   suggestionsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
+    justifyContent: "space-between",
+    gap: 6,
   },
   suggestionButton: {
     backgroundColor: "#E8F8F5",
@@ -919,7 +918,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 2,
   },
   typingText: {
     fontSize: 14,

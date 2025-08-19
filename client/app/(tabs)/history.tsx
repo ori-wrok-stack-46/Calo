@@ -1750,7 +1750,8 @@ const styles = StyleSheet.create({
   nutritionGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
+    justifyContent: "space-between",
+    gap: 6,
   },
 
   nutritionCard: {
@@ -1959,7 +1960,8 @@ const styles = StyleSheet.create({
   categoryGridEnhanced: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
+    justifyContent: "space-between",
+    gap: 6,
   },
 
   categoryChipEnhanced: {

@@ -134,9 +134,7 @@ const HomeScreen = React.memo(() => {
   const [isDataLoading, setIsDataLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [waterCups, setWaterCups] = useState(0);
-  const [waterLoading, setWaterLoading] = useState(false);
   const [language, setLanguage] = useState<"he" | "en">("he");
-  const [pendingWaterRequests, setPendingWaterRequests] = useState(0);
   const [waterSyncErrors, setWaterSyncErrors] = useState<string[]>([]);
   const [waterSyncInProgress, setWaterSyncInProgress] = useState(false);
   const [dataError, setDataError] = useState<string | null>(null);
@@ -222,89 +220,6 @@ const HomeScreen = React.memo(() => {
     }));
   }, [processedMealsData.dailyTotals]);
 
-  // Optimized user stats loading with better error handling
-  const loadUserStats = useCallback(async () => {
-    if (!user?.user_id || userStatsLoading) return;
-
-    setUserStatsLoading(true);
-    setUserStatsError(null);
-
-    const now = Date.now();
-    const CACHE_DURATION = 2 * 60 * 1000; // 2 minutes cache
-
-    if (now - lastDataLoadRef.current < CACHE_DURATION) {
-      setUserStatsLoading(false);
-      return;
-    }
-
-    // Cancel previous request if still pending
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-
-    abortControllerRef.current = new AbortController();
-
-    try {
-      // Try multiple endpoints to find the working one
-      let response;
-
-      try { getStatistics
-        response = await api.get(`/user/statistics`, {
-          signal: abortControllerRef.current.signal,
-          timeout: 8000,
-        });
-      } catch (error: any) {
-        console.log("Trying alternative endpoint...");
-        response = await api.get(`/statistics`, {
-          signal: abortControllerRef.current.signal,
-          timeout: 8000,
-        });
-      }
-
-      if (response?.data?.success) {
-        const stats = response.data.data;
-        const summaryStats: UserStats = {
-          totalMeals: stats.totalMeals || 0,
-          totalCalories: stats.totalCalories || 0,
-          avgCaloriesPerDay: stats.avgCaloriesPerDay || 0,
-          streakDays: stats.streakDays || 0,
-          xp: stats.xp || 0,
-          level: stats.level || 1,
-          bestStreak: stats.bestStreak || 0,
-        };
-        setUserStats(summaryStats);
-        lastDataLoadRef.current = now;
-      } else {
-        throw new Error("Invalid API response");
-      }
-    } catch (error: any) {
-      if (error.name === "AbortError") {
-        console.log("Request aborted");
-        return;
-      }
-
-      console.error("Error loading user stats:", error);
-
-      // Set fallback stats instead of showing error
-      setUserStats({
-        totalMeals: processedMealsData.recentMeals.length,
-        totalCalories: processedMealsData.dailyTotals.calories,
-        avgCaloriesPerDay: processedMealsData.dailyTotals.calories,
-        streakDays: 0,
-        xp: 0,
-        level: 1,
-        bestStreak: 0,
-      });
-
-      setUserStatsError(
-        "Unable to load stats from server. Showing local data."
-      );
-    } finally {
-      abortControllerRef.current = null;
-      setUserStatsLoading(false);
-    }
-  }, [user?.user_id, userStatsLoading, processedMealsData]);
-
   // Optimized data loading with debouncing
   const loadAllData = useCallback(
     async (force = false) => {
@@ -326,14 +241,10 @@ const HomeScreen = React.memo(() => {
           setTimeout(() => reject(new Error("Request timeout")), 15000)
         );
 
-        const [statsResult, mealsResult] = await Promise.allSettled([
-          Promise.race([loadUserStats(), timeoutPromise]),
+        const [mealsResult] = await Promise.allSettled([
           Promise.race([dispatch(fetchMeals()).unwrap(), timeoutPromise]),
         ]);
 
-        if (statsResult.status === "rejected") {
-          console.error("Stats loading failed:", statsResult.reason);
-        }
         if (mealsResult.status === "rejected") {
           console.error("Meals loading failed:", mealsResult.reason);
           setDataError("Failed to load meals data");
@@ -352,7 +263,7 @@ const HomeScreen = React.memo(() => {
         isLoadingRef.current = false;
       }
     },
-    [user?.user_id, loadUserStats, dispatch, retryCount]
+    [user?.user_id, dispatch, retryCount]
   );
 
   // Optimized refresh with proper state management
@@ -691,12 +602,9 @@ const HomeScreen = React.memo(() => {
                     <Text style={styles.statsLabel}>
                       {t("home.total_xp") || "Total XP"}
                     </Text>
-                    <Text style={styles.statsValue}>
-                      {userStats.xp?.toLocaleString() || "0"}
-                    </Text>
+                    <Text style={styles.statsValue}>{user?.current_xp}</Text>
                   </View>
                 </View>
-            {user?.current_xp}
                 <View style={styles.statsLevelContainer}>
                   <View style={styles.statsIconWrapper}>
                     <Trophy size={24} color="#FFD700" fill="#FFD700" />
@@ -705,9 +613,7 @@ const HomeScreen = React.memo(() => {
                     <Text style={styles.statsLabel}>
                       {t("home.level") || "Level"}
                     </Text>
-                    <Text style={styles.statsValue}>
-                      {userStats.level || 1}
-                    </Text>
+                    <Text style={styles.statsValue}>{user?.level || 1}</Text>
                   </View>
                 </View>
               </View>
@@ -726,21 +632,7 @@ const HomeScreen = React.memo(() => {
                       {t("home.streak") || "Streak"}
                     </Text>
                     <Text style={styles.statsSmallValue}>
-                      {userStats.streakDays || 0} days
-                    </Text>
-                  </View>
-                </View>
-
-                <View style={styles.statsItem}>
-                  <View style={styles.statsIconWrapper}>
-                    <Target size={20} color="#4ECDC4" />
-                  </View>
-                  <View style={styles.statsTextContainer}>
-                    <Text style={styles.statsSmallLabel}>
-                      {t("home.total_meals") || "Total Meals"}
-                    </Text>
-                    <Text style={styles.statsSmallValue}>
-                      {userStats.totalMeals?.toLocaleString() || "0"}
+                      {user?.current_streak || 0} days
                     </Text>
                   </View>
                 </View>
@@ -754,7 +646,7 @@ const HomeScreen = React.memo(() => {
                       {t("home.best_streak") || "Best"}
                     </Text>
                     <Text style={styles.statsSmallValue}>
-                      {userStats.bestStreak || 0} days
+                      {user?.best_streak || 0} days
                     </Text>
                   </View>
                 </View>
@@ -1076,7 +968,7 @@ const HomeScreen = React.memo(() => {
                   </View>
                   <View style={styles.statusStreak}>
                     <Text style={styles.statusStreakNumber}>
-                      {userStats.streakDays || 0}
+                      {user?.current_streak || 0}
                     </Text>
                     <Text style={styles.statusStreakLabel}>
                       {t("home.days") || "days"}

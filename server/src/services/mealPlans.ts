@@ -852,7 +852,7 @@ export class MealPlanService {
     planId: string,
     dayOfWeek: number,
     mealTiming: string,
-    mealOrder: number,
+    mealOrder: number = 0,
     preferences: any = {}
   ) {
     try {
@@ -864,7 +864,7 @@ export class MealPlanService {
         preferences,
       });
 
-      // Get the current meal plan
+      // Get the meal plan with schedules
       const mealPlan = await prisma.userMealPlan.findFirst({
         where: {
           plan_id: planId,
@@ -885,7 +885,87 @@ export class MealPlanService {
       });
 
       if (!mealPlan) {
-        throw new Error("Meal plan not found");
+        console.log("🔍 Meal plan not found, checking recommended menu...");
+
+        const recommendedMenu = await prisma.recommendedMenu.findFirst({
+          where: {
+            menu_id: planId,
+            user_id: userId,
+          },
+          include: {
+            meals: {
+              where: {
+                day_number: dayOfWeek + 1,
+                meal_type: mealTiming as any,
+              },
+            },
+          },
+        });
+
+        if (!recommendedMenu) {
+          throw new Error("Meal plan not found");
+        }
+
+        // Handle recommended menu replacement
+        const currentMeal =
+          recommendedMenu.meals[mealOrder] || recommendedMenu.meals[0];
+        if (!currentMeal) {
+          throw new Error(
+            `No meal found for day ${dayOfWeek + 1}, timing ${mealTiming}`
+          );
+        }
+
+        console.log(
+          "✅ Found recommended menu meal to replace:",
+          currentMeal.name
+        );
+
+        // Generate AI replacement meal for recommended menu
+        const userQuestionnaire = await prisma.userQuestionnaire.findFirst({
+          where: { user_id: userId },
+          orderBy: { date_completed: "desc" },
+        });
+
+        const newMealData = await this.generateAIReplacementMeal(
+          {
+            name: currentMeal.name,
+            meal_timing: currentMeal.meal_type,
+            dietary_category: "BALANCED",
+            calories: currentMeal.calories,
+            protein_g: currentMeal.protein,
+            carbs_g: currentMeal.carbs,
+            fats_g: currentMeal.fat,
+          },
+          preferences,
+          userQuestionnaire,
+          userId
+        );
+
+        // Update the recommended meal
+        await prisma.recommendedMeal.update({
+          where: { meal_id: currentMeal.meal_id },
+          data: {
+            name: newMealData.name,
+            calories: newMealData.calories,
+            protein: newMealData.protein_g,
+            carbs: newMealData.carbs_g,
+            fat: newMealData.fats_g,
+            fiber: newMealData.fiber_g,
+            instructions: newMealData.description,
+            prep_time_minutes: newMealData.prep_time_minutes,
+          },
+        });
+
+        return {
+          success: true,
+          data: newMealData,
+        };
+      }
+
+      if (!mealPlan.schedules || mealPlan.schedules.length === 0) {
+        throw new Error(
+          `No meals found for day ${dayOfWeek}, timing ${mealTiming}`
+        );
       }
 
       // Find the specific meal or use the first one if meal_order is 0 or not specified
@@ -916,7 +996,7 @@ export class MealPlanService {
         orderBy: { date_completed: "desc" },
       });
 
-      // Generate a new meal template using OpenAI
+      // Generate a new meal template using AI
       const newTemplate = await this.generateAIReplacementMeal(
         currentSchedule.template,
         preferences,
@@ -924,7 +1004,7 @@ export class MealPlanService {
         userId
       );
 
-      // Create new meal template
+      // Create new meal template in database
       const createdTemplate = await prisma.mealTemplate.create({
         data: newTemplate,
       });
@@ -942,24 +1022,27 @@ export class MealPlanService {
       console.log("✅ AI-powered meal replacement completed");
 
       return {
-        template_id: createdTemplate.template_id,
-        name: createdTemplate.name,
-        description: createdTemplate.description,
-        meal_timing: createdTemplate.meal_timing,
-        dietary_category: createdTemplate.dietary_category,
-        prep_time_minutes: createdTemplate.prep_time_minutes,
-        difficulty_level: createdTemplate.difficulty_level,
-        calories: createdTemplate.calories,
-        protein_g: createdTemplate.protein_g,
-        carbs_g: createdTemplate.carbs_g,
-        fats_g: createdTemplate.fats_g,
-        fiber_g: createdTemplate.fiber_g,
-        sugar_g: createdTemplate.sugar_g,
-        sodium_mg: createdTemplate.sodium_mg,
-        ingredients_json: createdTemplate.ingredients_json,
-        instructions_json: createdTemplate.instructions_json,
-        allergens_json: createdTemplate.allergens_json,
-        image_url: createdTemplate.image_url,
+        success: true,
+        data: {
+          template_id: createdTemplate.template_id,
+          name: createdTemplate.name,
+          description: createdTemplate.description,
+          meal_timing: createdTemplate.meal_timing,
+          dietary_category: createdTemplate.dietary_category,
+          prep_time_minutes: createdTemplate.prep_time_minutes,
+          difficulty_level: createdTemplate.difficulty_level,
+          calories: createdTemplate.calories,
+          protein_g: createdTemplate.protein_g,
+          carbs_g: createdTemplate.carbs_g,
+          fats_g: createdTemplate.fats_g,
+          fiber_g: createdTemplate.fiber_g,
+          sugar_g: createdTemplate.sugar_g,
+          sodium_mg: createdTemplate.sodium_mg,
+          ingredients_json: createdTemplate.ingredients_json,
+          instructions_json: createdTemplate.instructions_json,
+          allergens_json: createdTemplate.allergens_json,
+          image_url: createdTemplate.image_url,
+        },
       };
     } catch (error) {
       console.error("💥 Error replacing meal in plan:", error);

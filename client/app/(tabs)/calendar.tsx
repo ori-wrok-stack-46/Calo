@@ -1405,8 +1405,9 @@ const styles = StyleSheet.create({
   },
   statsGrid: {
     flexDirection: "row",
-    justifyContent: "space-around",
-    marginBottom: 15,
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    gap: 6,
   },
   statItem: {
     alignItems: "center",

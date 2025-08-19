@@ -1,7 +1,7 @@
-import { Router } from "express";
+import { Router, Response } from "express";
 import { authenticateToken, AuthRequest } from "../middleware/auth";
-import { MealPlanService } from "../services/mealPlans";
 import { prisma } from "../lib/database";
+import { MealPlanService } from "../services/mealPlans";
 import { MealTiming } from "@prisma/client";
 
 const router = Router();
@@ -316,294 +316,245 @@ router.get("/current", authenticateToken, async (req: AuthRequest, res) => {
     let hasActivePlan = false;
     let startDate: Date = new Date();
     let daysCount: number = 7;
+    let planData: any = null;
 
-    // First, try to get active meal plan
+    // First try to get active meal plan
     if (user?.active_meal_plan_id) {
       console.log("🔍 Checking active meal plan:", user.active_meal_plan_id);
-      try {
-        const activePlan = await prisma.userMealPlan.findFirst({
-          where: {
-            plan_id: user.active_meal_plan_id,
-            user_id: user_id,
-            is_active: true,
-          },
-          include: {
-            schedules: {
-              include: {
-                template: true,
-              },
-              orderBy: [
-                { day_of_week: "asc" },
-                { meal_timing: "asc" },
-                { meal_order: "asc" },
-              ],
+
+      const activeMealPlan = await prisma.userMealPlan.findFirst({
+        where: {
+          plan_id: user.active_meal_plan_id,
+          user_id: user_id,
+        },
+        include: {
+          schedules: {
+            include: {
+              template: true,
             },
+            orderBy: [{ day_of_week: "asc" }, { meal_timing: "asc" }],
           },
+        },
+      });
+
+      if (activeMealPlan && activeMealPlan.schedules?.length > 0) {
+        console.log(
+          "✅ Active meal plan found with",
+          activeMealPlan.schedules.length,
+          "meals"
+        );
+
+        const dayNames = [
+          "Sunday",
+          "Monday",
+          "Tuesday",
+          "Wednesday",
+          "Thursday",
+          "Friday",
+          "Saturday",
+        ];
+
+        weeklyPlan = {};
+        activeMealPlan.schedules.forEach((schedule) => {
+          const dayName = dayNames[schedule.day_of_week];
+          const timing = schedule.meal_timing;
+
+          if (!weeklyPlan[dayName]) {
+            weeklyPlan[dayName] = {};
+          }
+          if (!weeklyPlan[dayName][timing]) {
+            weeklyPlan[dayName][timing] = [];
+          }
+
+          weeklyPlan[dayName][timing].push({
+            template_id: schedule.template.template_id,
+            name: schedule.template.name,
+            description: schedule.template.description,
+            meal_timing: timing,
+            dietary_category: schedule.template.dietary_category,
+            prep_time_minutes: schedule.template.prep_time_minutes,
+            difficulty_level: schedule.template.difficulty_level,
+            calories: schedule.template.calories,
+            protein_g: schedule.template.protein_g,
+            carbs_g: schedule.template.carbs_g,
+            fats_g: schedule.template.fats_g,
+            fiber_g: schedule.template.fiber_g,
+            sugar_g: schedule.template.sugar_g,
+            sodium_mg: schedule.template.sodium_mg,
+            ingredients: schedule.template.ingredients_json,
+            instructions: schedule.template.instructions_json,
+            allergens: schedule.template.allergens_json,
+            image_url: schedule.template.image_url,
+            user_rating: 0,
+            user_comments: "",
+            is_favorite: false,
+          });
         });
 
-        if (activePlan && activePlan.schedules.length > 0) {
-          // Convert to weekly plan format
-          const dayNames = [
-            "Sunday",
-            "Monday",
-            "Tuesday",
-            "Wednesday",
-            "Thursday",
-            "Friday",
-            "Saturday",
-          ];
+        planId = activeMealPlan.plan_id;
+        planName = activeMealPlan.name;
+        startDate = activeMealPlan.start_date;
+        daysCount = activeMealPlan.rotation_frequency_days;
+        hasActivePlan = true;
 
-          weeklyPlan = {};
-          activePlan.schedules.forEach((schedule) => {
-            const dayName = dayNames[schedule.day_of_week];
-            const timing = schedule.meal_timing;
+        const daysDiff = Math.floor(
+          (new Date().getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
+        );
 
-            if (!weeklyPlan[dayName]) {
-              weeklyPlan[dayName] = {};
-            }
-            if (!weeklyPlan[dayName][timing]) {
-              weeklyPlan[dayName][timing] = [];
-            }
-
-            weeklyPlan[dayName][timing].push({
-              template_id: schedule.template.template_id,
-              name: schedule.template.name,
-              description: schedule.template.description || "",
-              meal_timing: timing,
-              dietary_category:
-                schedule.template.dietary_category || "BALANCED",
-              prep_time_minutes: schedule.template.prep_time_minutes || 30,
-              difficulty_level: schedule.template.difficulty_level || 2,
-              calories: schedule.template.calories,
-              protein_g: schedule.template.protein_g,
-              carbs_g: schedule.template.carbs_g,
-              fats_g: schedule.template.fats_g,
-              fiber_g: schedule.template.fiber_g || 0,
-              sugar_g: schedule.template.sugar_g || 0,
-              sodium_mg: schedule.template.sodium_mg || 0,
-              ingredients: Array.isArray(schedule.template.ingredients_json)
-                ? schedule.template.ingredients_json
-                : [],
-              instructions: Array.isArray(schedule.template.instructions_json)
-                ? schedule.template.instructions_json
-                : [],
-              allergens: Array.isArray(schedule.template.allergens_json)
-                ? schedule.template.allergens_json
-                : [],
-              image_url: schedule.template.image_url,
-              user_rating: 0,
-              user_comments: "",
-              is_favorite: false,
-            });
-          });
-
-          planId = activePlan.plan_id;
-          planName = activePlan.name;
-          startDate = activePlan.start_date || new Date();
-          daysCount = activePlan.rotation_frequency_days || 7;
-          hasActivePlan = true;
-          console.log(
-            "✅ Active meal plan found with",
-            Object.keys(weeklyPlan).length,
-            "days"
-          );
-        }
-      } catch (error) {
-        console.log("⚠️ Error fetching active meal plan:", error);
+        planData = {
+          plan_id: activeMealPlan.plan_id,
+          name: activeMealPlan.name,
+          plan_type: activeMealPlan.plan_type,
+          meals_per_day: activeMealPlan.meals_per_day,
+          snacks_per_day: activeMealPlan.snacks_per_day,
+          rotation_frequency_days: activeMealPlan.rotation_frequency_days,
+          target_calories_daily: activeMealPlan.target_calories_daily,
+          target_protein_daily: activeMealPlan.target_protein_daily,
+          target_carbs_daily: activeMealPlan.target_carbs_daily,
+          target_fats_daily: activeMealPlan.target_fats_daily,
+          start_date: activeMealPlan.start_date,
+          end_date: activeMealPlan.end_date,
+          is_active: activeMealPlan.is_active,
+          current_day: (daysDiff % activeMealPlan.rotation_frequency_days) + 1,
+          progress_percentage: Math.round(
+            (daysDiff / activeMealPlan.rotation_frequency_days) * 100
+          ),
+          weekly_plan: weeklyPlan,
+        };
+      } else {
+        console.log("🧹 Cleaning up invalid meal plan reference");
+        await prisma.user.update({
+          where: { user_id },
+          data: { active_meal_plan_id: null },
+        });
       }
     }
 
-    // If no meal plan data, try recommended menu
+    // If no meal plan, check for recommended menu
     if (!hasActivePlan && user?.active_menu_id) {
       console.log("🔍 Checking active recommended menu:", user.active_menu_id);
-      try {
-        const recommendedMenu = await prisma.recommendedMenu.findFirst({
-          where: {
-            menu_id: user.active_menu_id,
-            user_id: user_id,
-          },
-          include: {
-            meals: {
-              include: {
-                ingredients: true,
-              },
-              orderBy: [{ day_number: "asc" }, { meal_type: "asc" }],
+
+      const recommendedMenu = await prisma.recommendedMenu.findFirst({
+        where: {
+          menu_id: user.active_menu_id,
+          user_id: user_id,
+        },
+        include: {
+          meals: {
+            include: {
+              ingredients: true,
             },
+            orderBy: [{ day_number: "asc" }, { meal_type: "asc" }],
           },
-        });
+        },
+      });
 
-        if (recommendedMenu && recommendedMenu.meals.length > 0) {
-          // Convert recommended menu to weekly plan format
-          const dayNames = [
-            "Sunday",
-            "Monday",
-            "Tuesday",
-            "Wednesday",
-            "Thursday",
-            "Friday",
-            "Saturday",
-          ];
-          weeklyPlan = {};
-
-          recommendedMenu.meals.forEach((meal) => {
-            const dayName = dayNames[(meal.day_number - 1) % 7];
-            const timing = meal.meal_type;
-
-            if (!weeklyPlan[dayName]) {
-              weeklyPlan[dayName] = {};
-            }
-            if (!weeklyPlan[dayName][timing]) {
-              weeklyPlan[dayName][timing] = [];
-            }
-
-            weeklyPlan[dayName][timing].push({
-              template_id: meal.meal_id,
-              name: meal.name,
-              description: meal.instructions || "",
-              meal_timing: timing,
-              dietary_category: "BALANCED",
-              prep_time_minutes: meal.prep_time_minutes || 30,
-              difficulty_level: 2,
-              calories: meal.calories,
-              protein_g: meal.protein,
-              carbs_g: meal.carbs,
-              fats_g: meal.fat,
-              fiber_g: meal.fiber || 0,
-              sugar_g: 0,
-              sodium_mg: 0,
-              ingredients: meal.ingredients?.map((ing) => ing.name) || [],
-              instructions:
-                typeof meal.instructions === "string"
-                  ? [meal.instructions]
-                  : meal.instructions || [],
-              allergens: [],
-              image_url: null,
-              user_rating: 0,
-              user_comments: "",
-              is_favorite: false,
-            });
-          });
-
-          planId = user.active_menu_id;
-          planName = recommendedMenu.title;
-          // For recommended menus, we don't have a specific start date or days_count in the same way.
-          // We'll use today as a reference and assume a default 7-day cycle for progression calculation.
-          startDate = new Date();
-          daysCount = 7;
-          hasActivePlan = true;
-          console.log(
-            "✅ Active recommended menu found with",
-            recommendedMenu.meals.length,
-            "meals"
-          );
-        }
-      } catch (error) {
+      if (recommendedMenu && recommendedMenu.meals?.length > 0) {
         console.log(
-          "⚠️ Active recommended menu not found or has no meals:",
-          error
+          "✅ Active recommended menu found with",
+          recommendedMenu.meals.length,
+          "meals"
         );
-      }
-    }
 
-    // If still no active plan, try to get the latest recommended menu
-    if (!hasActivePlan) {
-      console.log(
-        "🔍 No active plan found, checking for latest recommended menu"
-      );
-      try {
-        const latestMenu = await prisma.recommendedMenu.findFirst({
-          where: { user_id: user_id },
-          include: {
-            meals: {
-              include: {
-                ingredients: true,
-              },
-              orderBy: [{ day_number: "asc" }, { meal_type: "asc" }],
-            },
-          },
-          orderBy: { created_at: "desc" },
+        const dayNames = [
+          "Sunday",
+          "Monday",
+          "Tuesday",
+          "Wednesday",
+          "Thursday",
+          "Friday",
+          "Saturday",
+        ];
+
+        weeklyPlan = {};
+        recommendedMenu.meals.forEach((meal) => {
+          const dayName = dayNames[(meal.day_number - 1) % 7];
+          const timing = meal.meal_type;
+
+          if (!weeklyPlan[dayName]) {
+            weeklyPlan[dayName] = {};
+          }
+          if (!weeklyPlan[dayName][timing]) {
+            weeklyPlan[dayName][timing] = [];
+          }
+
+          weeklyPlan[dayName][timing].push({
+            template_id: meal.meal_id,
+            name: meal.name,
+            description: meal.instructions || "",
+            meal_timing: timing,
+            dietary_category: "BALANCED",
+            prep_time_minutes: meal.prep_time_minutes || 30,
+            difficulty_level: 2,
+            calories: meal.calories,
+            protein_g: meal.protein,
+            carbs_g: meal.carbs,
+            fats_g: meal.fat,
+            fiber_g: meal.fiber || 0,
+            sugar_g: 0,
+            sodium_mg: 0,
+            ingredients: meal.ingredients?.map((ing) => ing.name) || [],
+            instructions:
+              typeof meal.instructions === "string"
+                ? [meal.instructions]
+                : meal.instructions || [],
+            allergens: [],
+            image_url: null,
+            user_rating: 0,
+            user_comments: "",
+            is_favorite: false,
+          });
         });
 
-        if (latestMenu && latestMenu.meals.length > 0) {
-          const dayNames = [
-            "Sunday",
-            "Monday",
-            "Tuesday",
-            "Wednesday",
-            "Thursday",
-            "Friday",
-            "Saturday",
-          ];
-          weeklyPlan = {};
+        planId = user.active_menu_id;
+        planName = recommendedMenu.title;
+        startDate = new Date();
+        daysCount = 7;
+        hasActivePlan = true;
 
-          latestMenu.meals.forEach((meal) => {
-            const dayName = dayNames[(meal.day_number - 1) % 7];
-            const timing = meal.meal_type;
+        const mealsPerDay =
+          Object.values(weeklyPlan).reduce((count: number, day: any) => {
+            return (
+              count +
+              Object.values(day).reduce(
+                (dayCount: number, meals: any) =>
+                  dayCount + (Array.isArray(meals) ? meals.length : 0),
+                0
+              )
+            );
+          }, 0) / Object.keys(weeklyPlan).length;
 
-            if (!weeklyPlan[dayName]) {
-              weeklyPlan[dayName] = {};
-            }
-            if (!weeklyPlan[dayName][timing]) {
-              weeklyPlan[dayName][timing] = [];
-            }
-
-            weeklyPlan[dayName][timing].push({
-              template_id: meal.meal_id,
-              name: meal.name,
-              description: meal.instructions || "",
-              meal_timing: timing,
-              dietary_category: "BALANCED",
-              prep_time_minutes: meal.prep_time_minutes || 30,
-              difficulty_level: 2,
-              calories: meal.calories,
-              protein_g: meal.protein,
-              carbs_g: meal.carbs,
-              fats_g: meal.fat,
-              fiber_g: meal.fiber || 0,
-              sugar_g: 0,
-              sodium_mg: 0,
-              ingredients: meal.ingredients?.map((ing) => ing.name) || [],
-              instructions:
-                typeof meal.instructions === "string"
-                  ? [meal.instructions]
-                  : meal.instructions || [],
-              allergens: [],
-              image_url: null,
-              user_rating: 0,
-              user_comments: "",
-              is_favorite: false,
-            });
-          });
-
-          planId = latestMenu.menu_id;
-          planName = latestMenu.title;
-          // For latest recommended menu, use today as start date and assume 7 days cycle
-          startDate = new Date();
-          daysCount = 7;
-          hasActivePlan = true;
-
-          // Update user's active menu
-          await prisma.user.update({
-            where: { user_id },
-            data: { active_menu_id: latestMenu.menu_id },
-          });
-
-          console.log(
-            "✅ Found latest recommended menu with",
-            latestMenu.meals.length,
-            "meals"
-          );
-        }
-      } catch (error) {
-        console.log("⚠️ No recommended menus found:", error);
+        planData = {
+          plan_id: user.active_menu_id,
+          name: recommendedMenu.title,
+          plan_type: "RECOMMENDED",
+          meals_per_day: Math.round(mealsPerDay),
+          snacks_per_day: 0,
+          rotation_frequency_days: 7,
+          target_calories_daily: Math.round(recommendedMenu.total_calories / 7),
+          target_protein_daily: Math.round(
+            (recommendedMenu.total_protein || 0) / 7
+          ),
+          target_carbs_daily: Math.round(
+            (recommendedMenu.total_carbs || 0) / 7
+          ),
+          target_fats_daily: Math.round((recommendedMenu.total_fat || 0) / 7),
+          start_date: startDate.toISOString(),
+          end_date: null,
+          is_active: true,
+          current_day: 1,
+          progress_percentage: 0,
+          weekly_plan: weeklyPlan,
+        };
+      } else {
+        console.log("🧹 Cleaning up invalid menu reference");
+        await prisma.user.update({
+          where: { user_id },
+          data: { active_menu_id: null },
+        });
       }
     }
 
-    console.log("📋 Final check: hasActivePlan =", hasActivePlan);
-    console.log("📋 Plan ID:", planId);
-    console.log("📋 Weekly plan days:", Object.keys(weeklyPlan));
-
-    // Count total meals for debugging
     const totalMeals = Object.values(weeklyPlan).reduce(
       (total: number, dayMeals: any) => {
         return (
@@ -621,87 +572,29 @@ router.get("/current", authenticateToken, async (req: AuthRequest, res) => {
       0
     );
 
-    console.log("📋 Total meals in plan:", totalMeals);
+    console.log("📋 Final check: hasActivePlan =", hasActivePlan);
+    console.log("📋 Plan ID:", planId);
+    console.log("📋 Total meals:", totalMeals);
+    console.log("📋 Weekly plan structure:", Object.keys(weeklyPlan));
 
-    if (hasActivePlan && Object.keys(weeklyPlan).length > 0 && totalMeals > 0) {
-      // Get the actual plan data for proper date calculation
-      let planDetails = null;
-
-      // Try to get the actual meal plan details if it's a user meal plan
-      if (user?.active_meal_plan_id && !user?.active_menu_id) {
-        try {
-          planDetails = await prisma.userMealPlan.findFirst({
-            where: {
-              plan_id: user.active_meal_plan_id,
-              user_id: user_id,
-            },
-          });
-          if (planDetails) {
-            startDate = planDetails.start_date || new Date();
-            daysCount = planDetails.rotation_frequency_days || 7;
-          }
-        } catch (error) {
-          console.log("⚠️ Could not fetch meal plan details:", error);
-        }
-      } else if (user?.active_menu_id) {
-        // If it's a recommended menu, we already set default startDate and daysCount
-        // but fetch the menu details to get potential metadata if available
-        try {
-          planDetails = await prisma.recommendedMenu.findFirst({
-            where: {
-              menu_id: user.active_menu_id,
-              user_id: user_id,
-            },
-          });
-          if (planDetails) {
-            // No specific start_date or days_count in RecommendedMenu model for this purpose.
-            // Using defaults set earlier.
-          }
-        } catch (error) {
-          console.log("⚠️ Could not fetch recommended menu details:", error);
-        }
-      }
-
-      // Calculate the current week start based on plan start date
-      const daysSinceStart = Math.floor(
-        (new Date().getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
-      );
-      const weeksCompleted = Math.floor(daysSinceStart / 7);
-      const currentWeekStartDate = new Date(startDate);
-      currentWeekStartDate.setDate(startDate.getDate() + weeksCompleted * 7);
-
-      console.log("📅 Plan start date:", startDate.toDateString());
-      console.log("📅 Days since start:", daysSinceStart);
-      console.log(
-        "📅 Current week start:",
-        currentWeekStartDate.toDateString()
-      );
-      console.log("📅 Plan days count:", daysCount);
-
+    if (hasActivePlan && planData && totalMeals > 0) {
       res.json({
         success: true,
         hasActivePlan: true,
-        planId: planId,
-        planName: planName,
-        start_date: startDate.toISOString(),
-        days_count: daysCount,
-        target_calories_daily: planDetails?.target_calories_daily,
-        target_protein_daily: planDetails?.target_protein_daily,
-        target_carbs_daily: planDetails?.target_carbs_daily,
-        target_fats_daily: planDetails?.target_fats_daily,
-        data: weeklyPlan,
-      });
-
-      // Log additional details for debugging
-      console.log("✅ Meal plan structure:", {
-        planId: planId,
-        daysInPlan: Object.keys(weeklyPlan).length,
-        startDate: startDate.toISOString(),
-        daysSinceStart,
-        currentDayInPlan: daysSinceStart % 7,
+        planId: planData.plan_id,
+        planName: planData.name,
+        start_date: planData.start_date,
+        days_count: planData.rotation_frequency_days,
+        target_calories_daily: planData.target_calories_daily,
+        target_protein_daily: planData.target_protein_daily,
+        target_carbs_daily: planData.target_carbs_daily,
+        target_fats_daily: planData.target_fats_daily,
+        data: planData.weekly_plan,
+        current_day: planData.current_day,
+        progress_percentage: planData.progress_percentage,
       });
     } else {
-      console.log("⚠️ No active plan data found, returning empty response");
+      console.log("⚠️ No active plan data found");
       res.json({
         success: true,
         hasActivePlan: false,
@@ -1121,7 +1014,7 @@ router.post("/:planId/activate", authenticateToken, async (req, res) => {
       );
     }
 
-    // Deactivate any currently active plans
+    // Deactivate all other plans for this user
     await MealPlanService.deactivateUserPlans(user_id);
 
     // Activate the new plan
@@ -1371,13 +1264,286 @@ router.get("/:planId", authenticateToken, async (req, res) => {
     }
 
     const { planId } = req.params;
-    const weeklyPlan = await MealPlanService.getUserMealPlan(user_id, planId);
 
-    console.log("✅ Meal plan retrieved successfully");
-    res.json({
-      success: true,
-      data: weeklyPlan,
-      planId: planId,
+    // First check if it's a meal plan
+    const mealPlan = await prisma.userMealPlan.findFirst({
+      where: {
+        plan_id: planId,
+        user_id: user_id,
+      },
+      include: {
+        schedules: {
+          include: {
+            template: true,
+          },
+          orderBy: [{ day_of_week: "asc" }, { meal_timing: "asc" }],
+        },
+      },
+    });
+
+    if (mealPlan && mealPlan.schedules?.length > 0) {
+      console.log(
+        "✅ Found meal plan with",
+        mealPlan.schedules.length,
+        "scheduled meals"
+      );
+
+      // Create weekly plan starting from plan start date
+      const planStartDate = mealPlan.start_date || new Date();
+      const startDayOfWeek = planStartDate.getDay(); // 0 = Sunday, 1 = Monday, etc.
+
+      const allDayNames = [
+        "Sunday",
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+      ];
+
+      // Reorder days to start from plan start day
+      const dayNames = [
+        ...allDayNames.slice(startDayOfWeek),
+        ...allDayNames.slice(0, startDayOfWeek),
+      ];
+
+      const weeklyPlan: { [day: string]: { [timing: string]: any[] } } = {};
+
+      mealPlan.schedules.forEach((schedule) => {
+        // Map schedule day_of_week to correct day name
+        const dayName = dayNames[schedule.day_of_week];
+        const timing = schedule.meal_timing;
+
+        console.log(
+          `📅 Processing meal: ${schedule.template.name} for ${dayName} ${timing}`
+        );
+
+        if (!weeklyPlan[dayName]) {
+          weeklyPlan[dayName] = {};
+        }
+        if (!weeklyPlan[dayName][timing]) {
+          weeklyPlan[dayName][timing] = [];
+        }
+
+        // Properly parse JSON fields with fallbacks
+        let ingredients: string[] = [];
+        let instructions: string[] = [];
+        let allergens: string[] = [];
+
+        try {
+          if (schedule.template.ingredients_json) {
+            if (Array.isArray(schedule.template.ingredients_json)) {
+              ingredients = schedule.template.ingredients_json as string[];
+            } else if (typeof schedule.template.ingredients_json === "string") {
+              ingredients = JSON.parse(schedule.template.ingredients_json);
+            }
+          }
+        } catch (e) {
+          console.warn(
+            "Failed to parse ingredients_json for template:",
+            schedule.template.template_id
+          );
+          ingredients = ["Mixed ingredients"];
+        }
+
+        try {
+          if (schedule.template.instructions_json) {
+            if (Array.isArray(schedule.template.instructions_json)) {
+              instructions = schedule.template.instructions_json as string[];
+            } else if (
+              typeof schedule.template.instructions_json === "string"
+            ) {
+              instructions = JSON.parse(schedule.template.instructions_json);
+            }
+          }
+        } catch (e) {
+          console.warn(
+            "Failed to parse instructions_json for template:",
+            schedule.template.template_id
+          );
+          instructions = ["Prepare according to recipe"];
+        }
+
+        try {
+          if (schedule.template.allergens_json) {
+            if (Array.isArray(schedule.template.allergens_json)) {
+              allergens = schedule.template.allergens_json as string[];
+            } else if (typeof schedule.template.allergens_json === "string") {
+              allergens = JSON.parse(schedule.template.allergens_json);
+            }
+          }
+        } catch (e) {
+          console.warn(
+            "Failed to parse allergens_json for template:",
+            schedule.template.template_id
+          );
+          allergens = [];
+        }
+
+        weeklyPlan[dayName][timing].push({
+          template_id: schedule.template.template_id,
+          name: schedule.template.name,
+          description: schedule.template.description || "",
+          meal_timing: timing,
+          dietary_category: schedule.template.dietary_category || "BALANCED",
+          prep_time_minutes: schedule.template.prep_time_minutes || 30,
+          difficulty_level: schedule.template.difficulty_level || 2,
+          calories: schedule.template.calories || 0,
+          protein_g: schedule.template.protein_g || 0,
+          carbs_g: schedule.template.carbs_g || 0,
+          fats_g: schedule.template.fats_g || 0,
+          fiber_g: schedule.template.fiber_g || 0,
+          sugar_g: schedule.template.sugar_g || 0,
+          sodium_mg: schedule.template.sodium_mg || 0,
+          ingredients: ingredients,
+          instructions: instructions,
+          allergens: allergens,
+          image_url: schedule.template.image_url || null,
+          user_rating: 0,
+          user_comments: "",
+          is_favorite: false,
+        });
+      });
+
+      console.log(
+        "📊 Weekly plan structure created with",
+        Object.keys(weeklyPlan).length,
+        "days"
+      );
+      Object.entries(weeklyPlan).forEach(([day, timings]) => {
+        const mealCount = Object.values(timings).reduce(
+          (count, meals) => count + meals.length,
+          0
+        );
+        console.log(`  📅 ${day}: ${mealCount} meals`);
+      });
+
+      return res.json({
+        success: true,
+        data: weeklyPlan,
+        planId: planId,
+        planName: mealPlan.name,
+        start_date: planStartDate.toISOString(),
+        days_count: mealPlan.rotation_frequency_days,
+        target_calories_daily: mealPlan.target_calories_daily,
+        target_protein_daily: mealPlan.target_protein_daily,
+        target_carbs_daily: mealPlan.target_carbs_daily,
+        target_fats_daily: mealPlan.target_fats_daily,
+      });
+    }
+
+    // If not a meal plan, check if it's a recommended menu
+    const recommendedMenu = await prisma.recommendedMenu.findFirst({
+      where: {
+        menu_id: planId,
+        user_id: user_id,
+      },
+      include: {
+        meals: {
+          include: {
+            ingredients: true,
+          },
+          orderBy: [{ day_number: "asc" }, { meal_type: "asc" }],
+        },
+      },
+    });
+
+    if (recommendedMenu && recommendedMenu.meals?.length > 0) {
+      console.log(
+        "✅ Found recommended menu with",
+        recommendedMenu.meals.length,
+        "meals"
+      );
+
+      const dayNames = [
+        "Sunday",
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
+      ];
+
+      const weeklyPlan: { [day: string]: { [timing: string]: any[] } } = {};
+
+      recommendedMenu.meals.forEach((meal) => {
+        const dayName = dayNames[(meal.day_number - 1) % 7];
+        const timing = meal.meal_type;
+
+        console.log(
+          `📅 Processing recommended meal: ${meal.name} for ${dayName} ${timing}`
+        );
+
+        if (!weeklyPlan[dayName]) {
+          weeklyPlan[dayName] = {};
+        }
+        if (!weeklyPlan[dayName][timing]) {
+          weeklyPlan[dayName][timing] = [];
+        }
+
+        weeklyPlan[dayName][timing].push({
+          template_id: meal.meal_id,
+          name: meal.name,
+          description: meal.instructions || "",
+          meal_timing: timing,
+          dietary_category: "BALANCED",
+          prep_time_minutes: meal.prep_time_minutes || 30,
+          difficulty_level: 2,
+          calories: meal.calories || 0,
+          protein_g: meal.protein || 0,
+          carbs_g: meal.carbs || 0,
+          fats_g: meal.fat || 0,
+          fiber_g: meal.fiber || 0,
+          sugar_g: 0,
+          sodium_mg: 0,
+          ingredients: meal.ingredients?.map((ing) => ing.name) || [],
+          instructions:
+            typeof meal.instructions === "string"
+              ? [meal.instructions]
+              : meal.instructions || [],
+          allergens: [],
+          image_url: null,
+          user_rating: 0,
+          user_comments: "",
+          is_favorite: false,
+        });
+      });
+
+      console.log(
+        "📊 Weekly plan structure created with",
+        Object.keys(weeklyPlan).length,
+        "days"
+      );
+      Object.entries(weeklyPlan).forEach(([day, timings]) => {
+        const mealCount = Object.values(timings).reduce(
+          (count, meals) => count + meals.length,
+          0
+        );
+        console.log(`  📅 ${day}: ${mealCount} meals`);
+      });
+
+      return res.json({
+        success: true,
+        data: weeklyPlan,
+        planId: planId,
+        planName: recommendedMenu.title,
+        start_date: new Date().toISOString(),
+        days_count: 7,
+        target_calories_daily: Math.round(recommendedMenu.total_calories / 7),
+        target_protein_daily: Math.round(
+          (recommendedMenu.total_protein || 0) / 7
+        ),
+        target_carbs_daily: Math.round((recommendedMenu.total_carbs || 0) / 7),
+        target_fats_daily: Math.round((recommendedMenu.total_fat || 0) / 7),
+      });
+    }
+
+    console.log("❌ No meal plan or recommended menu found for ID:", planId);
+    return res.status(404).json({
+      success: false,
+      error: "Meal plan not found",
     });
   } catch (error) {
     console.error("💥 Error getting meal plan:", error);

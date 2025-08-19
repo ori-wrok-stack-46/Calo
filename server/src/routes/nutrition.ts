@@ -364,13 +364,27 @@ router.post("/analyze", authenticateToken, async (req: AuthRequest, res) => {
 
     console.log("Analysis completed successfully");
     res.json(result);
-  } catch (error) {
-    console.error("Analyze meal error:", error);
-    const message =
-      error instanceof Error ? error.message : "Failed to analyze meal";
-    res.status(500).json({
+  } catch (error: any) {
+    console.error("💥 Nutrition analysis error:", error);
+
+    let errorMessage =
+      "Analysis failed. Please check your image and try again.";
+    let statusCode = 500;
+
+    if (error.message?.includes("timeout")) {
+      errorMessage =
+        "Analysis is taking too long. Please try with a clearer image.";
+      statusCode = 408;
+    } else if (error.message?.includes("Image data is required")) {
+      errorMessage = "Please provide a valid image.";
+      statusCode = 400;
+    } else if (error.message) {
+      errorMessage = error.message;
+    }
+
+    res.status(statusCode).json({
       success: false,
-      error: message,
+      error: errorMessage,
     });
   }
 });

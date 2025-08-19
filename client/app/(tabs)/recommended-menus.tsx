@@ -778,23 +778,31 @@ export default function RecommendedMenusScreen() {
 
   const checkForActivePlan = async () => {
     try {
+      console.log("🔍 Checking for active plan...");
       const response = await api.get("/meal-plans/current");
-      if (response.data.success && response.data.hasActivePlan) {
+
+      if (
+        response.data.success &&
+        response.data.hasActivePlan &&
+        response.data.data
+      ) {
         const planData = {
           plan_id: response.data.planId,
           name: response.data.planName || "Active Plan",
           data: response.data.data,
         };
+        console.log("✅ Active plan found:", planData.plan_id);
         setCurrentActivePlan(planData);
         setActivePlanData(planData);
         setHasActivePlan(true);
       } else {
+        console.log("❌ No active plan found or plan data is empty");
         setCurrentActivePlan(null);
         setActivePlanData(null);
         setHasActivePlan(false);
       }
     } catch (error) {
-      console.log("No active plan found");
+      console.log("❌ No active plan found (error):", error);
       setCurrentActivePlan(null);
       setActivePlanData(null);
       setHasActivePlan(false);
@@ -823,9 +831,10 @@ export default function RecommendedMenusScreen() {
 
   // Check if this menu is the current active one
   const isCurrentActiveMenu = (menuId: string) => {
-    return (
-      activePlanData?.plan_id === menuId || user?.active_menu_id === menuId
-    );
+    if (!hasActivePlan || !activePlanData) {
+      return false;
+    }
+    return activePlanData.plan_id === menuId;
   };
 
   const activateMenuPlan = async (
@@ -853,7 +862,8 @@ export default function RecommendedMenusScreen() {
       }
 
       const response = await api.post(
-        `/recommended-menus/${menuId}/start-today`
+        `/recommended-menus/${menuId}/start-today`,
+        previousPlanFeedback || {}
       );
 
       if (response.data.success && response.data.data) {
@@ -1120,7 +1130,7 @@ export default function RecommendedMenusScreen() {
     );
   };
 
-  // Add missing modals at the end of the component
+  // Enhanced feedback modal with better styling
   const renderFeedbackModal = () => (
     <Modal
       visible={showFeedbackModal}
@@ -1129,62 +1139,121 @@ export default function RecommendedMenusScreen() {
       onRequestClose={() => setShowFeedbackModal(false)}
     >
       <View style={styles.modalOverlay}>
-        <View style={[styles.modalContainer, { backgroundColor: colors.card }]}>
-          <View style={styles.modalHeader}>
-            <Text style={[styles.modalTitle, { color: colors.text }]}>
-              {language === "he"
-                ? "דרג את התוכנית הקודמת"
-                : "Rate Previous Plan"}
-            </Text>
+        <View
+          style={[
+            styles.feedbackModalContainer,
+            { backgroundColor: colors.card },
+          ]}
+        >
+          {/* Header with gradient */}
+          <LinearGradient
+            colors={[colors.emerald500, colors.emerald500 + "90"]}
+            style={styles.feedbackModalHeader}
+          >
+            <View style={styles.feedbackHeaderContent}>
+              <View style={styles.feedbackIconContainer}>
+                <Star size={24} color="#ffffff" fill="#ffffff" />
+              </View>
+              <View style={styles.feedbackTitleContainer}>
+                <Text style={styles.feedbackModalTitle}>
+                  {language === "he"
+                    ? "דרג את התוכנית הקודמת"
+                    : "Rate Previous Plan"}
+                </Text>
+                <Text style={styles.feedbackModalSubtitle}>
+                  {language === "he"
+                    ? "המשוב שלך יעזור לנו לשפר"
+                    : "Your feedback helps us improve"}
+                </Text>
+              </View>
+            </View>
             <TouchableOpacity
               onPress={() => setShowFeedbackModal(false)}
-              style={styles.closeButton}
+              style={styles.feedbackCloseButton}
             >
-              <X size={24} color={colors.textSecondary} />
+              <X size={22} color="#ffffff" />
             </TouchableOpacity>
-          </View>
+          </LinearGradient>
 
-          <ScrollView style={styles.modalContent}>
-            <View style={styles.ratingSection}>
-              <Text style={[styles.ratingLabel, { color: colors.text }]}>
-                {language === "he"
-                  ? "דירוג כללי (1-5)"
-                  : "Overall Rating (1-5)"}
+          <ScrollView
+            style={styles.feedbackModalContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Rating Section */}
+            <View style={styles.feedbackRatingSection}>
+              <Text
+                style={[styles.feedbackSectionTitle, { color: colors.text }]}
+              >
+                {language === "he" ? "דירוג כללי" : "Overall Rating"}
               </Text>
-              <View style={styles.ratingStars}>
+              <Text
+                style={[styles.feedbackSectionSubtitle, { color: colors.icon }]}
+              >
+                {language === "he"
+                  ? "איך היית מדרג את התוכנית?"
+                  : "How would you rate this plan?"}
+              </Text>
+
+              <View style={styles.feedbackRatingStars}>
                 {[1, 2, 3, 4, 5].map((star) => (
                   <TouchableOpacity
                     key={star}
                     onPress={() =>
                       setFeedbackForm({ ...feedbackForm, rating: star })
                     }
-                    style={styles.starButton}
+                    style={[
+                      styles.feedbackStarButton,
+                      {
+                        backgroundColor:
+                          feedbackForm.rating >= star
+                            ? "#fbbf2415"
+                            : colors.surface,
+                        borderColor:
+                          feedbackForm.rating >= star
+                            ? "#fbbf24"
+                            : colors.border,
+                      },
+                    ]}
+                    activeOpacity={0.7}
                   >
                     <Text
                       style={[
-                        styles.starText,
+                        styles.feedbackStarText,
                         {
                           color:
                             feedbackForm.rating >= star
                               ? "#fbbf24"
-                              : colors.border,
+                              : colors.icon,
                         },
                       ]}
                     >
-                      ⭐
+                      ★
                     </Text>
                   </TouchableOpacity>
                 ))}
               </View>
             </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={[styles.inputLabel, { color: colors.text }]}>
-                {language === "he" ? "מה אהבת?" : "What did you like?"}
-              </Text>
+            {/* Positive Feedback */}
+            <View style={styles.feedbackInputSection}>
+              <View style={styles.feedbackInputHeader}>
+                <View
+                  style={[
+                    styles.feedbackInputIcon,
+                    { backgroundColor: "#10b98115" },
+                  ]}
+                >
+                  <CheckCircle size={16} color="#10b981" />
+                </View>
+                <Text
+                  style={[styles.feedbackInputLabel, { color: colors.text }]}
+                >
+                  {language === "he" ? "מה אהבת?" : "What did you like?"}
+                </Text>
+              </View>
               <TextInput
                 style={[
-                  styles.textArea,
+                  styles.feedbackTextArea,
                   {
                     backgroundColor: colors.surface,
                     borderColor: colors.border,
@@ -1197,22 +1266,38 @@ export default function RecommendedMenusScreen() {
                 }
                 placeholder={
                   language === "he"
-                    ? "ספר מה אהבת..."
-                    : "Tell us what you liked..."
+                    ? "ספר לנו מה אהבת בתוכנית..."
+                    : "Tell us what you enjoyed about the plan..."
                 }
-                placeholderTextColor={colors.textSecondary}
+                placeholderTextColor={colors.icon}
                 multiline
                 numberOfLines={3}
+                textAlignVertical="top"
               />
             </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={[styles.inputLabel, { color: colors.text }]}>
-                {language === "he" ? "מה לא אהבת?" : "What didn't you like?"}
-              </Text>
+            {/* Negative Feedback */}
+            <View style={styles.feedbackInputSection}>
+              <View style={styles.feedbackInputHeader}>
+                <View
+                  style={[
+                    styles.feedbackInputIcon,
+                    { backgroundColor: "#ef444415" },
+                  ]}
+                >
+                  <X size={16} color="#ef4444" />
+                </View>
+                <Text
+                  style={[styles.feedbackInputLabel, { color: colors.text }]}
+                >
+                  {language === "he"
+                    ? "מה ניתן לשפר?"
+                    : "What could be improved?"}
+                </Text>
+              </View>
               <TextInput
                 style={[
-                  styles.textArea,
+                  styles.feedbackTextArea,
                   {
                     backgroundColor: colors.surface,
                     borderColor: colors.border,
@@ -1225,24 +1310,38 @@ export default function RecommendedMenusScreen() {
                 }
                 placeholder={
                   language === "he"
-                    ? "ספר מה לא אהבת..."
-                    : "Tell us what you didn't like..."
+                    ? "איך נוכל לשפר את החוויה שלך?"
+                    : "How can we improve your experience?"
                 }
-                placeholderTextColor={colors.textSecondary}
+                placeholderTextColor={colors.icon}
                 multiline
                 numberOfLines={3}
+                textAlignVertical="top"
               />
             </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={[styles.inputLabel, { color: colors.text }]}>
-                {language === "he"
-                  ? "הצעות לשיפור"
-                  : "Suggestions for improvement"}
-              </Text>
+            {/* Suggestions */}
+            <View style={styles.feedbackInputSection}>
+              <View style={styles.feedbackInputHeader}>
+                <View
+                  style={[
+                    styles.feedbackInputIcon,
+                    { backgroundColor: "#3b82f615" },
+                  ]}
+                >
+                  <Sparkles size={16} color="#3b82f6" />
+                </View>
+                <Text
+                  style={[styles.feedbackInputLabel, { color: colors.text }]}
+                >
+                  {language === "he"
+                    ? "הצעות נוספות"
+                    : "Additional Suggestions"}
+                </Text>
+              </View>
               <TextInput
                 style={[
-                  styles.textArea,
+                  styles.feedbackTextArea,
                   {
                     backgroundColor: colors.surface,
                     borderColor: colors.border,
@@ -1255,26 +1354,51 @@ export default function RecommendedMenusScreen() {
                 }
                 placeholder={
                   language === "he"
-                    ? "הצעות נוספות..."
-                    : "Additional suggestions..."
+                    ? "יש לך רעיונות נוספים?"
+                    : "Any other ideas or suggestions?"
                 }
-                placeholderTextColor={colors.textSecondary}
+                placeholderTextColor={colors.icon}
                 multiline
                 numberOfLines={3}
+                textAlignVertical="top"
               />
             </View>
 
+            {/* Submit Button */}
             <TouchableOpacity
               style={[
-                styles.submitFeedbackButton,
-                { backgroundColor: colors.emerald500 },
+                styles.feedbackSubmitButton,
+                {
+                  backgroundColor:
+                    feedbackForm.rating > 0 ? colors.emerald500 : colors.border,
+                  opacity: feedbackForm.rating > 0 ? 1 : 0.6,
+                },
               ]}
               onPress={handleFeedbackSubmit}
+              disabled={feedbackForm.rating === 0}
+              activeOpacity={0.8}
             >
-              <Text style={styles.submitFeedbackButtonText}>
+              <Send size={18} color="#ffffff" />
+              <Text style={styles.feedbackSubmitButtonText}>
                 {language === "he"
                   ? "שלח משוב והתחל תוכנית חדשה"
                   : "Submit Feedback & Start New Plan"}
+              </Text>
+            </TouchableOpacity>
+
+            {/* Skip Button */}
+            <TouchableOpacity
+              style={styles.feedbackSkipButton}
+              onPress={() => {
+                setShowFeedbackModal(false);
+                activateMenuPlan(selectedMenuToStart!, {});
+              }}
+              activeOpacity={0.7}
+            >
+              <Text
+                style={[styles.feedbackSkipButtonText, { color: colors.icon }]}
+              >
+                {language === "he" ? "דלג והתחל תוכנית" : "Skip & Start Plan"}
               </Text>
             </TouchableOpacity>
           </ScrollView>
@@ -1425,20 +1549,6 @@ export default function RecommendedMenusScreen() {
         </View>
       )}
 
-      {/* Floating Action Button */}
-      <TouchableOpacity
-        style={[styles.fab, { backgroundColor: colors.emerald500 }]}
-        onPress={handleGenerateMenu}
-        disabled={isGenerating}
-      >
-        {isGenerating ? (
-          <ActivityIndicator size="small" color="#ffffff" />
-        ) : (
-          <Sparkles size={22} color="#ffffff" />
-        )}
-      </TouchableOpacity>
-
-      {/* Modals would go here - keeping existing modal code but not showing for brevity */}
       {renderFeedbackModal()}
     </SafeAreaView>
   );
@@ -1485,7 +1595,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     justifyContent: "center",
     alignItems: "center",
-    elevation: 4,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
@@ -1502,7 +1611,6 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 20,
     gap: 8,
-    elevation: 6,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.25,
@@ -1537,7 +1645,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
-    elevation: 1,
   },
   searchIconButton: {
     width: 30,
@@ -1572,7 +1679,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.08,
     shadowRadius: 3,
-    elevation: 2,
   },
 
   // Content
@@ -1591,7 +1697,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 12,
-    elevation: 5,
     borderWidth: 1,
   },
   insightsGradient: {
@@ -1621,7 +1726,9 @@ const styles = StyleSheet.create({
   },
   insightsGrid: {
     flexDirection: "row",
-    gap: 12,
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    gap: 6,
   },
   insightItem: {
     flex: 1,
@@ -1632,7 +1739,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
-    elevation: 2,
   },
   insightIconBox: {
     width: 32,
@@ -1663,7 +1769,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
-    elevation: 5,
     borderWidth: 1,
   },
   cardHeader: {
@@ -1754,7 +1859,6 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     alignItems: "center",
     gap: 8,
-    elevation: 2,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
@@ -1801,7 +1905,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     gap: 8,
     marginRight: 12,
-    elevation: 2,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
@@ -1880,7 +1983,6 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 14,
     gap: 8,
-    elevation: 4,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
@@ -1928,7 +2030,6 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     gap: 10,
     marginTop: 20,
-    elevation: 6,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -1950,7 +2051,6 @@ const styles = StyleSheet.create({
     borderRadius: 28,
     justifyContent: "center",
     alignItems: "center",
-    elevation: 12,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.4,
@@ -1960,8 +2060,8 @@ const styles = StyleSheet.create({
   // Modal styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    justifyContent: "flex-end",
     alignItems: "center",
   },
   modalContainer: {
@@ -1988,6 +2088,173 @@ const styles = StyleSheet.create({
   modalContent: {
     padding: 20,
   },
+
+  // Enhanced feedback modal styles
+  feedbackModalContainer: {
+    width: "95%",
+    maxWidth: 480,
+    borderRadius: 24,
+    maxHeight: "90%",
+    marginBottom: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+  },
+  feedbackModalHeader: {
+    paddingTop: 24,
+    paddingHorizontal: 24,
+    paddingBottom: 20,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+  },
+  feedbackHeaderContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 16,
+    marginBottom: 8,
+  },
+  feedbackIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  feedbackTitleContainer: {
+    flex: 1,
+  },
+  feedbackModalTitle: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: "#ffffff",
+    marginBottom: 4,
+  },
+  feedbackModalSubtitle: {
+    fontSize: 14,
+    color: "#ffffff",
+    opacity: 0.9,
+    fontWeight: "500",
+  },
+  feedbackCloseButton: {
+    position: "absolute",
+    top: 20,
+    right: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  feedbackModalContent: {
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+  },
+  feedbackRatingSection: {
+    alignItems: "center",
+    marginBottom: 32,
+    paddingVertical: 20,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    backgroundColor: "rgba(16, 185, 129, 0.05)",
+  },
+  feedbackSectionTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    marginBottom: 6,
+  },
+  feedbackSectionSubtitle: {
+    fontSize: 14,
+    opacity: 0.8,
+    marginBottom: 20,
+    textAlign: "center",
+  },
+  feedbackRatingStars: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  feedbackStarButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  feedbackStarText: {
+    fontSize: 20,
+    fontWeight: "600",
+  },
+  feedbackInputSection: {
+    marginBottom: 24,
+  },
+  feedbackInputHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 12,
+  },
+  feedbackInputIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  feedbackInputLabel: {
+    fontSize: 16,
+    fontWeight: "600",
+    flex: 1,
+  },
+  feedbackTextArea: {
+    borderWidth: 1.5,
+    borderRadius: 16,
+    padding: 16,
+    fontSize: 15,
+    lineHeight: 22,
+    minHeight: 90,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+  },
+  feedbackSubmitButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 18,
+    borderRadius: 16,
+    gap: 10,
+    marginTop: 8,
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+  },
+  feedbackSubmitButtonText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#ffffff",
+  },
+  feedbackSkipButton: {
+    alignItems: "center",
+    paddingVertical: 12,
+    marginBottom: 8,
+  },
+  feedbackSkipButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+    textDecorationLine: "underline",
+  },
+
+  // Legacy modal styles for other modals
   ratingSection: {
     marginBottom: 24,
     alignItems: "center",

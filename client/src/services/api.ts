@@ -35,7 +35,7 @@ const getApiBaseUrl = (): string => {
 const createApiInstance = (): AxiosInstance => {
   const instance = axios.create({
     baseURL: getApiBaseUrl(),
-    timeout: 30000, // 30 second timeout
+    timeout: 15000, // 15 second timeout
     withCredentials: Platform.OS === "web",
     headers: {
       "Content-Type": "application/json",
@@ -267,24 +267,70 @@ export const nutritionAPI = {
         throw new APIError("Image data is required");
       }
 
-      const response = await api.post("/nutrition/analyze", {
-        imageBase64: imageBase64.trim(),
-        updateText,
-        editedIngredients,
-        language,
-      });
+      // Create a custom timeout for this specific request
+      const source = axios.CancelToken.source();
+      const timeout = setTimeout(() => {
+        source.cancel(
+          "Analysis timeout - please try again with a clearer image"
+        );
+      }, 30000); // 30 second timeout
 
-      if (response.data.success) {
-        console.log("✅ Meal analysis successful");
-        return response.data;
+      try {
+        const response = await api.post(
+          "/nutrition/analyze",
+          {
+            imageBase64: imageBase64.trim(),
+            updateText,
+            editedIngredients,
+            language,
+          },
+          {
+            cancelToken: source.token,
+            timeout: 30000,
+          }
+        );
+
+        clearTimeout(timeout);
+
+        if (response.data.success) {
+          console.log("✅ Meal analysis successful");
+          return response.data;
+        }
+
+        throw new APIError(response.data.error || "Analysis failed");
+      } catch (axiosError: any) {
+        clearTimeout(timeout);
+
+        if (axios.isCancel(axiosError)) {
+          throw new APIError(
+            "Analysis timeout - please try again with a clearer image"
+          );
+        }
+
+        if (axiosError.code === "ECONNABORTED") {
+          throw new APIError(
+            "Connection timeout - please check your internet connection"
+          );
+        }
+
+        throw axiosError;
       }
-
-      throw new APIError(response.data.error || "Analysis failed");
-    } catch (error) {
+    } catch (error: any) {
       console.error("💥 Meal analysis error:", error);
       if (error instanceof APIError) throw error;
+
+      if (error.response?.status === 408) {
+        throw new APIError(
+          "Analysis is taking too long. Please try with a clearer image."
+        );
+      }
+
+      if (error.response?.data?.error) {
+        throw new APIError(error.response.data.error);
+      }
+
       throw new APIError(
-        "Network error during meal analysis",
+        "Network error during meal analysis. Please check your connection and try again.",
         undefined,
         undefined,
         true
@@ -515,12 +561,17 @@ export const userAPI = {
 
   getUserStats: async (): Promise<any> => {
     try {
-      const response = await api.get("/user/stats");
-      return response.data.data;
+      console.log("🔄 Fetching user stats...");
+      const response = await api.get("/user/stats", { timeout: 8000 });
+      if (response.data.success) {
+        console.log("✅ User stats fetched successfully");
+        return response.data.data;
+      }
+      throw new APIError(response.data.error || "Failed to fetch user stats");
     } catch (error: any) {
-      console.error("Error fetching user stats:", error);
+      console.error("💥 Error fetching user stats:", error);
       // Return default stats if API fails
-      return {
+      const defaultStats = {
         totalMeals: 0,
         todayWaterIntake: 0,
         totalAchievements: 0,
@@ -529,6 +580,8 @@ export const userAPI = {
         subscriptionType: "free",
         questionnaireCompleted: false,
       };
+      console.log("📊 Returning default user stats");
+      return defaultStats;
     }
   },
 
@@ -789,6 +842,149 @@ export const mealAPI = {
     } catch (error) {
       console.error("💥 Update meal error:", error);
       throw new APIError("Failed to update meal");
+    }
+  },
+};
+
+// Enhanced meal plan API
+export const mealPlanAPI = {
+  async getCurrentMealPlan(): Promise<any> {
+    try {
+      console.log("🔄 Fetching current meal plan...");
+      const response = await api.get("/meal-plans/current");
+
+      if (response.data.success) {
+        console.log("✅ Current meal plan fetched successfully");
+        return response.data;
+      }
+
+      throw new APIError(
+        response.data.error || "Failed to fetch current meal plan"
+      );
+    } catch (error) {
+      console.error("💥 Get current meal plan error:", error);
+      if (error instanceof APIError) throw error;
+      throw new APIError("Network error while fetching current meal plan");
+    }
+  },
+
+  async getMealPlanById(planId: string): Promise<any> {
+    try {
+      console.log("🔄 Fetching meal plan by ID:", planId);
+      const response = await api.get(`/meal-plans/${planId}`);
+
+      if (response.data.success) {
+        console.log("✅ Meal plan fetched successfully");
+        return response.data;
+      }
+
+      throw new APIError(response.data.error || "Failed to fetch meal plan");
+    } catch (error) {
+      console.error("💥 Get meal plan by ID error:", error);
+      if (error instanceof APIError) throw error;
+      throw new APIError("Network error while fetching meal plan");
+    }
+  },
+
+  async getRecommendedMenus(): Promise<any> {
+    try {
+      console.log("🔄 Fetching recommended menus...");
+      const response = await api.get("/meal-plans/recommended");
+
+      if (response.data.success) {
+        console.log("✅ Recommended menus fetched successfully");
+        return response.data;
+      }
+
+      throw new APIError(
+        response.data.error || "Failed to fetch recommended menus"
+      );
+    } catch (error) {
+      console.error("💥 Get recommended menus error:", error);
+      if (error instanceof APIError) throw error;
+      throw new APIError("Network error while fetching recommended menus");
+    }
+  },
+
+  async activateMealPlan(planId: string): Promise<any> {
+    try {
+      console.log("🔄 Activating meal plan:", planId);
+      const response = await api.post(`/meal-plans/${planId}/activate`);
+
+      if (response.data.success) {
+        console.log("✅ Meal plan activated successfully");
+        return response.data;
+      }
+
+      throw new APIError(response.data.error || "Failed to activate meal plan");
+    } catch (error) {
+      console.error("💥 Activate meal plan error:", error);
+      if (error instanceof APIError) throw error;
+      throw new APIError("Network error while activating meal plan");
+    }
+  },
+
+  async replaceMealInPlan(
+    planId: string,
+    dayOfWeek: number,
+    mealTiming: string,
+    preferences: any
+  ): Promise<any> {
+    try {
+      console.log("🔄 Replacing meal in plan...");
+      const response = await api.put(
+        `/meal-plans/${planId}/replace`,
+        {
+          day_of_week: dayOfWeek,
+          meal_timing: mealTiming,
+          meal_order: 0,
+          preferences: preferences,
+        },
+        {
+          timeout: 15000, // 15 second timeout for meal replacement
+        }
+      );
+
+      if (response.data.success) {
+        console.log("✅ Meal replaced successfully");
+        return response.data;
+      }
+
+      throw new APIError(response.data.error || "Failed to replace meal");
+    } catch (error: any) {
+      console.error("💥 Replace meal error:", error);
+
+      if (error.response?.data?.error) {
+        throw new APIError(error.response.data.error);
+      }
+
+      if (error.code === "ECONNABORTED") {
+        throw new APIError("Request timeout - please try again");
+      }
+
+      if (error instanceof APIError) throw error;
+      throw new APIError("Network error while replacing meal");
+    }
+  },
+
+  async completeMealPlan(planId: string, feedback: any): Promise<any> {
+    try {
+      console.log("🔄 Completing meal plan...");
+      const response = await api.post(
+        `/meal-plans/${planId}/complete`,
+        feedback
+      );
+
+      if (response.data.success) {
+        console.log("✅ Meal plan completed successfully");
+        return response.data;
+      }
+
+      throw new APIError(response.data.error || "Failed to complete meal plan");
+    } catch (error) {
+      console.error("💥 Complete meal plan error:", error);
+      if (error instanceof APIError) throw error;
+      throw new APIError("Network error while completing meal plan");
     }
   },
 };

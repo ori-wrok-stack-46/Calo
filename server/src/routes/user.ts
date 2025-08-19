@@ -327,17 +327,17 @@ router.delete(
         });
 
         // Delete user notifications
-        await tx.subscriptionPayment.deleteMany({
-          where: { user_id: req.user.user_id },
-        });
-
-        // Delete user sessions/tokens
         await tx.shoppingList.deleteMany({
           where: { user_id: req.user.user_id },
         });
 
-        // Delete user subscriptions/payments (if applicable)
+        // Delete user sessions/tokens
         await tx.nutritionPlan.deleteMany({
+          where: { user_id: req.user.user_id },
+        });
+
+        // Delete user subscriptions/payments (if applicable)
+        await tx.subscriptionPayment.deleteMany({
           where: { user_id: req.user.user_id },
         });
 
@@ -371,51 +371,201 @@ router.delete(
 );
 
 // GET USER PROFILE ENDPOINT
-router.get(
-  "/profile",
-  authenticateToken,
-  async (req: AuthRequest, res, next) => {
-    try {
-      const user = await prisma.user.findUnique({
-        where: { user_id: req.user.user_id },
-        select: {
-          user_id: true,
-          email: true,
-          name: true,
-          avatar_url: true,
-          subscription_type: true,
-          birth_date: true,
-          ai_requests_count: true,
-          ai_requests_reset_at: true,
-          created_at: true,
-          email_verified: true,
-          is_questionnaire_completed: true,
-        },
-      });
+router.get("/profile", authenticateToken, async (req: AuthRequest, res) => {
+  try {
+    const userId = req.user.user_id;
+    console.log("📋 Getting profile for user:", userId);
 
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          error: "User not found",
-        });
-      }
+    const user = await prisma.user.findUnique({
+      where: { user_id: userId },
+      select: {
+        user_id: true,
+        email: true,
+        full_name: true,
+        avatar_url: true,
+        subscription_type: true,
+        level: true,
+        current_xp: true,
+        total_points: true,
+        current_streak: true,
+        best_streak: true,
+        total_complete_days: true,
+        created_at: true,
+        is_email_verified: true,
+        phone_number: true,
+        preferences: true,
+      },
+    });
 
-      res.json({
-        success: true,
-        user: user,
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: "User not found",
       });
-    } catch (error) {
-      console.error("💥 Get user profile error:", error);
-      if (error instanceof Error) {
-        res.status(400).json({
-          success: false,
-          error: error.message,
-        });
-      } else {
-        next(error);
-      }
     }
+
+    console.log("✅ Profile fetched successfully");
+    res.json({
+      success: true,
+      data: user,
+    });
+  } catch (error) {
+    console.error("💥 Error fetching profile:", error);
+    res.status(500).json({
+      success: false,
+      error: "Failed to fetch profile",
+    });
   }
-);
+});
+
+// Get user stats
+router.get("/stats", authenticateToken, async (req: AuthRequest, res) => {
+  try {
+    const userId = req.user?.user_id;
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: "User not authenticated",
+      });
+    }
+
+    console.log("📊 Fetching user stats for user:", userId);
+
+    // Get user profile data with error handling
+    const user = await prisma.user.findUnique({
+      where: { user_id: userId },
+      select: {
+        created_at: true,
+        subscription_type: true,
+        streak: true,
+        total_points: true,
+        active_menu_id: true,
+      },
+    });
+
+    if (!user) {
+      console.log("⚠️ User not found:", userId);
+      return res.status(404).json({
+        success: false,
+        error: "User not found",
+      });
+    }
+
+    // Default stats object
+    const defaultStats = {
+      totalMeals: 0,
+      todayWaterIntake: 0,
+      totalAchievements: 0,
+      streak: user.streak || 0,
+      totalPoints: user.total_points || 0,
+      memberSince: user.created_at,
+      subscriptionType: user.subscription_type || "free",
+      questionnaireCompleted: false,
+      hasActiveMenu: !!user.active_menu_id,
+    };
+
+    try {
+      // Count total meals with timeout
+      const totalMeals = await Promise.race([
+        prisma.mealEntry.count({
+          where: { user_id: userId },
+        }),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Timeout")), 3000)
+        ),
+      ]);
+      defaultStats.totalMeals = totalMeals as number;
+    } catch (error) {
+      console.warn("⚠️ Failed to fetch total meals, using default");
+    }
+
+    try {
+      // Get today's water intake with timeout
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+
+      const todayWaterIntake = await Promise.race([
+        prisma.waterIntake.aggregate({
+          where: {
+            user_id: userId,
+            date: {
+              gte: today,
+              lt: tomorrow,
+            },
+          },
+          _sum: {
+            amount_ml: true,
+          },
+        }),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Timeout")), 3000)
+        ),
+      ]);
+      defaultStats.todayWaterIntake =
+        (todayWaterIntake as any)?._sum?.amount_ml || 0;
+    } catch (error) {
+      console.warn("⚠️ Failed to fetch water intake, using default");
+    }
+
+    try {
+      // Count achievements with timeout
+      const totalAchievements = await Promise.race([
+        prisma.userAchievement.count({
+          where: { user_id: userId },
+        }),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Timeout")), 3000)
+        ),
+      ]);
+      defaultStats.totalAchievements = totalAchievements as number;
+    } catch (error) {
+      console.warn("⚠️ Failed to fetch achievements, using default");
+    }
+
+    try {
+      // Check if questionnaire is completed with timeout
+      const questionnaireCompleted = await Promise.race([
+        prisma.userQuestionnaire.findFirst({
+          where: { user_id: userId },
+        }),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error("Timeout")), 3000)
+        ),
+      ]);
+      defaultStats.questionnaireCompleted = !!questionnaireCompleted;
+    } catch (error) {
+      console.warn("⚠️ Failed to fetch questionnaire status, using default");
+    }
+
+    console.log("✅ User stats fetched successfully:", defaultStats);
+
+    res.json({
+      success: true,
+      data: defaultStats,
+    });
+  } catch (error) {
+    console.error("💥 Error fetching user stats:", error);
+
+    // Return minimal working stats instead of failing completely
+    const fallbackStats = {
+      totalMeals: 0,
+      todayWaterIntake: 0,
+      totalAchievements: 0,
+      streak: 0,
+      totalPoints: 0,
+      memberSince: new Date(),
+      subscriptionType: "free",
+      questionnaireCompleted: false,
+      hasActiveMenu: false,
+    };
+
+    res.json({
+      success: true,
+      data: fallbackStats,
+    });
+  }
+});
 
 export { router as userRoutes };

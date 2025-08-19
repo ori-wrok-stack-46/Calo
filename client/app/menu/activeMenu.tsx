@@ -168,14 +168,8 @@ export default function ActiveMenuScreen() {
 
     if (!mealPlan) {
       // If mealPlan is not loaded yet, set a default based on today
-      const startOfWeek = new Date(today);
-      startOfWeek.setDate(
-        today.getDay() === 0
-          ? today.getDate() - 6
-          : today.getDate() - today.getDay() + 1
-      ); // Start from Monday
-      setCurrentWeekStart(startOfWeek);
-      setSelectedDay(today.getDay() === 0 ? 6 : today.getDay() - 1); // Convert to 0-6 where Monday = 0
+      setCurrentWeekStart(new Date(today));
+      setSelectedDay(0); // Start with first day
       setSelectedDate(today);
       return;
     }
@@ -190,15 +184,8 @@ export default function ActiveMenuScreen() {
         )
       );
 
-      // Calculate which week we're in relative to plan start
-      const weeksCompleted = Math.floor(daysSinceStart / 7);
-      const currentWeekStartDate = new Date(planStartDate);
-      currentWeekStartDate.setDate(
-        planStartDate.getDate() + weeksCompleted * 7
-      );
-
-      // Set current day relative to plan start (0-6, where 0 is the plan start day)
-      const currentDayInPlan = daysSinceStart % mealPlan.days_count; // Use mealPlan.days_count
+      // Calculate current day in plan cycle
+      const currentDayInPlan = daysSinceStart % (mealPlan.days_count || 7);
 
       console.log("📅 Date calculation:", {
         currentDate: today.toDateString(),
@@ -206,23 +193,17 @@ export default function ActiveMenuScreen() {
         daysSinceStart,
         currentDayInPlan,
         daysCount: mealPlan.days_count,
+        availableDays: Object.keys(mealPlan.weekly_plan || {}),
       });
 
-      setCurrentWeekStart(currentWeekStartDate);
+      // Set current week to start from plan start date
+      setCurrentWeekStart(new Date(planStartDate));
       setSelectedDay(currentDayInPlan);
-      setSelectedDate(
-        new Date(planStartDate.getTime() + daysSinceStart * 24 * 60 * 60 * 1000)
-      );
+      setSelectedDate(today);
     } else {
-      // Fallback to regular week calculation if start_date is missing (should not happen ideally)
-      const startOfWeek = new Date(today);
-      startOfWeek.setDate(
-        today.getDay() === 0
-          ? today.getDate() - 6
-          : today.getDate() - today.getDay() + 1
-      ); // Start from Monday
-      setCurrentWeekStart(startOfWeek);
-      setSelectedDay(today.getDay() === 0 ? 6 : today.getDay() - 1); // Convert to 0-6 where Monday = 0
+      // Fallback to current date
+      setCurrentWeekStart(new Date(today));
+      setSelectedDay(0);
       setSelectedDate(today);
     }
   };
@@ -246,40 +227,34 @@ export default function ActiveMenuScreen() {
       if (planId && planId !== "undefined" && planId !== "null") {
         // Load specific plan by ID
         console.log("🔍 Loading specific plan:", planId);
-        response = await api.get(`/meal-plans/${planId}`);
+        response = await mealPlanAPI.getMealPlanById(planId as string);
       } else {
         // Load current active plan
         console.log("🔍 Loading current active plan");
-        response = await api.get("/meal-plans/current");
+        response = await mealPlanAPI.getCurrentMealPlan();
       }
 
-      console.log("📥 Full API response:", response.data);
+      console.log("📥 Full API response:", response);
 
-      if (
-        response.data.success &&
-        (response.data.data || response.data.hasActivePlan)
-      ) {
-        let planData = response.data.data;
+      if (response.success && response.data) {
+        let planData = response.data;
         let startDate = new Date();
-        let planName = "Active Plan";
-        let actualPlanId = planId;
-        let daysCount = 7; // Default to 7 days
+        let planName = response.planName || "Active Plan";
+        let actualPlanId = response.planId || planId || "unknown";
+        let daysCount = response.days_count || 7;
 
-        // Handle different response structures
-        if (response.data.hasActivePlan && response.data.data) {
-          planData = response.data.data;
-          actualPlanId = response.data.planId;
-          planName = response.data.planName || "Active Plan";
-        }
-
-        // If planData is null but we have hasActivePlan, try to get it from server
-        if (!planData && response.data.hasActivePlan) {
-          console.log("🔄 Plan exists but no data, trying to fetch again...");
-          const retryResponse = await api.get(
-            `/meal-plans/${response.data.planId || actualPlanId}`
-          );
-          if (retryResponse.data.success && retryResponse.data.data) {
-            planData = retryResponse.data.data;
+        // Handle different response structures for current plan
+        if (response.hasActivePlan && !planData) {
+          console.log("🔄 Plan exists but no data, trying to fetch by ID...");
+          if (response.planId) {
+            const retryResponse = await mealPlanAPI.getMealPlanById(
+              response.planId
+            );
+            if (retryResponse.success && retryResponse.data) {
+              planData = retryResponse.data;
+              planName = retryResponse.planName || planName;
+              daysCount = retryResponse.days_count || daysCount;
+            }
           }
         }
 
@@ -289,37 +264,25 @@ export default function ActiveMenuScreen() {
           return;
         }
 
-        console.log("✅ Processing meal plan data:", Object.keys(planData));
+        console.log(
+          "✅ Processing meal plan data with",
+          Object.keys(planData).length,
+          "days"
+        );
 
-        // Determine days_count from planData, falling back to default or calculated
-        if (planData.days_count) {
-          daysCount = planData.days_count;
-        } else if (planData.rotation_frequency_days) {
-          daysCount = planData.rotation_frequency_days;
-        } else {
-          // Try to infer from weekly_plan if not explicitly provided
-          const inferredDays = Object.keys(
-            planData.weekly_plan || planData
-          ).length;
-          if (inferredDays > 0) {
-            daysCount = inferredDays;
-          }
-        }
-        console.log("📏 Determined days_count:", daysCount);
-
-        const weeklyPlan = planData.weekly_plan || planData;
+        const weeklyPlan = planData;
         let hasMeals = false;
-        let totalDays = 0;
+        let totalMeals = 0;
 
         Object.entries(weeklyPlan).forEach(([day, timings]) => {
           if (timings && typeof timings === "object") {
-            totalDays++;
             const timingCount = Object.keys(timings).length;
             console.log(`  📅 ${day}: ${timingCount} meal timings`);
 
             Object.entries(timings).forEach(([timing, meals]) => {
               if (Array.isArray(meals) && meals.length > 0) {
                 console.log(`    🍽️ ${timing}: ${meals.length} meals`);
+                totalMeals += meals.length;
                 hasMeals = true;
               }
             });
@@ -332,70 +295,62 @@ export default function ActiveMenuScreen() {
           return;
         }
 
-        // Try to get the actual start date from server data
-        if (planData.start_date) {
-          startDate = new Date(planData.start_date);
-        } else if (response.data.start_date) {
-          startDate = new Date(response.data.start_date);
+        console.log("📊 Total meals found:", totalMeals);
+
+        // Get start date from response
+        if (response.start_date) {
+          startDate = new Date(response.start_date);
         } else {
-          // If no start date found, use today as a fallback (though this might be less accurate)
-          console.warn(
-            "⚠️ No start date found for meal plan, using today as reference."
-          );
+          console.warn("⚠️ No start date found, using today as reference");
           startDate = new Date();
         }
 
         // Create meal plan object with proper structure
         const mealPlanData: MealPlan = {
-          plan_id: actualPlanId || "unknown",
+          plan_id: actualPlanId,
           name: planName,
-          description: planData.description || "Active meal plan",
+          description: "Active meal plan",
           start_date: startDate.toISOString(),
-          end_date: planData.end_date,
+          end_date: response.end_date,
           is_active: true,
-          target_calories_daily: planData.target_calories_daily,
-          target_protein_daily: planData.target_protein_daily,
-          target_carbs_daily: planData.target_carbs_daily,
-          target_fats_daily: planData.target_fats_daily,
+          target_calories_daily: response.target_calories_daily,
+          target_protein_daily: response.target_protein_daily,
+          target_carbs_daily: response.target_carbs_daily,
+          target_fats_daily: response.target_fats_daily,
           weekly_plan: weeklyPlan,
-          days_count: daysCount, // Store the determined days_count
+          days_count: daysCount,
         };
 
         setMealPlan(mealPlanData);
-        // initializeCalendar will be called again after state update, which is fine
-        // Or we can call it here directly to avoid redundant call
-        initializeCalendar(); // Ensure calendar is initialized with the loaded plan
 
         // Initialize local state from existing data
         const ratings: { [key: string]: number } = {};
         const comments: { [key: string]: string } = {};
         const favorites: { [key: string]: boolean } = {};
 
-        if (weeklyPlan && typeof weeklyPlan === "object") {
-          Object.entries(weeklyPlan).forEach(([day, timings]) => {
-            if (timings && typeof timings === "object") {
-              Object.entries(timings).forEach(([timing, meals]) => {
-                if (Array.isArray(meals)) {
-                  meals.forEach((meal: PlanMeal) => {
-                    if (meal && meal.template_id) {
-                      const key = `${day}-${timing}-${meal.template_id}`;
-                      ratings[key] = meal.user_rating || 0;
-                      comments[key] = meal.user_comments || "";
-                      favorites[key] = meal.is_favorite || false;
-                    }
-                  });
-                }
-              });
-            }
-          });
-        }
+        Object.entries(weeklyPlan).forEach(([day, timings]) => {
+          if (timings && typeof timings === "object") {
+            Object.entries(timings).forEach(([timing, meals]) => {
+              if (Array.isArray(meals)) {
+                meals.forEach((meal: PlanMeal) => {
+                  if (meal && meal.template_id) {
+                    const key = `${day}-${timing}-${meal.template_id}`;
+                    ratings[key] = meal.user_rating || 0;
+                    comments[key] = meal.user_comments || "";
+                    favorites[key] = meal.is_favorite || false;
+                  }
+                });
+              }
+            });
+          }
+        });
 
         setMealRatings(ratings);
         setMealComments(comments);
         setMealFavorites(favorites);
 
         console.log("✅ Meal plan loaded and structured successfully");
-        console.log("📊 Total meals loaded:", Object.values(ratings).length);
+        console.log("📊 Meals loaded:", Object.values(ratings).length);
       } else {
         console.log("⚠️ No active meal plan found from server");
         setMealPlan(null);
@@ -549,28 +504,25 @@ export default function ActiveMenuScreen() {
       const apiDayIndex =
         dayIndexMap[swapRequest.dayName as keyof typeof dayIndexMap];
 
-      const response = await api.put(
-        `/meal-plans/${mealPlan.plan_id}/replace`,
+      const response = await mealPlanAPI.replaceMealInPlan(
+        mealPlan.plan_id,
+        apiDayIndex,
+        swapRequest.mealTiming,
         {
-          day_of_week: apiDayIndex,
-          meal_timing: swapRequest.mealTiming,
-          meal_order: 0, // Assuming we are replacing the first meal in the list for that timing
-          preferences: {
-            ...swapRequest.preferences,
-            current_meal_context: {
-              name: swapRequest.currentMeal.name,
-              calories: swapRequest.currentMeal.calories,
-              protein_g: swapRequest.currentMeal.protein_g,
-              carbs_g: swapRequest.currentMeal.carbs_g,
-              fats_g: swapRequest.currentMeal.fats_g,
-              dietary_category: swapRequest.currentMeal.dietary_category,
-            },
+          ...swapRequest.preferences,
+          current_meal_context: {
+            name: swapRequest.currentMeal.name,
+            calories: swapRequest.currentMeal.calories,
+            protein_g: swapRequest.currentMeal.protein_g,
+            carbs_g: swapRequest.currentMeal.carbs_g,
+            fats_g: swapRequest.currentMeal.fats_g,
+            dietary_category: swapRequest.currentMeal.dietary_category,
           },
         }
       );
 
-      if (response.data.success) {
-        const newMeal = response.data.data;
+      if (response.success && response.data) {
+        const newMeal = response.data.data || response.data;
         console.log("✅ AI generated new meal:", newMeal.name);
 
         // Update the meal plan with the new meal
@@ -680,11 +632,14 @@ export default function ActiveMenuScreen() {
     }
 
     try {
-      const response = await api.post(
-        `/meal-plans/${mealPlan.plan_id}/complete`
-      );
-      console.log(response);
-      if (response.status === 200) {
+      const response = await mealPlanAPI.completeMealPlan(mealPlan.plan_id, {
+        rating: completionFeedback.rating,
+        liked: completionFeedback.liked,
+        disliked: completionFeedback.disliked,
+        suggestions: completionFeedback.suggestions,
+      });
+
+      if (response.data.success) {
         setShowCompletePlanModal(false);
 
         Alert.alert(
@@ -702,13 +657,14 @@ export default function ActiveMenuScreen() {
           ]
         );
       } else {
-        throw new Error("Error completing menu");
+        throw new Error(response.data.error || "Error completing menu");
       }
     } catch (error: any) {
       console.error("💥 Error completing plan:", error);
       Alert.alert(
         language === "he" ? "שגיאה" : "Error",
-        error.message ||
+        error.response?.data?.error ||
+          error.message ||
           (language === "he"
             ? "נכשל בהשלמת התוכנית"
             : "Failed to complete plan")
@@ -717,19 +673,29 @@ export default function ActiveMenuScreen() {
   };
 
   const getDayNames = () => {
+    if (mealPlan?.weekly_plan) {
+      // Use the actual day names from the meal plan data
+      const availableDays = Object.keys(mealPlan.weekly_plan);
+      console.log("📅 Available days from meal plan:", availableDays);
+
+      if (availableDays.length > 0) {
+        return availableDays;
+      }
+    }
+
     if (mealPlan?.start_date) {
       // Get plan start day and create array from that day
       const planStartDate = new Date(mealPlan.start_date);
       const startDayIndex = planStartDate.getDay(); // 0 = Sunday, 1 = Monday, etc.
 
       const allDays = [
-        language === "he" ? "ראשון" : "Sunday",
-        language === "he" ? "שני" : "Monday",
-        language === "he" ? "שלישי" : "Tuesday",
-        language === "he" ? "רביעי" : "Wednesday",
-        language === "he" ? "חמישי" : "Thursday",
-        language === "he" ? "שישי" : "Friday",
-        language === "he" ? "שבת" : "Saturday",
+        "Sunday",
+        "Monday",
+        "Tuesday",
+        "Wednesday",
+        "Thursday",
+        "Friday",
+        "Saturday",
       ];
 
       // Reorder array to start from plan start day
@@ -738,18 +704,19 @@ export default function ActiveMenuScreen() {
         ...allDays.slice(0, startDayIndex),
       ];
 
+      console.log("📅 Reordered days based on start date:", reorderedDays);
       return reorderedDays;
     }
 
-    // Default fallback
+    // Default fallback - all days in order
     return [
-      language === "he" ? "שני" : "Monday",
-      language === "he" ? "שלישי" : "Tuesday",
-      language === "he" ? "רביעי" : "Wednesday",
-      language === "he" ? "חמישי" : "Thursday",
-      language === "he" ? "שישי" : "Friday",
-      language === "he" ? "שבת" : "Saturday",
-      language === "he" ? "ראשון" : "Sunday",
+      "Sunday",
+      "Monday",
+      "Tuesday",
+      "Wednesday",
+      "Thursday",
+      "Friday",
+      "Saturday",
     ];
   };
 
@@ -807,20 +774,45 @@ export default function ActiveMenuScreen() {
   };
 
   const filteredMeals = useMemo(() => {
-    const dayName = getDayNames()[selectedDay];
-    const dayMeals = mealPlan?.weekly_plan
-      ? mealPlan.weekly_plan[dayName]
-      : undefined;
+    const dayNames = getDayNames();
+    const dayName = dayNames[selectedDay];
 
-    if (!dayMeals) return {};
+    console.log("🔍 Filtering meals for:", {
+      selectedDay,
+      dayName,
+      availableDays: Object.keys(mealPlan?.weekly_plan || {}),
+      totalDays: dayNames.length,
+    });
+
+    const dayMeals = mealPlan?.weekly_plan?.[dayName];
+
+    if (!dayMeals) {
+      console.log("⚠️ No meals found for day:", dayName);
+      console.log(
+        "📊 Available meal plan structure:",
+        mealPlan?.weekly_plan
+          ? Object.keys(mealPlan.weekly_plan)
+          : "No weekly plan"
+      );
+      return {};
+    }
 
     const filtered: { [timing: string]: PlanMeal[] } = {};
 
     if (dayMeals && typeof dayMeals === "object") {
       Object.entries(dayMeals).forEach(([timing, meals]) => {
+        console.log(
+          `🍽️ Processing ${timing} with ${
+            Array.isArray(meals) ? meals.length : 0
+          } meals`
+        );
+
         if (Array.isArray(meals)) {
           filtered[timing] = meals.filter((meal) => {
-            if (!meal || !meal.template_id) return false;
+            if (!meal || !meal.template_id) {
+              console.log("❌ Invalid meal data:", meal);
+              return false;
+            }
 
             // Apply filters
             if (
@@ -850,14 +842,27 @@ export default function ActiveMenuScreen() {
 
             return true;
           });
+
+          console.log(
+            `✅ Filtered ${timing}: ${filtered[timing].length} meals`
+          );
         } else {
+          console.log(`⚠️ ${timing} is not an array:`, meals);
           filtered[timing] = [];
         }
       });
     }
 
+    const totalFilteredMeals = Object.values(filtered).reduce(
+      (total, meals) => total + meals.length,
+      0
+    );
+    console.log(
+      `📊 Total filtered meals for ${dayName}: ${totalFilteredMeals}`
+    );
+
     return filtered;
-  }, [mealPlan, selectedDay, filters, mealRatings, mealFavorites]);
+  }, [mealPlan, selectedDay, filters, mealRatings, mealFavorites, getDayNames]);
 
   const renderStarRating = (
     rating: number,

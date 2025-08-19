@@ -517,6 +517,74 @@ router.get(
   }
 );
 
+// POST /api/recommended-menus/:menuId/start-today - Start a recommended menu as today's plan
+router.post(
+  "/:menuId/start-today",
+  authenticateToken,
+  async (req: AuthRequest, res) => {
+    try {
+      const userId = req.user.user_id;
+      const { menuId } = req.params;
+      const feedback = req.body;
+
+      console.log(
+        "🚀 Starting recommended menu today:",
+        menuId,
+        "for user:",
+        userId
+      );
+
+      // Get the recommended menu
+      const menu = await prisma.recommendedMenu.findFirst({
+        where: {
+          menu_id: menuId,
+          user_id: userId,
+        },
+        include: {
+          meals: {
+            include: {
+              ingredients: true,
+            },
+          },
+        },
+      });
+
+      if (!menu) {
+        return res.status(404).json({
+          success: false,
+          error: "Menu not found",
+        });
+      }
+
+      // Update user's active menu
+      await prisma.user.update({
+        where: { user_id: userId },
+        data: {
+          active_menu_id: menuId,
+          active_meal_plan_id: null, // Clear any active meal plan
+        },
+      });
+
+      console.log("✅ Menu started successfully");
+      res.json({
+        success: true,
+        data: {
+          plan_id: menuId,
+          name: menu.title,
+          start_date: new Date().toISOString(),
+        },
+      });
+    } catch (error) {
+      console.error("💥 Error starting menu:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to start menu",
+        details: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
+  }
+);
+
 // POST /api/recommended-menus/generate-comprehensive - Generate comprehensive menu with detailed parameters
 router.post(
   "/generate-comprehensive",

@@ -1371,9 +1371,9 @@ const styles = StyleSheet.create({
   },
   nutritionGrid: {
     flexDirection: "row",
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-    gap: 12,
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    gap: 6,
   },
   nutritionItem: {
     flex: 1,
