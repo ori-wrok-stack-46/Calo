@@ -10,8 +10,6 @@ import {
   Alert,
   ActivityIndicator,
   Dimensions,
-  FlatList,
-  I18nManager,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -34,10 +32,8 @@ import {
   TrendingDown,
   CircleCheck as CheckCircle,
   Circle as XCircle,
-  Globe,
   Award,
   Flame,
-  Scroll,
   Edit,
   Eye,
 } from "lucide-react-native";

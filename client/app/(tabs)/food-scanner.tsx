@@ -28,11 +28,8 @@ import {
   AlertTriangle,
   Info,
   Sparkles,
-  ShoppingCart,
   Clock,
-  Zap,
   Target,
-  ChefHat,
   Image as ImageIcon,
   Search,
   Trash2,
@@ -45,8 +42,6 @@ import { useTheme } from "@/src/context/ThemeContext";
 import { api } from "@/src/services/api";
 import LoadingScreen from "@/components/LoadingScreen";
 import { router } from "expo-router";
-
-const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 
 interface ScannedProduct {
   product: {
@@ -91,8 +86,8 @@ interface Ingredient {
 
 export default function FoodScannerScreen() {
   const { t } = useTranslation();
-  const { isRTL, language } = useLanguage();
-  const { colors, isDark } = useTheme();
+  const { language } = useLanguage();
+  const { colors } = useTheme();
 
   // State management
   const [scanMode, setScanMode] = useState<"barcode" | "image">("barcode");

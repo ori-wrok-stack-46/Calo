@@ -71,6 +71,20 @@ export interface GamificationData {
 }
 
 export interface StatisticsData {
+  averageCarbs: number;
+  averageFats: number;
+  averageFiber: number;
+  averageSugar: number;
+  averageSodium: number;
+  averageFluids: number;
+  dailyBreakdown: any;
+  achievements: any;
+  successfulDays: number;
+  totalPoints: number;
+  weeklyStreak: number;
+  perfectDays: number;
+  averageProtein: number;
+  averageCalories: number;
   totalDays: number;
   goalMetDays: number;
   averageCompletion: number;

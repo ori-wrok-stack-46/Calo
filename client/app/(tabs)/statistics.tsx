@@ -8,7 +8,6 @@ import {
   Dimensions,
   Alert,
   Modal,
-  ActivityIndicator,
   RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -22,30 +21,20 @@ import {
   Clock,
   Droplets,
   Zap,
-  Heart,
   Shield,
   Leaf,
-  Sun,
-  Globe,
   Calendar,
   Target,
-  Activity,
   Flame,
   Apple,
   Wheat,
   Fish,
   Sparkles,
-  Timer,
   Scale,
-  Brain,
   Award,
   Trophy,
   Star,
   Crown,
-  Smile,
-  Meh,
-  Frown,
-  Battery,
   X,
   Medal,
   Waves,
@@ -60,119 +49,16 @@ import { useTranslation } from "react-i18next";
 import { useLanguage } from "@/src/i18n/context/LanguageContext";
 import { api } from "@/src/services/api";
 import LoadingScreen from "@/components/LoadingScreen";
+import { StatisticsData } from "@/src/store/calendarSlice";
+import {
+  UserQuestionnaire,
+  NutritionMetric,
+  ProgressData,
+  Achievement,
+  TimeFilter,
+} from "@/src/types/statistics";
 
 const { width } = Dimensions.get("window");
-
-interface NutritionMetric {
-  id: string;
-  name: string;
-  nameEn: string;
-  value: number;
-  unit: string;
-  target: number;
-  minTarget?: number;
-  maxTarget?: number;
-  percentage: number;
-  status: "excellent" | "good" | "warning" | "danger";
-  icon: React.ReactNode;
-  color: string;
-  category: "macros" | "micros" | "lifestyle" | "quality";
-  description: string;
-  recommendation?: string;
-  trend: "up" | "down" | "stable";
-  weeklyAverage: number;
-  lastWeekChange: number;
-}
-
-interface ProgressData {
-  date: string;
-  calories: number;
-  protein: number;
-  carbs: number;
-  fats: number;
-  water: number;
-  weight?: number;
-  mood?: "happy" | "neutral" | "sad";
-  energy?: "high" | "medium" | "low";
-  satiety?: "very_full" | "satisfied" | "hungry";
-  mealQuality?: number;
-  mealsCount: number;
-  requiredMeals: number;
-}
-
-interface Achievement {
-  id: string;
-  title: {
-    en: string;
-    he: string;
-  };
-  description: {
-    en: string;
-    he: string;
-  };
-  icon: string;
-  color: string;
-  progress: number;
-  maxProgress?: number;
-  unlocked: boolean;
-  category: "STREAK" | "GOAL" | "IMPROVEMENT" | "CONSISTENCY" | "MILESTONE";
-  xpReward: number;
-  rarity: "COMMON" | "RARE" | "EPIC" | "LEGENDARY";
-  unlockedDate?: string;
-}
-
-interface TimeFilter {
-  key: "today" | "week" | "month";
-  label: string;
-}
-
-interface StatisticsData {
-  level: number;
-  currentXP: number;
-  totalPoints: number;
-  currentStreak: number;
-  weeklyStreak: number;
-  perfectDays: number;
-  dailyGoalDays: number;
-  totalDays: number;
-  averageCalories: number;
-  averageProtein: number;
-  averageCarbs: number;
-  averageFats: number;
-  averageFiber: number;
-  averageSugar: number;
-  averageSodium: number;
-  averageFluids: number;
-  achievements: any[];
-  badges: any[];
-  dailyBreakdown: any[];
-  successfulDays: number;
-  averageCompletion: number;
-  bestStreak: number;
-  happyDays: number;
-  highEnergyDays: number;
-  satisfiedDays: number;
-  averageMealQuality: number;
-  userGoals: {
-    dailyCalories: number;
-    dailyProtein: number;
-    dailyCarbs: number;
-    dailyFats: number;
-    dailyFiber: number;
-    dailyWater: number;
-    mealsPerDay: number;
-  };
-}
-
-interface UserQuestionnaire {
-  mealsPerDay: number;
-  dailyCalories: number;
-  dailyProtein: number;
-  dailyCarbs: number;
-  dailyFats: number;
-  dailyFiber: number;
-  dailyWater: number;
-}
 
 // Helper function to get the appropriate Lucide icon component
 const getAchievementIcon = (
@@ -286,93 +172,6 @@ export default function StatisticsScreen() {
   const [userQuestionnaire, setUserQuestionnaire] =
     useState<UserQuestionnaire | null>(null);
 
-  const texts = {
-    title: language === "he" ? "התקדמות וסטטיסטיקות" : "Progress & Statistics",
-    subtitle:
-      language === "he"
-        ? "מעקב מפורט אחר מדדי תזונה והתקדמות אישית"
-        : "Detailed tracking of nutritional metrics and personal progress",
-    today: language === "he" ? "היום" : "Today",
-    week: language === "he" ? "שבוע" : "Week",
-    month: language === "he" ? "חודש" : "Month",
-    macronutrients: language === "he" ? "מקרו נוטריינטים" : "Macronutrients",
-    micronutrients: language === "he" ? "מיקרו נוטריינטים" : "Micronutrients",
-    lifestyle: language === "he" ? "אורח חיים" : "Lifestyle",
-    quality: language === "he" ? "איכות תזונה" : "Nutrition Quality",
-    alerts: language === "he" ? "התראות" : "Alerts",
-    recommendations: language === "he" ? "המלצות" : "Recommendations",
-    trend: language === "he" ? "מגמה" : "Trend",
-    weeklyAverage: language === "he" ? "ממוצע שבועי" : "Weekly Average",
-    change: language === "he" ? "שינוי" : "Change",
-    excellent: language === "he" ? "מעולה" : "Excellent",
-    good: language === "he" ? "טוב" : "Good",
-    warning: language === "he" ? "זהירות" : "Warning",
-    danger: language === "he" ? "חריגה" : "Out of Range",
-    viewDetails: language === "he" ? "צפה בפרטים" : "View Details",
-    hideAlerts: language === "he" ? "הסתר התראות" : "Hide Alerts",
-    showAlerts: language === "he" ? "הצג התראות" : "Show Alerts",
-    noAlerts: language === "he" ? "אין התראות כרגע" : "No alerts at the moment",
-    alertsTitle: language === "he" ? "התראות חשובות" : "Important Alerts",
-    progressOverview: language === "he" ? "סקירת התקדמות" : "Progress Overview",
-    weeklyProgress: language === "he" ? "התקדמות שבועית" : "Weekly Progress",
-    achievements: language === "he" ? "הישגים" : "Achievements",
-    insights: language === "he" ? "תובנות אישיות" : "Personal Insights",
-    gamification: language === "he" ? "גיימיפיקציה" : "Gamification",
-    badges: language === "he" ? "תגים" : "Badges",
-    streaks: language === "he" ? "רצפים" : "Streaks",
-    comparison: language === "he" ? "השוואה" : "Comparison",
-    wellbeing: language === "he" ? "רווחה" : "Wellbeing",
-    level: language === "he" ? "רמה" : "Level",
-    xp: language === "he" ? "נק׳ ניסיון" : "XP",
-    nextLevel: language === "he" ? "לרמה הבאה" : "To Next Level",
-    dailyStreak: language === "he" ? "רצף יומי" : "Daily Streak",
-    weeklyStreak: language === "he" ? "רצף שבועי" : "Weekly Streak",
-    perfectDays: language === "he" ? "ימים מושלמים" : "Perfect Days",
-    totalPoints: language === "he" ? 'סה"כ נקודות' : "Total Points",
-    viewAllAchievements:
-      language === "he" ? "צפה בכל הישגים" : "View All Achievements",
-    unlocked: language === "he" ? "נפתח" : "Unlocked",
-    locked: language === "he" ? "נעול" : "Locked",
-    progress: language === "he" ? "התקדמות" : "Progress",
-    completeMealsFirst:
-      language === "he"
-        ? "השלם את כל הארוחות היומיות שלך כדי לקבל תובנות תזונתיות"
-        : "Complete all your daily meals to receive nutritional insights",
-    mealsCompleted: language === "he" ? "ארוחות הושלמו" : "Meals Completed",
-    of: language === "he" ? "מתוך" : "of",
-    totalCalories:
-      language === "he" ? 'סה"כ קלוריות יומיות' : "Total Daily Calories",
-    protein: language === "he" ? "חלבון" : "Protein",
-    carbohydrates: language === "he" ? "פחמימות" : "Carbohydrates",
-    fats: language === "he" ? "שומנים" : "Fats",
-    fiber: language === "he" ? "סיבים תזונתיים" : "Dietary Fiber",
-    sugars: language === "he" ? "סוכרים" : "Sugars",
-    sodium: language === "he" ? "נתרן" : "Sodium",
-    hydration: language === "he" ? "רמת הידרציה" : "Hydration Level",
-    kcal: language === "he" ? 'קק"ל' : "kcal",
-    g: language === "he" ? "גר׳" : "g",
-    mg: language === "he" ? 'מ"ג' : "mg",
-    ml: language === "he" ? 'מ"ל' : "ml",
-    percent: "%",
-    increaseIntake: language === "he" ? "הגדל צריכה" : "Increase intake",
-    decreaseIntake: language === "he" ? "הפחת צריכה" : "Decrease intake",
-    maintainLevel: language === "he" ? "שמור על הרמה" : "Maintain level",
-    consultDoctor: language === "he" ? "התייעץ עם רופא" : "Consult doctor",
-    noDataMessage:
-      language === "he"
-        ? "אין נתונים זמינים לתקופה זו"
-        : "No data available for this period",
-    loadingMessage: language === "he" ? "טוען נתונים..." : "Loading data...",
-    errorMessage:
-      language === "he" ? "שגיאה בטעינת הנתונים" : "Error loading data",
-    retryButton: language === "he" ? "נסה שוב" : "Retry",
-    days: language === "he" ? "ימים" : "days",
-    successfulDays: language === "he" ? "ימים מוצלחים" : "Successful Days",
-    averageCompletion: language === "he" ? "ממוצע השלמה" : "Average Completion",
-    bestStreak: language === "he" ? "רצף הטוב ביותר" : "Best Streak",
-    currentStreak: language === "he" ? "רצף נוכחי" : "Current Streak",
-  };
-
   // Fetch statistics data from API
   const fetchStatistics = async (period: "today" | "week" | "month") => {
     setIsLoading(true);
@@ -470,11 +269,11 @@ export default function StatisticsScreen() {
     const baseData = [
       {
         id: "calories",
-        name: texts.totalCalories,
+        name: t("statistics.total_calories"),
         nameEn: "Total Calories",
         value: statisticsData.averageCalories || 0,
         target: userQuestionnaire.dailyCalories,
-        unit: texts.kcal,
+        unit: t("statistics.kcal"),
         icon: <Flame size={20} color="#E74C3C" />,
         color: "#E74C3C",
         category: "macros" as const,
@@ -494,11 +293,11 @@ export default function StatisticsScreen() {
       },
       {
         id: "protein",
-        name: texts.protein,
+        name: t("statistics.protein"),
         nameEn: "Protein",
         value: statisticsData.averageProtein || 0,
         target: userQuestionnaire.dailyProtein,
-        unit: texts.g,
+        unit: t("statistics.g"),
         icon: <Zap size={20} color="#9B59B6" />,
         color: "#9B59B6",
         category: "macros" as const,
@@ -518,11 +317,11 @@ export default function StatisticsScreen() {
       },
       {
         id: "carbs",
-        name: texts.carbohydrates,
+        name: t("statistics.carbohydrates"),
         nameEn: "Carbohydrates",
         value: statisticsData.averageCarbs || 0,
         target: userQuestionnaire.dailyCarbs,
-        unit: texts.g,
+        unit: t("statistics.g"),
         icon: <Wheat size={20} color="#F39C12" />,
         color: "#F39C12",
         category: "macros" as const,
@@ -542,11 +341,11 @@ export default function StatisticsScreen() {
       },
       {
         id: "fats",
-        name: texts.fats,
+        name: t("statistics.fats"),
         nameEn: "Fats",
         value: statisticsData.averageFats || 0,
         target: userQuestionnaire.dailyFats,
-        unit: texts.g,
+        unit: t("statistics.g"),
         icon: <Fish size={20} color="#16A085" />,
         color: "#16A085",
         category: "macros" as const,
@@ -566,11 +365,11 @@ export default function StatisticsScreen() {
       },
       {
         id: "fiber",
-        name: texts.fiber,
+        name: t("statistics.fiber"),
         nameEn: "Fiber",
         value: statisticsData.averageFiber || 0,
         target: userQuestionnaire.dailyFiber,
-        unit: texts.g,
+        unit: t("statistics.g"),
         icon: <Leaf size={20} color="#27AE60" />,
         color: "#27AE60",
         category: "micros" as const,
@@ -578,7 +377,7 @@ export default function StatisticsScreen() {
           language === "he"
             ? "סיבים תזונתיים לבריאות העיכול"
             : "Dietary fiber for digestive health",
-        recommendation: texts.increaseIntake,
+        recommendation: t("statistics.increaseIntake"),
         trend: calculateTrend(
           statisticsData.averageFiber || 0,
           userQuestionnaire.dailyFiber
@@ -591,12 +390,12 @@ export default function StatisticsScreen() {
       },
       {
         id: "sugars",
-        name: texts.sugars,
+        name: t("statistics.sugars"),
         nameEn: "Sugars",
         value: statisticsData.averageSugar || 0,
         target: 50,
         maxTarget: 50,
-        unit: texts.g,
+        unit: t("statistics.g"),
         icon: <Apple size={20} color="#E67E22" />,
         color: "#E67E22",
         category: "micros" as const,
@@ -604,7 +403,7 @@ export default function StatisticsScreen() {
           language === "he"
             ? "סוכרים פשוטים - מומלץ להגביל"
             : "Simple sugars - recommended to limit",
-        recommendation: texts.decreaseIntake,
+        recommendation: t("statistics.decreaseIntake"),
         trend: calculateTrend(statisticsData.averageSugar || 0, 50),
         weeklyAverage: statisticsData.averageSugar || 0,
         lastWeekChange: calculateWeeklyChange(
@@ -614,12 +413,12 @@ export default function StatisticsScreen() {
       },
       {
         id: "sodium",
-        name: texts.sodium,
+        name: t("statistics.sodium"),
         nameEn: "Sodium",
         value: statisticsData.averageSodium || 0,
         target: 2300,
         maxTarget: 2300,
-        unit: texts.mg,
+        unit: t("statistics.mg"),
         icon: <Shield size={20} color="#E74C3C" />,
         color: "#E74C3C",
         category: "micros" as const,
@@ -627,7 +426,7 @@ export default function StatisticsScreen() {
           language === "he"
             ? "נתרן - חשוב להגביל למניעת יתר לחץ דם"
             : "Sodium - important to limit to prevent hypertension",
-        recommendation: texts.decreaseIntake,
+        recommendation: t("statistics.decreaseIntake"),
         trend: calculateTrend(statisticsData.averageSodium || 0, 2300),
         weeklyAverage: statisticsData.averageSodium || 0,
         lastWeekChange: calculateWeeklyChange(
@@ -637,17 +436,17 @@ export default function StatisticsScreen() {
       },
       {
         id: "hydration",
-        name: texts.hydration,
+        name: t("statistics.hydration"),
         nameEn: "Hydration",
         value: statisticsData.averageFluids || 0,
         target: userQuestionnaire.dailyWater,
-        unit: texts.ml,
+        unit: t("statistics.ml"),
         icon: <Droplets size={20} color="#3498DB" />,
         color: "#3498DB",
         category: "lifestyle" as const,
         description:
           language === "he" ? "רמת הידרציה יומית" : "Daily hydration level",
-        recommendation: texts.increaseIntake,
+        recommendation: t("statistics.increaseIntake"),
         trend: calculateTrend(
           statisticsData.averageFluids || 0,
           userQuestionnaire.dailyWater
@@ -773,9 +572,9 @@ export default function StatisticsScreen() {
   };
 
   const timeFilters: TimeFilter[] = [
-    { key: "today", label: texts.today },
-    { key: "week", label: texts.week },
-    { key: "month", label: texts.month },
+    { key: "today", label: t("statistics.today") },
+    { key: "week", label: t("statistics.week") },
+    { key: "month", label: t("statistics.month") },
   ];
 
   const getStatusColor = (status: string) => {
@@ -834,8 +633,8 @@ export default function StatisticsScreen() {
         message:
           metric.recommendation ||
           (metric.status === "danger"
-            ? texts.consultDoctor
-            : texts.maintainLevel),
+            ? t("statistics.consultDoctor")
+            : t("statistics.maintainLevel")),
         severity: metric.status,
         icon: metric.icon,
       }));
@@ -938,7 +737,7 @@ export default function StatisticsScreen() {
                   { color: getStatusColor(metric.status) },
                 ]}
               >
-                {texts[metric.status as keyof typeof texts] || metric.status}
+                {metric.status}
               </Text>
             </View>
           </View>
@@ -1013,9 +812,11 @@ export default function StatisticsScreen() {
       <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
           <AlertTriangle size={48} color="#E74C3C" />
-          <Text style={styles.errorText}>{texts.errorMessage}</Text>
+          <Text style={styles.errorText}>{t("statistics.error_message")}</Text>
           <TouchableOpacity style={styles.retryButton} onPress={handleRefresh}>
-            <Text style={styles.retryButtonText}>{texts.retryButton}</Text>
+            <Text style={styles.retryButtonText}>
+              {t("statistics.retry_button")}
+            </Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -1042,14 +843,16 @@ export default function StatisticsScreen() {
               <Clock size={24} color="#E67E22" />
             )}
           </View>
-          <Text style={styles.mealCompletionTitle}>{texts.mealsCompleted}</Text>
+          <Text style={styles.mealCompletionTitle}>
+            {t("statistics.meals_completed")}
+          </Text>
         </View>
         <Text style={styles.mealCompletionText}>
-          {todayData.mealsCount} {texts.of} {todayData.requiredMeals}
+          {todayData.mealsCount} {t("statistics.of")} {todayData.requiredMeals}
         </Text>
         {!isCompleted && (
           <Text style={styles.mealCompletionMessage}>
-            {texts.completeMealsFirst}
+            {t("statistics.complete_meals_first")}
           </Text>
         )}
       </View>
@@ -1072,8 +875,8 @@ export default function StatisticsScreen() {
         {/* Header */}
         <View style={styles.header}>
           <View>
-            <Text style={styles.title}>{texts.title}</Text>
-            <Text style={styles.subtitle}>{texts.subtitle}</Text>
+            <Text style={styles.title}>{t("statistics.title")}</Text>
+            <Text style={styles.subtitle}>{t("statistics.subtitle")}</Text>
           </View>
         </View>
 
@@ -1111,7 +914,9 @@ export default function StatisticsScreen() {
         {!statisticsData && !isLoading && (
           <View style={styles.noDataContainer}>
             <BarChart3 size={64} color="#BDC3C7" />
-            <Text style={styles.noDataText}>{texts.noDataMessage}</Text>
+            <Text style={styles.noDataText}>
+              {t("statistics.noDataMessage")}
+            </Text>
           </View>
         )}
 
@@ -1123,7 +928,9 @@ export default function StatisticsScreen() {
 
             {/* Gamification Dashboard */}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>{texts.gamification}</Text>
+              <Text style={styles.sectionTitle}>
+                {t("statistics.gamification")}
+              </Text>
               <View style={styles.gamificationContainer}>
                 <View style={styles.levelContainer}>
                   <View style={styles.levelInfo}>
@@ -1132,11 +939,11 @@ export default function StatisticsScreen() {
                     </View>
                     <View style={styles.levelDetails}>
                       <Text style={styles.levelText}>
-                        {texts.level} {gamificationStats.level}
+                        {t("statistics.level")} {gamificationStats.level}
                       </Text>
                       <Text style={styles.xpText}>
                         {gamificationStats.currentXP} /{" "}
-                        {gamificationStats.nextLevelXP} {texts.xp}
+                        {gamificationStats.nextLevelXP} {t("statistics.xp")}
                       </Text>
                     </View>
                   </View>
@@ -1150,7 +957,7 @@ export default function StatisticsScreen() {
                       />
                     </View>
                     <Text style={styles.xpToNext}>
-                      {gamificationStats.xpToNext} {texts.nextLevel}
+                      {gamificationStats.xpToNext} {t("statistics.next_level")}
                     </Text>
                   </View>
                 </View>
@@ -1162,7 +969,7 @@ export default function StatisticsScreen() {
                       {gamificationStats.dailyStreak}
                     </Text>
                     <Text style={styles.gamificationStatLabel}>
-                      {texts.dailyStreak}
+                      {t("statistics.daily_streak")}
                     </Text>
                   </View>
                   <View style={styles.gamificationStatItem}>
@@ -1171,7 +978,7 @@ export default function StatisticsScreen() {
                       {gamificationStats.weeklyStreak}
                     </Text>
                     <Text style={styles.gamificationStatLabel}>
-                      {texts.weeklyStreak}
+                      {t("statistics.weekly_streak")}
                     </Text>
                   </View>
                   <View style={styles.gamificationStatItem}>
@@ -1180,7 +987,7 @@ export default function StatisticsScreen() {
                       {gamificationStats.perfectDays}
                     </Text>
                     <Text style={styles.gamificationStatLabel}>
-                      {texts.perfectDays}
+                      {t("statistics.perfect_days")}
                     </Text>
                   </View>
                   <View style={styles.gamificationStatItem}>
@@ -1189,7 +996,7 @@ export default function StatisticsScreen() {
                       {gamificationStats.totalPoints.toLocaleString()}
                     </Text>
                     <Text style={styles.gamificationStatLabel}>
-                      {texts.totalPoints}
+                      {t("statistics.total_points")}
                     </Text>
                   </View>
                 </View>
@@ -1199,13 +1006,15 @@ export default function StatisticsScreen() {
             {/* Enhanced Achievements Section */}
             <View style={styles.section}>
               <View style={styles.achievementsHeader}>
-                <Text style={styles.sectionTitle}>{texts.achievements}</Text>
+                <Text style={styles.sectionTitle}>
+                  {t("statistics.achievements")}
+                </Text>
                 <TouchableOpacity
                   style={styles.viewAllButton}
                   onPress={() => setShowAchievements(true)}
                 >
                   <Text style={styles.viewAllText}>
-                    {texts.viewAllAchievements}
+                    {t("statistics.view_all_achievements")}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -1367,7 +1176,9 @@ export default function StatisticsScreen() {
 
             {/* Progress Overview with Real Data */}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>{texts.progressOverview}</Text>
+              <Text style={styles.sectionTitle}>
+                {t("statistics.progress_overview")}
+              </Text>
               <View style={styles.progressOverviewContainer}>
                 <View style={styles.progressStatsGrid}>
                   <View style={styles.progressStatItem}>
@@ -1378,7 +1189,7 @@ export default function StatisticsScreen() {
                       {progressStats.successfulDays}/{progressStats.totalDays}
                     </Text>
                     <Text style={styles.progressStatLabel}>
-                      {texts.successfulDays}
+                      {t("statistics.successful_days")}
                     </Text>
                   </View>
 
@@ -1390,7 +1201,7 @@ export default function StatisticsScreen() {
                       {progressStats.averageCompletion}%
                     </Text>
                     <Text style={styles.progressStatLabel}>
-                      {texts.averageCompletion}
+                      {t("statistics.average_completion")}
                     </Text>
                   </View>
 
@@ -1402,7 +1213,7 @@ export default function StatisticsScreen() {
                       {progressStats.bestStreak}
                     </Text>
                     <Text style={styles.progressStatLabel}>
-                      {texts.bestStreak}
+                      {t("statistics.best_streak")}
                     </Text>
                   </View>
 
@@ -1414,7 +1225,7 @@ export default function StatisticsScreen() {
                       {progressStats.currentStreak}
                     </Text>
                     <Text style={styles.progressStatLabel}>
-                      {texts.currentStreak}
+                      {t("statistics.current_streak")}
                     </Text>
                   </View>
                 </View>
@@ -1433,7 +1244,7 @@ export default function StatisticsScreen() {
                         {progressStats.averages.calories}
                       </Text>
                       <Text style={styles.nutritionAverageLabel}>
-                        {texts.kcal}
+                        {t("statistics.kcal")}
                       </Text>
                     </View>
                     <View style={styles.nutritionAverage}>
@@ -1442,7 +1253,7 @@ export default function StatisticsScreen() {
                         {progressStats.averages.protein}
                       </Text>
                       <Text style={styles.nutritionAverageLabel}>
-                        {texts.g}
+                        {t("statistics.g")}
                       </Text>
                     </View>
                     <View style={styles.nutritionAverage}>
@@ -1451,7 +1262,7 @@ export default function StatisticsScreen() {
                         {progressStats.averages.carbs}
                       </Text>
                       <Text style={styles.nutritionAverageLabel}>
-                        {texts.g}
+                        {t("statistics.g")}
                       </Text>
                     </View>
                     <View style={styles.nutritionAverage}>
@@ -1460,7 +1271,7 @@ export default function StatisticsScreen() {
                         {progressStats.averages.fats}
                       </Text>
                       <Text style={styles.nutritionAverageLabel}>
-                        {texts.g}
+                        {t("statistics.g")}
                       </Text>
                     </View>
                     <View style={styles.nutritionAverage}>
@@ -1469,7 +1280,7 @@ export default function StatisticsScreen() {
                         {progressStats.averages.water}
                       </Text>
                       <Text style={styles.nutritionAverageLabel}>
-                        {texts.ml}
+                        {t("statistics.ml")}
                       </Text>
                     </View>
                   </View>
@@ -1481,13 +1292,15 @@ export default function StatisticsScreen() {
             {shouldShowWarnings() && alerts.length > 0 && (
               <View style={styles.section}>
                 <View style={styles.alertsHeader}>
-                  <Text style={styles.sectionTitle}>{texts.alertsTitle}</Text>
+                  <Text style={styles.sectionTitle}>
+                    {t("statistics.alertsTitle")}
+                  </Text>
                   <TouchableOpacity
                     style={styles.hideAlertsButton}
                     onPress={() => setShowAlerts(false)}
                   >
                     <Text style={styles.hideAlertsText}>
-                      {texts.hideAlerts}
+                      {t("statistics.hideAlerts")}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -1520,7 +1333,9 @@ export default function StatisticsScreen() {
 
             {/* Macronutrients */}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>{texts.macronutrients}</Text>
+              <Text style={styles.sectionTitle}>
+                {t("statistics.macronutrients")}
+              </Text>
               <View style={styles.metricsGrid}>
                 {categorizedMetrics.macros.map(renderMetricCard)}
               </View>
@@ -1528,7 +1343,9 @@ export default function StatisticsScreen() {
 
             {/* Micronutrients */}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>{texts.micronutrients}</Text>
+              <Text style={styles.sectionTitle}>
+                {t("statistics.micronutrients")}
+              </Text>
               <View style={styles.metricsGrid}>
                 {categorizedMetrics.micros.map(renderMetricCard)}
               </View>
@@ -1536,7 +1353,9 @@ export default function StatisticsScreen() {
 
             {/* Lifestyle Metrics */}
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>{texts.lifestyle}</Text>
+              <Text style={styles.sectionTitle}>
+                {t("statistics.lifestyle")}
+              </Text>
               <View style={styles.metricsGrid}>
                 {categorizedMetrics.lifestyle.map(renderMetricCard)}
               </View>
@@ -1555,7 +1374,9 @@ export default function StatisticsScreen() {
               <TouchableOpacity onPress={() => setShowAchievements(false)}>
                 <X size={24} color="#2C3E50" />
               </TouchableOpacity>
-              <Text style={styles.modalTitle}>{texts.achievements}</Text>
+              <Text style={styles.modalTitle}>
+                {t("statistics.achievements")}
+              </Text>
               <View style={{ width: 24 }} />
             </View>
 

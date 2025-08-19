@@ -39,9 +39,7 @@ import {
   Edit3,
   Trash2,
   Plus,
-  Minus,
   RotateCcw,
-  CheckCircle,
   AlertTriangle,
   Info,
   X,
@@ -55,11 +53,9 @@ import {
   Droplets,
   Wheat,
   Apple,
-  Award,
   TrendingUp,
   Eye,
   ChevronDown,
-  ChevronUp,
 } from "lucide-react-native";
 import { useMealDataRefresh } from "@/hooks/useMealDataRefresh";
 import { useColorScheme } from "@/hooks/useColorScheme";

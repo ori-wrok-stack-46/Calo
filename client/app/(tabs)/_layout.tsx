@@ -1,12 +1,10 @@
 import { Tabs } from "expo-router";
-import React, { useMemo } from "react";
-import { View, Platform, I18nManager } from "react-native";
+import React from "react";
+import { View, I18nManager } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
-import { useLanguage } from "@/src/i18n/context/LanguageContext";
 import { ProtectedRoute } from "@/components/ProtectedRoutes";
 import { IconSymbol } from "@/components/ui/IconSymbol";
-import { useColorScheme } from "@/hooks/useColorScheme";
 import { ScrollableTabBar } from "@/components/ScrollableTabBar";
 import { useTheme } from "@/src/context/ThemeContext";
 
@@ -14,9 +12,7 @@ import { useTheme } from "@/src/context/ThemeContext";
 I18nManager.allowRTL(true);
 
 export default function TabLayout() {
-  const colorScheme = useColorScheme();
   const { t } = useTranslation();
-  const { isRTL } = useLanguage();
   const { colors } = useTheme();
 
   return (

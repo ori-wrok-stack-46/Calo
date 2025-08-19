@@ -20,13 +20,7 @@ import {
   User,
   AlertTriangle,
   Shield,
-  Heart,
-  Sparkles,
-  Clock,
-  MessageCircle,
   Trash2,
-  RotateCcw,
-  Info,
   Minus,
   X,
 } from "lucide-react-native";
