@@ -281,7 +281,7 @@ const HomeScreen = React.memo(() => {
   // Water tracking functions with optimistic updates
   const [optimisticWaterCups, setOptimisticWaterCups] = useState(0);
   const [pendingSyncActions, setPendingSyncActions] = useState<
-    Array<{ id: string; delta: number; timestamp: number }>
+    Array<{ id: string; type: string; timestamp: number; targetValue?: number }>
   >([]);
 
   const loadWaterIntake = useCallback(async () => {
@@ -312,15 +312,16 @@ const HomeScreen = React.memo(() => {
   }, [user?.user_id]);
 
   const syncWaterWithServer = async (totalCups: number, actionId: string) => {
-    if (!user?.user_id || waterSyncInProgress) return;
+    if (!user?.user_id) return;
 
-    setWaterSyncInProgress(true);
-
+    // Clear any existing timeout for this sync
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
 
     try {
       const today = new Date().toISOString().split("T")[0];
+      console.log(`💧 Syncing water intake: ${totalCups} cups for ${today}`);
+
       const response = await api.post(
         "/nutrition/water-intake",
         {
@@ -333,6 +334,7 @@ const HomeScreen = React.memo(() => {
       );
 
       if (response.data.success) {
+        console.log(`✅ Water intake synced successfully: ${totalCups} cups`);
         setWaterCups(totalCups);
 
         if (
@@ -348,70 +350,108 @@ const HomeScreen = React.memo(() => {
           setShowXPNotification(true);
         }
 
+        // Remove this action from pending syncs
         setPendingSyncActions((prev) =>
           prev.filter((action) => action.id !== actionId)
         );
 
+        // Clear any related errors
         setWaterSyncErrors((prev) =>
           prev.filter((error) => !error.includes(actionId))
+        );
+      } else {
+        throw new Error(
+          response.data.error || "Server returned success: false"
         );
       }
     } catch (error: any) {
       if (error.name === "AbortError") {
-        console.log("Water sync request aborted");
+        console.log("💧 Water sync request aborted");
         return;
       }
-      console.error("Error syncing water intake:", error);
+      console.error("❌ Error syncing water intake:", error);
 
       setWaterSyncErrors((prev) => [
         ...prev,
-        `Sync failed for action ${actionId}`,
+        `Sync failed for action ${actionId}: ${
+          error.message || "Unknown error"
+        }`,
       ]);
+
+      // Revert optimistic update on error
+      setOptimisticWaterCups(waterCups);
     } finally {
       clearTimeout(timeoutId);
       setWaterSyncInProgress(false);
     }
   };
 
+  // Water sync debouncing
+  const waterSyncTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastSyncRequestRef = useRef<number>(0);
+
   const optimisticWaterUpdate = (delta: number) => {
     const goalMaxCups = 10;
     if (delta > 0 && optimisticWaterCups >= goalMaxCups) return;
     if (delta < 0 && optimisticWaterCups <= 0) return;
 
-    const actionId = Date.now().toString();
     const newTotal = Math.max(
       0,
       Math.min(goalMaxCups, optimisticWaterCups + delta)
     );
 
+    // Update optimistic state immediately
     setOptimisticWaterCups(newTotal);
 
-    setPendingSyncActions((prev) => [
-      ...prev,
+    // Clear any existing sync timeout
+    if (waterSyncTimeoutRef.current) {
+      clearTimeout(waterSyncTimeoutRef.current);
+    }
+
+    // Generate unique action ID based on timestamp and random
+    const actionId = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    lastSyncRequestRef.current = Date.now();
+
+    // Store this action in pending sync (replace any existing ones)
+    setPendingSyncActions([
       {
         id: actionId,
-        delta,
+        type: "water",
         timestamp: Date.now(),
+        targetValue: newTotal,
       },
     ]);
 
-    setTimeout(() => {
-      syncWaterWithServer(newTotal, actionId);
-    }, 500);
+    // Debounce the actual sync to prevent rapid requests
+    waterSyncTimeoutRef.current = setTimeout(() => {
+      // Only sync if this is the most recent request
+      const timeSinceRequest = Date.now() - lastSyncRequestRef.current;
+      if (timeSinceRequest >= 800) {
+        syncWaterWithServer(newTotal, actionId);
+      }
+    }, 1000);
   };
 
-  const incrementWater = () => {
-    if (optimisticWaterCups >= 10) return;
+  // Add button debouncing for water controls
+  const [buttonCooldown, setButtonCooldown] = useState(false);
+
+  const incrementWater = useCallback(() => {
+    if (buttonCooldown) return;
+    setButtonCooldown(true);
     optimisticWaterUpdate(1);
-  };
+    setTimeout(() => setButtonCooldown(false), 200);
+  }, [optimisticWaterUpdate, buttonCooldown]);
 
   const decrementWater = useCallback(() => {
+    if (buttonCooldown) return;
+    setButtonCooldown(true);
     optimisticWaterUpdate(-1);
-  }, [optimisticWaterCups]);
+    setTimeout(() => setButtonCooldown(false), 200);
+  }, [optimisticWaterUpdate, buttonCooldown]);
 
   const retryFailedSyncs = () => {
     pendingSyncActions.forEach((action) => {
-      syncWaterWithServer(optimisticWaterCups, action.id);
+      syncWaterWithServer(action.targetValue || optimisticWaterCups, action.id);
     });
     setWaterSyncErrors([]);
   };

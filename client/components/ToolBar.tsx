@@ -26,8 +26,6 @@ import {
   Moon,
   CircleHelp as HelpCircle,
   X,
-  ChevronRight,
-  ChevronLeft,
 } from "lucide-react-native";
 import { useLanguage } from "../src/i18n/context/LanguageContext";
 import { useTheme } from "../src/context/ThemeContext";
@@ -58,7 +56,6 @@ const ToolBar: React.FC<ToolBarProps> = ({ helpContent }) => {
   const fabRotation = useSharedValue(0);
   const menuOpacity = useSharedValue(0);
   const backdropOpacity = useSharedValue(0);
-  const modalScale = useSharedValue(0);
 
   // Button positions for radial menu
   const button1Position = useSharedValue({ x: 0, y: 0 });
@@ -69,18 +66,13 @@ const ToolBar: React.FC<ToolBarProps> = ({ helpContent }) => {
     const newExpanded = !isExpanded;
     setIsExpanded(newExpanded);
 
-    // FIXED: Invert the expansion direction logic
-    // When toolbar is on the right, expand to the left (negative direction)
-    // When toolbar is on the left, expand to the right (positive direction)
-    const expandDirection = isRTL ? 1 : -1; // Inverted logic
+    const expandDirection = isRTL ? 1 : -1;
 
     if (newExpanded) {
-      // Expand animation
       fabRotation.value = withSpring(45, { damping: 15, stiffness: 200 });
       menuOpacity.value = withTiming(1, { duration: 300 });
       backdropOpacity.value = withTiming(0.3, { duration: 300 });
 
-      // Radial positions - properly adjusted for RTL
       button1Position.value = withSpring(
         { x: 80 * expandDirection, y: -10 },
         { damping: 12, stiffness: 180 }
@@ -94,12 +86,10 @@ const ToolBar: React.FC<ToolBarProps> = ({ helpContent }) => {
         { damping: 12, stiffness: 180 }
       );
     } else {
-      // Collapse animation
       fabRotation.value = withSpring(0, { damping: 15, stiffness: 200 });
       menuOpacity.value = withTiming(0, { duration: 200 });
       backdropOpacity.value = withTiming(0, { duration: 200 });
 
-      // Reset positions
       button1Position.value = withSpring(
         { x: 0, y: 0 },
         { damping: 15, stiffness: 150 }
@@ -145,16 +135,14 @@ const ToolBar: React.FC<ToolBarProps> = ({ helpContent }) => {
 
   const handleHelpPress = useCallback(() => {
     setShowHelp(true);
-    modalScale.value = withSpring(1, { damping: 15, stiffness: 150 });
     handleToggleMenu();
-  }, [modalScale, handleToggleMenu]);
+  }, [handleToggleMenu]);
 
   const handleCloseHelp = useCallback(() => {
-    modalScale.value = withTiming(0, { duration: 200 });
-    setTimeout(() => setShowHelp(false), 200);
-  }, [modalScale]);
+    setShowHelp(false);
+  }, []);
 
-  // Memoized animated styles
+  // Animated styles
   const fabStyle = useAnimatedStyle(
     () => ({
       transform: [
@@ -212,31 +200,12 @@ const ToolBar: React.FC<ToolBarProps> = ({ helpContent }) => {
     []
   );
 
-  const modalStyle = useAnimatedStyle(
-    () => ({
-      transform: [{ scale: modalScale.value }],
-      opacity: modalScale.value,
-    }),
-    []
-  );
-
-  // Dynamic positioning based on language
   const toolbarPosition = useMemo(
     () => ({
-      bottom: insets.bottom + 100, // Position above tab bar
+      bottom: insets.bottom + 100,
       [isRTL ? "left" : "right"]: 24,
     }),
     [insets.bottom, isRTL]
-  );
-
-  // Panel positioning
-  const panelPosition = useMemo(
-    () => ({
-      top: 50,
-      [isRTL ? "left" : "right"]: 20,
-      width: Math.min(320, screenWidth - 40),
-    }),
-    [isRTL]
   );
 
   return (
@@ -265,28 +234,12 @@ const ToolBar: React.FC<ToolBarProps> = ({ helpContent }) => {
             onPress={handleLanguageToggle}
             activeOpacity={0.8}
           >
-            <BlurView intensity={80} style={styles.blurButton}>
-              <LinearGradient
-                colors={[`${colors.primary}20`, `${colors.primary}15`]}
-                style={styles.gradientButton}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-              >
-                <View style={styles.iconContainer}>
-                  <Globe size={18} color={Colors.dark.text} strokeWidth={2.5} />
-                </View>
-                <Text
-                  style={[
-                    styles.buttonLabel,
-                    {
-                      color: colors.primary,
-                    },
-                  ]}
-                >
-                  {language === "he" ? "EN" : "עב"}
-                </Text>
-              </LinearGradient>
-            </BlurView>
+            <View style={styles.buttonContent}>
+              <Globe size={18} color="#FFFFFF" strokeWidth={2.5} />
+              <Text style={styles.buttonLabel}>
+                {language === "he" ? "EN" : "עב"}
+              </Text>
+            </View>
           </AnimatedTouchableOpacity>
 
           {/* Theme Button */}
@@ -295,26 +248,13 @@ const ToolBar: React.FC<ToolBarProps> = ({ helpContent }) => {
             onPress={handleThemeToggle}
             activeOpacity={0.8}
           >
-            <BlurView intensity={80} style={styles.blurButton}>
-              <LinearGradient
-                colors={[`${colors.primary}20`, `${colors.primary}15`]}
-                style={styles.gradientButton}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-              >
-                <View style={styles.iconContainer}>
-                  {isDark ? (
-                    <Sun size={18} color={Colors.dark.text} strokeWidth={2.5} />
-                  ) : (
-                    <Moon
-                      size={18}
-                      color={Colors.dark.text}
-                      strokeWidth={2.5}
-                    />
-                  )}
-                </View>
-              </LinearGradient>
-            </BlurView>
+            <View style={styles.buttonContent}>
+              {isDark ? (
+                <Sun size={18} color="#FFFFFF" strokeWidth={2.5} />
+              ) : (
+                <Moon size={18} color="#FFFFFF" strokeWidth={2.5} />
+              )}
+            </View>
           </AnimatedTouchableOpacity>
 
           {/* Help Button */}
@@ -324,22 +264,9 @@ const ToolBar: React.FC<ToolBarProps> = ({ helpContent }) => {
               onPress={handleHelpPress}
               activeOpacity={0.8}
             >
-              <BlurView intensity={80} style={styles.blurButton}>
-                <LinearGradient
-                  colors={[`${colors.primary}20`, `${colors.primary}15`]}
-                  style={styles.gradientButton}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                >
-                  <View style={styles.iconContainer}>
-                    <HelpCircle
-                      size={18}
-                      color={Colors.dark.text}
-                      strokeWidth={2.5}
-                    />
-                  </View>
-                </LinearGradient>
-              </BlurView>
+              <View style={styles.buttonContent}>
+                <HelpCircle size={18} color="#FFFFFF" strokeWidth={2.5} />
+              </View>
             </AnimatedTouchableOpacity>
           )}
         </Animated.View>
@@ -356,134 +283,110 @@ const ToolBar: React.FC<ToolBarProps> = ({ helpContent }) => {
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
           >
-            <BlurView intensity={25} style={styles.fabBlur}>
-              {isExpanded ? (
-                <X size={24} color="#FFFFFF" strokeWidth={3} />
-              ) : (
-                <Settings size={24} color="#FFFFFF" strokeWidth={3} />
-              )}
-            </BlurView>
+            {isExpanded ? (
+              <X size={24} color="#FFFFFF" strokeWidth={3} />
+            ) : (
+              <Settings size={24} color="#FFFFFF" strokeWidth={3} />
+            )}
           </LinearGradient>
         </AnimatedTouchableOpacity>
       </View>
 
-      {/* Help Modal */}
+      {/* Help Modal - Completely rebuilt */}
       <Modal
         visible={showHelp}
-        transparent
-        animationType="none"
+        transparent={true}
+        animationType="fade"
         onRequestClose={handleCloseHelp}
         statusBarTranslucent={false}
       >
-        <BlurView intensity={100} style={styles.modalContainer}>
+        <View style={styles.modalOverlay}>
           <TouchableOpacity
             style={StyleSheet.absoluteFillObject}
             onPress={handleCloseHelp}
             activeOpacity={1}
           />
 
-          <Animated.View
-            style={[
-              styles.modalContent,
-              modalStyle,
-              {
-                maxWidth: 380,
-                width: "90%",
-                maxHeight: "80%",
-              },
-            ]}
-          >
-            <LinearGradient
-              colors={
-                isDark
-                  ? ["rgba(30,30,30,0.95)", "rgba(20,20,20,0.98)"]
-                  : ["rgba(255,255,255,0.95)", "rgba(250,250,250,0.98)"]
-              }
-              style={styles.modalGradient}
+          <View style={styles.modalContainer}>
+            <View
+              style={[
+                styles.modalContent,
+                { backgroundColor: colors.background },
+              ]}
             >
-              {/* Modal Header */}
+              {/* Header */}
               <View
-                style={[styles.modalHeader, isRTL && styles.modalHeaderRTL]}
+                style={[
+                  styles.modalHeader,
+                  { borderBottomColor: colors.border },
+                ]}
               >
-                <View
-                  style={[
-                    styles.modalTitleContainer,
-                    isRTL && styles.modalTitleContainerRTL,
-                  ]}
-                >
+                <View style={styles.modalTitleContainer}>
                   <HelpCircle size={24} color={colors.primary} />
-                  <Text
-                    style={[
-                      styles.modalTitle,
-                      { color: colors.text },
-                      isRTL && styles.rtlText,
-                    ]}
-                  >
+                  <Text style={[styles.modalTitle, { color: colors.text }]}>
                     {helpContent?.title || "Help"}
                   </Text>
                 </View>
                 <TouchableOpacity
                   onPress={handleCloseHelp}
-                  style={[
-                    styles.closeButton,
-                    { backgroundColor: `${colors.primary}15` },
-                  ]}
-                  activeOpacity={0.7}
+                  style={styles.closeButton}
                 >
-                  <X size={18} color={colors.primary} />
+                  <X size={20} color={colors.text} />
                 </TouchableOpacity>
               </View>
 
-              {/* Modal Body */}
+              {/* Content */}
               <ScrollView
                 style={styles.modalBody}
                 showsVerticalScrollIndicator={false}
-                contentContainerStyle={styles.modalBodyContent}
               >
-                {helpContent ? (
-                  <View>
-                    <Text
-                      style={[
-                        styles.modalText,
-                        { color: colors.text },
-                        isRTL && styles.rtlText,
-                      ]}
-                    >
-                      {helpContent.description}
-                    </Text>
+                <View style={styles.modalBodyContent}>
+                  {helpContent ? (
+                    <View>
+                      <Text style={[styles.modalText, { color: colors.text }]}>
+                        {helpContent.description}
+                      </Text>
 
-                    {/* Additional help sections */}
-                    <View style={styles.helpSection}>
-                      <Text
+                      <View
                         style={[
-                          styles.helpSectionTitle,
-                          { color: colors.text },
+                          styles.helpSection,
+                          { borderTopColor: colors.border },
                         ]}
                       >
-                        Quick Tips:
-                      </Text>
-                      <Text
-                        style={[styles.helpSectionText, { color: colors.text }]}
-                      >
-                        • Use the camera to scan meals for nutrition analysis •
-                        Track your water intake daily for better health •
-                        Complete your questionnaire for personalized
-                        recommendations • Check your statistics to monitor
-                        progress
+                        <Text
+                          style={[
+                            styles.helpSectionTitle,
+                            { color: colors.text },
+                          ]}
+                        >
+                          Quick Tips:
+                        </Text>
+                        <Text
+                          style={[
+                            styles.helpSectionText,
+                            { color: colors.text },
+                          ]}
+                        >
+                          • Use the camera to scan meals for nutrition analysis
+                          {"\n"}• Track your water intake daily for better
+                          health{"\n"}• Complete your questionnaire for
+                          personalized recommendations{"\n"}• Check your
+                          statistics to monitor progress
+                        </Text>
+                      </View>
+                    </View>
+                  ) : (
+                    <View style={styles.noHelpContent}>
+                      <Text style={[styles.modalText, { color: colors.text }]}>
+                        Help content is loading...
                       </Text>
                     </View>
-                  </View>
-                ) : (
-                  <View style={styles.noHelpContent}>
-                    <Text style={[styles.modalText, { color: colors.text }]}>
-                      Help content is loading...
-                    </Text>
-                  </View>
-                )}
+                  )}
+                </View>
               </ScrollView>
-            </LinearGradient>
-          </Animated.View>
-        </BlurView>
+            </View>
+          </View>
+        </View>
       </Modal>
     </>
   );
@@ -511,35 +414,22 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   menuButton: {
-    backgroundColor: `${EmeraldSpectrum.emerald500}`,
     position: "absolute",
     width: 56,
     height: 56,
     borderRadius: 28,
-    overflow: "hidden",
+    backgroundColor: EmeraldSpectrum.emerald500,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.8,
-    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
-  blurButton: {
-    flex: 1,
-    borderRadius: 28,
-    overflow: "hidden",
-  },
-  gradientButton: {
+  buttonContent: {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
-    borderRadius: 28,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.2)",
     paddingVertical: 8,
-  },
-  iconContainer: {
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 2,
   },
   buttonLabel: {
     fontSize: 8,
@@ -547,105 +437,88 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     textTransform: "uppercase",
     textAlign: "center",
+    color: "#FFFFFF",
+    marginTop: 2,
   },
   fab: {
     width: 64,
     height: 64,
     borderRadius: 32,
-    overflow: "hidden",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 12 },
+    shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
-    shadowRadius: 20,
+    shadowRadius: 16,
     elevation: 12,
   },
   fabGradient: {
     flex: 1,
-    borderRadius: 32,
-  },
-  fabBlur: {
-    flex: 1,
     alignItems: "center",
     justifyContent: "center",
     borderRadius: 32,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
+  },
+  // Modal styles - completely rebuilt
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
   },
   modalContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 24,
+    width: "100%",
+    maxWidth: 400,
+    maxHeight: "80%",
   },
   modalContent: {
-    maxWidth: 420,
-    borderRadius: 24,
-    overflow: "hidden",
+    borderRadius: 20,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 20 },
+    shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.3,
-    shadowRadius: 30,
-    elevation: 30,
-  },
-  modalGradient: {
-    flex: 1,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
+    shadowRadius: 20,
+    elevation: 20,
+    overflow: "hidden",
   },
   modalHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 24,
-    paddingVertical: 20,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(255, 255, 255, 0.1)",
-  },
-  modalHeaderRTL: {
-    flexDirection: "row-reverse",
   },
   modalTitleContainer: {
     flexDirection: "row",
     alignItems: "center",
     flex: 1,
   },
-  modalTitleContainerRTL: {
-    flexDirection: "row-reverse",
-  },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: "700",
     marginLeft: 12,
-    letterSpacing: 0.5,
   },
   closeButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     alignItems: "center",
     justifyContent: "center",
+    backgroundColor: "rgba(0, 0, 0, 0.05)",
   },
   modalBody: {
-    flex: 1,
+    maxHeight: 400,
   },
   modalBodyContent: {
-    padding: 24,
+    padding: 20,
   },
   modalText: {
     fontSize: 16,
-    lineHeight: 26,
-    letterSpacing: 0.3,
-  },
-  rtlText: {
-    textAlign: "right",
-    writingDirection: "rtl",
+    lineHeight: 24,
+    marginBottom: 16,
   },
   helpSection: {
     marginTop: 20,
     paddingTop: 20,
     borderTopWidth: 1,
-    borderTopColor: "rgba(255, 255, 255, 0.1)",
   },
   helpSectionTitle: {
     fontSize: 16,
@@ -654,8 +527,7 @@ const styles = StyleSheet.create({
   },
   helpSectionText: {
     fontSize: 14,
-    lineHeight: 22,
-    opacity: 0.9,
+    lineHeight: 20,
   },
   noHelpContent: {
     padding: 20,

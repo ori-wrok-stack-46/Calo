@@ -54,6 +54,7 @@ import {
   Dumbbell as DumbbellIcon,
   Activity,
   ChartPie as PieChart,
+  Download,
 } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
 import { useLanguage } from "@/src/i18n/context/LanguageContext";
@@ -67,6 +68,10 @@ import {
   Achievement,
   TimeFilter,
 } from "@/src/types/statistics";
+import * as Print from "expo-print";
+import * as Sharing from "expo-sharing";
+import { useSelector } from "react-redux";
+import { RootState } from "@/src/store";
 
 const { width, height } = Dimensions.get("window");
 const CHART_WIDTH = width - 40;
@@ -596,7 +601,7 @@ export default function StatisticsScreen() {
   );
   const [userQuestionnaire, setUserQuestionnaire] =
     useState<UserQuestionnaire | null>(null);
-
+  const { user } = useSelector((state: RootState) => state.auth);
   // Fetch statistics data from API
   const fetchStatistics = async (period: "today" | "week" | "month") => {
     setIsLoading(true);
@@ -1302,6 +1307,516 @@ export default function StatisticsScreen() {
     );
   };
 
+  // PDF generation function
+  const generatePdf = async () => {
+    console.log("generatePdf function called"); // Debug log
+
+    // Check if statisticsData exists
+    if (!statisticsData) {
+      console.log("No statistics data available"); // Debug log
+      Alert.alert("No Data", "There is no data to generate a PDF from.");
+      return;
+    }
+
+    console.log("Statistics data found, generating PDF..."); // Debug log
+
+    // Add loading indicator
+    Alert.alert(
+      "Generating PDF",
+      "Please wait while we generate your report..."
+    );
+
+    const htmlContent = `
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Statistics Report</title>
+        <style>
+          body { 
+            font-family: 'Arial', sans-serif; 
+            padding: 20px; 
+            color: #333; 
+            line-height: 1.4;
+          }
+          h1 { 
+            color: #16A085; 
+            text-align: center; 
+            margin-bottom: 30px; 
+          }
+          h2 { 
+            color: #0F172A; 
+            border-bottom: 2px solid #EEE; 
+            padding-bottom: 10px; 
+            margin-top: 25px; 
+            margin-bottom: 15px; 
+            font-size: 20px; 
+          }
+          .section { 
+            margin-bottom: 20px; 
+            page-break-inside: avoid;
+          }
+          .metric-card { 
+            background-color: #F8FAFC; 
+            border-radius: 12px; 
+            padding: 16px; 
+            margin-bottom: 12px; 
+            border: 1px solid #E5E7EB;
+          }
+          .metric-header { 
+            display: flex;
+            flex-direction: row; 
+            align-items: center; 
+            margin-bottom: 10px; 
+          }
+          .metric-name { 
+            font-size: 16px; 
+            font-weight: 700; 
+            color: #0F172A; 
+            flex: 1; 
+          }
+          .metric-value { 
+            font-size: 18px; 
+            font-weight: 800; 
+            color: #0F172A; 
+          }
+          .metric-target { 
+            font-size: 13px; 
+            color: #64748B; 
+          }
+          .flex-row {
+            display: flex;
+            flex-direction: row;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 20px;
+          }
+          .flex-col {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+          }
+          .stat-circle {
+            width: 48px;
+            height: 48px;
+            background-color: #F8FAFC;
+            border-radius: 24px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 12px;
+          }
+          .progress-stat-value { 
+            font-size: 16px; 
+            font-weight: 800; 
+            color: #0F172A; 
+            margin: 4px 0 2px 0;
+            text-align: center;
+          }
+          .progress-stat-label { 
+            font-size: 11px; 
+            color: #64748B; 
+            text-align: center; 
+            font-weight: 600; 
+          }
+          .achievement-card {
+            min-width: 280px;
+            max-width: 300px;
+            border-radius: 12px;
+            padding: 16px;
+            border: 1px solid #E5E7EB;
+            margin-right: 16px;
+            display: inline-block;
+            vertical-align: top;
+          }
+          .progress-bar {
+            height: 8px;
+            background-color: #F1F5F9;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 8px 0;
+          }
+          .progress-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.3s ease;
+          }
+        </style>
+      </head>
+      <body>
+        <h1>Statistics Report</h1>
+
+        <div class="section">
+          <h2>Meal Completion</h2>
+          <div class="metric-card">
+            <p>Meal completion status content goes here</p>
+          </div>
+        </div>
+
+        <div class="section">
+          <h2>Progress Overview</h2>
+          <div class="flex-row">
+            <div class="flex-col">
+              <div class="stat-circle">
+                <span style="color: #2ECC71;">🎯</span>
+              </div>
+              <p class="progress-stat-value">${
+                progressStats?.averageCompletion || 0
+              }%</p>
+              <p class="progress-stat-label">Average Completion</p>
+            </div>
+            <div class="flex-col">
+              <div class="stat-circle">
+                <span style="color: #F39C12;">🏆</span>
+              </div>
+              <p class="progress-stat-value">${
+                progressStats?.bestStreak || 0
+              }</p>
+              <p class="progress-stat-label">Best Streak</p>
+            </div>
+            <div class="flex-col">
+              <div class="stat-circle">
+                <span style="color: #E74C3C;">🔥</span>
+              </div>
+              <p class="progress-stat-value">${
+                progressStats?.currentStreak || 0
+              }</p>
+              <p class="progress-stat-label">Current Streak</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h2>Nutrition Averages</h2>
+          <div class="flex-row">
+            <div class="flex-col">
+              <p class="metric-value">${
+                progressStats?.averages?.calories || 0
+              }</p>
+              <p class="metric-target">kcal</p>
+            </div>
+            <div class="flex-col">
+              <p class="metric-value">${
+                progressStats?.averages?.protein || 0
+              }</p>
+              <p class="metric-target">g protein</p>
+            </div>
+            <div class="flex-col">
+              <p class="metric-value">${progressStats?.averages?.carbs || 0}</p>
+              <p class="metric-target">g carbs</p>
+            </div>
+            <div class="flex-col">
+              <p class="metric-value">${progressStats?.averages?.fats || 0}</p>
+              <p class="metric-target">g fats</p>
+            </div>
+            <div class="flex-col">
+              <p class="metric-value">${progressStats?.averages?.water || 0}</p>
+              <p class="metric-target">ml water</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="section">
+          <h2>Gamification Stats</h2>
+          <div class="flex-row">
+            <div class="flex-col">
+              <div class="stat-circle" style="background-color: #FEF3E2;">
+                <span style="color: #F39C12;">👑</span>
+              </div>
+              <p class="progress-stat-value">${
+                gamificationStats?.level || 1
+              }</p>
+              <p class="progress-stat-label">Level</p>
+            </div>
+            <div class="flex-col">
+              <div class="stat-circle">
+                <span style="color: #E74C3C;">🔥</span>
+              </div>
+              <p class="progress-stat-value">${
+                gamificationStats?.dailyStreak || 0
+              }</p>
+              <p class="progress-stat-label">Daily Streak</p>
+            </div>
+            <div class="flex-col">
+              <div class="stat-circle">
+                <span style="color: #3498DB;">📅</span>
+              </div>
+              <p class="progress-stat-value">${
+                gamificationStats?.weeklyStreak || 0
+              }</p>
+              <p class="progress-stat-label">Weekly Streak</p>
+            </div>
+            <div class="flex-col">
+              <div class="stat-circle">
+                <span style="color: #F39C12;">⭐</span>
+              </div>
+              <p class="progress-stat-value">${
+                gamificationStats?.perfectDays || 0
+              }</p>
+              <p class="progress-stat-label">Perfect Days</p>
+            </div>
+            <div class="flex-col">
+              <div class="stat-circle">
+                <span style="color: #16A085;">🏆</span>
+              </div>
+              <p class="progress-stat-value">${
+                gamificationStats?.totalPoints?.toLocaleString() || 0
+              }</p>
+              <p class="progress-stat-label">Total Points</p>
+            </div>
+          </div>
+        </div>
+
+        ${
+          metrics
+            ?.map(
+              (metric, index) => `
+          <div class="section">
+            <h2>${metric.name || `Metric ${index + 1}`}</h2>
+            <div class="metric-card">
+              <div class="metric-header">
+                <div class="stat-circle">
+                  <span style="color: ${metric.color || "#666"};">📊</span>
+                </div>
+                <div style="flex: 1; margin-left: 16px;">
+                  <p class="metric-name">${metric.name || "Unknown Metric"}</p>
+                  <p style="font-size: 13px; font-weight: 600; color: ${
+                    metric.color || "#666"
+                  };">${metric.status || "N/A"}</p>
+                </div>
+              </div>
+              <div style="margin: 20px 0;">
+                <p class="metric-value">${(
+                  metric.value || 0
+                ).toLocaleString()} ${metric.unit || ""}</p>
+                <p class="metric-target">Target: ${(
+                  metric.target || 0
+                ).toLocaleString()} ${metric.unit || ""}</p>
+              </div>
+              <div class="progress-bar">
+                <div class="progress-fill" style="width: ${Math.min(
+                  metric.percentage || 0,
+                  100
+                )}%; background-color: ${metric.color || "#ccc"};"></div>
+              </div>
+              ${
+                metric.recommendation
+                  ? `
+                <div style="background-color: #F0F9FF; padding: 12px; border-radius: 8px; margin-top: 12px;">
+                  <p style="font-size: 13px; color: #0369A1; margin: 0;">💡 ${metric.recommendation}</p>
+                </div>
+              `
+                  : ""
+              }
+            </div>
+          </div>
+        `
+            )
+            .join("") || ""
+        }
+
+      </body>
+    </html>
+  `;
+
+    try {
+      console.log("Attempting to generate PDF..."); // Debug log
+
+      // Check if Print is available
+      if (!Print || !Print.printToFileAsync) {
+        throw new Error("Print module is not available");
+      }
+
+      // Create filename with user's name
+      const fileName = `Calo Stats ${user?.name || "User"}.pdf`;
+
+      const { uri } = await Print.printToFileAsync({
+        html: htmlContent,
+        base64: false,
+        fileName: fileName, // This sets the suggested filenam
+      });
+
+      console.log("PDF generated successfully, URI:", uri); // Debug log
+
+      if (uri) {
+        console.log("Attempting to share PDF..."); // Debug log
+
+        // Check if Sharing is available
+        if (!Sharing || !Sharing.shareAsync) {
+          throw new Error("Sharing module is not available");
+        }
+
+        await Sharing.shareAsync(uri, {
+          mimeType: "application/pdf",
+          dialogTitle: "Share your statistics report",
+          UTI: "com.adobe.pdf", // iOS specific
+          filename: fileName, // This sets the filename when sharing
+        });
+
+        console.log("PDF shared successfully"); // Debug log
+      } else {
+        throw new Error("Failed to generate PDF - no URI returned");
+      }
+    } catch (error) {
+      console.error("Error generating or sharing PDF:", error);
+
+      // More detailed error messaging
+      let errorMessage = "An error occurred while generating the PDF.";
+
+      if (error.message.includes("Print module")) {
+        errorMessage = "PDF generation is not available on this device.";
+      } else if (error.message.includes("Sharing module")) {
+        errorMessage = "PDF sharing is not available on this device.";
+      } else if (error.message.includes("no URI")) {
+        errorMessage = "Failed to create the PDF file.";
+      }
+
+      Alert.alert(
+        "Error",
+        errorMessage + "\n\nTechnical details: " + error.message
+      );
+    }
+  };
+  // Helper to get meal completion status content for PDF
+  const renderMealCompletionStatusContent = () => {
+    const weeklyData = generateWeeklyData();
+    const today = new Date().toISOString().split("T")[0];
+    const todayData = weeklyData.find((day) => day.date === today);
+
+    if (!todayData || !userQuestionnaire) return "No data available.";
+
+    const isCompleted = todayData.mealsCount >= todayData.requiredMeals;
+    const completionPercentage =
+      (todayData.mealsCount / todayData.requiredMeals) * 100;
+
+    return `
+      <div style="display: flex; flex-direction: column; align-items: center; gap: 10px;">
+        <div style="display: flex; align-items: center;">
+          <span style="margin-right: 10px;">
+            <svg width="24" height="24" fill="${
+              isCompleted ? "#2ECC71" : "#E67E22"
+            }">${isCompleted ? CheckCircle : Clock}</svg>
+          </span>
+          <p style="font-size: 18px; font-weight: 700; color: #0F172A;">${t(
+            "statistics.meals_completed"
+          )}</p>
+        </div>
+        <div style="position: relative; width: 100px; height: 100px;">
+          <svg width="100" height="100" viewBox="0 0 100 100" style="transform: rotate(-90deg);">
+            <circle cx="50" cy="50" r="45" fill="none" stroke="#F1F5F9" stroke-width="8"/>
+            <circle cx="50" cy="50" r="45" fill="none" stroke="${
+              isCompleted ? "#2ECC71" : "#E67E22"
+            }" stroke-width="8" stroke-dasharray="283" stroke-dashoffset="${
+      283 - (completionPercentage / 100) * 283
+    }" stroke-linecap="round"/>
+          </svg>
+          <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; justify-content: center; align-items: center; display: flex; flex-direction: column;">
+            <p style="font-size: 24px; font-weight: 800; color: #0F172A;">${
+              todayData.mealsCount
+            }</p>
+            <p style="font-size: 14px; color: #64748B;">${t("statistics.of")} ${
+      todayData.requiredMeals
+    }</p>
+          </div>
+        </div>
+        ${
+          !isCompleted
+            ? `<p style="font-size: 14px; color: #64748B; font-style: italic; text-align: center;">${t(
+                "statistics.complete_meals_first"
+              )}</p>`
+            : ""
+        }
+      </div>
+    `;
+  };
+
+  // Helper to get SVG content for icons
+  const getIconSvg = (iconComponent: any) => {
+    if (!iconComponent || !iconComponent.type || !iconComponent.props)
+      return "";
+    // Render the icon component directly into SVG string
+    return iconComponent.typeconComponent.props;
+  };
+
+  const getAchievementIconHtml = (iconName: string) => {
+    const iconProps = { size: 28, color: "#9CA3AF" }; // Default color for HTML rendering
+
+    switch (iconName) {
+      case "target":
+        return Target(iconProps);
+      case "sparkles":
+        return Sparkles(iconProps);
+      case "star":
+        return Star(iconProps);
+      case "medal":
+        return Medal(iconProps);
+      case "trophy":
+        return Trophy(iconProps);
+      case "crown":
+        return Crown(iconProps);
+      case "droplets":
+        return Droplets(iconProps);
+      case "waves":
+        return Waves(iconProps);
+      case "droplet":
+        return Droplets(iconProps);
+      case "mountain-snow":
+        return Mountain(iconProps);
+      case "flame":
+        return Flame(iconProps);
+      case "calendar":
+        return Calendar(iconProps);
+      case "muscle":
+        return DumbbellIcon(iconProps);
+      case "sunrise":
+        return Sunrise(iconProps);
+      case "moon":
+        return Moon(iconProps);
+      case "bar-chart-3":
+        return BarChart3(iconProps);
+      case "apple":
+        return Apple(iconProps);
+      case "dumbbell":
+        return Dumbbell(iconProps);
+      case "scale":
+        return Scale(iconProps);
+      case "wheat":
+        return Wheat(iconProps);
+      case "gem":
+        return Gem(iconProps);
+      case "zap":
+        return Zap(iconProps);
+      case "award":
+      default:
+        return Award(iconProps);
+    }
+  };
+
+  const getStatusIconSvg = (status: string) => {
+    switch (status) {
+      case "excellent":
+        return CheckCircle({ size: 16, color: "#2ECC71" });
+      case "good":
+        return CheckCircle({ size: 16, color: "#F39C12" });
+      case "warning":
+        return AlertTriangle({ size: 16, color: "#E67E22" });
+      case "danger":
+        return AlertTriangle({ size: 16, color: "#E74C3C" });
+      default:
+        return CheckCircle({ size: 16, color: "#95A5A6" });
+    }
+  };
+
+  const getTrendIconSvg = (trend: string) => {
+    switch (trend) {
+      case "up":
+        return TrendingUp({ size: 14, color: "#2ECC71" });
+      case "down":
+        return TrendingDown({ size: 14, color: "#E74C3C" });
+      default:
+        return Target({ size: 14, color: "#95A5A6" });
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView
@@ -1317,9 +1832,17 @@ export default function StatisticsScreen() {
       >
         {/* Header */}
         <View style={styles.header}>
-          <View>
-            <Text style={styles.title}>{t("statistics.title")}</Text>
-            <Text style={styles.subtitle}>{t("statistics.subtitle")}</Text>
+          <View style={styles.headerContent}>
+            <View style={styles.titleContainer}>
+              <Text style={styles.title}>{t("statistics.title")}</Text>
+              <Text style={styles.subtitle}>{t("statistics.subtitle")}</Text>
+            </View>
+            <TouchableOpacity
+              style={[styles.downloadButton, { backgroundColor: "#16A085" }]}
+              onPress={generatePdf}
+            >
+              <Download size={24} color="#FFFFFF" />
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -2031,16 +2554,16 @@ const styles = StyleSheet.create({
 
   // Header Styles
   header: {
-    paddingHorizontal: 24,
-    paddingVertical: 28,
-    backgroundColor: "#FFFFFF",
-    borderBottomLeftRadius: 32,
-    borderBottomRightRadius: 32,
-    shadowColor: "#1E293B",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.08,
-    shadowRadius: 24,
-    marginBottom: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  headerContent: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  titleContainer: {
+    flex: 1,
   },
   title: {
     fontSize: Math.min(32, width * 0.08),
@@ -2055,6 +2578,18 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     lineHeight: 24,
     letterSpacing: 0.1,
+  },
+  downloadButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
 
   // Enhanced Error & Loading States

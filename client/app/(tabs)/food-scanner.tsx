@@ -30,11 +30,12 @@ import {
   Sparkles,
   Clock,
   Target,
-  Image as ImageIcon,
+  ImageIcon,
   Search,
   Trash2,
   Edit3,
   Save,
+  ShoppingCart, // Import ShoppingCart icon
 } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
 import { useLanguage } from "@/src/i18n/context/LanguageContext";
@@ -308,6 +309,34 @@ export default function FoodScannerScreen() {
       Alert.alert("Error", "Failed to add product to meal log");
     } finally {
       setIsAddingToMeal(false);
+    }
+  };
+
+  // Function to add ingredients to the shopping list
+  const handleAddToShopping = async (ingredientsToAdd: string[]) => {
+    try {
+      const response = await api.post("/shopping_lists/add-items", {
+        items: ingredientsToAdd.map((name) => ({
+          name,
+          quantity: 1,
+          unit: "item",
+        })),
+      });
+
+      if (response.data.success) {
+        Alert.alert("Success", "Items added to your shopping list!");
+      } else {
+        Alert.alert(
+          "Error",
+          response.data.message || "Failed to add items to shopping list."
+        );
+      }
+    } catch (error) {
+      console.error("Add to shopping list error:", error);
+      Alert.alert(
+        "Error",
+        "An error occurred while adding items to your shopping list."
+      );
     }
   };
 
@@ -624,6 +653,24 @@ export default function FoodScannerScreen() {
         <View style={styles.actionButtons}>
           <TouchableOpacity
             style={[
+              styles.tertiaryButton,
+              {
+                borderColor: colors.emerald500,
+                backgroundColor: colors.surface,
+              },
+            ]}
+            onPress={() => handleAddToShopping(product.ingredients)}
+          >
+            <ShoppingCart size={14} color={colors.emerald500} />
+            <Text
+              style={[styles.tertiaryButtonText, { color: colors.emerald500 }]}
+            >
+              Shopping
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
               styles.secondaryButton,
               {
                 borderColor: colors.emerald500,
@@ -636,7 +683,7 @@ export default function FoodScannerScreen() {
             <Text
               style={[styles.secondaryButtonText, { color: colors.emerald500 }]}
             >
-              Edit Ingredients
+              Edit
             </Text>
           </TouchableOpacity>
 
@@ -1447,6 +1494,20 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     padding: 20,
     gap: 12,
+  },
+  tertiaryButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    borderWidth: 2,
+    gap: 8,
+  },
+  tertiaryButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
   },
   secondaryButton: {
     flex: 1,

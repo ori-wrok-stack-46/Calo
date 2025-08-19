@@ -13,7 +13,7 @@ model User {
   user_id                    String                @id @default(cuid())
   email                      String                @unique
   password_hash              String
-  name                       String?  
+  name                       String?
   avatar_url                 String?
   signup_date                DateTime              @default(now())
   subscription_type          SubscriptionType
@@ -410,23 +410,25 @@ model UserMealPreference {
 }
 
 model ShoppingList {
-  list_id              String    @id @default(cuid())
-  user_id              String
-  plan_id              String?
-  name                 String
-  week_start_date      DateTime? @db.Date
-  items_json           Json
-  total_estimated_cost Float?
-  is_completed         Boolean   @default(false)
-  created_at           DateTime  @default(now())
-  updated_at           DateTime  @updatedAt
+  id             String   @id @default(cuid())
+  user_id        String
+  plan_id        String?
+  name           String
+  quantity       Float    @default(1)
+  unit           String   @default("pieces")
+  category       String?  @default("Other")
+  is_purchased   Boolean  @default(false)
+  added_from     String?  @default("manual") // 'menu', 'scanner', 'manual'
+  estimated_cost Float?
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
 
   // Relationships
   user User          @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
   plan UserMealPlan? @relation(fields: [plan_id], references: [plan_id], onDelete: SetNull)
 
   @@index([user_id])
-  @@map("shopping_lists")
+  @@map("shopping_list")
 }
 
 model ChatMessage {
@@ -593,20 +595,22 @@ model UserBadge {
 }
 
 model Achievement {
-  id             String   @id
-  key            String   @unique
+  id             String    @id @default(cuid())
+  key            String    @unique
   title          String
   description    String
-  category       String
-  max_progress   Int      @default(1)
-  points_awarded Int      @default(0)
-  icon           String?
-  rarity         String   @default("COMMON")
-  is_active      Boolean  @default(true)
-  created_at     DateTime @default(now())
-  updated_at     DateTime @updatedAt
+  icon           String
+  rarity         String    @default("COMMON")
+  category       String    @default("MILESTONE")
+  points_awarded Int       @default(100)
+  progress       Int       @default(0)
+  max_progress   Int       @default(1)
+  unlocked       Boolean   @default(false)
+  unlocked_date  DateTime?
+  created_at     DateTime  @default(now())
+  updated_at     DateTime  @updatedAt
 
-  userAchievements UserAchievement[]
+  UserAchievements UserAchievement[]
 }
 
 model UserAchievement {

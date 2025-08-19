@@ -8,6 +8,7 @@ import {
   Alert,
   ScrollView,
   ActivityIndicator,
+  Platform,
 } from "react-native";
 import { Link, router } from "expo-router";
 import { useTranslation } from "react-i18next";
@@ -211,7 +212,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#ffffff",
   },
   containerRTL: {
-    direction: "rtl",
+    ...(Platform.OS === "web" ? { direction: "rtl" } : {}),
   },
   backgroundAccent: {
     position: "absolute",

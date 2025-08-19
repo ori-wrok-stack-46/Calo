@@ -24,18 +24,15 @@ import { MessageCircle, Minus, X } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AIChatScreen from "../app/(tabs)/ai-chat";
 
-// Enhanced interface
 interface AIChatScreenProps {
   onClose?: () => void;
   onMinimize?: () => void;
 }
 
-// Clean constants
 const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
 const BUTTON_SIZE = 60;
 const EDGE_MARGIN = 20;
 
-// Smooth animations
 const ANIMATIONS = {
   spring: {
     tension: 300,
@@ -49,24 +46,16 @@ const ANIMATIONS = {
   },
 } as const;
 
-// Updated colors with emerald
 const COLORS = {
-  glass: "rgba(16, 185, 129, 0.3)", // emerald with transparency
-  glassStroke: "rgba(255, 255, 255, 0.3)",
-  backdrop: "rgba(6, 78, 59, 0.1)", // dark emerald
-  emerald: "#10b981", // emerald-500
+  emerald: "#10b981",
   white: "#ffffff",
-  gray50: "#f9fafb",
-  gray100: "#f3f4f6",
-  gray200: "#e5e7eb",
   gray600: "#4b5563",
   gray900: "#111827",
+  backdrop: "rgba(0, 0, 0, 0.5)",
 } as const;
 
 export default function FloatingChatButton() {
   const insets = useSafeAreaInsets();
-
-  // State
   const [showChat, setShowChat] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [snapSide, setSnapSide] = useState<"left" | "right">("right");
@@ -103,20 +92,12 @@ export default function FloatingChatButton() {
 
       onPanResponderGrant: () => {
         setIsDragging(true);
-
         if (Platform.OS === "ios") {
           Vibration.vibrate([10]);
         }
-
         Animated.parallel([
-          Animated.spring(scaleAnim, {
-            toValue: 1.05,
-            ...ANIMATIONS.spring,
-          }),
-          Animated.timing(opacityAnim, {
-            toValue: 0.9,
-            ...ANIMATIONS.timing,
-          }),
+          Animated.spring(scaleAnim, { toValue: 1.05, ...ANIMATIONS.spring }),
+          Animated.timing(opacityAnim, { toValue: 0.9, ...ANIMATIONS.timing }),
         ]).start();
       },
 
@@ -150,14 +131,8 @@ export default function FloatingChatButton() {
             toValue: { x: snapX - currentX, y: snapY - currentY },
             ...ANIMATIONS.spring,
           }),
-          Animated.spring(scaleAnim, {
-            toValue: 1,
-            ...ANIMATIONS.spring,
-          }),
-          Animated.timing(opacityAnim, {
-            toValue: 1,
-            ...ANIMATIONS.timing,
-          }),
+          Animated.spring(scaleAnim, { toValue: 1, ...ANIMATIONS.spring }),
+          Animated.timing(opacityAnim, { toValue: 1, ...ANIMATIONS.timing }),
         ]).start(() => {
           pan.setOffset({ x: snapX, y: snapY });
           pan.setValue({ x: 0, y: 0 });
@@ -166,7 +141,6 @@ export default function FloatingChatButton() {
     });
   }, [pan, scaleAnim, opacityAnim, insets]);
 
-  // Press handler
   const handlePress = useCallback(() => {
     if (isDragging) return;
 
@@ -178,10 +152,7 @@ export default function FloatingChatButton() {
         duration: 100,
         useNativeDriver: true,
       }),
-      Animated.spring(scaleAnim, {
-        toValue: 1,
-        ...ANIMATIONS.spring,
-      }),
+      Animated.spring(scaleAnim, { toValue: 1, ...ANIMATIONS.spring }),
     ]).start();
 
     if (Platform.OS === "ios") {
@@ -201,6 +172,7 @@ export default function FloatingChatButton() {
 
   return (
     <>
+      {/* Floating Button */}
       <Animated.View
         style={[
           styles.container,
@@ -220,25 +192,22 @@ export default function FloatingChatButton() {
           onPress={handlePress}
           activeOpacity={0.8}
         >
-          <View style={styles.glassEffect} />
           <MessageCircle size={26} color={COLORS.white} strokeWidth={2} />
         </TouchableOpacity>
       </Animated.View>
 
+      {/* Chat Modal - Completely rebuilt */}
       <Modal
         visible={showChat}
         animationType="slide"
         presentationStyle="fullScreen"
         onRequestClose={handleClose}
+        statusBarTranslucent={false}
       >
-        <View style={styles.modalContainer}>
-          <StatusBar
-            barStyle="dark-content"
-            backgroundColor={COLORS.white}
-            translucent={false}
-          />
+        <SafeAreaView style={styles.modalContainer}>
+          <StatusBar barStyle="dark-content" backgroundColor={COLORS.white} />
 
-          {/* Clean header */}
+          {/* Header */}
           <View style={styles.header}>
             <TouchableOpacity
               onPress={handleMinimize}
@@ -257,11 +226,11 @@ export default function FloatingChatButton() {
             </TouchableOpacity>
           </View>
 
-          {/* Chat content */}
+          {/* Chat Content */}
           <View style={styles.chatContent}>
             <AIChatScreen onClose={handleClose} onMinimize={handleMinimize} />
           </View>
-        </View>
+        </SafeAreaView>
       </Modal>
     </>
   );
@@ -276,30 +245,19 @@ const styles = StyleSheet.create({
     width: BUTTON_SIZE,
     height: BUTTON_SIZE,
     borderRadius: BUTTON_SIZE / 2,
+    backgroundColor: COLORS.emerald,
     justifyContent: "center",
     alignItems: "center",
-    overflow: "hidden",
-  },
-  glassEffect: {
-    position: "absolute",
-    width: "100%",
-    height: "100%",
-    borderRadius: BUTTON_SIZE / 2,
-    backgroundColor: COLORS.glass,
-    borderWidth: 1,
-    borderColor: COLORS.glassStroke,
-    shadowColor: COLORS.backdrop,
-    shadowOffset: {
-      width: 0,
-      height: 8,
-    },
-    shadowOpacity: 0.2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
     shadowRadius: 16,
     elevation: 12,
   },
+  // Modal styles - completely rebuilt and simplified
   modalContainer: {
     flex: 1,
-    backgroundColor: COLORS.gray50,
+    backgroundColor: "#f9fafb",
   },
   header: {
     flexDirection: "row",
@@ -309,13 +267,20 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     backgroundColor: COLORS.white,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.gray200,
-    paddingTop: Platform.OS === "ios" ? 50 : 16,
+    borderBottomColor: "#e5e7eb",
+    ...Platform.select({
+      ios: {
+        paddingTop: 16,
+      },
+      android: {
+        paddingTop: StatusBar.currentHeight ? StatusBar.currentHeight + 16 : 16,
+      },
+    }),
   },
   headerButton: {
     padding: 8,
     borderRadius: 8,
-    backgroundColor: COLORS.gray100,
+    backgroundColor: "#f3f4f6",
     minWidth: 36,
     alignItems: "center",
   },

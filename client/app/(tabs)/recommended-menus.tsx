@@ -42,7 +42,9 @@ import {
   ArrowRight,
   Flame,
   Activity,
+  ShoppingCart,
 } from "lucide-react-native";
+import ShoppingList from "@/components/ShoppingList";
 import { api, mealAPI } from "@/src/services/api";
 import LoadingScreen from "@/components/LoadingScreen";
 import { router, useFocusEffect } from "expo-router";
@@ -521,6 +523,8 @@ export default function RecommendedMenusScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedFilter, setSelectedFilter] = useState("all");
   const [showComprehensiveModal, setShowComprehensiveModal] = useState(false);
+  const [showShoppingList, setShowShoppingList] = useState(false);
+  const [showEnhancedCreation, setShowEnhancedCreation] = useState(false);
   const [menuName, setMenuName] = useState("");
   const [targetCalories, setTargetCalories] = useState("");
   const [proteinGoal, setProteinGoal] = useState("");
@@ -529,6 +533,14 @@ export default function RecommendedMenusScreen() {
   const [specialRequests, setSpecialRequests] = useState("");
   const [hasActivePlan, setHasActivePlan] = useState(false);
   const [activePlanData, setActivePlanData] = useState<any>(null);
+  const [selectedDietaryPreference, setSelectedDietaryPreference] =
+    useState("");
+  const [selectedMealCount, setSelectedMealCount] = useState("3");
+  const [dietaryRestrictions, setDietaryRestrictions] = useState("");
+  const [includeShoppingItems, setIncludeShoppingItems] = useState<string[]>(
+    []
+  );
+  const [shoppingListItems, setShoppingListItems] = useState<any[]>([]);
   const { user } = useSelector((state: RootState) => state.auth);
 
   // Animation values
@@ -690,6 +702,115 @@ export default function RecommendedMenusScreen() {
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const loadShoppingListItems = async () => {
+    try {
+      const response = await api.get("/shopping-lists");
+      if (response.data.success) {
+        setShoppingListItems(
+          response.data.data.filter((item: any) => !item.is_purchased) || []
+        );
+      }
+    } catch (error) {
+      console.error("Failed to load shopping list:", error);
+    }
+  };
+
+  const handleOpenEnhancedCreation = () => {
+    loadShoppingListItems();
+    setShowEnhancedCreation(true);
+  };
+
+  const handleCreateEnhancedMenu = async () => {
+    try {
+      setIsGenerating(true);
+      console.log("🤖 Creating enhanced menu with preferences...");
+
+      if (!menuName.trim()) {
+        Alert.alert(
+          language === "he" ? "שגיאה" : "Error",
+          language === "he" ? "אנא הכנס שם תפריט" : "Please enter a menu name"
+        );
+        setIsGenerating(false);
+        return;
+      }
+
+      const selectedShoppingItems = shoppingListItems.filter((item) =>
+        includeShoppingItems.includes(item.id)
+      );
+
+      const payload = {
+        name: menuName,
+        days: selectedDays,
+        mealsPerDay: selectedMealCount,
+        dietaryPreference: selectedDietaryPreference,
+        dietaryRestrictions: dietaryRestrictions.trim(),
+        targetCalories: targetCalories ? parseFloat(targetCalories) : undefined,
+        proteinGoal: proteinGoal ? parseFloat(proteinGoal) : undefined,
+        carbGoal: carbGoal ? parseFloat(carbGoal) : undefined,
+        fatGoal: fatGoal ? parseFloat(fatGoal) : undefined,
+        budget: budget ? parseFloat(budget) : undefined,
+        specialRequests: specialRequests.trim(),
+        includeIngredients: selectedShoppingItems.map((item) => ({
+          name: item.name,
+          quantity: item.quantity,
+          unit: item.unit,
+        })),
+      };
+
+      const response = await api.post(
+        "/recommended-menus/generate-enhanced",
+        payload
+      );
+
+      if (response.data.success) {
+        setShowEnhancedCreation(false);
+        resetEnhancedForm();
+
+        Alert.alert(
+          language === "he" ? "הצלחה!" : "Success!",
+          language === "he"
+            ? "תפריט מותאם נוצר והופעל בהצלחה!"
+            : "Enhanced menu created and activated successfully!",
+          [
+            {
+              text: language === "he" ? "אישור" : "OK",
+              onPress: () => loadRecommendedMenus(),
+            },
+          ]
+        );
+      } else {
+        throw new Error(
+          response.data.error || "Failed to generate enhanced menu"
+        );
+      }
+    } catch (error: any) {
+      console.error("💥 Error generating enhanced menu:", error);
+      Alert.alert(
+        language === "he" ? "שגיאה" : "Error",
+        error.message ||
+          (language === "he"
+            ? "נכשל ביצירת תפריט מותאם"
+            : "Failed to generate enhanced menu")
+      );
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const resetEnhancedForm = () => {
+    setMenuName("");
+    setTargetCalories("");
+    setProteinGoal("");
+    setCarbGoal("");
+    setFatGoal("");
+    setBudget("");
+    setSpecialRequests("");
+    setSelectedDietaryPreference("");
+    setSelectedMealCount("3");
+    setDietaryRestrictions("");
+    setIncludeShoppingItems([]);
   };
 
   const handleCreateComprehensiveMenu = async () => {
@@ -1130,6 +1251,289 @@ export default function RecommendedMenusScreen() {
     );
   };
 
+  // Enhanced menu creation modal
+  const renderEnhancedCreationModal = () => (
+    <Modal
+      visible={showEnhancedCreation}
+      transparent
+      animationType="slide"
+      onRequestClose={() => setShowEnhancedCreation(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View
+          style={[
+            styles.feedbackModalContainer,
+            { backgroundColor: colors.card },
+          ]}
+        >
+          <LinearGradient
+            colors={[colors.emerald500, colors.emerald500 + "90"]}
+            style={styles.feedbackModalHeader}
+          >
+            <View style={styles.feedbackHeaderContent}>
+              <View style={styles.feedbackIconContainer}>
+                <ChefHat size={24} color="#ffffff" />
+              </View>
+              <View style={styles.feedbackTitleContainer}>
+                <Text style={styles.feedbackModalTitle}>
+                  {language === "he"
+                    ? "יצירת תפריט מותאם"
+                    : "Create Custom Menu"}
+                </Text>
+                <Text style={styles.feedbackModalSubtitle}>
+                  {language === "he"
+                    ? "התאמה אישית מלאה"
+                    : "Full customization options"}
+                </Text>
+              </View>
+            </View>
+            <TouchableOpacity
+              onPress={() => setShowEnhancedCreation(false)}
+              style={styles.feedbackCloseButton}
+            >
+              <X size={22} color="#ffffff" />
+            </TouchableOpacity>
+          </LinearGradient>
+
+          <ScrollView
+            style={styles.feedbackModalContent}
+            showsVerticalScrollIndicator={false}
+          >
+            {/* Menu Name */}
+            <View style={styles.feedbackInputSection}>
+              <Text style={[styles.feedbackInputLabel, { color: colors.text }]}>
+                {language === "he" ? "שם התפריט" : "Menu Name"} *
+              </Text>
+              <TextInput
+                style={[
+                  styles.feedbackTextArea,
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                    color: colors.text,
+                  },
+                ]}
+                value={menuName}
+                onChangeText={setMenuName}
+                placeholder={
+                  language === "he" ? "הכנס שם לתפריט..." : "Enter menu name..."
+                }
+                placeholderTextColor={colors.icon}
+              />
+            </View>
+
+            {/* Dietary Preference */}
+            <View style={styles.feedbackInputSection}>
+              <Text style={[styles.feedbackInputLabel, { color: colors.text }]}>
+                {language === "he" ? "העדפה תזונתית" : "Dietary Preference"}
+              </Text>
+              <View style={styles.preferencesGrid}>
+                {[
+                  "balanced",
+                  "vegetarian",
+                  "vegan",
+                  "keto",
+                  "low-carb",
+                  "high-protein",
+                ].map((pref) => (
+                  <TouchableOpacity
+                    key={pref}
+                    style={[
+                      styles.preferenceChip,
+                      {
+                        backgroundColor:
+                          selectedDietaryPreference === pref
+                            ? colors.emerald500
+                            : colors.surface,
+                        borderColor:
+                          selectedDietaryPreference === pref
+                            ? colors.emerald500
+                            : colors.border,
+                      },
+                    ]}
+                    onPress={() => setSelectedDietaryPreference(pref)}
+                  >
+                    <Text
+                      style={[
+                        styles.preferenceChipText,
+                        {
+                          color:
+                            selectedDietaryPreference === pref
+                              ? "#ffffff"
+                              : colors.text,
+                        },
+                      ]}
+                    >
+                      {pref.charAt(0).toUpperCase() + pref.slice(1)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Number of Meals */}
+            <View style={styles.feedbackInputSection}>
+              <Text style={[styles.feedbackInputLabel, { color: colors.text }]}>
+                {language === "he" ? "מספר ארוחות ביום" : "Meals per Day"}
+              </Text>
+              <View style={styles.mealsGrid}>
+                {["2", "3", "4", "5", "6"].map((count) => (
+                  <TouchableOpacity
+                    key={count}
+                    style={[
+                      styles.mealCountChip,
+                      {
+                        backgroundColor:
+                          selectedMealCount === count
+                            ? colors.emerald500
+                            : colors.surface,
+                        borderColor:
+                          selectedMealCount === count
+                            ? colors.emerald500
+                            : colors.border,
+                      },
+                    ]}
+                    onPress={() => setSelectedMealCount(count)}
+                  >
+                    <Text
+                      style={[
+                        styles.mealCountText,
+                        {
+                          color:
+                            selectedMealCount === count
+                              ? "#ffffff"
+                              : colors.text,
+                        },
+                      ]}
+                    >
+                      {count}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Shopping List Integration */}
+            {shoppingListItems.length > 0 && (
+              <View style={styles.feedbackInputSection}>
+                <Text
+                  style={[styles.feedbackInputLabel, { color: colors.text }]}
+                >
+                  {language === "he"
+                    ? "כלול רכיבים מרשימת הקניות"
+                    : "Include Shopping List Items"}
+                </Text>
+                <Text
+                  style={[styles.feedbackInputHelper, { color: colors.icon }]}
+                >
+                  {language === "he"
+                    ? "בחר רכיבים לכלול בתפריט החדש"
+                    : "Select ingredients to include in the new menu"}
+                </Text>
+                <View style={styles.shoppingItemsGrid}>
+                  {shoppingListItems.map((item) => (
+                    <TouchableOpacity
+                      key={item.id}
+                      style={[
+                        styles.shoppingItemChip,
+                        {
+                          backgroundColor: includeShoppingItems.includes(
+                            item.id
+                          )
+                            ? colors.emerald500 + "20"
+                            : colors.surface,
+                          borderColor: includeShoppingItems.includes(item.id)
+                            ? colors.emerald500
+                            : colors.border,
+                        },
+                      ]}
+                      onPress={() => {
+                        setIncludeShoppingItems((prev) =>
+                          prev.includes(item.id)
+                            ? prev.filter((id) => id !== item.id)
+                            : [...prev, item.id]
+                        );
+                      }}
+                    >
+                      <Text
+                        style={[
+                          styles.shoppingItemText,
+                          {
+                            color: includeShoppingItems.includes(item.id)
+                              ? colors.emerald500
+                              : colors.text,
+                          },
+                        ]}
+                      >
+                        {item.name} ({item.quantity} {item.unit})
+                      </Text>
+                      {includeShoppingItems.includes(item.id) && (
+                        <CheckCircle size={16} color={colors.emerald500} />
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            )}
+
+            {/* Dietary Restrictions */}
+            <View style={styles.feedbackInputSection}>
+              <Text style={[styles.feedbackInputLabel, { color: colors.text }]}>
+                {language === "he" ? "הגבלות תזונתיות" : "Dietary Restrictions"}
+              </Text>
+              <TextInput
+                style={[
+                  styles.feedbackTextArea,
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                    color: colors.text,
+                  },
+                ]}
+                value={dietaryRestrictions}
+                onChangeText={setDietaryRestrictions}
+                placeholder={
+                  language === "he"
+                    ? "אלרגיות, הגבלות, דרישות מיוחדות..."
+                    : "Allergies, restrictions, special requirements..."
+                }
+                placeholderTextColor={colors.icon}
+                multiline
+                numberOfLines={3}
+                textAlignVertical="top"
+              />
+            </View>
+
+            {/* Submit Button */}
+            <TouchableOpacity
+              style={[
+                styles.feedbackSubmitButton,
+                {
+                  backgroundColor: menuName.trim()
+                    ? colors.emerald500
+                    : colors.border,
+                  opacity: menuName.trim() ? 1 : 0.6,
+                },
+              ]}
+              onPress={handleCreateEnhancedMenu}
+              disabled={!menuName.trim() || isGenerating}
+              activeOpacity={0.8}
+            >
+              {isGenerating ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <ChefHat size={18} color="#ffffff" />
+              )}
+              <Text style={styles.feedbackSubmitButtonText}>
+                {language === "he" ? "צור תפריט מותאם" : "Create Custom Menu"}
+              </Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+
   // Enhanced feedback modal with better styling
   const renderFeedbackModal = () => (
     <Modal
@@ -1444,20 +1848,35 @@ export default function RecommendedMenusScreen() {
             </Text>
           </View>
 
-          <TouchableOpacity
-            style={[
-              styles.generateButton,
-              { backgroundColor: colors.emerald500 },
-            ]}
-            onPress={() => setShowComprehensiveModal(true)}
-            disabled={isGenerating}
-          >
-            {isGenerating ? (
-              <ActivityIndicator size="small" color="#ffffff" />
-            ) : (
-              <Plus size={20} color="#ffffff" />
-            )}
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              style={[
+                styles.headerActionButton,
+                {
+                  backgroundColor: colors.emerald500 + "15",
+                  borderColor: colors.emerald500 + "30",
+                },
+              ]}
+              onPress={() => setShowShoppingList(true)}
+            >
+              <ShoppingCart size={20} color={colors.emerald500} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.generateButton,
+                { backgroundColor: colors.emerald500 },
+              ]}
+              onPress={handleOpenEnhancedCreation}
+              disabled={isGenerating}
+            >
+              {isGenerating ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <Plus size={20} color="#ffffff" />
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Continue Button */}
@@ -1550,6 +1969,12 @@ export default function RecommendedMenusScreen() {
       )}
 
       {renderFeedbackModal()}
+      {renderEnhancedCreationModal()}
+
+      <ShoppingList
+        visible={showShoppingList}
+        onClose={() => setShowShoppingList(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -1589,6 +2014,23 @@ const styles = StyleSheet.create({
   rtlRow: {
     flexDirection: "row-reverse",
   },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  headerActionButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
   generateButton: {
     width: 40,
     height: 40,
@@ -1599,6 +2041,61 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
     shadowRadius: 4,
+  },
+  preferencesGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    marginTop: 8,
+  },
+  preferenceChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 16,
+    borderWidth: 1,
+  },
+  preferenceChipText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  mealsGrid: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 8,
+  },
+  mealCountChip: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  mealCountText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  shoppingItemsGrid: {
+    gap: 8,
+    marginTop: 8,
+  },
+  shoppingItemChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  shoppingItemText: {
+    fontSize: 13,
+    fontWeight: "500",
+    flex: 1,
+  },
+  feedbackInputHelper: {
+    fontSize: 12,
+    marginBottom: 8,
+    fontStyle: "italic",
   },
   continueButtonContainer: {
     alignItems: "center",

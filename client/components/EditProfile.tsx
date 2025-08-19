@@ -85,7 +85,7 @@ export default function EditProfile({ onClose }: EditProfileProps) {
           <TouchableOpacity onPress={handleImagePicker}>
             <Image
               source={{
-                uri: user?.avatar || "https://via.placeholder.com/100",
+                uri: user?.avatar_url || "https://via.placeholder.com/100",
               }}
               style={styles.avatar}
             />
@@ -228,6 +228,11 @@ const styles = StyleSheet.create({
     padding: 12,
     fontSize: 16,
     backgroundColor: "#f8f9fa",
+    ...Platform.select({
+      web: {
+        width: "100%",
+      },
+    }),
   },
   inputRTL: {
     textAlign: "right",

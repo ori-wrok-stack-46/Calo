@@ -57,10 +57,13 @@ import {
   Calendar,
   Award,
   Activity,
+  ShoppingCart,
+  Plus,
 } from "lucide-react-native";
 import LoadingScreen from "@/components/LoadingScreen";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import Swipeable from "react-native-gesture-handler/Swipeable";
+import { api, nutritionAPI } from "@/src/services/api";
 
 const { width } = Dimensions.get("window");
 
@@ -265,6 +268,74 @@ const SwipeableMealCard = ({
 
   const ingredients = getIngredients();
 
+  const handleAddSingleIngredientToShopping = (ingredient: string) => {
+    Alert.alert(
+      "Add to Shopping List",
+      `Add "${ingredient}" to your shopping list?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Add",
+          onPress: async () => {
+            try {
+              const response = await nutritionAPI.addShoppingItem(ingredient);
+              if (response.status === 200) {
+                Alert.alert("Success", `${ingredient} added to shopping list!`);
+              } else {
+                Alert.alert("Error", "Failed to add item to shopping list.");
+              }
+            } catch (error) {
+              console.error(
+                "Failed to add ingredient to shopping list:",
+                error
+              );
+              Alert.alert("Error", "An error occurred. Please try again.");
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleAddIngredientsToShopping = (ingredientsList: any[]) => {
+    Alert.alert(
+      "Add to Shopping List",
+      "Add all ingredients to your shopping list?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Add All",
+          onPress: async () => {
+            try {
+              const itemsToAdd = ingredientsList.map((ing) =>
+                typeof ing === "string" ? ing : ing.name || ing.ingredient_name
+              );
+              const response = await fetch("/api/shopping_lists/add_items", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ items: itemsToAdd }),
+              });
+              if (response.ok) {
+                Alert.alert(
+                  "Success",
+                  "All ingredients added to shopping list!"
+                );
+              } else {
+                Alert.alert("Error", "Failed to add items to shopping list.");
+              }
+            } catch (error) {
+              console.error(
+                "Failed to add ingredients to shopping list:",
+                error
+              );
+              Alert.alert("Error", "An error occurred. Please try again.");
+            }
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <View style={styles.swipeContainer}>
       <Swipeable
@@ -460,9 +531,34 @@ const SwipeableMealCard = ({
 
                 {ingredients && ingredients.length > 0 && (
                   <View style={styles.ingredientsSection}>
-                    <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                      Ingredients ({ingredients.length})
-                    </Text>
+                    <View style={styles.ingredientsSectionHeader}>
+                      <Text
+                        style={[styles.sectionTitle, { color: colors.text }]}
+                      >
+                        Ingredients ({ingredients.length})
+                      </Text>
+                      {ingredients.length > 0 && (
+                        <TouchableOpacity
+                          style={[
+                            styles.addToShoppingButton,
+                            { backgroundColor: colors.emerald500 + "15" },
+                          ]}
+                          onPress={() =>
+                            handleAddIngredientsToShopping(ingredients)
+                          }
+                        >
+                          <ShoppingCart size={16} color={colors.emerald500} />
+                          <Text
+                            style={[
+                              styles.addToShoppingText,
+                              { color: colors.emerald500 },
+                            ]}
+                          >
+                            Add to Shopping
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+                    </View>
                     <ScrollView
                       horizontal
                       showsHorizontalScrollIndicator={false}
@@ -477,7 +573,7 @@ const SwipeableMealCard = ({
                               `Ingredient ${index + 1}`;
 
                         return (
-                          <View
+                          <TouchableOpacity
                             key={`ingredient-${index}`}
                             style={[
                               styles.ingredientChipEnhanced,
@@ -486,6 +582,11 @@ const SwipeableMealCard = ({
                                 borderColor: colors.emerald500 + "20",
                               },
                             ]}
+                            onPress={() =>
+                              handleAddSingleIngredientToShopping(
+                                ingredientName
+                              )
+                            }
                           >
                             <Text
                               style={[
@@ -495,7 +596,8 @@ const SwipeableMealCard = ({
                             >
                               {ingredientName}
                             </Text>
-                          </View>
+                            <Plus size={12} color={colors.emerald500} />
+                          </TouchableOpacity>
                         );
                       })}
                     </ScrollView>
@@ -1792,21 +1894,45 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
 
+  ingredientsSectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+
   ingredientsScrollContainer: {
     paddingRight: 16,
     gap: 8,
   },
 
   ingredientChipEnhanced: {
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 12,
     borderWidth: 1,
     marginRight: 8,
+    gap: 6,
   },
 
   ingredientTextEnhanced: {
     fontSize: 12,
+    fontWeight: "600",
+  },
+
+  addToShoppingButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    gap: 4,
+  },
+
+  addToShoppingText: {
+    fontSize: 11,
     fontWeight: "600",
   },
 

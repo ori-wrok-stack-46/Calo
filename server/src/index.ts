@@ -22,7 +22,7 @@ import { CronJobService } from "./services/cronJobs";
 import "./services/cron";
 import { dailyGoalsRoutes } from "./routes/dailyGoal";
 import achievementsRouter from "./routes/achievements";
-
+import shoppingListRoutes from "./routes/shoppingLists";
 // Load environment variables
 dotenv.config();
 
@@ -146,6 +146,7 @@ apiRouter.use("/calendar", calendarRoutes);
 apiRouter.use("/meal-plans", mealPlansRoutes);
 apiRouter.use("/chat", chatRoutes);
 apiRouter.use("/food-scanner", foodScannerRoutes);
+apiRouter.use("/shopping-lists", shoppingListRoutes);
 apiRouter.use("/", statisticsRoutes);
 apiRouter.use("/daily-goals", dailyGoalsRoutes);
 apiRouter.use("/", achievementsRouter);

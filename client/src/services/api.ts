@@ -413,6 +413,40 @@ export const nutritionAPI = {
     return false;
   },
 
+  async addShoppingItem(
+    name: string,
+    quantity: number = 1,
+    unit: string = "pieces",
+    category: string = "Manual"
+  ): Promise<any> {
+    try {
+      console.log("📦 Adding shopping item optimized...");
+      const response = await api.post("/shopping-lists", {
+        name: name.trim(),
+        quantity: quantity,
+        unit: unit,
+        category: category,
+        added_from: "manual",
+      });
+
+      if (response.data.success) {
+        console.log("✅ Shopping item added successfully");
+        return response.data;
+      }
+
+      throw new APIError(response.data.error || "Failed to add item");
+    } catch (error) {
+      console.error("💥 Add shopping item error:", error);
+      if (error instanceof APIError) throw error;
+      throw new APIError(
+        "Network error while adding item",
+        undefined,
+        undefined,
+        true
+      );
+    }
+  },
+
   async saveMeal(
     mealData: MealAnalysisData,
     imageBase64?: string

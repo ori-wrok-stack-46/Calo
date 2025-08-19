@@ -34,40 +34,52 @@ import Animated, {
   withSpring,
   withTiming,
   interpolateColor,
+  interpolate,
+  withSequence,
+  Easing,
+  runOnJS,
 } from "react-native-reanimated";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 
-// Design constants
+// Enhanced design constants with more sophisticated sizing
 const TAB_CONFIG = {
   labelFontSize: 11,
-  iconSize: 20,
-  cameraIconSize: 24,
-  tabHeight: 45,
-  cameraHeight: 56,
-  barHeight: 45,
-  barPaddingHorizontal: 16,
-  barPaddingVertical: 2,
-  tabMinWidth: 80,
-  tabMaxWidth: 120,
-  tabPaddingHorizontal: 12,
-  tabPaddingVertical: 8,
-  borderRadius: 25,
-  cameraBorderRadius: 28,
-  spacing: 8,
+  iconSize: 22,
+  cameraIconSize: 26,
+  tabHeight: 52,
+  cameraHeight: 64,
+  barHeight: 52,
+  barPaddingHorizontal: 20,
+  barPaddingVertical: 6,
+  tabMinWidth: 85,
+  tabMaxWidth: 140,
+  tabPaddingHorizontal: 16,
+  tabPaddingVertical: 10,
+  borderRadius: 28,
+  cameraBorderRadius: 32,
+  spacing: 12,
+  glowRadius: 8,
+  shadowRadius: 12,
 } as const;
 
-// Animation configs
+// Enhanced animation configs with more fluid motion
 const INSTANT_CONFIG = {
-  damping: 40,
-  stiffness: 800,
-  mass: 0.2,
+  damping: 45,
+  stiffness: 900,
+  mass: 0.15,
 } as const;
 
 const SMOOTH_CONFIG = {
-  damping: 25,
-  stiffness: 400,
-  mass: 0.5,
+  damping: 28,
+  stiffness: 450,
+  mass: 0.4,
+} as const;
+
+const BOUNCE_CONFIG = {
+  damping: 15,
+  stiffness: 300,
+  mass: 0.8,
 } as const;
 
 // Safe icon mapping
@@ -122,7 +134,7 @@ interface CustomTabBarProps {
   navigation: any;
 }
 
-// Enhanced Camera Tab Component
+// Enhanced Camera Tab Component with sophisticated animations
 const CameraTab = React.memo(
   ({
     route,
@@ -137,35 +149,64 @@ const CameraTab = React.memo(
   }) => {
     const scaleValue = useSharedValue(1);
     const elevationValue = useSharedValue(0);
+    const rotationValue = useSharedValue(0);
+    const glowScale = useSharedValue(1);
+    const pulseValue = useSharedValue(1);
 
     useEffect(() => {
-      scaleValue.value = withSpring(isFocused ? 1.08 : 1, SMOOTH_CONFIG);
-      elevationValue.value = withTiming(isFocused ? 1 : 0, { duration: 200 });
+      if (isFocused) {
+        scaleValue.value = withSpring(1.12, BOUNCE_CONFIG);
+        elevationValue.value = withTiming(1, {
+          duration: 300,
+          easing: Easing.out(Easing.cubic),
+        });
+        glowScale.value = withSpring(1.3, SMOOTH_CONFIG);
+        pulseValue.value = withSequence(
+          withTiming(1.05, { duration: 800 }),
+          withTiming(1, { duration: 800 })
+        );
+      } else {
+        scaleValue.value = withSpring(1, SMOOTH_CONFIG);
+        elevationValue.value = withTiming(0, { duration: 200 });
+        glowScale.value = withSpring(1, SMOOTH_CONFIG);
+        pulseValue.value = withTiming(1, { duration: 200 });
+      }
     }, [isFocused]);
 
     const handlePressIn = useCallback(() => {
-      scaleValue.value = withSpring(0.92, INSTANT_CONFIG);
+      scaleValue.value = withSpring(0.88, INSTANT_CONFIG);
+      rotationValue.value = withTiming(-5, { duration: 100 });
     }, []);
 
     const handlePressOut = useCallback(() => {
-      scaleValue.value = withSpring(isFocused ? 1.08 : 1, INSTANT_CONFIG);
+      scaleValue.value = withSpring(isFocused ? 1.12 : 1, BOUNCE_CONFIG);
+      rotationValue.value = withSpring(0, SMOOTH_CONFIG);
     }, [isFocused]);
 
     const animatedStyle = useAnimatedStyle(() => ({
-      transform: [{ scale: scaleValue.value }],
+      transform: [
+        { scale: scaleValue.value * pulseValue.value },
+        { rotate: `${rotationValue.value}deg` },
+      ],
     }));
 
     const glowStyle = useAnimatedStyle(() => ({
-      opacity: elevationValue.value * 0.4,
-      transform: [{ scale: 1 + elevationValue.value * 0.15 }],
+      opacity: elevationValue.value * 0.3,
+      transform: [{ scale: glowScale.value }],
+    }));
+
+    const shadowStyle = useAnimatedStyle(() => ({
+      shadowOpacity: 0.15 + elevationValue.value * 0.1,
+      elevation: 8 + elevationValue.value * 4,
     }));
 
     return (
       <View style={styles.cameraTabContainer}>
-        {/* Glow effect */}
-        <Animated.View style={[styles.cameraGlow, glowStyle]} />
+        {/* Enhanced multi-layer glow effect */}
+        <Animated.View style={[styles.cameraGlowOuter, glowStyle]} />
+        <Animated.View style={[styles.cameraGlowInner, glowStyle]} />
 
-        <Animated.View style={animatedStyle}>
+        <Animated.View style={[animatedStyle, shadowStyle]}>
           <TouchableOpacity
             onPress={onPress}
             onLongPress={onLongPress}
@@ -177,17 +218,29 @@ const CameraTab = React.memo(
             <LinearGradient
               colors={
                 isFocused
-                  ? ["#059669", "#10B981", "#34D399"]
-                  : ["#F3F4F6", "#FFFFFF", "#F9FAFB"]
+                  ? ["#059669", "#10B981", "#34D399", "#6EE7B7"]
+                  : ["#F8FAFC", "#FFFFFF", "#F1F5F9", "#E2E8F0"]
               }
               style={styles.cameraGradient}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
             >
+              {/* Inner highlight for depth */}
+              <View
+                style={[
+                  styles.cameraInnerHighlight,
+                  {
+                    backgroundColor: isFocused
+                      ? "rgba(255,255,255,0.2)"
+                      : "rgba(16,185,129,0.1)",
+                  },
+                ]}
+              />
+
               <Camera
                 color={isFocused ? "#FFFFFF" : "#059669"}
                 size={TAB_CONFIG.cameraIconSize}
-                strokeWidth={isFocused ? 2.5 : 2}
+                strokeWidth={isFocused ? 2.8 : 2.2}
               />
             </LinearGradient>
           </TouchableOpacity>
@@ -199,7 +252,7 @@ const CameraTab = React.memo(
 
 CameraTab.displayName = "CameraTab";
 
-// Enhanced Regular Tab Component
+// Enhanced Regular Tab Component with micro-interactions
 const RegularTab = React.memo(
   ({
     route,
@@ -216,21 +269,41 @@ const RegularTab = React.memo(
   }) => {
     const scaleValue = useSharedValue(1);
     const backgroundValue = useSharedValue(isFocused ? 1 : 0);
+    const iconBounce = useSharedValue(1);
+    const labelSlide = useSharedValue(0);
+    const shadowValue = useSharedValue(0);
 
     const IconComponent = getIconComponent(route.name);
     const label = getTabLabel(route.name);
 
     useEffect(() => {
-      scaleValue.value = withSpring(isFocused ? 1.02 : 1, SMOOTH_CONFIG);
-      backgroundValue.value = withTiming(isFocused ? 1 : 0, { duration: 150 });
+      if (isFocused) {
+        scaleValue.value = withSpring(1.04, BOUNCE_CONFIG);
+        backgroundValue.value = withTiming(1, {
+          duration: 250,
+          easing: Easing.out(Easing.cubic),
+        });
+        shadowValue.value = withTiming(1, { duration: 200 });
+        iconBounce.value = withSequence(
+          withTiming(1.15, { duration: 150 }),
+          withSpring(1, SMOOTH_CONFIG)
+        );
+        labelSlide.value = withSpring(1, SMOOTH_CONFIG);
+      } else {
+        scaleValue.value = withSpring(1, SMOOTH_CONFIG);
+        backgroundValue.value = withTiming(0, { duration: 200 });
+        shadowValue.value = withTiming(0, { duration: 150 });
+        iconBounce.value = withSpring(1, SMOOTH_CONFIG);
+        labelSlide.value = withTiming(0, { duration: 150 });
+      }
     }, [isFocused]);
 
     const handlePressIn = useCallback(() => {
-      scaleValue.value = withSpring(0.96, INSTANT_CONFIG);
+      scaleValue.value = withSpring(0.94, INSTANT_CONFIG);
     }, []);
 
     const handlePressOut = useCallback(() => {
-      scaleValue.value = withSpring(isFocused ? 1.02 : 1, INSTANT_CONFIG);
+      scaleValue.value = withSpring(isFocused ? 1.04 : 1, BOUNCE_CONFIG);
     }, [isFocused]);
 
     const animatedTabStyle = useAnimatedStyle(() => ({
@@ -241,15 +314,26 @@ const RegularTab = React.memo(
       const backgroundColor = interpolateColor(
         backgroundValue.value,
         [0, 1],
-        ["transparent", "#10B981"]
+        ["rgba(255,255,255,0.0)", "#10B981"]
+      );
+
+      const borderColor = interpolateColor(
+        backgroundValue.value,
+        [0, 1],
+        ["rgba(229,231,235,0.6)", "#10B981"]
       );
 
       return {
         backgroundColor,
-        borderColor:
-          backgroundColor === "transparent" 
+        borderColor,
+        shadowOpacity: shadowValue.value * 0.08,
+        elevation: shadowValue.value * 3,
       };
     });
+
+    const animatedIconStyle = useAnimatedStyle(() => ({
+      transform: [{ scale: iconBounce.value }],
+    }));
 
     const animatedTextStyle = useAnimatedStyle(() => {
       const color = interpolateColor(
@@ -258,8 +342,13 @@ const RegularTab = React.memo(
         ["#6B7280", "#FFFFFF"]
       );
 
+      // Fixed: Use interpolate for translateY instead of interpolateColor
+      const translateY = interpolate(labelSlide.value, [0, 1], [2, 0]);
+
       return {
         color,
+        transform: [{ translateY }],
+        opacity: 0.85 + backgroundValue.value * 0.15,
       };
     });
 
@@ -276,18 +365,24 @@ const RegularTab = React.memo(
           <Animated.View
             style={[styles.tabBackground, animatedBackgroundStyle]}
           >
+            {/* Subtle inner highlight for depth */}
+            {isFocused && <View style={styles.tabInnerHighlight} />}
+
             <View style={styles.tabContent}>
-              <IconComponent
-                color={isFocused ? "#FFFFFF" : "#6B7280"}
-                size={TAB_CONFIG.iconSize}
-                strokeWidth={isFocused ? 2.5 : 2}
-              />
+              <Animated.View style={animatedIconStyle}>
+                <IconComponent
+                  color={isFocused ? "#FFFFFF" : "#6B7280"}
+                  size={TAB_CONFIG.iconSize}
+                  strokeWidth={isFocused ? 2.8 : 2.2}
+                />
+              </Animated.View>
               <Animated.Text
                 style={[
                   styles.tabLabel,
                   animatedTextStyle,
                   {
-                    fontWeight: isFocused ? "600" : "500",
+                    fontWeight: isFocused ? "700" : "500",
+                    letterSpacing: isFocused ? 0.3 : 0.2,
                   },
                 ]}
                 numberOfLines={1}
@@ -341,19 +436,21 @@ export function ScrollableTabBar({
     }
   }, [state?.routes]);
 
-  // Calculate tab width
+  // Enhanced tab width calculation
   const calculateTabWidth = useCallback(
     (label: string, isFocused: boolean): number => {
       const baseWidth = TAB_CONFIG.tabMinWidth;
-      const labelWidth = Math.min(label.length * 7.5, 64);
+      const labelWidth = Math.min(label.length * 8.2, 72);
       const contentWidth =
         TAB_CONFIG.tabPaddingHorizontal * 2 +
         TAB_CONFIG.iconSize +
-        8 +
+        10 +
         labelWidth;
 
+      const focusMultiplier = isFocused ? 1.08 : 1;
+
       return Math.min(
-        Math.max(baseWidth, contentWidth + (isFocused ? 8 : 0)),
+        Math.max(baseWidth, contentWidth * focusMultiplier),
         TAB_CONFIG.tabMaxWidth
       );
     },
@@ -439,6 +536,12 @@ export function ScrollableTabBar({
 
   return (
     <SafeAreaView edges={["bottom"]} style={dynamicStyles.safeAreaWrapper}>
+      {/* Enhanced backdrop with subtle gradient */}
+      <LinearGradient
+        colors={["rgba(255,255,255,0.95)", "rgba(248,250,252,0.98)"]}
+        style={dynamicStyles.backdrop}
+      />
+
       <View style={dynamicStyles.container}>
         {/* Regular tabs */}
         <ScrollView
@@ -494,7 +597,7 @@ export function ScrollableTabBar({
           })}
         </ScrollView>
 
-        {/* Camera Tab - Integrated but Special */}
+        {/* Camera Tab - Enhanced positioning */}
         {cameraTab && (
           <View style={styles.cameraTabWrapper}>
             <CameraTab
@@ -510,9 +613,10 @@ export function ScrollableTabBar({
   );
 }
 
-// Optimized styles with proper typing
+// Optimized styles with enhanced visual design
 interface OptimizedStyles {
   safeAreaWrapper: ViewStyle;
+  backdrop: ViewStyle;
   container: ViewStyle;
   scrollView: ViewStyle;
   scrollContent: ViewStyle;
@@ -526,11 +630,20 @@ const createOptimizedStyles = (
   shouldCenter: boolean
 ): OptimizedStyles => {
   const safeBottomPadding =
-    Platform.OS === "ios" ? 0 : Math.max(insets?.bottom || 0, 8);
+    Platform.OS === "ios" ? 0 : Math.max(insets?.bottom || 0, 10);
 
   return StyleSheet.create({
     safeAreaWrapper: {
       backgroundColor: "transparent",
+    },
+
+    backdrop: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      zIndex: -1,
     },
 
     container: {
@@ -540,11 +653,12 @@ const createOptimizedStyles = (
       paddingTop: TAB_CONFIG.barPaddingVertical,
       paddingBottom: TAB_CONFIG.barPaddingVertical + safeBottomPadding,
       paddingHorizontal: TAB_CONFIG.barPaddingHorizontal,
-      height: TAB_CONFIG.barHeight + safeBottomPadding,
+      height: TAB_CONFIG.barHeight + safeBottomPadding + 8,
       shadowColor: "#000000",
-      shadowOffset: { width: 0, height: -2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 12,
+      shadowOffset: { width: 0, height: -3 },
+      shadowOpacity: 0.08,
+      shadowRadius: 16,
+      elevation: 8,
     },
 
     scrollView: {
@@ -555,9 +669,9 @@ const createOptimizedStyles = (
     scrollContent: {
       alignItems: "center",
       gap: TAB_CONFIG.spacing,
-      paddingRight: 16, // Space for camera tab
+      paddingRight: 20,
       minWidth: shouldCenter
-        ? SCREEN_WIDTH - TAB_CONFIG.barPaddingHorizontal * 2 - 80
+        ? SCREEN_WIDTH - TAB_CONFIG.barPaddingHorizontal * 2 - 90
         : undefined,
     },
 
@@ -580,7 +694,7 @@ const createOptimizedStyles = (
   });
 };
 
-// Static styles
+// Enhanced static styles with modern design elements
 const styles = StyleSheet.create({
   // Regular tab styles
   regularTab: {
@@ -591,8 +705,23 @@ const styles = StyleSheet.create({
   tabBackground: {
     flex: 1,
     borderRadius: TAB_CONFIG.borderRadius,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: "transparent",
+    shadowColor: "#10B981",
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 8,
+    elevation: 0,
+  },
+
+  tabInnerHighlight: {
+    position: "absolute",
+    top: 1,
+    left: 1,
+    right: 1,
+    height: "30%",
+    backgroundColor: "rgba(255,255,255,0.15)",
+    borderTopLeftRadius: TAB_CONFIG.borderRadius - 2,
+    borderTopRightRadius: TAB_CONFIG.borderRadius - 2,
   },
 
   tabContent: {
@@ -600,7 +729,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 6,
+    gap: 8,
     paddingHorizontal: TAB_CONFIG.tabPaddingHorizontal,
     paddingVertical: TAB_CONFIG.tabPaddingVertical,
   },
@@ -608,14 +737,16 @@ const styles = StyleSheet.create({
   tabLabel: {
     fontSize: TAB_CONFIG.labelFontSize,
     textAlign: "center",
-    letterSpacing: 0.2,
-    lineHeight: TAB_CONFIG.labelFontSize * 1.2,
+    lineHeight: TAB_CONFIG.labelFontSize * 1.3,
     flexShrink: 1,
+    textShadowColor: "rgba(0,0,0,0.1)",
+    textShadowOffset: { width: 0, height: 0.5 },
+    textShadowRadius: 1,
   },
 
-  // Camera tab styles
+  // Enhanced camera tab styles
   cameraTabWrapper: {
-    marginLeft: 8,
+    marginLeft: 12,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -628,12 +759,21 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
 
-  cameraGlow: {
+  cameraGlowOuter: {
     position: "absolute",
-    width: TAB_CONFIG.cameraHeight + 12,
-    height: TAB_CONFIG.cameraHeight + 12,
-    borderRadius: (TAB_CONFIG.cameraHeight + 12) / 2,
+    width: TAB_CONFIG.cameraHeight + 20,
+    height: TAB_CONFIG.cameraHeight + 20,
+    borderRadius: (TAB_CONFIG.cameraHeight + 20) / 2,
     backgroundColor: "#10B981",
+    opacity: 0,
+  },
+
+  cameraGlowInner: {
+    position: "absolute",
+    width: TAB_CONFIG.cameraHeight + 8,
+    height: TAB_CONFIG.cameraHeight + 8,
+    borderRadius: (TAB_CONFIG.cameraHeight + 8) / 2,
+    backgroundColor: "#34D399",
     opacity: 0,
   },
 
@@ -642,10 +782,10 @@ const styles = StyleSheet.create({
     height: TAB_CONFIG.cameraHeight,
     borderRadius: TAB_CONFIG.cameraHeight / 2,
     shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 3 },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 6,
+    shadowRadius: 12,
+    elevation: 8,
   },
 
   cameraGradient: {
@@ -654,8 +794,19 @@ const styles = StyleSheet.create({
     borderRadius: TAB_CONFIG.cameraHeight / 2,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 2,
+    borderWidth: 3,
     borderColor: "#FFFFFF",
+    position: "relative",
+  },
+
+  cameraInnerHighlight: {
+    position: "absolute",
+    top: 3,
+    left: 3,
+    right: 3,
+    height: "35%",
+    borderTopLeftRadius: TAB_CONFIG.cameraHeight / 2 - 6,
+    borderTopRightRadius: TAB_CONFIG.cameraHeight / 2 - 6,
   },
 });
 

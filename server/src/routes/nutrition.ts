@@ -56,26 +56,80 @@ router.post(
         trackingDate.getDate()
       );
 
-      // Use upsert to handle potential race conditions
-      const waterRecord = await prisma.waterIntake.upsert({
-        where: {
-          user_id_date: {
-            user_id: userId,
-            date: startOfDay,
+      // Use transaction with proper error handling for race conditions
+      let waterRecord;
+
+      try {
+        waterRecord = await prisma.$transaction(
+          async (tx) => {
+            // First, try to find existing record
+            const existingRecord = await tx.waterIntake.findFirst({
+              where: {
+                user_id: userId,
+                date: startOfDay,
+              },
+            });
+
+            if (existingRecord) {
+              // Update existing record
+              return await tx.waterIntake.update({
+                where: {
+                  id: existingRecord.id,
+                },
+                data: {
+                  cups_consumed: limitedCups,
+                  milliliters_consumed: limitedMilliliters,
+                  updated_at: new Date(),
+                },
+              });
+            } else {
+              // Create new record
+              return await tx.waterIntake.create({
+                data: {
+                  user_id: userId,
+                  date: startOfDay,
+                  cups_consumed: limitedCups,
+                  milliliters_consumed: limitedMilliliters,
+                },
+              });
+            }
           },
-        },
-        update: {
-          cups_consumed: limitedCups,
-          milliliters_consumed: limitedMilliliters,
-          updated_at: new Date(),
-        },
-        create: {
-          user_id: userId,
-          date: startOfDay,
-          cups_consumed: limitedCups,
-          milliliters_consumed: limitedMilliliters,
-        },
-      });
+          {
+            isolationLevel: "Serializable",
+            timeout: 10000,
+          }
+        );
+      } catch (error: any) {
+        console.error("💥 Water intake transaction failed:", error);
+
+        // Fallback: try simple upsert one more time
+        try {
+          waterRecord = await prisma.waterIntake.upsert({
+            where: {
+              user_id_date: {
+                user_id: userId,
+                date: startOfDay,
+              },
+            },
+            update: {
+              cups_consumed: limitedCups,
+              milliliters_consumed: limitedMilliliters,
+              updated_at: new Date(),
+            },
+            create: {
+              user_id: userId,
+              date: startOfDay,
+              cups_consumed: limitedCups,
+              milliliters_consumed: limitedMilliliters,
+            },
+          });
+        } catch (fallbackError: any) {
+          console.error("💥 Water intake fallback failed:", fallbackError);
+          throw new Error(
+            "Failed to save water intake after multiple attempts"
+          );
+        }
+      }
 
       // Calculate XP based on water intake
       let xpAwarded = 0;
