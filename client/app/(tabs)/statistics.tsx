@@ -9,15 +9,23 @@ import {
   Alert,
   Modal,
   RefreshControl,
+  ColorValue,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
+import Svg, {
+  Circle,
+  Path,
+  Text as SvgText,
+  Line,
+  Rect,
+} from "react-native-svg";
 import {
-  BarChart3,
+  ChartBar as BarChart3,
   TrendingUp,
   TrendingDown,
-  AlertTriangle,
-  CheckCircle,
+  TriangleAlert as AlertTriangle,
+  CircleCheck as CheckCircle,
   Clock,
   Droplets,
   Zap,
@@ -43,7 +51,9 @@ import {
   Moon,
   Dumbbell,
   Gem,
-  DumbbellIcon,
+  Dumbbell as DumbbellIcon,
+  Activity,
+  ChartPie as PieChart,
 } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
 import { useLanguage } from "@/src/i18n/context/LanguageContext";
@@ -58,7 +68,422 @@ import {
   TimeFilter,
 } from "@/src/types/statistics";
 
-const { width } = Dimensions.get("window");
+const { width, height } = Dimensions.get("window");
+const CHART_WIDTH = width - 40;
+const CHART_HEIGHT = 200;
+
+// Custom Chart Components
+const CircularProgress = ({
+  percentage,
+  size = 120,
+  strokeWidth = 12,
+  color = "#16A085",
+  backgroundColor = "#F1F5F9",
+  children,
+}) => {
+  const radius = (size - strokeWidth) / 2;
+  const circumference = radius * 2 * Math.PI;
+  const strokeDasharray = circumference;
+  const strokeDashoffset = circumference - (percentage / 100) * circumference;
+
+  return (
+    <View
+      style={{
+        width: size,
+        height: size,
+        justifyContent: "center",
+        alignItems: "center",
+      }}
+    >
+      <Svg width={size} height={size}>
+        <Circle
+          stroke={backgroundColor}
+          fill="none"
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          strokeWidth={strokeWidth}
+        />
+        <Circle
+          stroke={color}
+          fill="none"
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          strokeWidth={strokeWidth}
+          strokeDasharray={strokeDasharray}
+          strokeDashoffset={strokeDashoffset}
+          strokeLinecap="round"
+          transform={`rotate(-90 ${size / 2} ${size / 2})`}
+        />
+      </Svg>
+      <View style={{ position: "absolute", alignItems: "center" }}>
+        {children}
+      </View>
+    </View>
+  );
+};
+
+const WeeklyProgressChart = ({
+  data,
+  width = CHART_WIDTH,
+  height = CHART_HEIGHT,
+}) => {
+  if (!data || data.length === 0) return null;
+
+  const maxCalories =
+    Math.max(...data.map((d: { calories: any }) => d.calories)) || 1;
+  const padding = 40;
+  const chartWidth = width - padding * 2;
+  const chartHeight = height - padding * 2;
+
+  const xStep = chartWidth / (data.length - 1 || 1);
+
+  const pathData = data
+    .map((item: { calories: number }, index: number) => {
+      const x = padding + index * xStep;
+      const y =
+        padding + chartHeight - (item.calories / maxCalories) * chartHeight;
+      return `${index === 0 ? "M" : "L"} ${x} ${y}`;
+    })
+    .join(" ");
+
+  return (
+    <View style={styles.chartContainer}>
+      <Text style={styles.chartTitle}>Weekly Calorie Progress</Text>
+      <Svg width={width} height={height}>
+        {/* Grid lines */}
+        {[0, 0.25, 0.5, 0.75, 1].map((ratio, index) => {
+          const y = padding + chartHeight * ratio;
+          return (
+            <Line
+              key={index}
+              x1={padding}
+              y1={y}
+              x2={width - padding}
+              y2={y}
+              stroke="#F1F5F9"
+              strokeWidth={1}
+            />
+          );
+        })}
+
+        {/* Chart line */}
+        <Path
+          d={pathData}
+          stroke="#16A085"
+          strokeWidth={3}
+          fill="none"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+
+        {/* Data points */}
+        {data.map(
+          (item: { calories: number }, index: React.Key | null | undefined) => {
+            const x = padding + index * xStep;
+            const y =
+              padding +
+              chartHeight -
+              (item.calories / maxCalories) * chartHeight;
+            return (
+              <Circle
+                key={index}
+                cx={x}
+                cy={y}
+                r={4}
+                fill="#16A085"
+                stroke="#FFFFFF"
+                strokeWidth={2}
+              />
+            );
+          }
+        )}
+
+        {/* Y-axis labels */}
+        {[0, 0.5, 1].map((ratio, index) => {
+          const value = Math.round(maxCalories * (1 - ratio));
+          const y = padding + chartHeight * ratio;
+          return (
+            <SvgText
+              key={index}
+              x={padding - 10}
+              y={y + 4}
+              fontSize="12"
+              fill="#64748B"
+              textAnchor="end"
+            >
+              {value}
+            </SvgText>
+          );
+        })}
+      </Svg>
+
+      {/* X-axis labels */}
+      <View style={styles.chartXLabels}>
+        {data.map(
+          (
+            item: { date: string | number | Date },
+            index: React.Key | null | undefined
+          ) => (
+            <Text key={index} style={styles.chartXLabel}>
+              {new Date(item.date).toLocaleDateString("en", {
+                weekday: "short",
+              })}
+            </Text>
+          )
+        )}
+      </View>
+    </View>
+  );
+};
+
+const MacronutrientChart = ({ metrics, width = CHART_WIDTH }) => {
+  const macros = metrics.filter(
+    (m: { category: string }) => m.category === "macros"
+  );
+  if (macros.length === 0) return null;
+
+  const total =
+    macros.reduce((sum: any, macro: { value: any }) => sum + macro.value, 0) ||
+    1;
+  let currentAngle = 0;
+  const radius = 80;
+  const centerX = width / 2;
+  const centerY = 120;
+
+  return (
+    <View style={styles.chartContainer}>
+      <Text style={styles.chartTitle}>Macronutrient Distribution</Text>
+      <Svg width={width} height={240}>
+        {macros.map(
+          (
+            macro: {
+              value: number;
+              id: React.Key | null | undefined;
+              color: ColorValue | undefined;
+            },
+            index: any
+          ) => {
+            const percentage = (macro.value / total) * 100;
+            const angle = (percentage / 100) * 360;
+            const startAngle = currentAngle;
+            const endAngle = currentAngle + angle;
+
+            const startAngleRad = (startAngle * Math.PI) / 180;
+            const endAngleRad = (endAngle * Math.PI) / 180;
+
+            const x1 = centerX + radius * Math.cos(startAngleRad);
+            const y1 = centerY + radius * Math.sin(startAngleRad);
+            const x2 = centerX + radius * Math.cos(endAngleRad);
+            const y2 = centerY + radius * Math.sin(endAngleRad);
+
+            const largeArcFlag = angle > 180 ? 1 : 0;
+
+            const pathData = [
+              `M ${centerX} ${centerY}`,
+              `L ${x1} ${y1}`,
+              `A ${radius} ${radius} 0 ${largeArcFlag} 1 ${x2} ${y2}`,
+              "Z",
+            ].join(" ");
+
+            currentAngle += angle;
+
+            return (
+              <Path
+                key={macro.id}
+                d={pathData}
+                fill={macro.color}
+                opacity={0.8}
+              />
+            );
+          }
+        )}
+      </Svg>
+
+      <View style={styles.macroLegend}>
+        {macros.map(
+          (macro: {
+            id: React.Key | null | undefined;
+            color: any;
+            nameEn:
+              | string
+              | number
+              | bigint
+              | boolean
+              | React.ReactElement<
+                  unknown,
+                  string | React.JSXElementConstructor<any>
+                >
+              | Iterable<React.ReactNode>
+              | React.ReactPortal
+              | Promise<
+                  | string
+                  | number
+                  | bigint
+                  | boolean
+                  | React.ReactPortal
+                  | React.ReactElement<
+                      unknown,
+                      string | React.JSXElementConstructor<any>
+                    >
+                  | Iterable<React.ReactNode>
+                  | null
+                  | undefined
+                >
+              | null
+              | undefined;
+            value: number;
+          }) => (
+            <View key={macro.id} style={styles.macroLegendItem}>
+              <View
+                style={[
+                  styles.macroLegendColor,
+                  { backgroundColor: macro.color },
+                ]}
+              />
+              <Text style={styles.macroLegendText}>
+                {macro.nameEn}: {macro.value.toFixed(1)}g
+              </Text>
+            </View>
+          )
+        )}
+      </View>
+    </View>
+  );
+};
+
+const ProgressBarChart = ({ metrics, width = CHART_WIDTH }) => {
+  const displayMetrics = metrics.slice(0, 6); // Limit to prevent overflow
+  if (displayMetrics.length === 0) return null;
+
+  const barHeight = 24;
+  const barSpacing = 40;
+  const chartHeight = displayMetrics.length * barSpacing + 40;
+
+  return (
+    <View style={styles.chartContainer}>
+      <Text style={styles.chartTitle}>Goal Progress Overview</Text>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        <Svg width={Math.max(width, 300)} height={chartHeight}>
+          {displayMetrics.map(
+            (
+              metric: {
+                percentage:
+                  | string
+                  | number
+                  | bigint
+                  | boolean
+                  | React.ReactElement<
+                      unknown,
+                      string | React.JSXElementConstructor<any>
+                    >
+                  | Iterable<React.ReactNode>
+                  | Promise<
+                      | string
+                      | number
+                      | bigint
+                      | boolean
+                      | React.ReactPortal
+                      | React.ReactElement<
+                          unknown,
+                          string | React.JSXElementConstructor<any>
+                        >
+                      | Iterable<React.ReactNode>
+                      | null
+                      | undefined
+                    >
+                  | null
+                  | undefined;
+                id: React.Key | null | undefined;
+                color: ColorValue | undefined;
+                nameEn:
+                  | string
+                  | number
+                  | bigint
+                  | boolean
+                  | React.ReactElement<
+                      unknown,
+                      string | React.JSXElementConstructor<any>
+                    >
+                  | Iterable<React.ReactNode>
+                  | Promise<
+                      | string
+                      | number
+                      | bigint
+                      | boolean
+                      | React.ReactPortal
+                      | React.ReactElement<
+                          unknown,
+                          string | React.JSXElementConstructor<any>
+                        >
+                      | Iterable<React.ReactNode>
+                      | null
+                      | undefined
+                    >
+                  | null
+                  | undefined;
+              },
+              index: number
+            ) => {
+              const y = 20 + index * barSpacing;
+              const barWidth = Math.min(width - 120, 200);
+              const fillWidth = (metric.percentage / 100) * barWidth;
+
+              return (
+                <React.Fragment key={metric.id}>
+                  {/* Background bar */}
+                  <Rect
+                    x={100}
+                    y={y}
+                    width={barWidth}
+                    height={barHeight}
+                    fill="#F1F5F9"
+                    rx={12}
+                  />
+
+                  {/* Progress bar */}
+                  <Rect
+                    x={100}
+                    y={y}
+                    width={fillWidth}
+                    height={barHeight}
+                    fill={metric.color}
+                    rx={12}
+                  />
+
+                  {/* Label */}
+                  <SvgText
+                    x={95}
+                    y={y + barHeight / 2 + 4}
+                    fontSize="12"
+                    fill="#64748B"
+                    textAnchor="end"
+                  >
+                    {metric.nameEn.length > 8
+                      ? metric.nameEn.substring(0, 8) + "..."
+                      : metric.nameEn}
+                  </SvgText>
+
+                  {/* Percentage */}
+                  <SvgText
+                    x={100 + barWidth + 10}
+                    y={y + barHeight / 2 + 4}
+                    fontSize="12"
+                    fill="#0F172A"
+                    fontWeight="600"
+                  >
+                    {metric.percentage}%
+                  </SvgText>
+                </React.Fragment>
+              );
+            }
+          )}
+        </Svg>
+      </ScrollView>
+    </View>
+  );
+};
 
 // Helper function to get the appropriate Lucide icon component
 const getAchievementIcon = (
@@ -728,7 +1153,9 @@ export default function StatisticsScreen() {
         <View style={styles.metricHeader}>
           <View style={styles.metricIconContainer}>{metric.icon}</View>
           <View style={styles.metricInfo}>
-            <Text style={styles.metricName}>{metric.name}</Text>
+            <Text style={styles.metricName} numberOfLines={1}>
+              {metric.name}
+            </Text>
             <View style={styles.metricStatus}>
               {getStatusIcon(metric.status)}
               <Text
@@ -752,10 +1179,10 @@ export default function StatisticsScreen() {
 
         <View style={styles.metricValues}>
           <View style={styles.metricCurrentValue}>
-            <Text style={styles.metricValueText}>
+            <Text style={styles.metricValueText} numberOfLines={1}>
               {metric.value.toLocaleString()} {metric.unit}
             </Text>
-            <Text style={styles.metricTargetText}>
+            <Text style={styles.metricTargetText} numberOfLines={1}>
               {language === "he" ? "יעד" : "Target"}:{" "}
               {metric.target.toLocaleString()} {metric.unit}
             </Text>
@@ -786,7 +1213,7 @@ export default function StatisticsScreen() {
         {metric.recommendation && shouldShowWarnings() && (
           <View style={styles.metricRecommendation}>
             <Sparkles size={12} color={metric.color} />
-            <Text style={styles.metricRecommendationText}>
+            <Text style={styles.metricRecommendationText} numberOfLines={2}>
               {metric.recommendation}
             </Text>
           </View>
@@ -832,6 +1259,8 @@ export default function StatisticsScreen() {
     if (!todayData || !userQuestionnaire) return null;
 
     const isCompleted = todayData.mealsCount >= todayData.requiredMeals;
+    const completionPercentage =
+      (todayData.mealsCount / todayData.requiredMeals) * 100;
 
     return (
       <View style={styles.mealCompletionCard}>
@@ -847,14 +1276,28 @@ export default function StatisticsScreen() {
             {t("statistics.meals_completed")}
           </Text>
         </View>
-        <Text style={styles.mealCompletionText}>
-          {todayData.mealsCount} {t("statistics.of")} {todayData.requiredMeals}
-        </Text>
-        {!isCompleted && (
-          <Text style={styles.mealCompletionMessage}>
-            {t("statistics.complete_meals_first")}
-          </Text>
-        )}
+
+        <View style={styles.mealCompletionContent}>
+          <CircularProgress
+            percentage={Math.min(completionPercentage, 100)}
+            size={100}
+            strokeWidth={8}
+            color={isCompleted ? "#2ECC71" : "#E67E22"}
+          >
+            <Text style={styles.mealCompletionText}>
+              {todayData.mealsCount}
+            </Text>
+            <Text style={styles.mealCompletionSubtext}>
+              {t("statistics.of")} {todayData.requiredMeals}
+            </Text>
+          </CircularProgress>
+
+          {!isCompleted && (
+            <Text style={styles.mealCompletionMessage}>
+              {t("statistics.complete_meals_first")}
+            </Text>
+          )}
+        </View>
       </View>
     );
   };
@@ -926,6 +1369,26 @@ export default function StatisticsScreen() {
             {/* Meal Completion Status */}
             {renderMealCompletionStatus()}
 
+            {/* Charts Section */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>
+                {t("statistics.data_visualization")}
+              </Text>
+
+              {/* Weekly Progress Chart */}
+              {weeklyData.length > 0 && (
+                <WeeklyProgressChart data={weeklyData} />
+              )}
+
+              {/* Macronutrient Distribution Chart */}
+              {categorizedMetrics.macros.length > 0 && (
+                <MacronutrientChart metrics={categorizedMetrics.macros} />
+              )}
+
+              {/* Progress Bar Chart */}
+              {metrics.length > 0 && <ProgressBarChart metrics={metrics} />}
+            </View>
+
             {/* Gamification Dashboard */}
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>
@@ -968,7 +1431,10 @@ export default function StatisticsScreen() {
                     <Text style={styles.gamificationStatValue}>
                       {gamificationStats.dailyStreak}
                     </Text>
-                    <Text style={styles.gamificationStatLabel}>
+                    <Text
+                      style={styles.gamificationStatLabel}
+                      numberOfLines={2}
+                    >
                       {t("statistics.daily_streak")}
                     </Text>
                   </View>
@@ -977,7 +1443,10 @@ export default function StatisticsScreen() {
                     <Text style={styles.gamificationStatValue}>
                       {gamificationStats.weeklyStreak}
                     </Text>
-                    <Text style={styles.gamificationStatLabel}>
+                    <Text
+                      style={styles.gamificationStatLabel}
+                      numberOfLines={2}
+                    >
                       {t("statistics.weekly_streak")}
                     </Text>
                   </View>
@@ -986,7 +1455,10 @@ export default function StatisticsScreen() {
                     <Text style={styles.gamificationStatValue}>
                       {gamificationStats.perfectDays}
                     </Text>
-                    <Text style={styles.gamificationStatLabel}>
+                    <Text
+                      style={styles.gamificationStatLabel}
+                      numberOfLines={2}
+                    >
                       {t("statistics.perfect_days")}
                     </Text>
                   </View>
@@ -995,7 +1467,10 @@ export default function StatisticsScreen() {
                     <Text style={styles.gamificationStatValue}>
                       {gamificationStats.totalPoints.toLocaleString()}
                     </Text>
-                    <Text style={styles.gamificationStatLabel}>
+                    <Text
+                      style={styles.gamificationStatLabel}
+                      numberOfLines={2}
+                    >
                       {t("statistics.total_points")}
                     </Text>
                   </View>
@@ -1019,159 +1494,163 @@ export default function StatisticsScreen() {
                 </TouchableOpacity>
               </View>
 
-              <View style={styles.achievementsContainer}>
-                {achievements.slice(0, 3).map((achievement) => (
-                  <View
-                    key={achievement.id}
-                    style={[
-                      styles.achievementCard,
-                      {
-                        backgroundColor: getAchievementBackgroundColor(
-                          achievement.rarity,
-                          achievement.unlocked
-                        ),
-                        borderWidth: 1,
-                        borderColor: achievement.unlocked
-                          ? `${achievement.color}30`
-                          : "#E5E7EB",
-                      },
-                    ]}
-                  >
-                    <View style={styles.achievementContent}>
-                      <View
-                        style={[
-                          styles.achievementIconContainer,
-                          {
-                            backgroundColor: achievement.unlocked
-                              ? `${achievement.color}20`
-                              : "#F3F4F6",
-                          },
-                        ]}
-                      >
-                        {getAchievementIcon(
-                          achievement.icon,
-                          28,
-                          achievement.unlocked ? achievement.color : "#9CA3AF"
-                        )}
-                      </View>
-
-                      <View style={styles.achievementDetails}>
-                        <View style={styles.achievementHeader}>
-                          <Text
-                            style={[
-                              styles.achievementTitle,
-                              {
-                                color: achievement.unlocked
-                                  ? "#111827"
-                                  : "#6B7280",
-                              },
-                            ]}
-                          >
-                            {typeof achievement.title === "object"
-                              ? achievement.title.en
-                              : achievement.title}
-                          </Text>
-                          <View
-                            style={[
-                              styles.rarityBadge,
-                              {
-                                backgroundColor: achievement.unlocked
-                                  ? `${achievement.color}20`
-                                  : "#F3F4F6",
-                              },
-                            ]}
-                          >
-                            <Text
-                              style={[
-                                styles.rarityText,
-                                {
-                                  color: achievement.unlocked
-                                    ? achievement.color
-                                    : "#6B7280",
-                                },
-                              ]}
-                            >
-                              {achievement.rarity}
-                            </Text>
-                          </View>
-                        </View>
-
-                        <Text
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                <View style={styles.achievementsContainer}>
+                  {achievements.slice(0, 3).map((achievement) => (
+                    <View
+                      key={achievement.id}
+                      style={[
+                        styles.achievementCard,
+                        {
+                          backgroundColor: getAchievementBackgroundColor(
+                            achievement.rarity,
+                            achievement.unlocked
+                          ),
+                          borderWidth: 1,
+                          borderColor: achievement.unlocked
+                            ? `${achievement.color}30`
+                            : "#E5E7EB",
+                        },
+                      ]}
+                    >
+                      <View style={styles.achievementContent}>
+                        <View
                           style={[
-                            styles.achievementDescription,
+                            styles.achievementIconContainer,
                             {
-                              color: achievement.unlocked
-                                ? "#374151"
-                                : "#9CA3AF",
+                              backgroundColor: achievement.unlocked
+                                ? `${achievement.color}20`
+                                : "#F3F4F6",
                             },
                           ]}
                         >
-                          {typeof achievement.description === "object"
-                            ? achievement.description.en
-                            : achievement.description}
-                        </Text>
+                          {getAchievementIcon(
+                            achievement.icon,
+                            28,
+                            achievement.unlocked ? achievement.color : "#9CA3AF"
+                          )}
+                        </View>
 
-                        <View style={styles.achievementProgress}>
-                          <View style={styles.progressBarContainer}>
-                            <View style={styles.progressBarBg}>
-                              <View
-                                style={[
-                                  styles.progressBarFill,
-                                  {
-                                    width: `${
-                                      achievement.unlocked
-                                        ? 100
-                                        : (achievement.progress /
-                                            (achievement.maxProgress || 1)) *
-                                          100
-                                    }%`,
-                                    backgroundColor: achievement.unlocked
-                                      ? achievement.color
-                                      : "#D1D5DB",
-                                  },
-                                ]}
-                              />
-                            </View>
-                            <Text style={styles.progressText}>
-                              {achievement.progress}/
-                              {achievement.maxProgress || 1}
-                            </Text>
-                          </View>
-
-                          <View style={styles.xpRewardContainer}>
-                            <Sparkles
-                              size={16}
-                              color={
-                                achievement.unlocked
-                                  ? achievement.color
-                                  : "#9CA3AF"
-                              }
-                            />
+                        <View style={styles.achievementDetails}>
+                          <View style={styles.achievementHeader}>
                             <Text
                               style={[
-                                styles.xpRewardText,
+                                styles.achievementTitle,
                                 {
                                   color: achievement.unlocked
-                                    ? achievement.color
-                                    : "#9CA3AF",
+                                    ? "#111827"
+                                    : "#6B7280",
+                                },
+                              ]}
+                              numberOfLines={1}
+                            >
+                              {typeof achievement.title === "object"
+                                ? achievement.title.en
+                                : achievement.title}
+                            </Text>
+                            <View
+                              style={[
+                                styles.rarityBadge,
+                                {
+                                  backgroundColor: achievement.unlocked
+                                    ? `${achievement.color}20`
+                                    : "#F3F4F6",
                                 },
                               ]}
                             >
-                              +{achievement.xpReward} XP
-                            </Text>
+                              <Text
+                                style={[
+                                  styles.rarityText,
+                                  {
+                                    color: achievement.unlocked
+                                      ? achievement.color
+                                      : "#6B7280",
+                                  },
+                                ]}
+                              >
+                                {achievement.rarity}
+                              </Text>
+                            </View>
+                          </View>
+
+                          <Text
+                            style={[
+                              styles.achievementDescription,
+                              {
+                                color: achievement.unlocked
+                                  ? "#374151"
+                                  : "#9CA3AF",
+                              },
+                            ]}
+                            numberOfLines={2}
+                          >
+                            {typeof achievement.description === "object"
+                              ? achievement.description.en
+                              : achievement.description}
+                          </Text>
+
+                          <View style={styles.achievementProgress}>
+                            <View style={styles.progressBarContainer}>
+                              <View style={styles.progressBarBg}>
+                                <View
+                                  style={[
+                                    styles.progressBarFill,
+                                    {
+                                      width: `${
+                                        achievement.unlocked
+                                          ? 100
+                                          : (achievement.progress /
+                                              (achievement.maxProgress || 1)) *
+                                            100
+                                      }%`,
+                                      backgroundColor: achievement.unlocked
+                                        ? achievement.color
+                                        : "#D1D5DB",
+                                    },
+                                  ]}
+                                />
+                              </View>
+                              <Text style={styles.progressText}>
+                                {achievement.progress}/
+                                {achievement.maxProgress || 1}
+                              </Text>
+                            </View>
+
+                            <View style={styles.xpRewardContainer}>
+                              <Sparkles
+                                size={16}
+                                color={
+                                  achievement.unlocked
+                                    ? achievement.color
+                                    : "#9CA3AF"
+                                }
+                              />
+                              <Text
+                                style={[
+                                  styles.xpRewardText,
+                                  {
+                                    color: achievement.unlocked
+                                      ? achievement.color
+                                      : "#9CA3AF",
+                                  },
+                                ]}
+                              >
+                                +{achievement.xpReward} XP
+                              </Text>
+                            </View>
                           </View>
                         </View>
-                      </View>
 
-                      {achievement.unlocked && (
-                        <View style={styles.unlockedBadge}>
-                          <CheckCircle size={24} color={achievement.color} />
-                        </View>
-                      )}
+                        {achievement.unlocked && (
+                          <View style={styles.unlockedBadge}>
+                            <CheckCircle size={24} color={achievement.color} />
+                          </View>
+                        )}
+                      </View>
                     </View>
-                  </View>
-                ))}
-              </View>
+                  ))}
+                </View>
+              </ScrollView>
             </View>
 
             {/* Progress Overview with Real Data */}
@@ -1180,55 +1659,57 @@ export default function StatisticsScreen() {
                 {t("statistics.progress_overview")}
               </Text>
               <View style={styles.progressOverviewContainer}>
-                <View style={styles.progressStatsGrid}>
-                  <View style={styles.progressStatItem}>
-                    <View style={styles.progressStatIcon}>
-                      <CheckCircle size={20} color="#2ECC71" />
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <View style={styles.progressStatsGrid}>
+                    <View style={styles.progressStatItem}>
+                      <View style={styles.progressStatIcon}>
+                        <CheckCircle size={20} color="#2ECC71" />
+                      </View>
+                      <Text style={styles.progressStatValue}>
+                        {progressStats.successfulDays}/{progressStats.totalDays}
+                      </Text>
+                      <Text style={styles.progressStatLabel} numberOfLines={2}>
+                        {t("statistics.successful_days")}
+                      </Text>
                     </View>
-                    <Text style={styles.progressStatValue}>
-                      {progressStats.successfulDays}/{progressStats.totalDays}
-                    </Text>
-                    <Text style={styles.progressStatLabel}>
-                      {t("statistics.successful_days")}
-                    </Text>
-                  </View>
 
-                  <View style={styles.progressStatItem}>
-                    <View style={styles.progressStatIcon}>
-                      <Target size={20} color="#3498DB" />
+                    <View style={styles.progressStatItem}>
+                      <View style={styles.progressStatIcon}>
+                        <Target size={20} color="#3498DB" />
+                      </View>
+                      <Text style={styles.progressStatValue}>
+                        {progressStats.averageCompletion}%
+                      </Text>
+                      <Text style={styles.progressStatLabel} numberOfLines={2}>
+                        {t("statistics.average_completion")}
+                      </Text>
                     </View>
-                    <Text style={styles.progressStatValue}>
-                      {progressStats.averageCompletion}%
-                    </Text>
-                    <Text style={styles.progressStatLabel}>
-                      {t("statistics.average_completion")}
-                    </Text>
-                  </View>
 
-                  <View style={styles.progressStatItem}>
-                    <View style={styles.progressStatIcon}>
-                      <Award size={20} color="#F39C12" />
+                    <View style={styles.progressStatItem}>
+                      <View style={styles.progressStatIcon}>
+                        <Award size={20} color="#F39C12" />
+                      </View>
+                      <Text style={styles.progressStatValue}>
+                        {progressStats.bestStreak}
+                      </Text>
+                      <Text style={styles.progressStatLabel} numberOfLines={2}>
+                        {t("statistics.best_streak")}
+                      </Text>
                     </View>
-                    <Text style={styles.progressStatValue}>
-                      {progressStats.bestStreak}
-                    </Text>
-                    <Text style={styles.progressStatLabel}>
-                      {t("statistics.best_streak")}
-                    </Text>
-                  </View>
 
-                  <View style={styles.progressStatItem}>
-                    <View style={styles.progressStatIcon}>
-                      <Trophy size={20} color="#E74C3C" />
+                    <View style={styles.progressStatItem}>
+                      <View style={styles.progressStatIcon}>
+                        <Trophy size={20} color="#E74C3C" />
+                      </View>
+                      <Text style={styles.progressStatValue}>
+                        {progressStats.currentStreak}
+                      </Text>
+                      <Text style={styles.progressStatLabel} numberOfLines={2}>
+                        {t("statistics.current_streak")}
+                      </Text>
                     </View>
-                    <Text style={styles.progressStatValue}>
-                      {progressStats.currentStreak}
-                    </Text>
-                    <Text style={styles.progressStatLabel}>
-                      {t("statistics.current_streak")}
-                    </Text>
                   </View>
-                </View>
+                </ScrollView>
 
                 {/* Real nutrition averages */}
                 <View style={styles.nutritionAverages}>
@@ -1237,53 +1718,55 @@ export default function StatisticsScreen() {
                       ? "ממוצעים תזונתיים"
                       : "Nutrition Averages"}
                   </Text>
-                  <View style={styles.nutritionAveragesGrid}>
-                    <View style={styles.nutritionAverage}>
-                      <Flame size={16} color="#E74C3C" />
-                      <Text style={styles.nutritionAverageValue}>
-                        {progressStats.averages.calories}
-                      </Text>
-                      <Text style={styles.nutritionAverageLabel}>
-                        {t("statistics.kcal")}
-                      </Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                    <View style={styles.nutritionAveragesGrid}>
+                      <View style={styles.nutritionAverage}>
+                        <Flame size={16} color="#E74C3C" />
+                        <Text style={styles.nutritionAverageValue}>
+                          {progressStats.averages.calories}
+                        </Text>
+                        <Text style={styles.nutritionAverageLabel}>
+                          {t("statistics.kcal")}
+                        </Text>
+                      </View>
+                      <View style={styles.nutritionAverage}>
+                        <Zap size={16} color="#9B59B6" />
+                        <Text style={styles.nutritionAverageValue}>
+                          {progressStats.averages.protein}
+                        </Text>
+                        <Text style={styles.nutritionAverageLabel}>
+                          {t("statistics.g")}
+                        </Text>
+                      </View>
+                      <View style={styles.nutritionAverage}>
+                        <Wheat size={16} color="#F39C12" />
+                        <Text style={styles.nutritionAverageValue}>
+                          {progressStats.averages.carbs}
+                        </Text>
+                        <Text style={styles.nutritionAverageLabel}>
+                          {t("statistics.g")}
+                        </Text>
+                      </View>
+                      <View style={styles.nutritionAverage}>
+                        <Fish size={16} color="#16A085" />
+                        <Text style={styles.nutritionAverageValue}>
+                          {progressStats.averages.fats}
+                        </Text>
+                        <Text style={styles.nutritionAverageLabel}>
+                          {t("statistics.g")}
+                        </Text>
+                      </View>
+                      <View style={styles.nutritionAverage}>
+                        <Droplets size={16} color="#3498DB" />
+                        <Text style={styles.nutritionAverageValue}>
+                          {progressStats.averages.water}
+                        </Text>
+                        <Text style={styles.nutritionAverageLabel}>
+                          {t("statistics.ml")}
+                        </Text>
+                      </View>
                     </View>
-                    <View style={styles.nutritionAverage}>
-                      <Zap size={16} color="#9B59B6" />
-                      <Text style={styles.nutritionAverageValue}>
-                        {progressStats.averages.protein}
-                      </Text>
-                      <Text style={styles.nutritionAverageLabel}>
-                        {t("statistics.g")}
-                      </Text>
-                    </View>
-                    <View style={styles.nutritionAverage}>
-                      <Wheat size={16} color="#F39C12" />
-                      <Text style={styles.nutritionAverageValue}>
-                        {progressStats.averages.carbs}
-                      </Text>
-                      <Text style={styles.nutritionAverageLabel}>
-                        {t("statistics.g")}
-                      </Text>
-                    </View>
-                    <View style={styles.nutritionAverage}>
-                      <Fish size={16} color="#16A085" />
-                      <Text style={styles.nutritionAverageValue}>
-                        {progressStats.averages.fats}
-                      </Text>
-                      <Text style={styles.nutritionAverageLabel}>
-                        {t("statistics.g")}
-                      </Text>
-                    </View>
-                    <View style={styles.nutritionAverage}>
-                      <Droplets size={16} color="#3498DB" />
-                      <Text style={styles.nutritionAverageValue}>
-                        {progressStats.averages.water}
-                      </Text>
-                      <Text style={styles.nutritionAverageLabel}>
-                        {t("statistics.ml")}
-                      </Text>
-                    </View>
-                  </View>
+                  </ScrollView>
                 </View>
               </View>
             </View>
@@ -1319,8 +1802,10 @@ export default function StatisticsScreen() {
                           />
                         </View>
                         <View style={styles.alertText}>
-                          <Text style={styles.alertTitle}>{alert.title}</Text>
-                          <Text style={styles.alertMessage}>
+                          <Text style={styles.alertTitle} numberOfLines={1}>
+                            {alert.title}
+                          </Text>
+                          <Text style={styles.alertMessage} numberOfLines={2}>
                             {alert.message}
                           </Text>
                         </View>
@@ -1427,6 +1912,7 @@ export default function StatisticsScreen() {
                                 : "#6B7280",
                             },
                           ]}
+                          numberOfLines={2}
                         >
                           {typeof achievement.title === "object"
                             ? achievement.title.en
@@ -1464,6 +1950,7 @@ export default function StatisticsScreen() {
                             color: achievement.unlocked ? "#374151" : "#9CA3AF",
                           },
                         ]}
+                        numberOfLines={3}
                       >
                         {typeof achievement.description === "object"
                           ? achievement.description.en
@@ -1556,7 +2043,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   title: {
-    fontSize: 32,
+    fontSize: Math.min(32, width * 0.08),
     fontWeight: "800",
     color: "#0F172A",
     letterSpacing: -0.5,
@@ -1690,7 +2177,7 @@ const styles = StyleSheet.create({
   mealCompletionHeader: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 12,
+    marginBottom: 16,
   },
   mealCompletionIcon: {
     marginRight: 12,
@@ -1700,16 +2187,81 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#0F172A",
   },
+  mealCompletionContent: {
+    alignItems: "center",
+    gap: 16,
+  },
   mealCompletionText: {
     fontSize: 24,
     fontWeight: "800",
     color: "#0F172A",
-    marginBottom: 8,
+  },
+  mealCompletionSubtext: {
+    fontSize: 14,
+    color: "#64748B",
   },
   mealCompletionMessage: {
     fontSize: 14,
     color: "#64748B",
     fontStyle: "italic",
+    textAlign: "center",
+  },
+
+  // Chart Styles
+  chartContainer: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 20,
+    shadowColor: "#1E293B",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 16,
+  },
+  chartTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#0F172A",
+    marginBottom: 16,
+    textAlign: "center",
+  },
+  chartXLabels: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    paddingHorizontal: 40,
+    marginTop: 8,
+  },
+  chartXLabel: {
+    fontSize: 12,
+    color: "#64748B",
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  macroLegend: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    marginTop: 16,
+    gap: 12,
+  },
+  macroLegendItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: "#F8FAFC",
+    borderRadius: 12,
+  },
+  macroLegendColor: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginRight: 8,
+  },
+  macroLegendText: {
+    fontSize: 12,
+    color: "#64748B",
+    fontWeight: "600",
   },
 
   // Enhanced Section Styling
@@ -1718,7 +2270,7 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   sectionTitle: {
-    fontSize: 24,
+    fontSize: Math.min(24, width * 0.06),
     fontWeight: "700",
     color: "#0F172A",
     marginBottom: 20,
@@ -1756,7 +2308,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   levelText: {
-    fontSize: 28,
+    fontSize: Math.min(28, width * 0.07),
     fontWeight: "800",
     color: "#0F172A",
     marginBottom: 4,
@@ -1799,17 +2351,18 @@ const styles = StyleSheet.create({
   },
   gamificationStatItem: {
     alignItems: "center",
-    paddingHorizontal: 12,
+    paddingHorizontal: Math.max(8, width * 0.02),
+    flex: 1,
   },
   gamificationStatValue: {
-    fontSize: 24,
+    fontSize: Math.min(24, width * 0.06),
     fontWeight: "800",
     color: "#0F172A",
     marginTop: 12,
     marginBottom: 6,
   },
   gamificationStatLabel: {
-    fontSize: 13,
+    fontSize: Math.min(13, width * 0.03),
     color: "#64748B",
     fontWeight: "600",
     textAlign: "center",
@@ -1837,8 +2390,8 @@ const styles = StyleSheet.create({
   },
 
   achievementsContainer: {
+    flexDirection: "row",
     gap: 16,
-    marginBottom: 24,
   },
   achievementCard: {
     borderRadius: 20,
@@ -1847,6 +2400,9 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.06,
     shadowRadius: 16,
+    width: width * 0.8,
+    minWidth: 300,
+    maxWidth: 400,
   },
   achievementContent: {
     flexDirection: "row",
@@ -1953,12 +2509,13 @@ const styles = StyleSheet.create({
   },
   progressStatsGrid: {
     flexDirection: "row",
-    justifyContent: "space-around",
+    gap: 20,
     marginBottom: 24,
   },
   progressStatItem: {
     alignItems: "center",
     paddingHorizontal: 12,
+    minWidth: 100,
   },
   progressStatIcon: {
     width: 48,
@@ -1970,13 +2527,13 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   progressStatValue: {
-    fontSize: 20,
+    fontSize: Math.min(20, width * 0.05),
     fontWeight: "800",
     color: "#0F172A",
     marginBottom: 4,
   },
   progressStatLabel: {
-    fontSize: 13,
+    fontSize: Math.min(13, width * 0.03),
     color: "#64748B",
     textAlign: "center",
     fontWeight: "600",
@@ -1998,14 +2555,15 @@ const styles = StyleSheet.create({
   },
   nutritionAveragesGrid: {
     flexDirection: "row",
-    justifyContent: "space-around",
+    gap: 16,
   },
   nutritionAverage: {
     alignItems: "center",
-    paddingHorizontal: 8,
+    paddingHorizontal: 12,
+    minWidth: 80,
   },
   nutritionAverageValue: {
-    fontSize: 18,
+    fontSize: Math.min(18, width * 0.045),
     fontWeight: "800",
     color: "#0F172A",
     marginTop: 8,
@@ -2110,7 +2668,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   metricName: {
-    fontSize: 18,
+    fontSize: Math.min(18, width * 0.045),
     fontWeight: "700",
     color: "#0F172A",
     marginBottom: 6,
@@ -2132,6 +2690,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 12,
+    minWidth: 60,
   },
   metricTrendText: {
     fontSize: 12,
@@ -2150,7 +2709,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   metricValueText: {
-    fontSize: 24,
+    fontSize: Math.min(24, width * 0.06),
     fontWeight: "800",
     color: "#0F172A",
     marginBottom: 6,
@@ -2167,9 +2726,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderRadius: 16,
+    minWidth: 80,
   },
   metricPercentageText: {
-    fontSize: 28,
+    fontSize: Math.min(28, width * 0.07),
     fontWeight: "800",
     letterSpacing: -0.5,
   },
