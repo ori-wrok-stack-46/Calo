@@ -28,9 +28,33 @@ router.get(
       );
 
       const period = periodSchema.parse(req.query.period || "week");
+
+      // Handle custom period case or filter out unsupported periods
+      let statisticsPeriod: "today" | "week" | "month" | undefined;
+
+      if (period === "custom") {
+        // Handle custom period - you might need start_date and end_date from query params
+        // For now, default to week or implement custom date range logic
+        statisticsPeriod = "week";
+
+        // Optional: Add custom date range handling
+        // const startDate = req.query.start_date as string;
+        // const endDate = req.query.end_date as string;
+        // if (startDate && endDate) {
+        //   const statistics = await StatisticsService.getNutritionStatisticsCustom(
+        //     userId,
+        //     new Date(startDate),
+        //     new Date(endDate)
+        //   );
+        //   return res.json(statistics);
+        // }
+      } else {
+        statisticsPeriod = period;
+      }
+
       const statistics = await StatisticsService.getNutritionStatistics(
         userId,
-        period
+        statisticsPeriod
       );
 
       console.log(`✅ Statistics fetched successfully for user: ${userId}`);

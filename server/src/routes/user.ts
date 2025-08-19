@@ -381,7 +381,7 @@ router.get("/profile", authenticateToken, async (req: AuthRequest, res) => {
       select: {
         user_id: true,
         email: true,
-        full_name: true,
+        name: true,
         avatar_url: true,
         subscription_type: true,
         level: true,
@@ -391,9 +391,7 @@ router.get("/profile", authenticateToken, async (req: AuthRequest, res) => {
         best_streak: true,
         total_complete_days: true,
         created_at: true,
-        is_email_verified: true,
-        phone_number: true,
-        preferences: true,
+        email_verified: true,
       },
     });
 
@@ -437,7 +435,8 @@ router.get("/stats", authenticateToken, async (req: AuthRequest, res) => {
       select: {
         created_at: true,
         subscription_type: true,
-        streak: true,
+        best_streak: true,
+        current_streak: true,
         total_points: true,
         active_menu_id: true,
       },
@@ -456,7 +455,8 @@ router.get("/stats", authenticateToken, async (req: AuthRequest, res) => {
       totalMeals: 0,
       todayWaterIntake: 0,
       totalAchievements: 0,
-      streak: user.streak || 0,
+      best_streak: user.best_streak || 0,
+      current_streak: user.current_streak || 0,
       totalPoints: user.total_points || 0,
       memberSince: user.created_at,
       subscriptionType: user.subscription_type || "free",
@@ -467,7 +467,7 @@ router.get("/stats", authenticateToken, async (req: AuthRequest, res) => {
     try {
       // Count total meals with timeout
       const totalMeals = await Promise.race([
-        prisma.mealEntry.count({
+        prisma.meal.count({
           where: { user_id: userId },
         }),
         new Promise((_, reject) =>
@@ -496,7 +496,7 @@ router.get("/stats", authenticateToken, async (req: AuthRequest, res) => {
             },
           },
           _sum: {
-            amount_ml: true,
+            milliliters_consumed: true,
           },
         }),
         new Promise((_, reject) =>

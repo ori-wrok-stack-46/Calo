@@ -393,7 +393,7 @@ router.get("/current", authenticateToken, async (req: AuthRequest, res) => {
 
         planId = activeMealPlan.plan_id;
         planName = activeMealPlan.name;
-        startDate = activeMealPlan.start_date;
+        startDate = activeMealPlan.start_date ?? new Date();
         daysCount = activeMealPlan.rotation_frequency_days;
         hasActivePlan = true;
 

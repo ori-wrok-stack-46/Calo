@@ -6,10 +6,6 @@ import { prisma } from "../lib/database";
 
 const router = Router();
 
-const chatSchema = z.object({
-  message: z.string().min(1).max(1000),
-});
-
 const healthBasedRecommendationSchema = z.object({
   userId: z.string(),
   healthData: z.object({

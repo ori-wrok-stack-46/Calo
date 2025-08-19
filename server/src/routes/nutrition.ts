@@ -55,22 +55,6 @@ router.post(
         trackingDate.getMonth(),
         trackingDate.getDate()
       );
-      const endOfDay = new Date(
-        trackingDate.getFullYear(),
-        trackingDate.getMonth(),
-        trackingDate.getDate() + 1
-      );
-
-      // Check if water intake record exists for today
-      const existingRecord = await prisma.waterIntake.findFirst({
-        where: {
-          user_id: userId,
-          date: {
-            gte: startOfDay,
-            lt: endOfDay,
-          },
-        },
-      });
 
       // Use upsert to handle potential race conditions
       const waterRecord = await prisma.waterIntake.upsert({
@@ -93,19 +77,16 @@ router.post(
         },
       });
 
-      // Cap XP at 25 for water intake challenge
+      // Calculate XP based on water intake
       let xpAwarded = 0;
       const waterGoalComplete = limitedCups >= 8;
 
-      if (waterGoalComplete) {
-        // Award XP based on cups consumed, capped at 25
-        if (limitedCups >= 8) {
-          xpAwarded = Math.min(25, 25); // 25 XP for completing 8+ cups goal
-        } else if (limitedCups >= 4) {
-          xpAwarded = Math.min(15, 25); // 15 XP for partial progress
-        } else if (limitedCups > 0) {
-          xpAwarded = Math.min(5, 25); // 5 XP for any progress
-        }
+      if (limitedCups >= 8) {
+        xpAwarded = 25; // 25 XP for completing 8+ cups goal
+      } else if (limitedCups >= 4) {
+        xpAwarded = 15; // 15 XP for partial progress
+      } else if (limitedCups > 0) {
+        xpAwarded = 5; // 5 XP for any progress
       }
 
       // Check for achievements and XP after successful save
@@ -116,13 +97,13 @@ router.post(
 
         const achievementResult = await AchievementService.updateUserProgress(
           userId,
-          false,
-          waterGoalComplete,
-          false,
-          xpAwarded // Pass the capped XP
+          false, // completedDay
+          waterGoalComplete, // waterGoalComplete
+          false, // calorieGoalComplete
+          xpAwarded
         );
 
-        // Check for complete day
+        // Check for complete day if water goal is met
         if (waterGoalComplete) {
           const today = new Date();
           const startOfDayToday = new Date(
@@ -136,9 +117,11 @@ router.post(
             today.getDate(),
             23,
             59,
-            59
+            59,
+            999
           );
 
+          // Check if calorie goal is also complete
           const todayMeals = await prisma.meal.findMany({
             where: {
               user_id: userId,
@@ -155,20 +138,29 @@ router.post(
           );
           const calorieGoalComplete = todayCalories >= 1800;
 
+          // If both goals are complete, trigger complete day
           if (calorieGoalComplete) {
             const completeDayResult =
               await AchievementService.updateUserProgress(
                 userId,
-                true,
-                false,
-                false,
-                achievementResult.xpGained // Add XP from calorie goal to existing XP
+                true, // completedDay
+                false, // waterGoalComplete (already processed)
+                false, // calorieGoalComplete (already processed)
+                0 // No additional XP for complete day itself
               );
 
-            achievementResult.newAchievements.push(
-              ...completeDayResult.newAchievements
-            );
-            achievementResult.xpGained += completeDayResult.xpGained;
+            // Merge results safely
+            if (
+              completeDayResult.newAchievements &&
+              completeDayResult.newAchievements.length > 0
+            ) {
+              achievementResult.newAchievements = [
+                ...(achievementResult.newAchievements || []),
+                ...completeDayResult.newAchievements,
+              ];
+            }
+
+            achievementResult.xpGained += completeDayResult.xpGained || 0;
 
             if (completeDayResult.leveledUp) {
               achievementResult.leveledUp = completeDayResult.leveledUp;
@@ -182,7 +174,7 @@ router.post(
           data: waterRecord,
           xpAwarded: achievementResult.xpGained || 0,
           leveledUp: achievementResult.leveledUp || false,
-          newLevel: achievementResult.newLevel,
+          newLevel: achievementResult.newLevel || undefined,
           newAchievements: achievementResult.newAchievements || [],
         });
       } catch (achievementError) {
@@ -193,8 +185,9 @@ router.post(
         res.json({
           success: true,
           data: waterRecord,
-          xpAwarded: xpAwarded, // Use the capped XP here too
+          xpAwarded: xpAwarded,
           leveledUp: false,
+          newLevel: undefined,
           newAchievements: [],
         });
       }
@@ -364,27 +357,13 @@ router.post("/analyze", authenticateToken, async (req: AuthRequest, res) => {
 
     console.log("Analysis completed successfully");
     res.json(result);
-  } catch (error: any) {
-    console.error("💥 Nutrition analysis error:", error);
-
-    let errorMessage =
-      "Analysis failed. Please check your image and try again.";
-    let statusCode = 500;
-
-    if (error.message?.includes("timeout")) {
-      errorMessage =
-        "Analysis is taking too long. Please try with a clearer image.";
-      statusCode = 408;
-    } else if (error.message?.includes("Image data is required")) {
-      errorMessage = "Please provide a valid image.";
-      statusCode = 400;
-    } else if (error.message) {
-      errorMessage = error.message;
-    }
-
-    res.status(statusCode).json({
+  } catch (error) {
+    console.error("Analyze meal error:", error);
+    const message =
+      error instanceof Error ? error.message : "Failed to analyze meal";
+    res.status(500).json({
       success: false,
-      error: errorMessage,
+      error: message,
     });
   }
 });

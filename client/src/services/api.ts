@@ -267,54 +267,104 @@ export const nutritionAPI = {
         throw new APIError("Image data is required");
       }
 
-      // Create a custom timeout for this specific request
-      const source = axios.CancelToken.source();
-      const timeout = setTimeout(() => {
-        source.cancel(
-          "Analysis timeout - please try again with a clearer image"
-        );
-      }, 30000); // 30 second timeout
+      // Enhanced timeout and retry logic
+      const ANALYSIS_TIMEOUT = 45000; // 45 seconds
+      const MAX_RETRIES = 2;
 
-      try {
-        const response = await api.post(
-          "/nutrition/analyze",
-          {
-            imageBase64: imageBase64.trim(),
-            updateText,
-            editedIngredients,
-            language,
-          },
-          {
-            cancelToken: source.token,
-            timeout: 30000,
+      let lastError: any;
+
+      for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+        try {
+          console.log(`🔄 Analysis attempt ${attempt + 1}/${MAX_RETRIES + 1}`);
+
+          const source = axios.CancelToken.source();
+          const timeout = setTimeout(() => {
+            source.cancel(
+              "Analysis timeout - please try again with a clearer image"
+            );
+          }, ANALYSIS_TIMEOUT);
+
+          try {
+            const response = await api.post(
+              "/nutrition/analyze",
+              {
+                imageBase64: imageBase64.trim(),
+                updateText,
+                editedIngredients,
+                language,
+              },
+              {
+                cancelToken: source.token,
+                timeout: ANALYSIS_TIMEOUT,
+                headers: {
+                  "Content-Type": "application/json",
+                  Accept: "application/json",
+                },
+              }
+            );
+
+            clearTimeout(timeout);
+
+            if (response.data.success) {
+              console.log("✅ Meal analysis successful");
+              return response.data;
+            }
+
+            throw new APIError(response.data.error || "Analysis failed");
+          } catch (axiosError: any) {
+            clearTimeout(timeout);
+            lastError = axiosError;
+
+            if (axios.isCancel(axiosError)) {
+              throw new APIError(
+                "Analysis timeout - please try again with a clearer image"
+              );
+            }
+
+            if (axiosError.code === "ECONNABORTED") {
+              throw new APIError(
+                "Connection timeout - please check your internet connection"
+              );
+            }
+
+            // If this is a network error and we have retries left, continue to next attempt
+            if (
+              attempt < MAX_RETRIES &&
+              (axiosError.code === "ERR_NETWORK" ||
+                axiosError.message?.includes("Network Error") ||
+                axiosError.response?.status >= 500)
+            ) {
+              console.log(
+                `⚠️ Network error on attempt ${attempt + 1}, retrying...`
+              );
+              // Wait before retry with exponential backoff
+              await new Promise((resolve) =>
+                setTimeout(resolve, Math.pow(2, attempt) * 1000)
+              );
+              continue;
+            }
+
+            throw axiosError;
           }
-        );
+        } catch (error) {
+          lastError = error;
 
-        clearTimeout(timeout);
+          // If this is the last attempt or not a retryable error, break
+          if (attempt === MAX_RETRIES || !this.isRetryableError(error)) {
+            break;
+          }
 
-        if (response.data.success) {
-          console.log("✅ Meal analysis successful");
-          return response.data;
-        }
-
-        throw new APIError(response.data.error || "Analysis failed");
-      } catch (axiosError: any) {
-        clearTimeout(timeout);
-
-        if (axios.isCancel(axiosError)) {
-          throw new APIError(
-            "Analysis timeout - please try again with a clearer image"
+          console.log(
+            `⚠️ Retryable error on attempt ${attempt + 1}, retrying...`
+          );
+          await new Promise((resolve) =>
+            setTimeout(resolve, Math.pow(2, attempt) * 1000)
           );
         }
-
-        if (axiosError.code === "ECONNABORTED") {
-          throw new APIError(
-            "Connection timeout - please check your internet connection"
-          );
-        }
-
-        throw axiosError;
       }
+
+      // If we get here, all retries failed
+      throw lastError;
     } catch (error: any) {
       console.error("💥 Meal analysis error:", error);
       if (error instanceof APIError) throw error;
@@ -336,6 +386,31 @@ export const nutritionAPI = {
         true
       );
     }
+  },
+
+  // Helper method to determine if an error is retryable
+  isRetryableError(error: any): boolean {
+    if (!error) return false;
+
+    // Network errors are retryable
+    if (
+      error.code === "ERR_NETWORK" ||
+      error.message?.includes("Network Error")
+    ) {
+      return true;
+    }
+
+    // Server errors (5xx) are retryable
+    if (error.response?.status >= 500) {
+      return true;
+    }
+
+    // Timeout errors are retryable
+    if (error.code === "ECONNABORTED" || error.message?.includes("timeout")) {
+      return true;
+    }
+
+    return false;
   },
 
   async saveMeal(

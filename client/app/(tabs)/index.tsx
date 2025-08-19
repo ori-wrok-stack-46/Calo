@@ -1183,7 +1183,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.25,
     shadowRadius: 16,
-    elevation: 8,
   },
   statsGradient: {
     padding: 24,
@@ -1807,7 +1806,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 3,
   },
   waterButtonMinus: {
     backgroundColor: "rgba(255,255,255,0.15)",
@@ -1817,7 +1815,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 3,
   },
   waterErrorContainer: {
     marginTop: 12,
