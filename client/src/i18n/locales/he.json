@@ -384,7 +384,9 @@
     "xp": "Xp",
     "level": "דרגה",
     "current_streak": "רצף עכשוי",
-    "best_streak": "שיא רצף"
+    "best_streak": "שיא רצף",
+    "total_xp": "סך הכל נקודות",
+    "streak": "רצף עכשוי"
   },
   "meals": {
     "kcal": "קלוריות",

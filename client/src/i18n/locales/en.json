@@ -208,7 +208,9 @@
     "xp": "Xp",
     "level": "Level",
     "current_streak": "Current Streak",
-    "best_streak": "Best Streak"
+    "best_streak": "Best Streak",
+    "total_xp":"Total Xp",
+    "streak":"Current Streak"
   },
   "meals": {
     "title": "My Meals",
