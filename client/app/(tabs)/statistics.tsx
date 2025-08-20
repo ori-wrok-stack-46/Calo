@@ -78,7 +78,6 @@ import { useSelector } from "react-redux";
 import { RootState } from "@/src/store";
 import { ToastService } from "@/src/services/totastService"; // Assuming ToastService is available
 import { useQuery } from "@tanstack/react-query";
-import { router } from "expo-router";
 
 const { width, height } = Dimensions.get("window");
 const CHART_WIDTH = width - 40;

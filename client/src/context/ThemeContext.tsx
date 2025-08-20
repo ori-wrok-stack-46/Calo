@@ -43,6 +43,8 @@ export const Colors = {
     // Secondary text
     textSecondary: "#6b7280", // gray-500 (muted text)
     textTertiary: "#9ca3af", // gray-400 (very subtle)
+    subtext: "#6b7280", // gray-500 (subtext for labels, captions)
+    muted: "#9ca3af", // gray-400 (muted elements, placeholders)
 
     // Special elements
     shadow: "rgba(0, 0, 0, 0.08)", // subtle shadow
@@ -91,6 +93,8 @@ export const Colors = {
     // Secondary text
     textSecondary: "#d1d5db", // gray-300 (readable secondary)
     textTertiary: "#9ca3af", // gray-400 (subtle text)
+    subtext: "#9ca3af", // gray-400 (subtext for labels, captions)
+    muted: "#6b7280", // gray-500 (muted elements, placeholders)
 
     // Special elements
     shadow: "rgba(0, 0, 0, 0.25)", // deeper shadow
