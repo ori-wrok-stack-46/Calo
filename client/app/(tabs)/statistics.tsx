@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   View,
   Text,
@@ -10,6 +10,8 @@ import {
   Modal,
   RefreshControl,
   ColorValue,
+  ActivityIndicator,
+  Animated,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -50,11 +52,13 @@ import {
   Sunrise,
   Moon,
   Dumbbell,
-  Gem,
   Dumbbell as DumbbellIcon,
   Activity,
   ChartPie as PieChart,
   Download,
+  Lock,
+  ChevronRight,
+  Gem,
 } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
 import { useLanguage } from "@/src/i18n/context/LanguageContext";
@@ -72,6 +76,9 @@ import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import { useSelector } from "react-redux";
 import { RootState } from "@/src/store";
+import { ToastService } from "@/src/services/totastService"; // Assuming ToastService is available
+import { useQuery } from "@tanstack/react-query";
+import { router } from "expo-router";
 
 const { width, height } = Dimensions.get("window");
 const CHART_WIDTH = width - 40;
@@ -594,18 +601,26 @@ export default function StatisticsScreen() {
   const [showAlerts, setShowAlerts] = useState(true);
   const [showAchievements, setShowAchievements] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [statisticsData, setStatisticsData] = useState<StatisticsData | null>(
     null
   );
   const [userQuestionnaire, setUserQuestionnaire] =
     useState<UserQuestionnaire | null>(null);
-  const { user } = useSelector((state: RootState) => state.auth);
+  const { user, token } = useSelector((state: RootState) => state.auth);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string>("All");
+  const [selectedAchievement, setSelectedAchievement] =
+    useState<Achievement | null>(null);
+  const [showAchievementDetail, setShowAchievementDetail] = useState(false);
+  const [newAchievementModal, setNewAchievementModal] = useState<{
+    show: boolean;
+    achievement: Achievement | null;
+  }>({ show: false, achievement: null });
+
   // Fetch statistics data from API
   const fetchStatistics = async (period: "today" | "week" | "month") => {
-    setIsLoading(true);
-    setError(null);
+    setError(null); // Clear previous errors
 
     try {
       console.log(`📊 Fetching statistics for period: ${period}`);
@@ -613,8 +628,6 @@ export default function StatisticsScreen() {
         api.get(`/statistics?period=${period}`),
         api.get("/questionnaire"),
       ]);
-
-      console.log("📊 Raw statistics response:", statisticsResponse.data);
 
       if (statisticsResponse.data.success && statisticsResponse.data.data) {
         setStatisticsData(statisticsResponse.data.data);
@@ -627,6 +640,7 @@ export default function StatisticsScreen() {
         setError(
           statisticsResponse.data.message || "No statistics data available"
         );
+        setStatisticsData(null); // Clear data on error
       }
 
       // Set user questionnaire for meal requirements
@@ -653,12 +667,14 @@ export default function StatisticsScreen() {
           dailyFiber: qData.daily_fiber || 25,
           dailyWater: qData.daily_water || 2500,
         });
+      } else {
+        setUserQuestionnaire(null); // Clear questionnaire data if not available
       }
     } catch (err: any) {
       console.error("❌ Error fetching statistics:", err);
       setError(err.response?.data?.message || "Failed to load statistics data");
-    } finally {
-      setIsLoading(false);
+      setStatisticsData(null); // Clear data on error
+      setUserQuestionnaire(null); // Clear questionnaire data on error
     }
   };
 
@@ -667,16 +683,67 @@ export default function StatisticsScreen() {
     fetchStatistics(selectedPeriod);
   }, [selectedPeriod]);
 
+  // Fetch statistics data using react-query
+  const {
+    data: nutritionData,
+    isLoading: isNutritionLoading,
+    error: nutritionError,
+    refetch: refetchNutrition,
+  } = useQuery({
+    queryKey: ["nutrition-statistics", user?.user_id],
+    queryFn: async () => {
+      const response = await api.get(`/statistics?period=${selectedPeriod}`);
+      return response.data;
+    },
+    enabled: !!user?.user_id,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+  });
+
+  // Fetch achievements data
+  const {
+    data: achievementsData,
+    isLoading: isAchievementsLoading,
+    error: achievementsError,
+    refetch: refetchAchievements,
+  } = useQuery({
+    queryKey: ["achievements", user?.user_id],
+    queryFn: async () => {
+      const response = await api.get("/statistics/achievements");
+      return response.data;
+    },
+    enabled: !!user?.user_id,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
+  });
+
+  // Refresh handler
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await Promise.all([refetchNutrition(), refetchAchievements()]);
+    } catch (error) {
+      console.error("Error refreshing data:", error);
+    } finally {
+      setRefreshing(false);
+    }
+  }, [refetchNutrition, refetchAchievements]);
+
+  const isLoading = isNutritionLoading || isAchievementsLoading;
+
   // Generate nutrition data from real API response
   const generateNutritionMetrics = (): NutritionMetric[] => {
-    if (!statisticsData || !userQuestionnaire) {
+    if (!nutritionData?.data || !userQuestionnaire) {
       console.warn(
-        "⚠️ No statistics data or questionnaire available for metrics generation"
+        "⚠️ No nutrition data or questionnaire available for metrics generation"
       );
       return [];
     }
 
-    console.log("📊 Generating nutrition metrics from data:", statisticsData);
+    console.log(
+      "📊 Generating nutrition metrics from data:",
+      nutritionData.data
+    );
 
     const calculateTrend = (
       current: number,
@@ -701,7 +768,7 @@ export default function StatisticsScreen() {
         id: "calories",
         name: t("statistics.total_calories"),
         nameEn: "Total Calories",
-        value: statisticsData.averageCalories || 0,
+        value: nutritionData.data.averageCalories || 0,
         target: userQuestionnaire.dailyCalories,
         unit: t("statistics.kcal"),
         icon: <Flame size={20} color="#E74C3C" />,
@@ -712,20 +779,20 @@ export default function StatisticsScreen() {
             ? "צריכת קלוריות יומית כוללת"
             : "Total daily calorie intake",
         trend: calculateTrend(
-          statisticsData.averageCalories || 0,
+          nutritionData.data.averageCalories || 0,
           userQuestionnaire.dailyCalories
         ),
-        weeklyAverage: statisticsData.averageCalories || 0,
+        weeklyAverage: nutritionData.data.averageCalories || 0,
         lastWeekChange: calculateWeeklyChange(
-          statisticsData.averageCalories || 0,
-          statisticsData.averageCalories || 0
+          nutritionData.data.averageCalories || 0,
+          nutritionData.data.averageCalories || 0 // Assuming this should be previous week's average if available
         ),
       },
       {
         id: "protein",
         name: t("statistics.protein"),
         nameEn: "Protein",
-        value: statisticsData.averageProtein || 0,
+        value: nutritionData.data.averageProtein || 0,
         target: userQuestionnaire.dailyProtein,
         unit: t("statistics.g"),
         icon: <Zap size={20} color="#9B59B6" />,
@@ -736,20 +803,20 @@ export default function StatisticsScreen() {
             ? "חלבון לבניית שרירים ותיקון רקמות"
             : "Protein for muscle building and tissue repair",
         trend: calculateTrend(
-          statisticsData.averageProtein || 0,
+          nutritionData.data.averageProtein || 0,
           userQuestionnaire.dailyProtein
         ),
-        weeklyAverage: statisticsData.averageProtein || 0,
+        weeklyAverage: nutritionData.data.averageProtein || 0,
         lastWeekChange: calculateWeeklyChange(
-          statisticsData.averageProtein || 0,
-          statisticsData.averageProtein || 0
+          nutritionData.data.averageProtein || 0,
+          nutritionData.data.averageProtein || 0 // Assuming this should be previous week's average if available
         ),
       },
       {
         id: "carbs",
         name: t("statistics.carbohydrates"),
         nameEn: "Carbohydrates",
-        value: statisticsData.averageCarbs || 0,
+        value: nutritionData.data.averageCarbs || 0,
         target: userQuestionnaire.dailyCarbs,
         unit: t("statistics.g"),
         icon: <Wheat size={20} color="#F39C12" />,
@@ -760,20 +827,20 @@ export default function StatisticsScreen() {
             ? "פחמימות לאנרגיה ותפקוד המוח"
             : "Carbohydrates for energy and brain function",
         trend: calculateTrend(
-          statisticsData.averageCarbs || 0,
+          nutritionData.data.averageCarbs || 0,
           userQuestionnaire.dailyCarbs
         ),
-        weeklyAverage: statisticsData.averageCarbs || 0,
+        weeklyAverage: nutritionData.data.averageCarbs || 0,
         lastWeekChange: calculateWeeklyChange(
-          statisticsData.averageCarbs || 0,
-          statisticsData.averageCarbs || 0
+          nutritionData.data.averageCarbs || 0,
+          nutritionData.data.averageCarbs || 0 // Assuming this should be previous week's average if available
         ),
       },
       {
         id: "fats",
         name: t("statistics.fats"),
         nameEn: "Fats",
-        value: statisticsData.averageFats || 0,
+        value: nutritionData.data.averageFats || 0,
         target: userQuestionnaire.dailyFats,
         unit: t("statistics.g"),
         icon: <Fish size={20} color="#16A085" />,
@@ -784,20 +851,20 @@ export default function StatisticsScreen() {
             ? "שומנים בריאים לתפקוד הורמונלי"
             : "Healthy fats for hormonal function",
         trend: calculateTrend(
-          statisticsData.averageFats || 0,
+          nutritionData.data.averageFats || 0,
           userQuestionnaire.dailyFats
         ),
-        weeklyAverage: statisticsData.averageFats || 0,
+        weeklyAverage: nutritionData.data.averageFats || 0,
         lastWeekChange: calculateWeeklyChange(
-          statisticsData.averageFats || 0,
-          statisticsData.averageFats || 0
+          nutritionData.data.averageFats || 0,
+          nutritionData.data.averageFats || 0 // Assuming this should be previous week's average if available
         ),
       },
       {
         id: "fiber",
         name: t("statistics.fiber"),
         nameEn: "Fiber",
-        value: statisticsData.averageFiber || 0,
+        value: nutritionData.data.averageFiber || 0,
         target: userQuestionnaire.dailyFiber,
         unit: t("statistics.g"),
         icon: <Leaf size={20} color="#27AE60" />,
@@ -809,20 +876,20 @@ export default function StatisticsScreen() {
             : "Dietary fiber for digestive health",
         recommendation: t("statistics.increaseIntake"),
         trend: calculateTrend(
-          statisticsData.averageFiber || 0,
+          nutritionData.data.averageFiber || 0,
           userQuestionnaire.dailyFiber
         ),
-        weeklyAverage: statisticsData.averageFiber || 0,
+        weeklyAverage: nutritionData.data.averageFiber || 0,
         lastWeekChange: calculateWeeklyChange(
-          statisticsData.averageFiber || 0,
-          statisticsData.averageFiber || 0
+          nutritionData.data.averageFiber || 0,
+          nutritionData.data.averageFiber || 0 // Assuming this should be previous week's average if available
         ),
       },
       {
         id: "sugars",
         name: t("statistics.sugars"),
         nameEn: "Sugars",
-        value: statisticsData.averageSugar || 0,
+        value: nutritionData.data.averageSugar || 0,
         target: 50,
         maxTarget: 50,
         unit: t("statistics.g"),
@@ -834,18 +901,18 @@ export default function StatisticsScreen() {
             ? "סוכרים פשוטים - מומלץ להגביל"
             : "Simple sugars - recommended to limit",
         recommendation: t("statistics.decreaseIntake"),
-        trend: calculateTrend(statisticsData.averageSugar || 0, 50),
-        weeklyAverage: statisticsData.averageSugar || 0,
+        trend: calculateTrend(nutritionData.data.averageSugar || 0, 50),
+        weeklyAverage: nutritionData.data.averageSugar || 0,
         lastWeekChange: calculateWeeklyChange(
-          statisticsData.averageSugar || 0,
-          statisticsData.averageSugar || 0
+          nutritionData.data.averageSugar || 0,
+          nutritionData.data.averageSugar || 0 // Assuming this should be previous week's average if available
         ),
       },
       {
         id: "sodium",
         name: t("statistics.sodium"),
         nameEn: "Sodium",
-        value: statisticsData.averageSodium || 0,
+        value: nutritionData.data.averageSodium || 0,
         target: 2300,
         maxTarget: 2300,
         unit: t("statistics.mg"),
@@ -857,18 +924,18 @@ export default function StatisticsScreen() {
             ? "נתרן - חשוב להגביל למניעת יתר לחץ דם"
             : "Sodium - important to limit to prevent hypertension",
         recommendation: t("statistics.decreaseIntake"),
-        trend: calculateTrend(statisticsData.averageSodium || 0, 2300),
-        weeklyAverage: statisticsData.averageSodium || 0,
+        trend: calculateTrend(nutritionData.data.averageSodium || 0, 2300),
+        weeklyAverage: nutritionData.data.averageSodium || 0,
         lastWeekChange: calculateWeeklyChange(
-          statisticsData.averageSodium || 0,
-          statisticsData.averageSodium || 0
+          nutritionData.data.averageSodium || 0,
+          nutritionData.data.averageSodium || 0 // Assuming this should be previous week's average if available
         ),
       },
       {
         id: "hydration",
         name: t("statistics.hydration"),
         nameEn: "Hydration",
-        value: statisticsData.averageFluids || 0,
+        value: nutritionData.data.averageFluids || 0,
         target: userQuestionnaire.dailyWater,
         unit: t("statistics.ml"),
         icon: <Droplets size={20} color="#3498DB" />,
@@ -878,34 +945,55 @@ export default function StatisticsScreen() {
           language === "he" ? "רמת הידרציה יומית" : "Daily hydration level",
         recommendation: t("statistics.increaseIntake"),
         trend: calculateTrend(
-          statisticsData.averageFluids || 0,
+          nutritionData.data.averageFluids || 0,
           userQuestionnaire.dailyWater
         ),
-        weeklyAverage: statisticsData.averageFluids || 0,
+        weeklyAverage: nutritionData.data.averageFluids || 0,
         lastWeekChange: calculateWeeklyChange(
-          statisticsData.averageFluids || 0,
-          statisticsData.averageFluids || 0
+          nutritionData.data.averageFluids || 0,
+          nutritionData.data.averageFluids || 0 // Assuming this should be previous week's average if available
         ),
       },
     ];
 
     return baseData.map((metric) => {
-      const percentage = metric.maxTarget
-        ? Math.min((metric.target / Math.max(metric.value, 1)) * 100, 100)
-        : Math.min((metric.value / Math.max(metric.target, 1)) * 100, 100);
+      let percentage = 0;
+      let status: "excellent" | "good" | "warning" | "danger" = "danger";
 
-      let status: "excellent" | "good" | "warning" | "danger";
-
+      // Handle different calculation logic for limited vs target nutrients
       if (metric.maxTarget) {
-        if (metric.value <= metric.target * 0.8) status = "excellent";
-        else if (metric.value <= metric.target) status = "good";
-        else if (metric.value <= metric.target * 1.2) status = "warning";
-        else status = "danger";
+        // For nutrients that should be limited (sodium, sugar)
+        if (metric.target === 0) {
+          percentage = 0;
+          status = "excellent";
+        } else if (metric.value === 0) {
+          percentage = 0;
+          status = "excellent";
+        } else {
+          // Calculate percentage of limit used
+          percentage = Math.min((metric.value / metric.target) * 100, 100);
+
+          if (metric.value <= metric.target * 0.5) status = "excellent";
+          else if (metric.value <= metric.target * 0.8) status = "good";
+          else if (metric.value <= metric.target) status = "warning";
+          else status = "danger";
+        }
       } else {
-        if (percentage >= 100) status = "excellent";
-        else if (percentage >= 80) status = "good";
-        else if (percentage >= 60) status = "warning";
-        else status = "danger";
+        // For nutrients with minimum targets (protein, fiber, etc.)
+        if (metric.target === 0) {
+          percentage = 0;
+          status = "excellent";
+        } else if (metric.value === 0) {
+          percentage = 0;
+          status = "danger";
+        } else {
+          percentage = Math.min((metric.value / metric.target) * 100, 100);
+
+          if (percentage >= 100) status = "excellent";
+          else if (percentage >= 80) status = "good";
+          else if (percentage >= 60) status = "warning";
+          else status = "danger";
+        }
       }
 
       return {
@@ -919,14 +1007,14 @@ export default function StatisticsScreen() {
   // Generate weekly progress data with meal completion tracking
   const generateWeeklyData = (): ProgressData[] => {
     if (
-      !statisticsData?.dailyBreakdown ||
-      statisticsData.dailyBreakdown.length === 0 ||
+      !nutritionData?.data?.dailyBreakdown ||
+      nutritionData.data.dailyBreakdown.length === 0 ||
       !userQuestionnaire
     ) {
       return [];
     }
 
-    return statisticsData.dailyBreakdown.map((day: any) => ({
+    return nutritionData.data.dailyBreakdown.map((day: any) => ({
       date: day.date,
       calories: day.calories || 0,
       protein: day.protein_g || 0,
@@ -957,9 +1045,18 @@ export default function StatisticsScreen() {
 
   // Generate achievements from real API data
   const generateAchievements = (): Achievement[] => {
-    if (!statisticsData?.achievements) return [];
+    if (!achievementsData?.data || !Array.isArray(achievementsData.data)) {
+      console.warn("⚠️ No achievement data available or invalid format");
+      return [];
+    }
 
-    return statisticsData.achievements.map((achievement: any) => ({
+    console.log(
+      "📊 Processing achievements data:",
+      achievementsData.data.length,
+      "achievements found"
+    );
+
+    return achievementsData.data.map((achievement: any) => ({
       id: achievement.id,
       title: achievement.title || { en: "Achievement", he: "הישג" },
       description: achievement.description || {
@@ -969,12 +1066,12 @@ export default function StatisticsScreen() {
       icon: achievement.icon || "trophy",
       color: getRarityColor(achievement.rarity || "COMMON"),
       progress: achievement.progress || 0,
-      maxProgress: achievement.max_progress || 1,
+      maxProgress: achievement.maxProgress || achievement.max_progress || 1,
       unlocked: achievement.unlocked || false,
       category: achievement.category || "MILESTONE",
-      xpReward: achievement.xpReward || 0,
+      xpReward: achievement.xpReward || achievement.points_awarded || 0,
       rarity: achievement.rarity || "COMMON",
-      unlockedDate: achievement.unlockedDate,
+      unlockedDate: achievement.unlockedDate || achievement.unlocked_date,
     }));
   };
 
@@ -982,24 +1079,16 @@ export default function StatisticsScreen() {
   const [weeklyData, setWeeklyData] = useState<ProgressData[]>([]);
   const [achievements, setAchievements] = useState<Achievement[]>([]);
 
-  // Update metrics when data changes
+  // Update metrics and achievements when data changes
   useEffect(() => {
-    if (statisticsData && userQuestionnaire) {
+    if (nutritionData?.data && userQuestionnaire) {
       setMetrics(generateNutritionMetrics());
       setWeeklyData(generateWeeklyData());
+    }
+    if (achievementsData?.data) {
       setAchievements(generateAchievements());
     }
-  }, [statisticsData, userQuestionnaire]);
-
-  // Refresh handler
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    try {
-      await fetchStatistics(selectedPeriod);
-    } finally {
-      setRefreshing(false);
-    }
-  };
+  }, [nutritionData, achievementsData, userQuestionnaire]);
 
   const timeFilters: TimeFilter[] = [
     { key: "today", label: t("statistics.today") },
@@ -1070,9 +1159,221 @@ export default function StatisticsScreen() {
       }));
   };
 
+  // Handle achievement press
+  const handleAchievementPress = (achievement: Achievement) => {
+    setSelectedAchievement(achievement);
+    setShowAchievementDetail(true);
+  };
+
+  // Enhanced Achievement Card Component
+  const EnhancedAchievementCard = React.memo(
+    ({
+      achievement,
+      onPress,
+      language,
+    }: {
+      achievement: Achievement;
+      onPress: (achievement: Achievement) => void;
+      language: string;
+    }) => {
+      const scaleValue = useRef(new Animated.Value(1)).current;
+      const glowValue = useRef(new Animated.Value(0)).current;
+
+      useEffect(() => {
+        if (achievement.unlocked) {
+          Animated.loop(
+            Animated.sequence([
+              Animated.timing(glowValue, {
+                toValue: 1,
+                duration: 2000,
+                useNativeDriver: true,
+              }),
+              Animated.timing(glowValue, {
+                toValue: 0,
+                duration: 2000,
+                useNativeDriver: true,
+              }),
+            ])
+          ).start();
+        }
+      }, [achievement.unlocked]);
+
+      const handlePressIn = () => {
+        Animated.spring(scaleValue, {
+          toValue: 0.95,
+          useNativeDriver: true,
+        }).start();
+      };
+
+      const handlePressOut = () => {
+        Animated.spring(scaleValue, {
+          toValue: 1,
+          useNativeDriver: true,
+        }).start();
+      };
+
+      const progressPercentage = Math.min(
+        (achievement.progress / (achievement.maxProgress || 1)) * 100,
+        100
+      );
+
+      return (
+        <Animated.View
+          style={[
+            styles.enhancedAchievementCard,
+            {
+              transform: [{ scale: scaleValue }],
+              backgroundColor: achievement.unlocked ? "#FFFFFF" : "#F9FAFB",
+              borderColor: achievement.unlocked
+                ? `${getRarityColor(achievement.rarity)}40`
+                : "#E5E7EB",
+              shadowColor: achievement.unlocked
+                ? getRarityColor(achievement.rarity)
+                : "#000",
+              shadowOpacity: achievement.unlocked ? 0.15 : 0.05,
+            },
+          ]}
+        >
+          <TouchableOpacity
+            onPress={() => onPress(achievement)}
+            onPressIn={handlePressIn}
+            onPressOut={handlePressOut}
+            style={styles.enhancedAchievementCardContent}
+            activeOpacity={0.8}
+          >
+            {/* Glow Effect for Unlocked Achievements */}
+            {achievement.unlocked && (
+              <Animated.View
+                style={[
+                  styles.achievementGlow,
+                  {
+                    opacity: glowValue,
+                    backgroundColor: `${getRarityColor(achievement.rarity)}10`,
+                  },
+                ]}
+              />
+            )}
+
+            {/* Status Badge */}
+            <View
+              style={[
+                styles.statusBadge,
+                {
+                  backgroundColor: achievement.unlocked ? "#10B981" : "#6B7280",
+                },
+              ]}
+            >
+              {achievement.unlocked ? (
+                <CheckCircle size={12} color="#FFFFFF" />
+              ) : (
+                <Lock size={12} color="#FFFFFF" />
+              )}
+            </View>
+
+            {/* Achievement Icon */}
+            <View
+              style={[
+                styles.enhancedAchievementIcon,
+                {
+                  backgroundColor: achievement.unlocked
+                    ? `${getRarityColor(achievement.rarity)}15`
+                    : "#F3F4F6",
+                },
+              ]}
+            >
+              {getAchievementIcon(
+                achievement.icon,
+                32,
+                achievement.unlocked
+                  ? getRarityColor(achievement.rarity)
+                  : "#9CA3AF"
+              )}
+            </View>
+
+            {/* Achievement Content */}
+            <View style={styles.enhancedAchievementContent}>
+              <Text
+                style={[
+                  styles.enhancedAchievementTitle,
+                  { color: achievement.unlocked ? "#111827" : "#6B7280" },
+                ]}
+                numberOfLines={2}
+              >
+                {typeof achievement.title === "object"
+                  ? achievement.title[language] || achievement.title.en
+                  : achievement.title}
+              </Text>
+
+              <Text
+                style={[
+                  styles.enhancedAchievementDescription,
+                  { color: achievement.unlocked ? "#374151" : "#9CA3AF" },
+                ]}
+                numberOfLines={2}
+              >
+                {typeof achievement.description === "object"
+                  ? achievement.description[language] ||
+                    achievement.description.en
+                  : achievement.description}
+              </Text>
+
+              {/* Progress Section */}
+              <View style={styles.enhancedProgressSection}>
+                <View style={styles.progressRow}>
+                  <Text style={styles.progressLabel}>
+                    {achievement.progress}/{achievement.maxProgress || 1}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.xpBadge,
+                      {
+                        color: achievement.unlocked
+                          ? getRarityColor(achievement.rarity)
+                          : "#6B7280",
+                      },
+                    ]}
+                  >
+                    +{achievement.xpReward} XP
+                  </Text>
+                </View>
+
+                <View style={styles.enhancedProgressBar}>
+                  <View
+                    style={[
+                      styles.enhancedProgressFill,
+                      {
+                        width: `${progressPercentage}%`,
+                        backgroundColor: achievement.unlocked
+                          ? getRarityColor(achievement.rarity)
+                          : "#D1D5DB",
+                      },
+                    ]}
+                  />
+                </View>
+
+                <Text
+                  style={[
+                    styles.rarityBadgeText,
+                    {
+                      color: achievement.unlocked
+                        ? getRarityColor(achievement.rarity)
+                        : "#6B7280",
+                    },
+                  ]}
+                >
+                  {achievement.rarity}
+                </Text>
+              </View>
+            </View>
+          </TouchableOpacity>
+        </Animated.View>
+      );
+    }
+  );
+
   // Calculate progress statistics
   const calculateProgressStats = () => {
-    if (!statisticsData) {
+    if (!nutritionData?.data) {
       return {
         totalDays: 0,
         successfulDays: 0,
@@ -1084,26 +1385,26 @@ export default function StatisticsScreen() {
     }
 
     const averages = {
-      calories: Math.round(statisticsData.averageCalories || 0),
-      protein: Math.round(statisticsData.averageProtein || 0),
-      carbs: Math.round(statisticsData.averageCarbs || 0),
-      fats: Math.round(statisticsData.averageFats || 0),
-      water: Math.round(statisticsData.averageFluids || 0),
+      calories: Math.round(nutritionData.data.averageCalories || 0),
+      protein: Math.round(nutritionData.data.averageProtein || 0),
+      carbs: Math.round(nutritionData.data.averageCarbs || 0),
+      fats: Math.round(nutritionData.data.averageFats || 0),
+      water: Math.round(nutritionData.data.averageFluids || 0),
     };
 
     return {
-      totalDays: statisticsData.totalDays || 0,
-      successfulDays: statisticsData.successfulDays || 0,
-      averageCompletion: Math.round(statisticsData.averageCompletion || 0),
-      bestStreak: statisticsData.bestStreak || 0,
-      currentStreak: statisticsData.currentStreak || 0,
+      totalDays: nutritionData.data.totalDays || 0,
+      successfulDays: nutritionData.data.successfulDays || 0,
+      averageCompletion: Math.round(nutritionData.data.averageCompletion || 0),
+      bestStreak: nutritionData.data.bestStreak || 0,
+      currentStreak: nutritionData.data.currentStreak || 0,
       averages,
     };
   };
 
   // Calculate gamification stats from real data
   const calculateGamificationStats = () => {
-    if (!statisticsData) {
+    if (!nutritionData?.data) {
       return {
         level: 1,
         currentXP: 0,
@@ -1117,14 +1418,14 @@ export default function StatisticsScreen() {
       };
     }
 
-    const totalPoints = statisticsData.totalPoints || 0;
+    const totalPoints = nutritionData.data.totalPoints || 0;
     // Use the same level calculation as the server: level starts at 1, every 1000 XP = 1 level
     const level = Math.max(1, Math.floor(totalPoints / 1000) + 1);
     const currentXP = totalPoints % 1000;
     const nextLevelXP = 1000;
-    const dailyStreak = statisticsData.currentStreak || 0;
-    const weeklyStreak = statisticsData.weeklyStreak || 0;
-    const perfectDays = statisticsData.perfectDays || 0;
+    const dailyStreak = nutritionData.data.currentStreak || 0;
+    const weeklyStreak = nutritionData.data.weeklyStreak || 0;
+    const perfectDays = nutritionData.data.perfectDays || 0;
 
     return {
       level,
@@ -1239,7 +1540,7 @@ export default function StatisticsScreen() {
   }
 
   // Error state
-  if (error) {
+  if (nutritionError && achievementsError) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
@@ -1308,374 +1609,99 @@ export default function StatisticsScreen() {
   };
 
   // PDF generation function
-  const generatePdf = async () => {
-    console.log("generatePdf function called"); // Debug log
+  const generatePDFFilename = () => {
+    const now = new Date();
+    const formatDate = (date: Date) => {
+      return date
+        .toLocaleDateString("en-US", {
+          year: "numeric",
+          month: "2-digit",
+          day: "2-digit",
+        })
+        .replace(/\//g, "-");
+    };
 
-    // Check if statisticsData exists
-    if (!statisticsData) {
-      console.log("No statistics data available"); // Debug log
-      Alert.alert("No Data", "There is no data to generate a PDF from.");
-      return;
-    }
+    const formatDateRange = (period: string) => {
+      const today = new Date();
+      let startDate: Date;
+      let endDate = today;
 
-    console.log("Statistics data found, generating PDF..."); // Debug log
-
-    // Add loading indicator
-    Alert.alert(
-      "Generating PDF",
-      "Please wait while we generate your report..."
-    );
-
-    const htmlContent = `
-    <html>
-      <head>
-        <meta charset="utf-8">
-        <title>Statistics Report</title>
-        <style>
-          body { 
-            font-family: 'Arial', sans-serif; 
-            padding: 20px; 
-            color: #333; 
-            line-height: 1.4;
-          }
-          h1 { 
-            color: #16A085; 
-            text-align: center; 
-            margin-bottom: 30px; 
-          }
-          h2 { 
-            color: #0F172A; 
-            border-bottom: 2px solid #EEE; 
-            padding-bottom: 10px; 
-            margin-top: 25px; 
-            margin-bottom: 15px; 
-            font-size: 20px; 
-          }
-          .section { 
-            margin-bottom: 20px; 
-            page-break-inside: avoid;
-          }
-          .metric-card { 
-            background-color: #F8FAFC; 
-            border-radius: 12px; 
-            padding: 16px; 
-            margin-bottom: 12px; 
-            border: 1px solid #E5E7EB;
-          }
-          .metric-header { 
-            display: flex;
-            flex-direction: row; 
-            align-items: center; 
-            margin-bottom: 10px; 
-          }
-          .metric-name { 
-            font-size: 16px; 
-            font-weight: 700; 
-            color: #0F172A; 
-            flex: 1; 
-          }
-          .metric-value { 
-            font-size: 18px; 
-            font-weight: 800; 
-            color: #0F172A; 
-          }
-          .metric-target { 
-            font-size: 13px; 
-            color: #64748B; 
-          }
-          .flex-row {
-            display: flex;
-            flex-direction: row;
-            align-items: center;
-            flex-wrap: wrap;
-            gap: 20px;
-          }
-          .flex-col {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-          }
-          .stat-circle {
-            width: 48px;
-            height: 48px;
-            background-color: #F8FAFC;
-            border-radius: 24px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            margin-bottom: 12px;
-          }
-          .progress-stat-value { 
-            font-size: 16px; 
-            font-weight: 800; 
-            color: #0F172A; 
-            margin: 4px 0 2px 0;
-            text-align: center;
-          }
-          .progress-stat-label { 
-            font-size: 11px; 
-            color: #64748B; 
-            text-align: center; 
-            font-weight: 600; 
-          }
-          .achievement-card {
-            min-width: 280px;
-            max-width: 300px;
-            border-radius: 12px;
-            padding: 16px;
-            border: 1px solid #E5E7EB;
-            margin-right: 16px;
-            display: inline-block;
-            vertical-align: top;
-          }
-          .progress-bar {
-            height: 8px;
-            background-color: #F1F5F9;
-            border-radius: 4px;
-            overflow: hidden;
-            margin: 8px 0;
-          }
-          .progress-fill {
-            height: 100%;
-            border-radius: 4px;
-            transition: width 0.3s ease;
-          }
-        </style>
-      </head>
-      <body>
-        <h1>Statistics Report</h1>
-
-        <div class="section">
-          <h2>Meal Completion</h2>
-          <div class="metric-card">
-            <p>Meal completion status content goes here</p>
-          </div>
-        </div>
-
-        <div class="section">
-          <h2>Progress Overview</h2>
-          <div class="flex-row">
-            <div class="flex-col">
-              <div class="stat-circle">
-                <span style="color: #2ECC71;">🎯</span>
-              </div>
-              <p class="progress-stat-value">${
-                progressStats?.averageCompletion || 0
-              }%</p>
-              <p class="progress-stat-label">Average Completion</p>
-            </div>
-            <div class="flex-col">
-              <div class="stat-circle">
-                <span style="color: #F39C12;">🏆</span>
-              </div>
-              <p class="progress-stat-value">${
-                progressStats?.bestStreak || 0
-              }</p>
-              <p class="progress-stat-label">Best Streak</p>
-            </div>
-            <div class="flex-col">
-              <div class="stat-circle">
-                <span style="color: #E74C3C;">🔥</span>
-              </div>
-              <p class="progress-stat-value">${
-                progressStats?.currentStreak || 0
-              }</p>
-              <p class="progress-stat-label">Current Streak</p>
-            </div>
-          </div>
-        </div>
-
-        <div class="section">
-          <h2>Nutrition Averages</h2>
-          <div class="flex-row">
-            <div class="flex-col">
-              <p class="metric-value">${
-                progressStats?.averages?.calories || 0
-              }</p>
-              <p class="metric-target">kcal</p>
-            </div>
-            <div class="flex-col">
-              <p class="metric-value">${
-                progressStats?.averages?.protein || 0
-              }</p>
-              <p class="metric-target">g protein</p>
-            </div>
-            <div class="flex-col">
-              <p class="metric-value">${progressStats?.averages?.carbs || 0}</p>
-              <p class="metric-target">g carbs</p>
-            </div>
-            <div class="flex-col">
-              <p class="metric-value">${progressStats?.averages?.fats || 0}</p>
-              <p class="metric-target">g fats</p>
-            </div>
-            <div class="flex-col">
-              <p class="metric-value">${progressStats?.averages?.water || 0}</p>
-              <p class="metric-target">ml water</p>
-            </div>
-          </div>
-        </div>
-
-        <div class="section">
-          <h2>Gamification Stats</h2>
-          <div class="flex-row">
-            <div class="flex-col">
-              <div class="stat-circle" style="background-color: #FEF3E2;">
-                <span style="color: #F39C12;">👑</span>
-              </div>
-              <p class="progress-stat-value">${
-                gamificationStats?.level || 1
-              }</p>
-              <p class="progress-stat-label">Level</p>
-            </div>
-            <div class="flex-col">
-              <div class="stat-circle">
-                <span style="color: #E74C3C;">🔥</span>
-              </div>
-              <p class="progress-stat-value">${
-                gamificationStats?.dailyStreak || 0
-              }</p>
-              <p class="progress-stat-label">Daily Streak</p>
-            </div>
-            <div class="flex-col">
-              <div class="stat-circle">
-                <span style="color: #3498DB;">📅</span>
-              </div>
-              <p class="progress-stat-value">${
-                gamificationStats?.weeklyStreak || 0
-              }</p>
-              <p class="progress-stat-label">Weekly Streak</p>
-            </div>
-            <div class="flex-col">
-              <div class="stat-circle">
-                <span style="color: #F39C12;">⭐</span>
-              </div>
-              <p class="progress-stat-value">${
-                gamificationStats?.perfectDays || 0
-              }</p>
-              <p class="progress-stat-label">Perfect Days</p>
-            </div>
-            <div class="flex-col">
-              <div class="stat-circle">
-                <span style="color: #16A085;">🏆</span>
-              </div>
-              <p class="progress-stat-value">${
-                gamificationStats?.totalPoints?.toLocaleString() || 0
-              }</p>
-              <p class="progress-stat-label">Total Points</p>
-            </div>
-          </div>
-        </div>
-
-        ${
-          metrics
-            ?.map(
-              (metric, index) => `
-          <div class="section">
-            <h2>${metric.name || `Metric ${index + 1}`}</h2>
-            <div class="metric-card">
-              <div class="metric-header">
-                <div class="stat-circle">
-                  <span style="color: ${metric.color || "#666"};">📊</span>
-                </div>
-                <div style="flex: 1; margin-left: 16px;">
-                  <p class="metric-name">${metric.name || "Unknown Metric"}</p>
-                  <p style="font-size: 13px; font-weight: 600; color: ${
-                    metric.color || "#666"
-                  };">${metric.status || "N/A"}</p>
-                </div>
-              </div>
-              <div style="margin: 20px 0;">
-                <p class="metric-value">${(
-                  metric.value || 0
-                ).toLocaleString()} ${metric.unit || ""}</p>
-                <p class="metric-target">Target: ${(
-                  metric.target || 0
-                ).toLocaleString()} ${metric.unit || ""}</p>
-              </div>
-              <div class="progress-bar">
-                <div class="progress-fill" style="width: ${Math.min(
-                  metric.percentage || 0,
-                  100
-                )}%; background-color: ${metric.color || "#ccc"};"></div>
-              </div>
-              ${
-                metric.recommendation
-                  ? `
-                <div style="background-color: #F0F9FF; padding: 12px; border-radius: 8px; margin-top: 12px;">
-                  <p style="font-size: 13px; color: #0369A1; margin: 0;">💡 ${metric.recommendation}</p>
-                </div>
-              `
-                  : ""
-              }
-            </div>
-          </div>
-        `
-            )
-            .join("") || ""
-        }
-
-      </body>
-    </html>
-  `;
-
-    try {
-      console.log("Attempting to generate PDF..."); // Debug log
-
-      // Check if Print is available
-      if (!Print || !Print.printToFileAsync) {
-        throw new Error("Print module is not available");
+      switch (period) {
+        case "today":
+          return `daily_${formatDate(today)}`;
+        case "week":
+          startDate = new Date(today);
+          startDate.setDate(today.getDate() - 7);
+          return `weekly_${formatDate(startDate)}_to_${formatDate(endDate)}`;
+        case "month":
+          startDate = new Date(today);
+          startDate.setMonth(today.getMonth() - 1);
+          return `monthly_${formatDate(startDate)}_to_${formatDate(endDate)}`;
+        default:
+          return `statistics_${formatDate(today)}`;
       }
+    };
 
-      // Create filename with user's name
-      const fileName = `Calo Stats ${user?.name || "User"}.pdf`;
+    return `nutrition_statistics_${formatDateRange(selectedPeriod)}.pdf`;
+  };
 
+  const downloadPDF = async () => {
+    setIsDownloading(true);
+    try {
+      // Mock API call and response for demonstration purposes
+      // In a real app, replace this with your actual API call
+      console.log("Simulating PDF generation and download...");
+
+      // Simulate fetching data
+      const mockHtmlContent = `
+        <html>
+          <head><title>Mock PDF</title></head>
+          <body><h1>Mock PDF Content</h1><p>This is a mock PDF report.</p></body>
+        </html>
+      `;
+
+      // Simulate PDF creation using expo-print
       const { uri } = await Print.printToFileAsync({
-        html: htmlContent,
+        html: mockHtmlContent,
         base64: false,
-        fileName: fileName, // This sets the suggested filenam
+        fileName: generatePDFFilename(), // Use the custom filename
       });
 
-      console.log("PDF generated successfully, URI:", uri); // Debug log
+      if (!uri) {
+        throw new Error("Failed to create PDF file.");
+      }
 
-      if (uri) {
-        console.log("Attempting to share PDF..."); // Debug log
-
-        // Check if Sharing is available
-        if (!Sharing || !Sharing.shareAsync) {
-          throw new Error("Sharing module is not available");
-        }
-
-        await Sharing.shareAsync(uri, {
+      // Simulate sharing the PDF
+      if (
+        !(await Sharing.shareAsync(uri, {
           mimeType: "application/pdf",
           dialogTitle: "Share your statistics report",
-          UTI: "com.adobe.pdf", // iOS specific
-          filename: fileName, // This sets the filename when sharing
-        });
-
-        console.log("PDF shared successfully"); // Debug log
+          UTI: "com.adobe.pdf",
+          filename: generatePDFFilename(), // Ensure filename is set here too for sharing
+        }))
+      ) {
+        // If sharing is cancelled or fails, still consider the download successful if URI was generated
+        ToastService.success(
+          "PDF Generated",
+          `Your ${selectedPeriod} nutrition report was generated successfully.`
+        );
       } else {
-        throw new Error("Failed to generate PDF - no URI returned");
+        ToastService.success(
+          "PDF Downloaded",
+          `Your ${selectedPeriod} nutrition report has been downloaded successfully!`
+        );
       }
     } catch (error) {
-      console.error("Error generating or sharing PDF:", error);
-
-      // More detailed error messaging
-      let errorMessage = "An error occurred while generating the PDF.";
-
-      if (error.message.includes("Print module")) {
-        errorMessage = "PDF generation is not available on this device.";
-      } else if (error.message.includes("Sharing module")) {
-        errorMessage = "PDF sharing is not available on this device.";
-      } else if (error.message.includes("no URI")) {
-        errorMessage = "Failed to create the PDF file.";
-      }
-
-      Alert.alert(
-        "Error",
-        errorMessage + "\n\nTechnical details: " + error.message
+      console.error("PDF download error:", error);
+      ToastService.error(
+        "Download Failed",
+        "Failed to download PDF. Please check your connection and try again."
       );
+    } finally {
+      setIsDownloading(false);
     }
   };
+
   // Helper to get meal completion status content for PDF
   const renderMealCompletionStatusContent = () => {
     const weeklyData = generateWeeklyData();
@@ -1839,9 +1865,14 @@ export default function StatisticsScreen() {
             </View>
             <TouchableOpacity
               style={[styles.downloadButton, { backgroundColor: "#16A085" }]}
-              onPress={generatePdf}
+              onPress={downloadPDF}
+              disabled={isDownloading}
             >
-              <Download size={24} color="#FFFFFF" />
+              {isDownloading ? (
+                <ActivityIndicator size="small" color="#FFFFFF" />
+              ) : (
+                <Download size={24} color="#FFFFFF" />
+              )}
             </TouchableOpacity>
           </View>
         </View>
@@ -1877,7 +1908,7 @@ export default function StatisticsScreen() {
         </View>
 
         {/* No Data Message */}
-        {!statisticsData && !isLoading && (
+        {!nutritionData?.data && !isLoading && !error && (
           <View style={styles.noDataContainer}>
             <BarChart3 size={64} color="#BDC3C7" />
             <Text style={styles.noDataText}>
@@ -1887,7 +1918,7 @@ export default function StatisticsScreen() {
         )}
 
         {/* Main Content */}
-        {statisticsData && (
+        {nutritionData?.data && (
           <>
             {/* Meal Completion Status */}
             {renderMealCompletionStatus()}
@@ -2003,10 +2034,13 @@ export default function StatisticsScreen() {
 
             {/* Enhanced Achievements Section */}
             <View style={styles.section}>
-              <View style={styles.achievementsHeader}>
-                <Text style={styles.sectionTitle}>
-                  {t("statistics.achievements")}
-                </Text>
+              <View style={styles.sectionHeader}>
+                <View style={styles.sectionTitleContainer}>
+                  <Award size={24} color="#F39C12" strokeWidth={2.5} />
+                  <Text style={styles.sectionTitle}>
+                    {t("statistics.achievements")}
+                  </Text>
+                </View>
                 <TouchableOpacity
                   style={styles.viewAllButton}
                   onPress={() => setShowAchievements(true)}
@@ -2017,163 +2051,135 @@ export default function StatisticsScreen() {
                 </TouchableOpacity>
               </View>
 
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View style={styles.achievementsContainer}>
-                  {achievements.slice(0, 3).map((achievement) => (
-                    <View
-                      key={achievement.id}
-                      style={[
-                        styles.achievementCard,
-                        {
-                          backgroundColor: getAchievementBackgroundColor(
-                            achievement.rarity,
-                            achievement.unlocked
-                          ),
-                          borderWidth: 1,
-                          borderColor: achievement.unlocked
-                            ? `${achievement.color}30`
-                            : "#E5E7EB",
-                        },
-                      ]}
-                    >
-                      <View style={styles.achievementContent}>
-                        <View
+              {/* Achievement Categories */}
+              <View style={styles.achievementCategories}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <View style={styles.categoryTabs}>
+                    {[
+                      "All",
+                      "MILESTONE",
+                      "GOAL",
+                      "STREAK",
+                      "LEVEL",
+                      "SPECIAL",
+                    ].map((category) => (
+                      <TouchableOpacity
+                        key={category}
+                        style={[
+                          styles.categoryTab,
+                          selectedCategory === category &&
+                            styles.categoryTabActive,
+                        ]}
+                        onPress={() => setSelectedCategory(category)}
+                      >
+                        <Text
                           style={[
-                            styles.achievementIconContainer,
-                            {
-                              backgroundColor: achievement.unlocked
-                                ? `${achievement.color}20`
-                                : "#F3F4F6",
-                            },
+                            styles.categoryTabText,
+                            selectedCategory === category &&
+                              styles.categoryTabTextActive,
                           ]}
                         >
-                          {getAchievementIcon(
-                            achievement.icon,
-                            28,
-                            achievement.unlocked ? achievement.color : "#9CA3AF"
-                          )}
-                        </View>
+                          {category === "All" ? t("statistics.all") : category}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </ScrollView>
+              </View>
 
-                        <View style={styles.achievementDetails}>
-                          <View style={styles.achievementHeader}>
-                            <Text
-                              style={[
-                                styles.achievementTitle,
-                                {
-                                  color: achievement.unlocked
-                                    ? "#111827"
-                                    : "#6B7280",
-                                },
-                              ]}
-                              numberOfLines={1}
-                            >
-                              {typeof achievement.title === "object"
-                                ? achievement.title.en
-                                : achievement.title}
-                            </Text>
-                            <View
-                              style={[
-                                styles.rarityBadge,
-                                {
-                                  backgroundColor: achievement.unlocked
-                                    ? `${achievement.color}20`
-                                    : "#F3F4F6",
-                                },
-                              ]}
-                            >
-                              <Text
-                                style={[
-                                  styles.rarityText,
-                                  {
-                                    color: achievement.unlocked
-                                      ? achievement.color
-                                      : "#6B7280",
-                                  },
-                                ]}
-                              >
-                                {achievement.rarity}
-                              </Text>
-                            </View>
-                          </View>
-
-                          <Text
-                            style={[
-                              styles.achievementDescription,
-                              {
-                                color: achievement.unlocked
-                                  ? "#374151"
-                                  : "#9CA3AF",
-                              },
-                            ]}
-                            numberOfLines={2}
-                          >
-                            {typeof achievement.description === "object"
-                              ? achievement.description.en
-                              : achievement.description}
-                          </Text>
-
-                          <View style={styles.achievementProgress}>
-                            <View style={styles.progressBarContainer}>
-                              <View style={styles.progressBarBg}>
-                                <View
-                                  style={[
-                                    styles.progressBarFill,
-                                    {
-                                      width: `${
-                                        achievement.unlocked
-                                          ? 100
-                                          : (achievement.progress /
-                                              (achievement.maxProgress || 1)) *
-                                            100
-                                      }%`,
-                                      backgroundColor: achievement.unlocked
-                                        ? achievement.color
-                                        : "#D1D5DB",
-                                    },
-                                  ]}
-                                />
-                              </View>
-                              <Text style={styles.progressText}>
-                                {achievement.progress}/
-                                {achievement.maxProgress || 1}
-                              </Text>
-                            </View>
-
-                            <View style={styles.xpRewardContainer}>
-                              <Sparkles
-                                size={16}
-                                color={
-                                  achievement.unlocked
-                                    ? achievement.color
-                                    : "#9CA3AF"
-                                }
-                              />
-                              <Text
-                                style={[
-                                  styles.xpRewardText,
-                                  {
-                                    color: achievement.unlocked
-                                      ? achievement.color
-                                      : "#9CA3AF",
-                                  },
-                                ]}
-                              >
-                                +{achievement.xpReward} XP
-                              </Text>
-                            </View>
-                          </View>
-                        </View>
-
-                        {achievement.unlocked && (
-                          <View style={styles.unlockedBadge}>
-                            <CheckCircle size={24} color={achievement.color} />
-                          </View>
-                        )}
-                      </View>
-                    </View>
-                  ))}
+              {/* Achievement Stats Summary */}
+              <View style={styles.achievementStats}>
+                <View style={styles.achievementStatCard}>
+                  <CheckCircle size={20} color="#10B981" />
+                  <Text style={styles.achievementStatNumber}>
+                    {achievements.filter((a) => a.unlocked).length || 0}
+                  </Text>
+                  <Text style={styles.achievementStatLabel}>
+                    {t("statistics.unlocked")}
+                  </Text>
                 </View>
-              </ScrollView>
+                <View style={styles.achievementStatCard}>
+                  <Lock size={20} color="#6B7280" />
+                  <Text style={styles.achievementStatNumber}>
+                    {achievements.filter((a) => !a.unlocked).length || 0}
+                  </Text>
+                  <Text style={styles.achievementStatLabel}>
+                    {t("statistics.locked")}
+                  </Text>
+                </View>
+                <View style={styles.achievementStatCard}>
+                  <Sparkles size={20} color="#F59E0B" />
+                  <Text style={styles.achievementStatNumber}>
+                    {achievements.reduce(
+                      (sum, a) => sum + (a.unlocked ? a.xpReward || 0 : 0),
+                      0
+                    ) || 0}
+                  </Text>
+                  <Text style={styles.achievementStatLabel}>
+                    {t("statistics.total_xp")}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Enhanced Achievement Grid */}
+              <View style={styles.achievementGrid}>
+                {achievements.length > 0 ? (
+                  (selectedCategory === "All"
+                    ? achievements
+                    : achievements.filter(
+                        (a) => a.category === selectedCategory
+                      )
+                  )
+                    .slice(0, 6)
+                    .map((achievement) => (
+                      <EnhancedAchievementCard
+                        key={achievement.id}
+                        achievement={achievement}
+                        onPress={() => handleAchievementPress(achievement)}
+                        language={language}
+                      />
+                    ))
+                ) : (
+                  <View style={styles.emptyAchievements}>
+                    <Trophy size={48} color="#BDC3C7" />
+                    <Text style={styles.emptyText}>
+                      {isAchievementsLoading
+                        ? isRTL
+                          ? "טוען הישגים..."
+                          : "Loading achievements..."
+                        : isRTL
+                        ? "לא נמצאו הישגים"
+                        : "No achievements found"}
+                    </Text>
+                    {achievementsError && (
+                      <TouchableOpacity
+                        style={styles.retryButton}
+                        onPress={() => refetchAchievements()}
+                      >
+                        <Text style={styles.retryButtonText}>
+                          {isRTL ? "נסה שוב" : "Retry"}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                )}
+              </View>
+
+              {/* Show More Button */}
+              {(selectedCategory === "All"
+                ? achievements
+                : achievements.filter((a) => a.category === selectedCategory)
+              ).length > 6 && (
+                <TouchableOpacity
+                  style={styles.showMoreButton}
+                  onPress={() => setShowAchievements(true)}
+                >
+                  <Text style={styles.showMoreText}>
+                    {t("statistics.view_all_achievements")}
+                  </Text>
+                  <TrendingUp size={16} color="#16A085" />
+                </TouchableOpacity>
+              )}
             </View>
 
             {/* Progress Overview with Real Data */}
@@ -2371,7 +2377,7 @@ export default function StatisticsScreen() {
           </>
         )}
 
-        {/* Achievements Modal */}
+        {/* All Achievements Modal */}
         <Modal
           visible={showAchievements}
           animationType="slide"
@@ -2390,156 +2396,279 @@ export default function StatisticsScreen() {
 
             <ScrollView style={styles.modalContent}>
               {achievements.map((achievement) => (
-                <View
+                <EnhancedAchievementCard
                   key={achievement.id}
+                  achievement={achievement}
+                  onPress={handleAchievementPress}
+                  language={language}
+                />
+              ))}
+            </ScrollView>
+          </SafeAreaView>
+        </Modal>
+
+        {/* Achievement Detail Modal */}
+        <Modal
+          visible={showAchievementDetail}
+          animationType="fade"
+          transparent={true}
+          onRequestClose={() => setShowAchievementDetail(false)}
+        >
+          <View style={styles.achievementDetailOverlay}>
+            <TouchableOpacity
+              style={StyleSheet.absoluteFillObject}
+              onPress={() => setShowAchievementDetail(false)}
+              activeOpacity={1}
+            />
+            {selectedAchievement && (
+              <View style={styles.achievementDetailModal}>
+                <View
                   style={[
-                    styles.achievementCard,
+                    styles.achievementDetailContent,
                     {
-                      backgroundColor: getAchievementBackgroundColor(
-                        achievement.rarity,
-                        achievement.unlocked
+                      borderTopColor: getRarityColor(
+                        selectedAchievement.rarity
                       ),
-                      borderWidth: 1,
-                      borderColor: achievement.unlocked
-                        ? `${achievement.color}30`
-                        : "#E5E7EB",
+                      borderTopWidth: 4,
                     },
                   ]}
                 >
-                  <View style={styles.achievementContent}>
+                  {/* Header */}
+                  <View style={styles.achievementDetailHeader}>
+                    <View style={styles.achievementDetailIconContainer}>
+                      {getAchievementIcon(
+                        selectedAchievement.icon,
+                        40,
+                        getRarityColor(selectedAchievement.rarity)
+                      )}
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => setShowAchievementDetail(false)}
+                      style={styles.achievementDetailClose}
+                    >
+                      <X size={20} color="#6B7280" />
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Title and Status */}
+                  <View style={styles.achievementDetailTitleSection}>
+                    <Text style={styles.achievementDetailTitle}>
+                      {typeof selectedAchievement.title === "object"
+                        ? selectedAchievement.title[language] ||
+                          selectedAchievement.title.en
+                        : selectedAchievement.title}
+                    </Text>
                     <View
                       style={[
-                        styles.achievementIconContainer,
+                        styles.achievementDetailStatusBadge,
                         {
-                          backgroundColor: achievement.unlocked
-                            ? `${achievement.color}20`
-                            : "#F3F4F6",
+                          backgroundColor: selectedAchievement.unlocked
+                            ? "#10B98120"
+                            : "#6B728020",
+                        },
+                      ]}
+                    >
+                      {selectedAchievement.unlocked ? (
+                        <CheckCircle size={16} color="#10B981" />
+                      ) : (
+                        <Lock size={16} color="#6B7280" />
+                      )}
+                      <Text
+                        style={[
+                          styles.achievementDetailStatusText,
+                          {
+                            color: selectedAchievement.unlocked
+                              ? "#10B981"
+                              : "#6B7280",
+                          },
+                        ]}
+                      >
+                        {selectedAchievement.unlocked
+                          ? t("statistics.unlocked")
+                          : t("statistics.locked")}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Description */}
+                  <Text style={styles.achievementDetailDescription}>
+                    {typeof selectedAchievement.description === "object"
+                      ? selectedAchievement.description[language] ||
+                        selectedAchievement.description.en
+                      : selectedAchievement.description}
+                  </Text>
+
+                  {/* Stats */}
+                  <View style={styles.achievementDetailStats}>
+                    <View style={styles.achievementDetailStat}>
+                      <Sparkles size={20} color="#F59E0B" />
+                      <Text style={styles.achievementDetailStatValue}>
+                        +{selectedAchievement.xpReward}
+                      </Text>
+                      <Text style={styles.achievementDetailStatLabel}>
+                        {t("statistics.xp_reward")}
+                      </Text>
+                    </View>
+                    <View style={styles.achievementDetailStat}>
+                      <Target size={20} color="#3B82F6" />
+                      <Text style={styles.achievementDetailStatValue}>
+                        {Math.round(
+                          (selectedAchievement.progress /
+                            (selectedAchievement.maxProgress || 1)) *
+                            100
+                        )}
+                        %
+                      </Text>
+                      <Text style={styles.achievementDetailStatLabel}>
+                        {t("statistics.progress")}
+                      </Text>
+                    </View>
+                    <View style={styles.achievementDetailStat}>
+                      <Crown
+                        size={20}
+                        color={getRarityColor(selectedAchievement.rarity)}
+                      />
+                      <Text
+                        style={[
+                          styles.achievementDetailStatValue,
+                          { color: getRarityColor(selectedAchievement.rarity) },
+                        ]}
+                      >
+                        {selectedAchievement.rarity}
+                      </Text>
+                      <Text style={styles.achievementDetailStatLabel}>
+                        {t("statistics.rarity")}
+                      </Text>
+                    </View>
+                  </View>
+
+                  {/* Progress Bar */}
+                  <View style={styles.achievementDetailProgressSection}>
+                    <View style={styles.achievementDetailProgressHeader}>
+                      <Text style={styles.achievementDetailProgressText}>
+                        {t("statistics.progress")}:{" "}
+                        {selectedAchievement.progress}/
+                        {selectedAchievement.maxProgress || 1}
+                      </Text>
+                      <Text style={styles.achievementDetailProgressPercent}>
+                        {Math.round(
+                          (selectedAchievement.progress /
+                            (selectedAchievement.maxProgress || 1)) *
+                            100
+                        )}
+                        %
+                      </Text>
+                    </View>
+                    <View style={styles.achievementDetailProgressBar}>
+                      <View
+                        style={[
+                          styles.achievementDetailProgressFill,
+                          {
+                            width: `${Math.min(
+                              (selectedAchievement.progress /
+                                (selectedAchievement.maxProgress || 1)) *
+                                100,
+                              100
+                            )}%`,
+                            backgroundColor: getRarityColor(
+                              selectedAchievement.rarity
+                            ),
+                          },
+                        ]}
+                      />
+                    </View>
+                  </View>
+                </View>
+              </View>
+            )}
+          </View>
+        </Modal>
+
+        {/* New Achievement Notification Modal */}
+        <Modal
+          visible={newAchievementModal.show}
+          animationType="fade"
+          transparent={true}
+          onRequestClose={() =>
+            setNewAchievementModal({ show: false, achievement: null })
+          }
+        >
+          <View style={styles.newAchievementOverlay}>
+            {newAchievementModal.achievement && (
+              <Animated.View style={styles.newAchievementModal}>
+                <LinearGradient
+                  colors={[
+                    getRarityColor(newAchievementModal.achievement.rarity) +
+                      "20",
+                    getRarityColor(newAchievementModal.achievement.rarity) +
+                      "05",
+                  ]}
+                  style={styles.newAchievementContent}
+                >
+                  <View style={styles.newAchievementHeader}>
+                    <Trophy size={32} color="#F59E0B" />
+                    <Text style={styles.newAchievementTitle}>
+                      {t("statistics.achievement_unlocked")}
+                    </Text>
+                  </View>
+
+                  <View style={styles.newAchievementBody}>
+                    <View
+                      style={[
+                        styles.newAchievementIcon,
+                        {
+                          backgroundColor:
+                            getRarityColor(
+                              newAchievementModal.achievement.rarity
+                            ) + "20",
                         },
                       ]}
                     >
                       {getAchievementIcon(
-                        achievement.icon,
-                        28,
-                        achievement.unlocked ? achievement.color : "#9CA3AF"
+                        newAchievementModal.achievement.icon,
+                        48,
+                        getRarityColor(newAchievementModal.achievement.rarity)
                       )}
                     </View>
 
-                    <View style={styles.achievementDetails}>
-                      <View style={styles.achievementHeader}>
-                        <Text
-                          style={[
-                            styles.achievementTitle,
-                            {
-                              color: achievement.unlocked
-                                ? "#111827"
-                                : "#6B7280",
-                            },
-                          ]}
-                          numberOfLines={2}
-                        >
-                          {typeof achievement.title === "object"
-                            ? achievement.title.en
-                            : achievement.title}
-                        </Text>
-                        <View
-                          style={[
-                            styles.rarityBadge,
-                            {
-                              backgroundColor: achievement.unlocked
-                                ? `${achievement.color}20`
-                                : "#F3F4F6",
-                            },
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.rarityText,
-                              {
-                                color: achievement.unlocked
-                                  ? achievement.color
-                                  : "#6B7280",
-                              },
-                            ]}
-                          >
-                            {achievement.rarity}
-                          </Text>
-                        </View>
-                      </View>
+                    <Text style={styles.newAchievementName}>
+                      {typeof newAchievementModal.achievement.title === "object"
+                        ? newAchievementModal.achievement.title[language] ||
+                          newAchievementModal.achievement.title.en
+                        : newAchievementModal.achievement.title}
+                    </Text>
 
-                      <Text
-                        style={[
-                          styles.achievementDescription,
-                          {
-                            color: achievement.unlocked ? "#374151" : "#9CA3AF",
-                          },
-                        ]}
-                        numberOfLines={3}
-                      >
-                        {typeof achievement.description === "object"
-                          ? achievement.description.en
-                          : achievement.description}
+                    <Text style={styles.newAchievementDescription}>
+                      {typeof newAchievementModal.achievement.description ===
+                      "object"
+                        ? newAchievementModal.achievement.description[
+                            language
+                          ] || newAchievementModal.achievement.description.en
+                        : newAchievementModal.achievement.description}
+                    </Text>
+
+                    <View style={styles.newAchievementReward}>
+                      <Sparkles size={20} color="#F59E0B" />
+                      <Text style={styles.newAchievementRewardText}>
+                        +{newAchievementModal.achievement.xpReward} XP
                       </Text>
-
-                      <View style={styles.achievementProgress}>
-                        <View style={styles.progressBarContainer}>
-                          <View style={styles.progressBarBg}>
-                            <View
-                              style={[
-                                styles.progressBarFill,
-                                {
-                                  width: `${
-                                    (achievement.progress /
-                                      (achievement.maxProgress || 1)) *
-                                    100
-                                  }%`,
-                                  backgroundColor: achievement.unlocked
-                                    ? achievement.color
-                                    : "#D1D5DB",
-                                },
-                              ]}
-                            />
-                          </View>
-                          <Text style={styles.progressText}>
-                            {achievement.progress}/
-                            {achievement.maxProgress || 1}
-                          </Text>
-                        </View>
-
-                        <View style={styles.xpRewardContainer}>
-                          <Sparkles
-                            size={16}
-                            color={
-                              achievement.unlocked
-                                ? achievement.color
-                                : "#9CA3AF"
-                            }
-                          />
-                          <Text
-                            style={[
-                              styles.xpRewardText,
-                              {
-                                color: achievement.unlocked
-                                  ? achievement.color
-                                  : "#9CA3AF",
-                              },
-                            ]}
-                          >
-                            +{achievement.xpReward} XP
-                          </Text>
-                        </View>
-                      </View>
                     </View>
-
-                    {achievement.unlocked && (
-                      <View style={styles.unlockedBadge}>
-                        <CheckCircle size={24} color={achievement.color} />
-                      </View>
-                    )}
                   </View>
-                </View>
-              ))}
-            </ScrollView>
-          </SafeAreaView>
+
+                  <TouchableOpacity
+                    style={styles.newAchievementCloseButton}
+                    onPress={() =>
+                      setNewAchievementModal({ show: false, achievement: null })
+                    }
+                  >
+                    <Text style={styles.newAchievementCloseText}>
+                      {t("statistics.awesome")}
+                    </Text>
+                  </TouchableOpacity>
+                </LinearGradient>
+              </Animated.View>
+            )}
+          </View>
         </Modal>
       </ScrollView>
     </SafeAreaView>
@@ -2905,23 +3034,425 @@ const styles = StyleSheet.create({
   },
 
   // Enhanced Achievements
-  achievementsHeader: {
+  sectionHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 20,
+  },
+  sectionTitleContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
   },
   viewAllButton: {
     paddingHorizontal: 16,
     paddingVertical: 10,
     backgroundColor: "#E0F2F1",
     borderRadius: 12,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
   },
   viewAllText: {
     fontSize: 14,
     fontWeight: "700",
-    color: "#16A085",
     letterSpacing: 0.3,
+  },
+
+  // Achievement Categories
+  achievementCategories: {
+    marginBottom: 20,
+  },
+  categoryTabs: {
+    flexDirection: "row",
+    gap: 12,
+    paddingHorizontal: 4,
+  },
+  categoryTab: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: "#F3F4F6",
+    minWidth: 80,
+    alignItems: "center",
+  },
+  categoryTabActive: {
+    backgroundColor: "#16A085",
+  },
+  categoryTabText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#6B7280",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  categoryTabTextActive: {
+    color: "#FFFFFF",
+  },
+
+  // Achievement Stats Summary
+  achievementStats: {
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 24,
+  },
+  achievementStatCard: {
+    flex: 1,
+    alignItems: "center",
+    padding: 16,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  achievementStatNumber: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: "#0F172A",
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  achievementStatLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#64748B",
+    textAlign: "center",
+  },
+
+  // Enhanced Achievement Grid
+  achievementGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 16,
+    marginBottom: 20,
+  },
+  enhancedAchievementCard: {
+    width: (width - 52) / 2,
+    borderRadius: 16,
+    borderWidth: 1,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 6,
+    overflow: "hidden",
+  },
+  enhancedAchievementCardContent: {
+    padding: 16,
+    position: "relative",
+  },
+  achievementGlow: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    borderRadius: 16,
+  },
+  statusBadge: {
+    position: "absolute",
+    top: 12,
+    right: 12,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 1,
+  },
+  enhancedAchievementIcon: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: "center",
+    alignItems: "center",
+    alignSelf: "center",
+    marginBottom: 12,
+  },
+  enhancedAchievementContent: {
+    alignItems: "center",
+  },
+  enhancedAchievementTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    textAlign: "center",
+    marginBottom: 6,
+    lineHeight: 18,
+  },
+  enhancedAchievementDescription: {
+    fontSize: 11,
+    textAlign: "center",
+    lineHeight: 14,
+    marginBottom: 12,
+  },
+  enhancedProgressSection: {
+    width: "100%",
+    gap: 8,
+  },
+  progressRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  progressLabel: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: "#6B7280",
+  },
+  xpBadge: {
+    fontSize: 10,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+  },
+  enhancedProgressBar: {
+    height: 6,
+    backgroundColor: "#F1F5F9",
+    borderRadius: 3,
+    overflow: "hidden",
+  },
+  enhancedProgressFill: {
+    height: "100%",
+    borderRadius: 3,
+  },
+  rarityBadgeText: {
+    fontSize: 9,
+    fontWeight: "800",
+    textAlign: "center",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+
+  // Show More Button
+  showMoreButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    padding: 16,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    borderWidth: 2,
+    borderColor: "#16A085",
+    borderStyle: "dashed",
+  },
+  showMoreText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#16A085",
+  },
+
+  // Achievement Detail Modal
+  achievementDetailOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  achievementDetailModal: {
+    width: "100%",
+    maxWidth: 400,
+    maxHeight: "80%",
+  },
+  achievementDetailContent: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 24,
+    padding: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 20,
+  },
+  achievementDetailHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  achievementDetailIconContainer: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: "#F8FAFC",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  achievementDetailClose: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#F3F4F6",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  achievementDetailTitleSection: {
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  achievementDetailTitle: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: "#0F172A",
+    textAlign: "center",
+    marginBottom: 12,
+  },
+  achievementDetailStatusBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+  achievementDetailStatusText: {
+    fontSize: 12,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  achievementDetailDescription: {
+    fontSize: 14,
+    lineHeight: 20,
+    color: "#374151",
+    textAlign: "center",
+    marginBottom: 24,
+  },
+  achievementDetailStats: {
+    flexDirection: "row",
+    gap: 16,
+    marginBottom: 24,
+  },
+  achievementDetailStat: {
+    flex: 1,
+    alignItems: "center",
+    padding: 12,
+    backgroundColor: "#F8FAFC",
+    borderRadius: 12,
+  },
+  achievementDetailStatValue: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#0F172A",
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  achievementDetailStatLabel: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: "#64748B",
+    textAlign: "center",
+  },
+  achievementDetailProgressSection: {
+    gap: 8,
+  },
+  achievementDetailProgressHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  achievementDetailProgressText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#374151",
+  },
+  achievementDetailProgressPercent: {
+    fontSize: 14,
+    fontWeight: "800",
+    color: "#16A085",
+  },
+  achievementDetailProgressBar: {
+    height: 10,
+    backgroundColor: "#F1F5F9",
+    borderRadius: 5,
+    overflow: "hidden",
+  },
+  achievementDetailProgressFill: {
+    height: "100%",
+    borderRadius: 5,
+  },
+
+  // New Achievement Notification Modal
+  newAchievementOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  newAchievementModal: {
+    width: width - 40,
+    maxWidth: 350,
+  },
+  newAchievementContent: {
+    borderRadius: 24,
+    padding: 24,
+    alignItems: "center",
+  },
+  newAchievementHeader: {
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  newAchievementTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#0F172A",
+    marginTop: 12,
+    textAlign: "center",
+  },
+  newAchievementBody: {
+    alignItems: "center",
+    marginBottom: 24,
+  },
+  newAchievementIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  newAchievementName: {
+    fontSize: 20,
+    fontWeight: "800",
+    color: "#0F172A",
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  newAchievementDescription: {
+    fontSize: 14,
+    color: "#374151",
+    textAlign: "center",
+    lineHeight: 20,
+    marginBottom: 16,
+  },
+  newAchievementReward: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    backgroundColor: "#FEF3E2",
+    borderRadius: 16,
+  },
+  newAchievementRewardText: {
+    fontSize: 16,
+    fontWeight: "800",
+    color: "#F59E0B",
+  },
+  newAchievementCloseButton: {
+    backgroundColor: "#16A085",
+    paddingHorizontal: 32,
+    paddingVertical: 12,
+    borderRadius: 16,
+  },
+  newAchievementCloseText: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#FFFFFF",
   },
 
   achievementsContainer: {
@@ -2943,13 +3474,16 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-start",
   },
-  achievementIconContainer: {
+  achievementIcon: {
     width: 64,
     height: 64,
     borderRadius: 32,
     justifyContent: "center",
     alignItems: "center",
     marginRight: 20,
+  },
+  achievementEmoji: {
+    fontSize: 32,
   },
   achievementDetails: {
     flex: 1,
@@ -2983,6 +3517,17 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginBottom: 16,
     fontWeight: "500",
+  },
+  achievementPoints: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginBottom: 8,
+  },
+  pointsText: {
+    fontSize: 14,
+    fontWeight: "700",
+    letterSpacing: 0.2,
   },
   achievementProgress: {
     flexDirection: "row",
@@ -3018,6 +3563,19 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
     letterSpacing: 0.2,
+  },
+  achievementStatus: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    alignItems: "center",
+    marginTop: 12,
+  },
+  statusText: {
+    fontSize: 10,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
   },
   unlockedBadge: {
     width: 40,
@@ -3326,5 +3884,33 @@ const styles = StyleSheet.create({
   modalContent: {
     flex: 1,
     padding: 24,
+  },
+
+  // Added styles for achievements loading and error states
+  loadingContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 20,
+    gap: 8,
+  },
+  loadingText: {
+    fontSize: 14,
+  },
+  emptyAchievements: {
+    padding: 20,
+    alignItems: "center",
+  },
+  emptyText: {
+    fontSize: 16,
+    textAlign: "center",
+    opacity: 0.6,
+    lineHeight: 24,
+  },
+
+  // Styles for achievements section in the main screen
+  achievementsScrollContainer: {
+    paddingVertical: 12,
+    paddingHorizontal: 4,
   },
 });

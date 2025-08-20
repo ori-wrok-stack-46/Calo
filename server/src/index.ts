@@ -19,6 +19,7 @@ import statisticsRoutes from "./routes/statistics";
 import foodScannerRoutes from "./routes/foodScanner";
 import { healthRoutes } from "./routes/health";
 import { CronJobService } from "./services/cronJobs";
+import { UserCleanupService } from "./services/userCleanup";
 import "./services/cron";
 import { dailyGoalsRoutes } from "./routes/dailyGoal";
 import achievementsRouter from "./routes/achievements";
@@ -208,6 +209,7 @@ const server = app.listen(config.port, "0.0.0.0", () => {
   }
   // Initialize cron jobs
   CronJobService.initializeCronJobs();
+  UserCleanupService.initializeCleanupJobs();
 
   // Create daily goals for existing users
   CronJobService.createDailyGoalsForAllUsers();

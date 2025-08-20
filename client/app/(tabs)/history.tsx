@@ -783,7 +783,7 @@ const ExpandableSearch = ({
 
 export default function HistoryScreen() {
   const { t } = useTranslation();
-  const { isRTL } = useLanguage();
+  const { isRTL, language } = useLanguage();
   const dispatch = useDispatch<AppDispatch>();
   const { meals, isLoading } = useSelector((state: RootState) => state.meal);
   const { colors, isDark } = useTheme();
@@ -1169,7 +1169,7 @@ export default function HistoryScreen() {
 
   if (isLoading && !meals.length) {
     return (
-      <LoadingScreen text={isRTL ? "טוען היסטוריה..." : "Loading history..."} />
+      <LoadingScreen text={t("history.loading") || "Loading history..."} />
     );
   }
 
@@ -1224,14 +1224,16 @@ export default function HistoryScreen() {
               <Clock size={48} color={colors.emerald500} />
             </View>
             <Text style={[styles.emptyTitleEnhanced, { color: colors.text }]}>
-              No meals found
+              {t("history.emptyState.title") || "No meals found"}
             </Text>
             <Text style={[styles.emptyTextEnhanced, { color: colors.icon }]}>
               {searchQuery ||
               filters.category !== "all" ||
               filters.showFavoritesOnly
-                ? "Try adjusting your search or filters"
-                : "Start logging meals to see your history"}
+                ? t("history.emptyState.adjustedFilters") ||
+                  "Try adjusting your search or filters"
+                : t("history.emptyState.default") ||
+                  "Start logging meals to see your history"}
             </Text>
           </View>
         )}
@@ -1259,10 +1261,10 @@ export default function HistoryScreen() {
                   <Text
                     style={[styles.modalTitleEnhanced, { color: colors.text }]}
                   >
-                    Filter & Sort
+                    {t("filter.title") || "Filter & Sort"}
                   </Text>
                   <Text style={[styles.modalSubtitle, { color: colors.icon }]}>
-                    Customize your meal view
+                    {t("filter.subtitle") || "Customize your meal view"}
                   </Text>
                 </View>
                 <TouchableOpacity
@@ -1288,7 +1290,7 @@ export default function HistoryScreen() {
                       { color: colors.text },
                     ]}
                   >
-                    Category
+                    {t("filter.category.title") || "Category"}
                   </Text>
                   <View style={styles.categoryGridEnhanced}>
                     {CATEGORIES.map((category) => {
@@ -1330,7 +1332,7 @@ export default function HistoryScreen() {
                               },
                             ]}
                           >
-                            {category.label}
+                            {t(`filter.category.${category.key}`)}
                           </Text>
                         </TouchableOpacity>
                       );
@@ -1345,7 +1347,7 @@ export default function HistoryScreen() {
                       { color: colors.text },
                     ]}
                   >
-                    Time Period
+                    {t("filter.dateRange.title") || "Time Period"}
                   </Text>
                   <View style={styles.dateRangeGridEnhanced}>
                     {DATE_RANGES.map((range) => {
@@ -1387,7 +1389,7 @@ export default function HistoryScreen() {
                               },
                             ]}
                           >
-                            {range.label}
+                            {t(`filter.dateRange.${range.key}`)}
                           </Text>
                         </TouchableOpacity>
                       );
@@ -1431,12 +1433,13 @@ export default function HistoryScreen() {
                             { color: colors.text },
                           ]}
                         >
-                          Show Favorites Only
+                          {t("filter.showFavorites") || "Show Favorites Only"}
                         </Text>
                         <Text
                           style={[styles.toggleSubtext, { color: colors.icon }]}
                         >
-                          Filter by your favorite meals
+                          {t("filter.showFavoritesSubtext") ||
+                            "Filter by your favorite meals"}
                         </Text>
                       </View>
                     </View>
@@ -1490,7 +1493,7 @@ export default function HistoryScreen() {
                     <Text
                       style={[styles.resetButtonText, { color: colors.text }]}
                     >
-                      Reset
+                      {t("filter.reset") || "Reset"}
                     </Text>
                   </TouchableOpacity>
 
@@ -1502,7 +1505,9 @@ export default function HistoryScreen() {
                     onPress={() => setShowFilters(false)}
                     activeOpacity={0.8}
                   >
-                    <Text style={styles.applyButtonText}>Apply Filters</Text>
+                    <Text style={styles.applyButtonText}>
+                      {t("filter.apply") || "Apply Filters"}
+                    </Text>
                   </TouchableOpacity>
                 </View>
               </ScrollView>

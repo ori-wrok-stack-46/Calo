@@ -16,10 +16,10 @@ import {
   Platform,
   Vibration,
   Text,
-  SafeAreaView,
   PanResponder,
   Easing,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { MessageCircle, Minus, X } from "lucide-react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AIChatScreen from "../app/(tabs)/ai-chat";
@@ -196,33 +196,46 @@ export default function FloatingChatButton() {
         </TouchableOpacity>
       </Animated.View>
 
-      {/* Chat Modal - Completely rebuilt */}
+      {/* Chat Modal - Fixed layout and styling */}
       <Modal
         visible={showChat}
         animationType="slide"
-        presentationStyle="fullScreen"
+        presentationStyle="pageSheet"
         onRequestClose={handleClose}
         statusBarTranslucent={false}
       >
         <SafeAreaView style={styles.modalContainer}>
-          <StatusBar barStyle="dark-content" backgroundColor={COLORS.white} />
+          <StatusBar 
+            barStyle="dark-content" 
+            backgroundColor="#FFFFFF" 
+            translucent={false}
+          />
 
           {/* Header */}
           <View style={styles.header}>
             <TouchableOpacity
               onPress={handleMinimize}
               style={styles.headerButton}
+              activeOpacity={0.7}
             >
-              <Minus size={20} color={COLORS.gray600} strokeWidth={2} />
+              <Minus size={22} color={COLORS.gray600} strokeWidth={2.5} />
             </TouchableOpacity>
 
             <View style={styles.headerTitle}>
-              <MessageCircle size={20} color={COLORS.emerald} strokeWidth={2} />
-              <Text style={styles.headerTitleText}>AI Chat</Text>
+              <View style={styles.headerIconContainer}>
+                <MessageCircle size={22} color={COLORS.emerald} strokeWidth={2.5} />
+              </View>
+              <Text style={styles.headerTitleText}>
+                AI Chat
+              </Text>
             </View>
 
-            <TouchableOpacity onPress={handleClose} style={styles.headerButton}>
-              <X size={20} color={COLORS.gray600} strokeWidth={2} />
+            <TouchableOpacity 
+              onPress={handleClose} 
+              style={styles.headerButton}
+              activeOpacity={0.7}
+            >
+              <X size={22} color={COLORS.gray600} strokeWidth={2.5} />
             </TouchableOpacity>
           </View>
 
@@ -254,49 +267,64 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     elevation: 12,
   },
-  // Modal styles - completely rebuilt and simplified
+  // Modal styles - fixed layout and RTL support
   modalContainer: {
     flex: 1,
-    backgroundColor: "#f9fafb",
+    backgroundColor: "#F8FAFC",
   },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
     paddingVertical: 16,
     backgroundColor: COLORS.white,
     borderBottomWidth: 1,
-    borderBottomColor: "#e5e7eb",
-    ...Platform.select({
-      ios: {
-        paddingTop: 16,
-      },
-      android: {
-        paddingTop: StatusBar.currentHeight ? StatusBar.currentHeight + 16 : 16,
-      },
-    }),
+    borderBottomColor: "#E2E8F0",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+    minHeight: 64,
   },
   headerButton: {
-    padding: 8,
-    borderRadius: 8,
-    backgroundColor: "#f3f4f6",
-    minWidth: 36,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#F1F5F9",
     alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   headerTitle: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 8,
+    gap: 12,
+    marginHorizontal: 16,
+  },
+  headerIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#E0F2F1",
+    alignItems: "center",
+    justifyContent: "center",
   },
   headerTitleText: {
-    fontSize: 16,
-    fontWeight: "600",
+    fontSize: 18,
+    fontWeight: "700",
     color: COLORS.gray900,
+    letterSpacing: -0.3,
   },
   chatContent: {
     flex: 1,
+    backgroundColor: "#F8FAFC",
   },
 });

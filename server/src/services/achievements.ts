@@ -92,9 +92,9 @@ export class AchievementService {
   ): number {
     switch (achievement.key) {
       case "first_scan":
-        return Math.min(userStats.aiRequestsCount, 1);
+        return Math.min(userStats.aiRequestsCount, achievement.max_progress);
       case "first_water_goal":
-        return Math.min(userStats.totalWaterGoals, 1);
+        return Math.min(userStats.totalWaterGoals, achievement.max_progress);
       case "water_warrior":
         return Math.min(userStats.totalWaterGoals, 10);
       case "hydration_habit":
@@ -299,9 +299,10 @@ export class AchievementService {
         }
       }
 
-      // Update user XP and level
+      // Update user XP and level with proper level-up detection
       let leveledUp = false;
       let newLevel = user.level || 1;
+      let previousLevel = user.level || 1;
 
       if (totalXPGained > 0) {
         const newTotalPoints = (user.total_points || 0) + totalXPGained;
@@ -310,9 +311,13 @@ export class AchievementService {
         // Calculate new level (100 XP per level)
         const calculatedLevel = Math.floor(newTotalPoints / 100) + 1;
 
-        if (calculatedLevel > (user.level || 1)) {
+        // Only mark as leveled up if level actually increases
+        if (calculatedLevel > previousLevel) {
           leveledUp = true;
           newLevel = calculatedLevel;
+          console.log(
+            `🎉 User leveled up from ${previousLevel} to ${newLevel}!`
+          );
         }
 
         const finalCurrentXP = newCurrentXP % 100;
@@ -325,6 +330,10 @@ export class AchievementService {
             level: newLevel,
           },
         });
+
+        console.log(
+          `✅ Updated user XP: +${totalXPGained} XP, Level: ${newLevel}/${previousLevel}, Current XP: ${finalCurrentXP}/100`
+        );
       }
 
       return {

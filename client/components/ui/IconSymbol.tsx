@@ -12,6 +12,7 @@ import {
   MessageCircle,
   Scan,
   FileText,
+  TrophyIcon,
 } from "lucide-react-native";
 import React from "react";
 import { StyleProp, TextStyle } from "react-native";
@@ -29,6 +30,7 @@ type SupportedSymbolName =
   | "dining"
   | "message.fill"
   | "barcode.viewfinder"
+  | "trophy.fill"
   | "doc.text.fill";
 
 type IconMapping = Record<SupportedSymbolName, LucideIcon>;
@@ -46,6 +48,7 @@ const MAPPING: IconMapping = {
   "message.fill": MessageCircle,
   "barcode.viewfinder": Scan,
   "doc.text.fill": FileText,
+  "trophy.fill": TrophyIcon,
 };
 
 export function IconSymbol({

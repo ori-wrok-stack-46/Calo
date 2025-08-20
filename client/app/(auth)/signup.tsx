@@ -17,6 +17,8 @@ import { useDispatch, useSelector } from "react-redux";
 import { signUp, verifyEmail } from "@/src/store/authSlice";
 import { RootState, AppDispatch } from "@/src/store";
 import LanguageSelector from "@/components/LanguageSelector";
+import { ToastService } from "@/src/services/totastService";
+import Toast from 'react-native-toast-message';
 
 export default function SignUpScreen() {
   const { t } = useTranslation();
@@ -29,6 +31,7 @@ export default function SignUpScreen() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [name, setName] = useState("");
   const [showLanguageModal, setShowLanguageModal] = useState(false);
+  const [acceptedPrivacyPolicy, setAcceptedPrivacyPolicy] = useState(false);
 
   const validateEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -37,17 +40,22 @@ export default function SignUpScreen() {
 
   const handleSignUp = async () => {
     if (!email || !password || !name) {
-      Alert.alert(t("common.error"), "Please fill in all fields");
+      ToastService.error("Error", "Please fill in all fields");
       return;
     }
 
     if (!validateEmail(email)) {
-      Alert.alert(t("common.error"), "Please enter a valid email address");
+      ToastService.error("Error", "Please enter a valid email address");
       return;
     }
 
     if (password !== confirmPassword) {
-      Alert.alert(t("common.error"), "Passwords do not match");
+      ToastService.error("Error", "Passwords do not match");
+      return;
+    }
+
+    if (!acceptedPrivacyPolicy) {
+      ToastService.error("Error", "Please accept our privacy policy to continue");
       return;
     }
 
@@ -67,36 +75,33 @@ export default function SignUpScreen() {
 
       if (result.success) {
         // Show success message
-        Alert.alert(
+        ToastService.success(
           "Account Created!",
-          result.message || "Please check your email for verification code",
-          [
-            {
-              text: "OK",
-              onPress: () => {
-                // Always go to email verification page after successful signup
-                router.push({
-                  pathname: "/(auth)/email-verification",
-                  params: { email },
-                });
-              },
-            },
-          ]
+          result.message || "Please check your email for verification code"
         );
+        
+        // Navigate after a short delay to show the toast
+        setTimeout(() => {
+          router.push({
+            pathname: "/(auth)/email-verification",
+            params: { email },
+          });
+        }, 1500);
       } else {
         throw new Error(result.error || "Failed to create account");
       }
     } catch (error: any) {
       console.error("💥 Signup error in component:", error);
-      Alert.alert(
-        t("common.error"),
+      ToastService.error(
+        "Error",
         error.message || error || "Failed to create account"
       );
     }
   };
 
   return (
-    <View style={[styles.container, isRTL && styles.containerRTL]}>
+    <>
+      <View style={[styles.container, isRTL && styles.containerRTL]}>
       <View style={styles.backgroundAccent} />
 
       <ScrollView
@@ -178,6 +183,28 @@ export default function SignUpScreen() {
             />
           </View>
 
+          <View style={styles.privacyPolicyContainer}>
+            <TouchableOpacity
+              style={styles.checkboxContainer}
+              onPress={() => setAcceptedPrivacyPolicy(!acceptedPrivacyPolicy)}
+            >
+              <View style={[styles.checkbox, acceptedPrivacyPolicy && styles.checkboxChecked]}>
+                {acceptedPrivacyPolicy && (
+                  <Text style={styles.checkmark}>✓</Text>
+                )}
+              </View>
+              <Text style={[styles.privacyText, isRTL && styles.textRTL]}>
+                I have read and agree to the{" "}
+                <TouchableOpacity
+                  onPress={() => router.push("/privacy-policy")}
+                  style={styles.privacyLinkContainer}
+                >
+                  <Text style={styles.privacyLink}>Privacy Policy</Text>
+                </TouchableOpacity>
+              </Text>
+            </TouchableOpacity>
+          </View>
+
           <TouchableOpacity
             style={[styles.signUpButton, isLoading && styles.buttonDisabled]}
             onPress={handleSignUp}
@@ -202,7 +229,9 @@ export default function SignUpScreen() {
           </View>
         </View>
       </ScrollView>
-    </View>
+      </View>
+      <Toast />
+    </>
   );
 }
 
@@ -353,5 +382,50 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: "#10B981",
     fontWeight: "700",
+  },
+  privacyPolicyContainer: {
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  checkboxContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 4,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderWidth: 2,
+    borderColor: "#10B981",
+    borderRadius: 4,
+    marginRight: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#ffffff",
+  },
+  checkboxChecked: {
+    backgroundColor: "#10B981",
+  },
+  checkmark: {
+    color: "#ffffff",
+    fontSize: 12,
+    fontWeight: "bold",
+  },
+  privacyText: {
+    fontSize: 14,
+    color: "#6b7280",
+    flex: 1,
+    lineHeight: 20,
+  },
+  privacyLinkContainer: {
+    display: "contents",
+  },
+  privacyLink: {
+    color: "#10B981",
+    fontWeight: "600",
+    textDecorationLine: "underline",
+  },
+  textRTL: {
+    textAlign: "right",
   },
 });

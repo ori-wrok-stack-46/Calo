@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { View, Text, StyleSheet, Animated } from "react-native";
 import { Star, Trophy, Award } from "lucide-react-native";
 
@@ -27,33 +27,53 @@ export default function XPNotification({
 }: XPNotificationProps) {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const translateY = useRef(new Animated.Value(-100)).current;
+  const scaleAnim = useRef(new Animated.Value(0.8)).current;
+  const [showAchievements, setShowAchievements] = useState(false);
 
   useEffect(() => {
     if (visible) {
-      // Show animation
+      // Show animation with enhanced effects
       Animated.parallel([
         Animated.timing(fadeAnim, {
           toValue: 1,
-          duration: 300,
+          duration: 400,
           useNativeDriver: true,
         }),
-        Animated.timing(translateY, {
+        Animated.spring(translateY, {
           toValue: 0,
-          duration: 300,
+          tension: 100,
+          friction: 8,
+          useNativeDriver: true,
+        }),
+        Animated.spring(scaleAnim, {
+          toValue: 1,
+          tension: 100,
+          friction: 8,
           useNativeDriver: true,
         }),
       ]).start();
 
-      // Auto hide after 4 seconds
-      const timer = setTimeout(() => {
-        hideNotification();
-      }, 4000);
+      // Show achievements after main notification
+      if (newAchievements.length > 0) {
+        setTimeout(() => {
+          setShowAchievements(true);
+        }, 1000);
+      }
+
+      // Auto hide after 5 seconds (longer for achievements)
+      const timer = setTimeout(
+        () => {
+          hideNotification();
+        },
+        newAchievements.length > 0 ? 6000 : 4000
+      );
 
       return () => clearTimeout(timer);
     }
   }, [visible]);
 
   const hideNotification = () => {
+    setShowAchievements(false);
     Animated.parallel([
       Animated.timing(fadeAnim, {
         toValue: 0,
@@ -62,6 +82,11 @@ export default function XPNotification({
       }),
       Animated.timing(translateY, {
         toValue: -100,
+        duration: 300,
+        useNativeDriver: true,
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 0.8,
         duration: 300,
         useNativeDriver: true,
       }),
@@ -85,11 +110,17 @@ export default function XPNotification({
         styles.container,
         {
           opacity: fadeAnim,
-          transform: [{ translateY }],
+          transform: [{ translateY }, { scale: scaleAnim }],
         },
       ]}
     >
-      <View style={styles.notification}>
+      <View
+        style={[
+          styles.notification,
+          leveledUp && styles.levelUpNotification,
+          newAchievements.length > 0 && styles.achievementNotification,
+        ]}
+      >
         {leveledUp && (
           <View style={[styles.levelUpSection, styles.section]}>
             <View style={styles.levelUpIcon}>
@@ -115,27 +146,68 @@ export default function XPNotification({
           </View>
         )}
 
-        {newAchievements.length > 0 && (
-          <View style={[styles.achievementsSection, styles.section]}>
-            <Text style={styles.achievementHeaderText}>
-              {texts.newAchievement}
-            </Text>
-            {newAchievements.slice(0, 2).map((achievement, index) => (
-              <View key={index} style={styles.achievementItem}>
-                <Text style={styles.achievementIcon}>{achievement.icon}</Text>
+        {newAchievements.length > 0 && showAchievements && (
+          <Animated.View
+            style={[
+              styles.achievementsSection,
+              styles.section,
+              {
+                opacity: fadeAnim,
+                transform: [{ scale: scaleAnim }],
+              },
+            ]}
+          >
+            <View style={styles.achievementHeaderContainer}>
+              <Award size={20} color="#9B59B6" />
+              <Text style={styles.achievementHeaderText}>
+                {texts.newAchievement}
+              </Text>
+            </View>
+            {newAchievements.slice(0, 3).map((achievement, index) => (
+              <Animated.View
+                key={index}
+                style={[
+                  styles.achievementItem,
+                  {
+                    opacity: fadeAnim,
+                    transform: [
+                      {
+                        translateX: language === "he" ? 20 : -20,
+                      },
+                      { scale: scaleAnim },
+                    ],
+                  },
+                ]}
+              >
+                <View style={styles.achievementIconContainer}>
+                  <Text style={styles.achievementIcon}>{achievement.icon}</Text>
+                </View>
                 <View style={styles.achievementTextContainer}>
                   <Text style={styles.achievementTitle}>
                     {typeof achievement.title === "object"
                       ? achievement.title[language] || achievement.title.en
                       : achievement.title}
                   </Text>
-                  <Text style={styles.achievementXP}>
-                    +{achievement.xpReward} XP
-                  </Text>
+                  <View style={styles.achievementXPContainer}>
+                    <Star size={12} color="#F39C12" fill="#F39C12" />
+                    <Text style={styles.achievementXP}>
+                      +{achievement.xpReward} XP
+                    </Text>
+                  </View>
                 </View>
-              </View>
+                <View style={styles.achievementBadge}>
+                  <Text style={styles.achievementBadgeText}>🏆</Text>
+                </View>
+              </Animated.View>
             ))}
-          </View>
+            {newAchievements.length > 3 && (
+              <Text style={styles.moreAchievementsText}>
+                {language === "he"
+                  ? `ועוד ${newAchievements.length - 3} הישגים...`
+                  : `+${newAchievements.length - 3} more achievements...`}
+              </Text>
+            )}
+          </Animated.View>
         )}
       </View>
     </Animated.View>
@@ -152,15 +224,23 @@ const styles = StyleSheet.create({
   },
   notification: {
     backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 16,
+    borderRadius: 20,
+    padding: 20,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
-    borderLeftWidth: 4,
-    borderLeftColor: "#16A085",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    elevation: 12,
+    borderWidth: 2,
+    borderColor: "#16A08520",
+  },
+  levelUpNotification: {
+    borderColor: "#F39C1250",
+    backgroundColor: "#FFFEF7",
+  },
+  achievementNotification: {
+    borderColor: "#9B59B650",
+    backgroundColor: "#FEFEFF",
   },
   section: {
     marginBottom: 12,
@@ -214,35 +294,81 @@ const styles = StyleSheet.create({
   },
   achievementsSection: {
     backgroundColor: "#9B59B615",
-    padding: 12,
-    borderRadius: 12,
+    padding: 16,
+    borderRadius: 16,
+    marginTop: 8,
+  },
+  achievementHeaderContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+    gap: 8,
   },
   achievementHeaderText: {
-    fontSize: 14,
-    fontWeight: "600",
+    fontSize: 16,
+    fontWeight: "700",
     color: "#9B59B6",
-    marginBottom: 8,
   },
   achievementItem: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 6,
+    backgroundColor: "#FFFFFF",
+    padding: 12,
+    borderRadius: 12,
+    marginBottom: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  achievementIconContainer: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#9B59B620",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 12,
   },
   achievementIcon: {
-    fontSize: 16,
-    marginRight: 8,
+    fontSize: 20,
   },
   achievementTextContainer: {
     flex: 1,
   },
   achievementTitle: {
-    fontSize: 12,
-    fontWeight: "500",
+    fontSize: 14,
+    fontWeight: "600",
     color: "#2C3E50",
+    marginBottom: 4,
+  },
+  achievementXPContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
   },
   achievementXP: {
-    fontSize: 10,
+    fontSize: 12,
+    color: "#F39C12",
+    fontWeight: "600",
+  },
+  achievementBadge: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#F39C1220",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  achievementBadgeText: {
+    fontSize: 16,
+  },
+  moreAchievementsText: {
+    textAlign: "center",
+    fontSize: 12,
     color: "#9B59B6",
-    fontWeight: "500",
+    fontStyle: "italic",
+    marginTop: 8,
   },
 });

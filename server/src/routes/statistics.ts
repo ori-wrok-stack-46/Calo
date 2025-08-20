@@ -80,7 +80,7 @@ router.get(
 
 // Get detailed achievements data
 router.get(
-  "/achievements",
+  "/statistics/achievements",
   authenticateToken,
   async (req: AuthRequest, res: Response) => {
     const userId = req.user?.user_id?.toString();
@@ -90,19 +90,28 @@ router.get(
     }
 
     try {
-      console.log(`🏆 Achievements request for user: ${userId}`);
+      console.log(`🏆 Statistics achievements request for user: ${userId}`);
 
       const achievementData = await AchievementService.getUserAchievements(
         userId
       );
 
-      console.log(`✅ Achievements fetched successfully for user: ${userId}`);
+      console.log(
+        `✅ Statistics achievements fetched successfully for user: ${userId}, unlocked: ${achievementData.unlockedAchievements.length}, locked: ${achievementData.lockedAchievements.length}`
+      );
+
+      // Flatten the data structure to match client expectations
+      const allAchievements = [
+        ...achievementData.unlockedAchievements,
+        ...achievementData.lockedAchievements,
+      ];
+
       res.json({
         success: true,
-        data: achievementData,
+        data: allAchievements,
       });
     } catch (error) {
-      console.error("❌ Error fetching achievements:", error);
+      console.error("❌ Error fetching statistics achievements:", error);
       res.status(500).json({
         error: "Failed to fetch achievements",
         message: error instanceof Error ? error.message : "Unknown error",

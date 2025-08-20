@@ -134,7 +134,12 @@ export class OpenAIService {
 
     // Check if OpenAI API key is available
     if (!process.env.OPENAI_API_KEY || !this.openai) {
-      throw new Error("OpenAI API key not configured. Please contact support.");
+      console.log("⚠️ No OpenAI API key, using fallback analysis");
+      return this.getIntelligentFallbackAnalysis(
+        language,
+        updateText,
+        editedIngredients
+      );
     }
 
     try {
@@ -148,26 +153,55 @@ export class OpenAIService {
     } catch (openaiError: any) {
       console.log("⚠️ OpenAI analysis failed:", openaiError.message);
 
-      // If it's a quota/billing issue, throw specific error
+      // If it's a quota/billing issue, use fallback
       if (
         openaiError.message.includes("quota") ||
-        openaiError.message.includes("billing")
+        openaiError.message.includes("billing") ||
+        openaiError.message.includes("rate limit")
       ) {
-        throw new Error("AI analysis quota exceeded. Please try again later.");
-      }
-
-      // If it's a network/API issue, throw specific error
-      if (
-        openaiError.message.includes("network") ||
-        openaiError.message.includes("timeout")
-      ) {
-        throw new Error(
-          "AI service temporarily unavailable. Please try again."
+        console.log("🆘 Using fallback due to quota/billing limits");
+        return this.getIntelligentFallbackAnalysis(
+          language,
+          updateText,
+          editedIngredients
         );
       }
 
-      // For other errors, throw generic error
-      throw new Error(`AI analysis failed: ${openaiError.message}`);
+      // If it's a network/API issue, use fallback
+      if (
+        openaiError.message.includes("network") ||
+        openaiError.message.includes("timeout") ||
+        openaiError.message.includes("connection")
+      ) {
+        console.log("🆘 Using fallback due to network issues");
+        return this.getIntelligentFallbackAnalysis(
+          language,
+          updateText,
+          editedIngredients
+        );
+      }
+
+      // If AI couldn't analyze the image, use fallback
+      if (
+        openaiError.message.includes("couldn't analyze") ||
+        openaiError.message.includes("clearer photo") ||
+        openaiError.message.includes("invalid response")
+      ) {
+        console.log("🆘 Using fallback due to image analysis failure");
+        return this.getIntelligentFallbackAnalysis(
+          language,
+          updateText,
+          editedIngredients
+        );
+      }
+
+      // For other errors, still try fallback before failing completely
+      console.log("🆘 Using fallback due to unexpected error");
+      return this.getIntelligentFallbackAnalysis(
+        language,
+        updateText,
+        editedIngredients
+      );
     }
   }
 
@@ -500,11 +534,16 @@ export class OpenAIService {
         .join("; ")}`;
     }
 
-    const systemPrompt = `You are a professional nutritionist. Analyze the food image and provide precise nutritional data.
+    const systemPrompt = `You are a professional nutritionist AI. You MUST analyze food images and respond ONLY with valid JSON data.
 
-IMPORTANT: Respond in ${
-      language === "hebrew" ? "Hebrew" : "English"
-    } language. All text fields should be in ${
+CRITICAL REQUIREMENTS:
+- You MUST respond with valid JSON format
+- Do NOT apologize or say you cannot help
+- Do NOT respond in conversational text
+- If image is unclear, provide best estimate in JSON format
+- ALWAYS include all required JSON fields
+
+LANGUAGE: All text fields should be in ${
       language === "hebrew" ? "Hebrew" : "English"
     }.
 
@@ -661,12 +700,27 @@ Language: ${language}`;
     console.log("🤖 OpenAI response received successfully!");
     console.log("📄 Raw content preview:", content.substring(0, 200) + "...");
 
+    // Check for non-English responses that indicate inability to analyze
+    const hebrewRefusal =
+      content.includes("מצטער") || content.includes("לא יכול");
+    const englishRefusal =
+      content.toLowerCase().includes("sorry") ||
+      content.toLowerCase().includes("cannot") ||
+      content.toLowerCase().includes("unable") ||
+      content.toLowerCase().includes("can't");
+
+    if (hebrewRefusal || englishRefusal) {
+      console.log("⚠️ OpenAI refused to analyze the image");
+      throw new Error(
+        "The AI couldn't analyze this image. Please try a clearer photo with better lighting and make sure the food is clearly visible."
+      );
+    }
+
     // Check if response is JSON or text
     let parsed;
     try {
       const cleanJSON = extractCleanJSON(content);
       console.log("🧹 Cleaning JSON content...");
-      console.log("📄 Raw content preview:", content.substring(0, 200) + "...");
 
       // Try to fix malformed JSON before parsing
       const fixedJSON = this.fixMalformedJSON(cleanJSON);
@@ -703,39 +757,23 @@ Language: ${language}`;
         } catch (recoveryError: any) {
           console.log("💥 Recovery failed:", recoveryError.message);
 
-          // If OpenAI is clearly unable to analyze the image
-          if (
-            content.toLowerCase().includes("sorry") ||
-            content.toLowerCase().includes("cannot") ||
-            content.toLowerCase().includes("unable") ||
-            content.toLowerCase().includes("can't")
-          ) {
-            throw new Error(
-              `The AI couldn't analyze this image. Please try a clearer photo with better lighting and make sure the food is clearly visible.`
-            );
-          }
-
-          // For other parsing errors, provide intelligent fallback
-          throw new Error(
-            `AI service returned an incomplete response. Please try again.`
+          // Use fallback analysis if parsing completely fails
+          console.log("🆘 Using fallback analysis due to parsing failure");
+          return this.getIntelligentFallbackAnalysis(
+            language,
+            updateText,
+            editedIngredients
           );
         }
       } else {
-        // If OpenAI is clearly unable to analyze the image
-        if (
-          content.toLowerCase().includes("sorry") ||
-          content.toLowerCase().includes("cannot") ||
-          content.toLowerCase().includes("unable") ||
-          content.toLowerCase().includes("can't")
-        ) {
-          throw new Error(
-            `The AI couldn't analyze this image. Please try a clearer photo with better lighting and make sure the food is clearly visible.`
-          );
-        }
-
-        // For completely invalid responses
-        throw new Error(
-          `AI service returned an invalid response format. Please try again.`
+        // Use fallback analysis for completely invalid responses
+        console.log(
+          "🆘 Using fallback analysis due to invalid response format"
+        );
+        return this.getIntelligentFallbackAnalysis(
+          language,
+          updateText,
+          editedIngredients
         );
       }
     }

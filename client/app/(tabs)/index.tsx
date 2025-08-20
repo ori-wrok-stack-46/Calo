@@ -51,6 +51,7 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import XPNotification from "@/components/XPNotification";
 import { Colors, EmeraldSpectrum } from "@/constants/Colors";
 import { getStatistics } from "@/src/store/calendarSlice";
+import { setUser } from "@/src/store/authSlice"; // Assuming setUser is in authSlice
 
 // Enable RTL support
 I18nManager.allowRTL(true);
@@ -311,10 +312,20 @@ const HomeScreen = React.memo(() => {
     }
   }, [user?.user_id]);
 
+  // Dummy showToast function if not provided elsewhere
+  const showToast = (message: string, type: "success" | "info" | "error") => {
+    console.log(`${type.toUpperCase()}: ${message}`);
+    // In a real app, this would use a toast library or component
+  };
+
+  // Dummy setUser function if not provided elsewhere
+  const setUserInState = (userData: any) => {
+    dispatch(setUser(userData));
+  };
+
   const syncWaterWithServer = async (totalCups: number, actionId: string) => {
     if (!user?.user_id) return;
 
-    // Clear any existing timeout for this sync
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000);
 
@@ -350,12 +361,10 @@ const HomeScreen = React.memo(() => {
           setShowXPNotification(true);
         }
 
-        // Remove this action from pending syncs
         setPendingSyncActions((prev) =>
           prev.filter((action) => action.id !== actionId)
         );
 
-        // Clear any related errors
         setWaterSyncErrors((prev) =>
           prev.filter((error) => !error.includes(actionId))
         );
@@ -378,7 +387,6 @@ const HomeScreen = React.memo(() => {
         }`,
       ]);
 
-      // Revert optimistic update on error
       setOptimisticWaterCups(waterCups);
     } finally {
       clearTimeout(timeoutId);
@@ -400,19 +408,15 @@ const HomeScreen = React.memo(() => {
       Math.min(goalMaxCups, optimisticWaterCups + delta)
     );
 
-    // Update optimistic state immediately
     setOptimisticWaterCups(newTotal);
 
-    // Clear any existing sync timeout
     if (waterSyncTimeoutRef.current) {
       clearTimeout(waterSyncTimeoutRef.current);
     }
 
-    // Generate unique action ID based on timestamp and random
     const actionId = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
     lastSyncRequestRef.current = Date.now();
 
-    // Store this action in pending sync (replace any existing ones)
     setPendingSyncActions([
       {
         id: actionId,
@@ -422,9 +426,7 @@ const HomeScreen = React.memo(() => {
       },
     ]);
 
-    // Debounce the actual sync to prevent rapid requests
     waterSyncTimeoutRef.current = setTimeout(() => {
-      // Only sync if this is the most recent request
       const timeSinceRequest = Date.now() - lastSyncRequestRef.current;
       if (timeSinceRequest >= 800) {
         syncWaterWithServer(newTotal, actionId);

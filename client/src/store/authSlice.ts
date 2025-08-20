@@ -112,33 +112,91 @@ export const verifyEmail = createAsyncThunk(
 
 export const signOut = createAsyncThunk(
   "auth/signOut",
-  async (_, { rejectWithValue }) => {
+  async (_, { rejectWithValue, dispatch }) => {
     try {
-      console.log("🔄 Starting sign out process...");
+      console.log("🔄 Starting comprehensive sign out process...");
 
-      // Clear AsyncStorage first
+      // 1. Clear TanStack Query cache first
+      await clearQueries();
+      console.log("✅ TanStack Query cache cleared");
+
+      // 2. Clear AsyncStorage completely
       const AsyncStorage =
         require("@react-native-async-storage/async-storage").default;
       await AsyncStorage.clear();
       console.log("✅ AsyncStorage cleared");
 
-      // Clear TanStack Query cache
-      await clearQueries();
+      // 3. Clear SecureStore (mobile only)
+      const { Platform } = require("react-native");
+      if (Platform.OS !== "web") {
+        try {
+          const SecureStore = require("expo-secure-store");
+          const keys = ["auth_token_secure", "user_data", "questionnaire_data"];
+          for (const key of keys) {
+            try {
+              await SecureStore.deleteItemAsync(key);
+            } catch (e) {
+              // Key might not exist, continue
+            }
+          }
+          console.log("✅ SecureStore cleared");
+        } catch (error) {
+          console.warn("⚠️ SecureStore cleanup failed:", error);
+        }
+      }
 
-      // Clear API auth
+      // 4. Reset all Redux slices to initial state
+      // This will be handled by the reducer, but we ensure it happens
+
+      // 5. Clear any web storage (if on web)
+      if (Platform.OS === "web") {
+        try {
+          localStorage.clear();
+          sessionStorage.clear();
+          console.log("✅ Web storage cleared");
+        } catch (error) {
+          console.warn("⚠️ Web storage cleanup failed:", error);
+        }
+      }
+
+      // 6. Clear API auth and cookies
       await authAPI.signOut();
-      console.log("✅ Sign out successful");
+      console.log("✅ API auth cleared");
 
+      // 7. Force garbage collection of any remaining references
+      if (global.gc) {
+        global.gc();
+      }
+
+      console.log("✅ Complete sign out successful - all data cleared");
       return true;
     } catch (error: any) {
       console.error("💥 SignOut error:", error);
-      // Even if there's an error, try to clear everything
+
+      // Even if there's an error, force clear everything we can
       try {
         const AsyncStorage =
           require("@react-native-async-storage/async-storage").default;
         await AsyncStorage.clear();
+        await clearQueries();
         await authAPI.signOut();
-      } catch {}
+
+        const { Platform } = require("react-native");
+        if (Platform.OS !== "web") {
+          const SecureStore = require("expo-secure-store");
+          const keys = ["auth_token_secure", "user_data", "questionnaire_data"];
+          for (const key of keys) {
+            try {
+              await SecureStore.deleteItemAsync(key);
+            } catch (e) {}
+          }
+        }
+
+        console.log("✅ Forced cleanup completed despite errors");
+      } catch (cleanupError) {
+        console.error("💥 Even cleanup failed:", cleanupError);
+      }
+
       return rejectWithValue(
         error instanceof Error ? error.message : "SignOut failed"
       );

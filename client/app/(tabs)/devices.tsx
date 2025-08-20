@@ -13,6 +13,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { useLanguage } from "@/src/i18n/context/LanguageContext";
+import { useTheme } from "@/src/context/ThemeContext";
 import {
   deviceAPI,
   ConnectedDevice,
@@ -102,7 +103,8 @@ const SUPPORTED_DEVICES: SupportedDevice[] = [
 
 export default function DevicesScreen() {
   const { t } = useTranslation();
-  const { isRTL } = useLanguage();
+  const { isRTL, language } = useLanguage();
+  const { colors, isDark } = useTheme();
   const [connectedDevices, setConnectedDevices] = useState<ConnectedDevice[]>(
     []
   );
@@ -363,7 +365,10 @@ export default function DevicesScreen() {
     const isSyncing = syncingDevices.has(device.id);
 
     return (
-      <View key={device.id} style={styles.deviceCard}>
+      <View
+        key={device.id}
+        style={[styles.deviceCard, { backgroundColor: colors.card }]}
+      >
         <View style={styles.deviceHeader}>
           <View style={styles.deviceInfo}>
             <Ionicons
@@ -372,16 +377,20 @@ export default function DevicesScreen() {
               color={deviceInfo?.color || "#666"}
             />
             <View style={styles.deviceDetails}>
-              <Text style={styles.deviceName}>{device.name}</Text>
-              <Text style={styles.deviceStatus}>
+              <Text style={[styles.deviceName, { color: colors.text }]}>
+                {device.name}
+              </Text>
+              <Text style={[styles.deviceStatus, { color: colors.subtext }]}>
                 {device.status === "CONNECTED"
-                  ? "✅ Connected"
-                  : "❌ Disconnected"}
-                {device.isPrimary && " • Primary"}
+                  ? t("connected")
+                  : t("disconnected")}
+                {device.isPrimary && ` • ${t("primary")}`}
               </Text>
               {deviceInfo?.description && (
-                <Text style={styles.deviceDescription}>
-                  {deviceInfo.description}
+                <Text
+                  style={[styles.deviceDescription, { color: colors.muted }]}
+                >
+                  {t(deviceInfo.description)}
                 </Text>
               )}
             </View>
@@ -410,8 +419,9 @@ export default function DevicesScreen() {
         </View>
 
         {device.lastSync && (
-          <Text style={styles.lastSync}>
-            Last sync: {new Date(device.lastSync).toLocaleString()}
+          <Text style={[styles.lastSync, { color: colors.muted }]}>
+            {t("last_sync")}:{" "}
+            {new Date(device.lastSync).toLocaleString(language)}
           </Text>
         )}
       </View>
@@ -430,9 +440,11 @@ export default function DevicesScreen() {
 
     return (
       <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Available Devices</Text>
-        <Text style={styles.sectionSubtitle}>
-          Connect your smart devices to track calories burned and activity data
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>
+          {t("available_devices")}
+        </Text>
+        <Text style={[styles.sectionSubtitle, { color: colors.muted }]}>
+          {t("connect_devices_subtitle")}
         </Text>
         {availableDevices.map((device) => {
           const isConnecting = connectingDevices.has(device.type);
@@ -443,6 +455,7 @@ export default function DevicesScreen() {
               style={[
                 styles.availableDeviceCard,
                 !device.available && styles.unavailableDevice,
+                { backgroundColor: colors.card },
               ]}
               onPress={() => {
                 console.log(
@@ -468,21 +481,23 @@ export default function DevicesScreen() {
                   style={[
                     styles.availableDeviceName,
                     !device.available && styles.unavailableDeviceText,
+                    { color: colors.text },
                   ]}
                 >
-                  {device.name}
+                  {t(device.name)}
                 </Text>
                 <Text
                   style={[
                     styles.availableDeviceDescription,
                     !device.available && styles.unavailableDeviceText,
+                    { color: colors.muted },
                   ]}
                 >
-                  {device.description}
+                  {t(device.description)}
                 </Text>
                 {!device.available && (
                   <Text style={styles.comingSoonText}>
-                    Not available on this platform
+                    {t("not_available_on_platform")}
                   </Text>
                 )}
               </View>
@@ -500,11 +515,7 @@ export default function DevicesScreen() {
   };
 
   if (isLoading) {
-    return (
-      <LoadingScreen
-        text={isRTL ? "טוען מכשירים חכמים..." : "Loading your smart devices..."}
-      />
-    );
+    return <LoadingScreen text={t("loading_smart_devices")} />;
   }
 
   if (error) {
@@ -526,47 +537,55 @@ export default function DevicesScreen() {
   return (
     <ErrorBoundary>
       <ScrollView
-        style={styles.container}
+        style={[styles.container, { backgroundColor: colors.background }]}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
         {/* No Devices Connected State */}
         {connectedDevices.length === 0 && (
-          <View style={styles.emptyState}>
-            <Ionicons name="watch-outline" size={64} color="#ccc" />
-            <Text style={styles.emptyStateTitle}>No Devices Connected</Text>
-            <Text style={styles.emptyStateText}>
-              Connect your smart devices to track calories burned, steps, and
-              other activity data for a complete picture of your health.
+          <View style={[styles.emptyState, { backgroundColor: colors.card }]}>
+            <Ionicons name="watch-outline" size={64} color={colors.muted} />
+            <Text style={[styles.emptyStateTitle, { color: colors.text }]}>
+              {t("no_devices_connected")}
+            </Text>
+            <Text style={[styles.emptyStateText, { color: colors.muted }]}>
+              {t("connect_devices_description")}
             </Text>
           </View>
         )}
 
         {/* Daily Balance Section */}
         {dailyBalance && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>📊 Today's Calorie Balance</Text>
+          <View style={[styles.section, { backgroundColor: colors.card }]}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              {t("todays_calorie_balance")}
+            </Text>
             <View
               style={[
                 styles.balanceCard,
                 {
                   borderLeftColor: getBalanceColor(dailyBalance.balanceStatus),
+                  backgroundColor: colors.card,
                 },
               ]}
             >
               <View style={styles.balanceStats}>
                 <View style={styles.balanceStat}>
-                  <Text style={styles.balanceValue}>
+                  <Text style={[styles.balanceValue, { color: colors.text }]}>
                     {dailyBalance.caloriesIn}
                   </Text>
-                  <Text style={styles.balanceLabel}>Calories In</Text>
+                  <Text style={[styles.balanceLabel, { color: colors.muted }]}>
+                    {t("calories_in")}
+                  </Text>
                 </View>
                 <View style={styles.balanceStat}>
-                  <Text style={styles.balanceValue}>
+                  <Text style={[styles.balanceValue, { color: colors.text }]}>
                     {dailyBalance.caloriesOut}
                   </Text>
-                  <Text style={styles.balanceLabel}>Calories Out</Text>
+                  <Text style={[styles.balanceLabel, { color: colors.muted }]}>
+                    {t("calories_out")}
+                  </Text>
                 </View>
                 <View style={styles.balanceStat}>
                   <Text
@@ -578,10 +597,12 @@ export default function DevicesScreen() {
                     {dailyBalance.balance > 0 ? "+" : ""}
                     {dailyBalance.balance}
                   </Text>
-                  <Text style={styles.balanceLabel}>Net Balance</Text>
+                  <Text style={[styles.balanceLabel, { color: colors.muted }]}>
+                    {t("net_balance")}
+                  </Text>
                 </View>
               </View>
-              <Text style={styles.balanceMessage}>
+              <Text style={[styles.balanceMessage, { color: colors.muted }]}>
                 {getBalanceMessage(
                   dailyBalance.balance,
                   dailyBalance.balanceStatus
@@ -593,37 +614,58 @@ export default function DevicesScreen() {
 
         {/* Activity Data Section */}
         {activityData && (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>🏃‍♂️ Today's Activity</Text>
+          <View style={[styles.section, { backgroundColor: colors.card }]}>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              {t("todays_activity")}
+            </Text>
             <View style={styles.activityGrid}>
-              <View style={styles.activityCard}>
+              <View
+                style={[styles.activityCard, { backgroundColor: colors.card }]}
+              >
                 <Ionicons name="walk" size={24} color="#4CAF50" />
-                <Text style={styles.activityValue}>
-                  {activityData.steps.toLocaleString()}
+                <Text style={[styles.activityValue, { color: colors.text }]}>
+                  {activityData.steps.toLocaleString(language)}
                 </Text>
-                <Text style={styles.activityLabel}>Steps</Text>
+                <Text style={[styles.activityLabel, { color: colors.muted }]}>
+                  {t("steps")}
+                </Text>
               </View>
-              <View style={styles.activityCard}>
+              <View
+                style={[styles.activityCard, { backgroundColor: colors.card }]}
+              >
                 <Ionicons name="flame" size={24} color="#FF5722" />
-                <Text style={styles.activityValue}>
+                <Text style={[styles.activityValue, { color: colors.text }]}>
                   {activityData.caloriesBurned}
                 </Text>
-                <Text style={styles.activityLabel}>Calories Burned</Text>
+                <Text style={[styles.activityLabel, { color: colors.muted }]}>
+                  {t("calories_burned")}
+                </Text>
               </View>
-              <View style={styles.activityCard}>
+              <View
+                style={[styles.activityCard, { backgroundColor: colors.card }]}
+              >
                 <Ionicons name="time" size={24} color="#2196F3" />
-                <Text style={styles.activityValue}>
+                <Text style={[styles.activityValue, { color: colors.text }]}>
                   {activityData.activeMinutes}
                 </Text>
-                <Text style={styles.activityLabel}>Active Minutes</Text>
+                <Text style={[styles.activityLabel, { color: colors.muted }]}>
+                  {t("active_minutes")}
+                </Text>
               </View>
               {activityData.heartRate && (
-                <View style={styles.activityCard}>
+                <View
+                  style={[
+                    styles.activityCard,
+                    { backgroundColor: colors.card },
+                  ]}
+                >
                   <Ionicons name="heart" size={24} color="#E91E63" />
-                  <Text style={styles.activityValue}>
+                  <Text style={[styles.activityValue, { color: colors.text }]}>
                     {activityData.heartRate}
                   </Text>
-                  <Text style={styles.activityLabel}>Avg Heart Rate</Text>
+                  <Text style={[styles.activityLabel, { color: colors.muted }]}>
+                    {t("avg_heart_rate")}
+                  </Text>
                 </View>
               )}
             </View>
@@ -633,7 +675,9 @@ export default function DevicesScreen() {
         {/* Connected Devices Section */}
         {connectedDevices.length > 0 && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>🔗 Connected Devices</Text>
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>
+              {t("connected_devices")}
+            </Text>
             {connectedDevices.map(renderDeviceCard)}
 
             {/* Sync All Button */}
@@ -642,7 +686,9 @@ export default function DevicesScreen() {
               onPress={handleSyncAllDevices}
             >
               <Ionicons name="refresh-circle" size={24} color="white" />
-              <Text style={styles.syncAllButtonText}>Sync All Devices</Text>
+              <Text style={styles.syncAllButtonText}>
+                {t("sync_all_devices")}
+              </Text>
             </TouchableOpacity>
           </View>
         )}
@@ -651,34 +697,54 @@ export default function DevicesScreen() {
         {renderAvailableDevices()}
 
         {/* Help Section */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>ℹ️ About Device Integration</Text>
-          <Text style={styles.helpText}>
-            • <Text style={styles.bold}>Apple Health:</Text> Available on iOS
-            devices with Health app
+        <View style={[styles.section, { backgroundColor: colors.card }]}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>
+            {t("about_device_integration")}
           </Text>
-          <Text style={styles.helpText}>
-            • <Text style={styles.bold}>Google Fit:</Text> Available on Android
-            devices for comprehensive activity tracking
+          <Text style={[styles.helpText, { color: colors.muted }]}>
+            •{" "}
+            <Text style={[styles.bold, { color: colors.text }]}>
+              {t("apple_health")}:
+            </Text>{" "}
+            {t("apple_health_desc")}
           </Text>
-          <Text style={styles.helpText}>
-            • <Text style={styles.bold}>Fitbit:</Text> Connect your Fitbit
-            account for sleep and activity data
+          <Text style={[styles.helpText, { color: colors.muted }]}>
+            •{" "}
+            <Text style={[styles.bold, { color: colors.text }]}>
+              {t("google_fit")}:
+            </Text>{" "}
+            {t("google_fit_desc")}
           </Text>
-          <Text style={styles.helpText}>
-            • <Text style={styles.bold}>Garmin:</Text> Sync detailed fitness
-            metrics from Garmin devices
+          <Text style={[styles.helpText, { color: colors.muted }]}>
+            •{" "}
+            <Text style={[styles.bold, { color: colors.text }]}>
+              {t("fitbit")}:
+            </Text>{" "}
+            {t("fitbit_desc")}
           </Text>
-          <Text style={styles.helpText}>
-            • <Text style={styles.bold}>Whoop:</Text> Track recovery, strain,
-            and sleep patterns
+          <Text style={[styles.helpText, { color: colors.muted }]}>
+            •{" "}
+            <Text style={[styles.bold, { color: colors.text }]}>
+              {t("garmin")}:
+            </Text>{" "}
+            {t("garmin_desc")}
           </Text>
-          <Text style={styles.helpText}>
-            • <Text style={styles.bold}>Polar:</Text> Heart rate and training
-            data integration
+          <Text style={[styles.helpText, { color: colors.muted }]}>
+            •{" "}
+            <Text style={[styles.bold, { color: colors.text }]}>
+              {t("whoop")}:
+            </Text>{" "}
+            {t("whoop_desc")}
           </Text>
-          <Text style={styles.helpText}>
-            • Your health data is processed securely and stored with encryption
+          <Text style={[styles.helpText, { color: colors.muted }]}>
+            •{" "}
+            <Text style={[styles.bold, { color: colors.text }]}>
+              {t("polar")}:
+            </Text>{" "}
+            {t("polar_desc")}
+          </Text>
+          <Text style={[styles.helpText, { color: colors.muted }]}>
+            • {t("secure_data_processing")}
           </Text>
         </View>
       </ScrollView>

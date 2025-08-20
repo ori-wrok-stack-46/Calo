@@ -31,6 +31,7 @@ import { I18nManager } from "react-native";
 import { useOptimizedAuthSelector } from "@/hooks/useOptimizedSelector";
 import { ErrorHandler } from "@/src/utils/errorHandler";
 import { useTranslation } from "react-i18next";
+import Toast from "react-native-toast-message";
 
 // Enable RTL support globally
 if (Platform.OS !== "web") {
@@ -51,7 +52,9 @@ function useNavigationState(
     const inTabsGroup = currentPath === "(tabs)";
     const onPaymentPlan = currentPath === "payment-plan";
     const onPayment = currentPath === "payment";
-    const onQuestionnaire = inTabsGroup && segments?.[1] === "questionnaire";
+    const onQuestionnaire =
+      (inTabsGroup && segments?.[1] === "questionnaire") ||
+      currentPath === "questionnaire";
     const onEmailVerification =
       inAuthGroup && segments?.[1] === "email-verification";
 
@@ -65,24 +68,41 @@ function useNavigationState(
       }
     } else if (user && !user.email_verified && !onEmailVerification) {
       targetRoute = "/(auth)/email-verification";
-    } else if (
-      user?.subscription_type === "FREE" &&
-      !onPaymentPlan &&
-      !onPayment
-    ) {
-      targetRoute = "/payment-plan";
-    } else if (!user?.is_questionnaire_completed && !onQuestionnaire) {
-      targetRoute = "/(tabs)/questionnaire";
-    } else if (
-      !inTabsGroup &&
-      isAuthenticated &&
-      user?.email_verified &&
-      user?.subscription_type &&
-      !onPayment &&
-      !onPaymentPlan &&
-      !onQuestionnaire
-    ) {
-      targetRoute = "/(tabs)";
+    } else {
+      const hasPaidPlan =
+        user?.subscription_type && user?.subscription_type !== "FREE";
+      const needsQuestionnaire = !user?.is_questionnaire_completed;
+
+      // Priority 1: Paid plan users without questionnaire -> questionnaire
+      if (hasPaidPlan && needsQuestionnaire && !onQuestionnaire) {
+        targetRoute = "/questionnaire";
+      }
+      // Priority 2: Free plan users without subscription -> payment plan
+      else if (
+        !hasPaidPlan &&
+        user?.subscription_type === "FREE" &&
+        !onPaymentPlan &&
+        !onPayment
+      ) {
+        targetRoute = "/payment-plan";
+      }
+      // Priority 3: Users without questionnaire (FREE plan) -> questionnaire
+      else if (!hasPaidPlan && needsQuestionnaire && !onQuestionnaire) {
+        targetRoute = "/(tabs)/questionnaire";
+      }
+      // Priority 4: Completed users -> main app
+      else if (
+        !inTabsGroup &&
+        isAuthenticated &&
+        user?.email_verified &&
+        user?.subscription_type &&
+        user?.is_questionnaire_completed &&
+        !onPayment &&
+        !onPaymentPlan &&
+        !onQuestionnaire
+      ) {
+        targetRoute = "/(tabs)";
+      }
     }
 
     return {
@@ -335,9 +355,10 @@ const MainApp = React.memo(() => {
 
   return (
     <View style={styles.container}>
-      <LanguageToolbar helpContent={helpContent} />
       <AppContent />
+      <LanguageToolbar helpContent={helpContent} />
       {isAuthenticated && <FloatingChatButton />}
+      <Toast />
     </View>
   );
 });
@@ -371,6 +392,7 @@ const styles = StyleSheet.create({
   },
   container: {
     flex: 1,
+    overflow: "visible",
   },
   loadingContainer: {
     flex: 1,

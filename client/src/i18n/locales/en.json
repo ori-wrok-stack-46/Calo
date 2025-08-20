@@ -209,8 +209,8 @@
     "level": "Level",
     "current_streak": "Current Streak",
     "best_streak": "Best Streak",
-    "total_xp":"Total Xp",
-    "streak":"Current Streak"
+    "total_xp": "Total Xp",
+    "streak": "Current Streak"
   },
   "meals": {
     "title": "My Meals",
@@ -439,12 +439,12 @@
     "wellbeing": "Wellbeing",
     "level": "Level",
     "xp": "XP",
-    "next_level": "To Next Level",
+    "next_level": "to Next Level",
     "daily_streak": "Daily Streak",
     "weekly_streak": "Weekly Streak",
     "perfect_days": "Perfect Days",
     "total_points": "Total Points",
-    "view_all_achievements": "View All Achievements",
+    "view_all_achievements": "View All",
     "unlocked": "Unlocked",
     "locked": "Locked",
     "progress": "Progress",
@@ -511,7 +511,8 @@
     "soluble_fiber": "Soluble Fiber",
     "insoluble_fiber": "Insoluble Fiber",
     "confidence": "Confidence",
-    "no_data": "No data available"
+    "no_data": "No data available",
+    "all":"All"
   },
   "devices": {
     "title": "Connected Devices",
@@ -705,7 +706,7 @@
     "sections": {
       "regulatory_scope": {
         "title": "Regulatory Scope and Legal Framework",
-        "content": "The CALO application is available to users both within and outside Israel, and is therefore subject to multiple regulatory regimes and international privacy laws.",
+        "content": "The App operates under the following regulatory frameworks:",
         "subsections": [
           {
             "title": "International Compliance",
@@ -1017,5 +1018,46 @@
     "experimental_feature": "Experimental Feature",
     "deprecated_feature": "Deprecated Feature",
     "legacy_feature": "Legacy Feature"
+  },
+  "achievements": {
+    "title": "Achievements",
+    "subtitle": "Track your progress",
+    "level": "Level",
+    "currentXP": "Current XP",
+    "totalXP": "Total XP",
+    "currentStreak": "Current Streak",
+    "bestStreak": "Best Streak",
+    "daysComplete": "Days Complete",
+    "xpReward": "XP Reward",
+    "progress": "Progress",
+    "unlockedOn": "Unlocked on:",
+    "categories": {
+      "all": "All",
+      "milestone": "Milestones",
+      "streak": "Streaks",
+      "level": "Levels",
+      "special": "Special"
+    },
+    "rarity": {
+      "common": "Common",
+      "uncommon": "Uncommon",
+      "rare": "Rare",
+      "epic": "Epic",
+      "legendary": "Legendary"
+    },
+    "all": "All",
+    "unlocked": "Unlocked",
+    "locked": "Locked",
+    "total_xp": "Total XP",
+    "xp_reward": "XP Reward",
+    "achievement_unlocked": "Achievement Unlocked!",
+    "awesome": "Awesome!",
+    "view_all_achievements": "View All"
+  },
+  "xp": {
+    "gained": "XP Gained",
+    "levelUp": "Level Up!",
+    "newLevel": "Level",
+    "newAchievement": "New Achievement!"
   }
 }

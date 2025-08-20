@@ -90,20 +90,37 @@ export class NutritionService {
     );
 
     // Perform AI analysis with timeout and proper error handling
-    const analysis = await Promise.race([
-      OpenAIService.analyzeMealImage(
-        cleanBase64,
-        language,
-        data.updateText,
-        data.editedIngredients
-      ),
-      new Promise<never>((_, reject) =>
-        setTimeout(
-          () => reject(new Error("Analysis timeout after 60 seconds")),
-          60000
-        )
-      ),
-    ]);
+    let analysis;
+    try {
+      analysis = await Promise.race([
+        OpenAIService.analyzeMealImage(
+          cleanBase64,
+          language,
+          data.updateText,
+          data.editedIngredients
+        ),
+        new Promise<never>((_, reject) =>
+          setTimeout(
+            () => reject(new Error("Analysis timeout after 60 seconds")),
+            60000
+          )
+        ),
+      ]);
+    } catch (error: any) {
+      console.error("💥 AI analysis failed:", error.message);
+
+      // If it's a timeout, throw a user-friendly message
+      if (error.message.includes("timeout")) {
+        throw new Error(
+          "Analysis is taking too long. Please try again with a clearer image."
+        );
+      }
+
+      // For other errors, provide a helpful fallback message
+      throw new Error(
+        "Unable to analyze this image. Please try a clearer photo with better lighting, or try again later."
+      );
+    }
 
     console.log("✅ Analysis completed successfully");
     console.log("📊 Analysis result:", {

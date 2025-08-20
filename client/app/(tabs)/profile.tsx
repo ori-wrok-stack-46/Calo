@@ -9,6 +9,7 @@ import {
   StatusBar,
   Switch,
   ActivityIndicator,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -40,7 +41,7 @@ import { signOut, updateUser } from "@/src/store/authSlice";
 import { router } from "expo-router";
 import { userAPI } from "@/src/services/api";
 import * as ImagePicker from "expo-image-picker";
-import { Alert } from "react-native";
+import { ToastService } from "@/src/services/totastService";
 
 // Define the interface for menu items
 interface MenuItem {
@@ -106,31 +107,31 @@ export default function ProfileScreen() {
   };
 
   const handleExitPlan = () => {
-    Alert.alert(
-      "Exit Current Plan",
-      "Are you sure you want to exit your current plan and downgrade to the Free plan? You will lose access to premium features.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Exit Plan",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await userAPI.updateSubscription("FREE");
-              dispatch({
-                type: "auth/updateSubscription",
-                payload: { subscription_type: "FREE" },
-              });
-              Alert.alert(
-                "Success",
-                "You have been downgraded to the Free plan."
-              );
-            } catch (error: any) {
-              Alert.alert("Error", error.message || "Failed to update plan");
-            }
-          },
+    // Show confirmation toast with action
+    ToastService.warning(
+      "Confirm Plan Change",
+      "Tap again to downgrade to Free plan and lose premium features.",
+      {
+        duration: 6000,
+        onPress: async () => {
+          try {
+            await userAPI.updateSubscription("FREE");
+            dispatch({
+              type: "auth/updateSubscription",
+              payload: { subscription_type: "FREE" },
+            });
+            ToastService.success(
+              "Plan Updated",
+              "You have been downgraded to the Free plan."
+            );
+          } catch (error: any) {
+            ToastService.error(
+              "Update Failed",
+              error.message || "Failed to update plan"
+            );
+          }
         },
-      ]
+      }
     );
   };
 

@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
   Modal,
   Dimensions,
 } from "react-native";
+import { ToastService } from "@/src/services/totastService";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useDispatch, useSelector } from "react-redux";
 import { AppDispatch, RootState } from "@/src/store";
@@ -114,6 +115,17 @@ export default function PaymentPlan() {
   const dispatch = useDispatch<AppDispatch>();
   const { user } = useSelector((state: RootState) => state.auth);
   const { mode, currentPlan } = useLocalSearchParams();
+
+  // Check if user has completed questionnaire
+  useEffect(() => {
+    if (user && !user.is_questionnaire_completed && mode !== "change") {
+      ToastService.warning(
+        "Complete Questionnaire",
+        "Please complete the questionnaire before selecting a plan"
+      );
+      router.replace("/questionnaire");
+    }
+  }, [user, mode, router]);
 
   // Filter plans based on mode
   const availablePlans = useMemo(() => {

@@ -243,8 +243,9 @@ export class StatisticsService {
     try {
       // Get all achievements from database
       const allAchievements = await prisma.achievement.findMany({
-        where: { is_active: true },
-        orderBy: { points_awarded: "asc" },
+        orderBy: {
+          points_awarded: "asc",
+        },
       });
 
       // Get user's achievement progress

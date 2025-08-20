@@ -292,15 +292,21 @@ const ToolBar: React.FC<ToolBarProps> = ({ helpContent }) => {
         </AnimatedTouchableOpacity>
       </View>
 
-      {/* Help Modal - Completely rebuilt */}
+      {/* Help Modal - Fixed rendering and backdrop */}
       <Modal
         visible={showHelp}
         transparent={true}
         animationType="fade"
         onRequestClose={handleCloseHelp}
         statusBarTranslucent={false}
+        presentationStyle="overFullScreen"
       >
-        <View style={styles.modalOverlay}>
+        <View
+          style={[
+            styles.modalOverlay,
+            { backgroundColor: "rgba(0, 0, 0, 0.7)" },
+          ]}
+        >
           <TouchableOpacity
             style={StyleSheet.absoluteFillObject}
             onPress={handleCloseHelp}
@@ -311,27 +317,43 @@ const ToolBar: React.FC<ToolBarProps> = ({ helpContent }) => {
             <View
               style={[
                 styles.modalContent,
-                { backgroundColor: colors.background },
+                {
+                  backgroundColor: isDark ? "#1F2937" : "#FFFFFF",
+                  shadowColor: "#000000",
+                  shadowOffset: { width: 0, height: 10 },
+                  shadowOpacity: 0.3,
+                  shadowRadius: 20,
+                  elevation: 20,
+                },
               ]}
             >
               {/* Header */}
               <View
                 style={[
                   styles.modalHeader,
-                  { borderBottomColor: colors.border },
+                  { borderBottomColor: isDark ? "#374151" : "#E5E7EB" },
                 ]}
               >
                 <View style={styles.modalTitleContainer}>
                   <HelpCircle size={24} color={colors.primary} />
-                  <Text style={[styles.modalTitle, { color: colors.text }]}>
-                    {helpContent?.title || "Help"}
+                  <Text
+                    style={[
+                      styles.modalTitle,
+                      { color: isDark ? "#F9FAFB" : "#111827" },
+                    ]}
+                  >
+                    {helpContent?.title ||
+                      (language === "he" ? "עזרה" : "Help")}
                   </Text>
                 </View>
                 <TouchableOpacity
                   onPress={handleCloseHelp}
-                  style={styles.closeButton}
+                  style={[
+                    styles.closeButton,
+                    { backgroundColor: isDark ? "#374151" : "#F3F4F6" },
+                  ]}
                 >
-                  <X size={20} color={colors.text} />
+                  <X size={20} color={isDark ? "#F9FAFB" : "#111827"} />
                 </TouchableOpacity>
               </View>
 
@@ -339,46 +361,89 @@ const ToolBar: React.FC<ToolBarProps> = ({ helpContent }) => {
               <ScrollView
                 style={styles.modalBody}
                 showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ flexGrow: 1 }}
               >
                 <View style={styles.modalBodyContent}>
                   {helpContent ? (
                     <View>
-                      <Text style={[styles.modalText, { color: colors.text }]}>
+                      <Text
+                        style={[
+                          styles.modalText,
+                          { color: isDark ? "#E5E7EB" : "#374151" },
+                        ]}
+                      >
                         {helpContent.description}
                       </Text>
 
                       <View
                         style={[
                           styles.helpSection,
-                          { borderTopColor: colors.border },
+                          { borderTopColor: isDark ? "#374151" : "#E5E7EB" },
                         ]}
                       >
                         <Text
                           style={[
                             styles.helpSectionTitle,
-                            { color: colors.text },
+                            { color: isDark ? "#F9FAFB" : "#111827" },
                           ]}
                         >
-                          Quick Tips:
+                          {language === "he" ? "טיפים מהירים:" : "Quick Tips:"}
                         </Text>
                         <Text
                           style={[
                             styles.helpSectionText,
-                            { color: colors.text },
+                            { color: isDark ? "#D1D5DB" : "#4B5563" },
                           ]}
                         >
-                          • Use the camera to scan meals for nutrition analysis
-                          {"\n"}• Track your water intake daily for better
-                          health{"\n"}• Complete your questionnaire for
-                          personalized recommendations{"\n"}• Check your
-                          statistics to monitor progress
+                          {language === "he"
+                            ? "• השתמש במצלמה לסריקת ארוחות לניתוח תזונתי\n• עקוב אחר צריכת המים היומית לבריאות טובה יותר\n• השלם את השאלון להמלצות מותאמות אישית\n• בדוק את הסטטיסטיקות למעקב אחר ההתקדמות"
+                            : "• Use the camera to scan meals for nutrition analysis\n• Track your water intake daily for better health\n• Complete your questionnaire for personalized recommendations\n• Check your statistics to monitor progress"}
+                        </Text>
+                      </View>
+
+                      <View
+                        style={[
+                          styles.helpSection,
+                          { borderTopColor: isDark ? "#374151" : "#E5E7EB" },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.helpSectionTitle,
+                            { color: isDark ? "#F9FAFB" : "#111827" },
+                          ]}
+                        >
+                          {language === "he"
+                            ? "תמיכה נוספת:"
+                            : "Additional Support:"}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.helpSectionText,
+                            { color: isDark ? "#D1D5DB" : "#4B5563" },
+                          ]}
+                        >
+                          {language === "he"
+                            ? "לעזרה נוספת, צור קשר עם הצוות שלנו או עיין במדריכי המשתמש המלאים."
+                            : "For additional help, contact our support team or refer to the comprehensive user guides."}
                         </Text>
                       </View>
                     </View>
                   ) : (
                     <View style={styles.noHelpContent}>
-                      <Text style={[styles.modalText, { color: colors.text }]}>
-                        Help content is loading...
+                      <HelpCircle size={48} color="#9CA3AF" />
+                      <Text
+                        style={[
+                          styles.modalText,
+                          {
+                            color: isDark ? "#E5E7EB" : "#374151",
+                            textAlign: "center",
+                          },
+                        ]}
+                      >
+                        {language === "he"
+                          ? "תוכן העזרה נטען..."
+                          : "Help content is loading..."}
                       </Text>
                     </View>
                   )}
@@ -456,82 +521,88 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderRadius: 32,
   },
-  // Modal styles - completely rebuilt
+  // Modal styles - fixed and enhanced
   modalOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
     justifyContent: "center",
     alignItems: "center",
     padding: 20,
+    backgroundColor: "rgba(0, 0, 0, 0.7)",
   },
   modalContainer: {
     width: "100%",
-    maxWidth: 400,
-    maxHeight: "80%",
+    maxWidth: 420,
+    maxHeight: "85%",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 9999,
   },
   modalContent: {
-    borderRadius: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 20,
+    width: "100%",
+    borderRadius: 24,
     overflow: "hidden",
+    maxHeight: "100%",
+    minHeight: 200,
   },
   modalHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: 24,
+    paddingVertical: 20,
     borderBottomWidth: 1,
+    minHeight: 64,
   },
   modalTitleContainer: {
     flexDirection: "row",
     alignItems: "center",
     flex: 1,
+    marginRight: 12,
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: "700",
+    fontSize: 20,
+    fontWeight: "800",
     marginLeft: 12,
+    flex: 1,
   },
   closeButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.05)",
   },
   modalBody: {
-    maxHeight: 400,
+    maxHeight: 450,
+    minHeight: 200,
   },
   modalBodyContent: {
-    padding: 20,
+    padding: 24,
   },
   modalText: {
     fontSize: 16,
     lineHeight: 24,
-    marginBottom: 16,
+    marginBottom: 20,
   },
   helpSection: {
-    marginTop: 20,
-    paddingTop: 20,
+    marginTop: 24,
+    paddingTop: 24,
     borderTopWidth: 1,
   },
   helpSectionTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    marginBottom: 12,
+    fontSize: 18,
+    fontWeight: "700",
+    marginBottom: 16,
   },
   helpSectionText: {
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 15,
+    lineHeight: 22,
   },
   noHelpContent: {
-    padding: 20,
+    padding: 40,
     alignItems: "center",
+    justifyContent: "center",
+    gap: 16,
   },
 });
 

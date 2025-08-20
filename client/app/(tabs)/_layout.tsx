@@ -114,6 +114,15 @@ export default function TabLayout() {
               }}
             />
             <Tabs.Screen
+              name="achievements"
+              options={{
+                title: t("tabs.achievements"),
+                tabBarIcon: ({ color }) => (
+                  <IconSymbol size={24} name="trophy.fill" color={color} />
+                ),
+              }}
+            />
+            <Tabs.Screen
               name="ai-chat"
               options={{
                 title: t("tabs.ai_chat"),
