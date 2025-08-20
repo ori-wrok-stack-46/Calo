@@ -22,6 +22,8 @@ import {
 import { HealthData } from "../../src/services/healthKit";
 import LoadingScreen from "@/components/LoadingScreen";
 import ErrorBoundary from "@/components/ErrorBoundary";
+import { useGoogleFitAuth } from "@/hooks/useGoogleFitAuth";
+import axios from "axios";
 
 type DeviceType =
   | "APPLE_HEALTH"
@@ -161,7 +163,7 @@ export default function DevicesScreen() {
     await loadDeviceData();
     setRefreshing(false);
   };
-
+  const { connectGoogleFit } = useGoogleFitAuth();
   const handleConnectDevice = async (deviceType: string) => {
     console.log("🔍 handleConnectDevice called with:", deviceType);
 
@@ -183,7 +185,7 @@ export default function DevicesScreen() {
       return;
     }
 
-    // Special check for Google Fit configuration
+    // Special handling for Google Fit
     if (deviceType === "GOOGLE_FIT") {
       const clientSecret = process.env.EXPO_PUBLIC_GOOGLE_FIT_CLIENT_SECRET;
       if (!clientSecret) {
@@ -194,10 +196,74 @@ export default function DevicesScreen() {
         );
         return;
       }
+
+      Alert.alert(
+        "Connect Device",
+        `Connect to ${deviceInfo.name}?\n\n${deviceInfo.description}\n\nThis will request permission to access your health data.`,
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Connect",
+            onPress: async () => {
+              console.log("🔄 User pressed Connect for Google Fit");
+              setConnectingDevices((prev) => new Set(prev).add(deviceType));
+              setError(null);
+
+              try {
+                const result = await connectGoogleFit();
+
+                if (result.success) {
+                  // Register with your server
+                  try {
+                    const deviceAxios = axios.create({
+                      baseURL: getApiBaseUrl(),
+                      timeout: 30000,
+                    });
+
+                    await deviceAxios.post("/devices/connect", {
+                      deviceType: "GOOGLE_FIT",
+                      deviceName: "Google Fit",
+                      accessToken: result.accessToken,
+                      refreshToken: result.refreshToken,
+                    });
+                  } catch (serverError) {
+                    console.warn(
+                      "⚠️ Failed to register with server:",
+                      serverError
+                    );
+                  }
+
+                  Alert.alert(
+                    "Success",
+                    `${deviceInfo.name} connected successfully! You can now sync your health data.`
+                  );
+                  await loadDeviceData();
+                } else {
+                  Alert.alert(
+                    "Connection Failed",
+                    `Failed to connect to ${deviceInfo.name}. ${result.error}`
+                  );
+                }
+              } catch (error) {
+                console.error("💥 Connection error:", error);
+                setError(
+                  `Failed to connect to ${deviceInfo.name}. Please try again.`
+                );
+              } finally {
+                setConnectingDevices((prev) => {
+                  const newSet = new Set(prev);
+                  newSet.delete(deviceType);
+                  return newSet;
+                });
+              }
+            },
+          },
+        ]
+      );
+      return;
     }
 
-    console.log("✅ About to show connection alert for:", deviceInfo.name);
-
+    // For other device types, use the existing logic
     Alert.alert(
       "Connect Device",
       `Connect to ${deviceInfo.name}?\n\n${deviceInfo.description}\n\nThis will request permission to access your health data.`,
@@ -223,7 +289,7 @@ export default function DevicesScreen() {
                   "Success",
                   `${deviceInfo.name} connected successfully! You can now sync your health data.`
                 );
-                await loadDeviceData(); // Refresh data
+                await loadDeviceData();
               } else {
                 Alert.alert(
                   "Connection Failed",
@@ -247,6 +313,7 @@ export default function DevicesScreen() {
       ]
     );
   };
+
   const handleDisconnectDevice = async (deviceId: string) => {
     const device = connectedDevices.find((d) => d.id === deviceId);
     if (!device) return;
@@ -1002,3 +1069,10 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
 });
+function connectGoogleFit() {
+  throw new Error("Function not implemented.");
+}
+
+function getApiBaseUrl() {
+  throw new Error("Function not implemented.");
+}

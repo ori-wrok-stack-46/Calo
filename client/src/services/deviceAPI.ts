@@ -1,4 +1,4 @@
-import { healthKitService, HealthData } from "./healthKit";
+import { HealthKitService, HealthData } from "./healthKit";
 import { deviceConnectionService } from "./deviceConnections";
 import { nutritionAPI } from "./api";
 import axios from "axios";
@@ -86,7 +86,7 @@ class DeviceAPIService {
       console.log("🔗 Connecting device:", deviceType);
 
       if (deviceType === "APPLE_HEALTH") {
-        const success = await healthKitService.requestPermissions();
+        const success = await HealthKitService.requestPermissions();
         if (success) {
           // Register with server
           try {
@@ -140,7 +140,7 @@ class DeviceAPIService {
       if (deviceId === "apple_health") {
         // Get today's health data
         const today = new Date().toISOString().split("T")[0];
-        const healthData = await healthKitService.getHealthDataForDate(today);
+        const healthData = await HealthKitService.getHealthDataForDate(today);
 
         // Send to server
         try {
@@ -283,7 +283,7 @@ class DeviceAPIService {
 
       if (connectedDevice) {
         if (connectedDevice.type === "APPLE_HEALTH") {
-          return await healthKitService.getHealthDataForDate(date);
+          return await HealthKitService.getHealthDataForDate(date);
         } else {
           // Try to get data from other connected devices
           const tokens = await deviceConnectionService.getDeviceTokens(

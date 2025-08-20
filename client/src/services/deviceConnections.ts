@@ -164,6 +164,7 @@ class DeviceConnectionService {
   }
 
   // GOOGLE FIT INTEGRATION
+  // GOOGLE FIT INTEGRATION - Updated for modern Expo AuthSession
   async connectGoogleFit(): Promise<DeviceConnectionResult> {
     try {
       console.log("🔗 Connecting to Google Fit...");
@@ -182,32 +183,40 @@ class DeviceConnectionService {
 
       // Create redirect URI that works with your OAuth setup
       const redirectUri = AuthSession.makeRedirectUri({
-        scheme: __DEV__ ? undefined : "com.yourapp.app", // Replace with your app scheme
         useProxy: true,
       });
 
       console.log("🔄 Using redirect URI:", redirectUri);
 
-      // Build authorization URL with proper parameters
-      const authUrlParams = new URLSearchParams({
-        client_id: config.clientId,
-        redirect_uri: redirectUri,
-        response_type: "code",
-        scope: config.scopes.join(" "),
-        access_type: "offline",
-        prompt: "consent",
-        include_granted_scopes: "true",
-      });
+      // Configure the auth request
+      const [request, response, promptAsync] = AuthSession.useAuthRequest(
+        {
+          clientId: config.clientId,
+          scopes: config.scopes,
+          redirectUri,
+          responseType: AuthSession.ResponseType.Code,
+          extraParams: {
+            access_type: "offline",
+            prompt: "consent",
+            include_granted_scopes: "true",
+          },
+        },
+        {
+          authorizationEndpoint: config.authUrl,
+        }
+      );
 
-      const authUrl = `${config.authUrl}?${authUrlParams.toString()}`;
+      if (!request) {
+        return {
+          success: false,
+          error: "Failed to create auth request",
+        };
+      }
 
-      console.log("🔄 Starting auth session with URL:", authUrl);
+      console.log("🔄 Starting auth session...");
 
-      // Start the authentication session
-      const result = await AuthSession.startAsync({
-        authUrl,
-        returnUrl: redirectUri,
-      });
+      // Start the authentication
+      const result = await promptAsync();
 
       console.log("🔄 Auth session result:", result);
 
@@ -249,7 +258,10 @@ class DeviceConnectionService {
         }
       } else if (result.type === "cancel") {
         console.log("❌ User cancelled Google Fit authorization");
-        return { success: false, error: "Authorization was cancelled by user" };
+        return {
+          success: false,
+          error: "Authorization was cancelled by user",
+        };
       } else {
         console.log("❌ Google Fit authorization failed:", result);
         return {
