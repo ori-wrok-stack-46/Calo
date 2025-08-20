@@ -69,6 +69,7 @@ export default function ResetPasswordVerifyScreen() {
 
       // Auto-submit when all fields are filled
       if (digit && index === 5 && newCode.every((c) => c !== "")) {
+        // Use the newCode array directly instead of relying on state
         handleVerifyCode(newCode.join(""));
       }
     }
@@ -81,10 +82,21 @@ export default function ResetPasswordVerifyScreen() {
   };
 
   const handleVerifyCode = async (verificationCode?: string) => {
+    // Fix: Use the passed code or current state, and ensure we have a valid code
     const codeToVerify = verificationCode || code.join("");
 
-    if (codeToVerify.length !== 6) {
+    console.log("🔒 Verification code received:", verificationCode);
+    console.log("🔒 Code from state:", code.join(""));
+    console.log("🔒 Final code to verify:", codeToVerify);
+
+    if (!codeToVerify || codeToVerify.length !== 6) {
       Alert.alert("Error", "Please enter the complete 6-digit code");
+      return;
+    }
+
+    // Additional validation: ensure all characters are digits
+    if (!/^\d{6}$/.test(codeToVerify)) {
+      Alert.alert("Error", "Code must contain only digits");
       return;
     }
 
@@ -116,12 +128,10 @@ export default function ResetPasswordVerifyScreen() {
             resetToken: response.resetToken,
           },
         });
-
-        return; // Exit early on success
+      } else {
+        // If we get here, verification failed
+        throw new Error(response.error || "Verification failed");
       }
-
-      // If we get here, verification failed
-      throw new Error(response.error || "Verification failed");
     } catch (error: any) {
       console.error("💥 Reset code verification error:", error);
 

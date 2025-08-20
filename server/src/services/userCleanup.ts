@@ -27,12 +27,13 @@ export class UserCleanupService {
     const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
     try {
-      // Find users who completed questionnaire more than 24h ago but have no subscription plan
+      // Find users who completed questionnaire more than 24h ago but still have FREE subscription
       const usersToDelete = await prisma.user.findMany({
         where: {
           is_questionnaire_completed: true,
-          subscription_type: null,
-          updated_at: {
+          subscription_type: "FREE", // Changed from null to "FREE"
+          created_at: {
+            // Changed from updated_at to created_at
             lt: twentyFourHoursAgo,
           },
         },
@@ -69,7 +70,8 @@ export class UserCleanupService {
         where: {
           subscription_type: "FREE",
           is_questionnaire_completed: true,
-          updated_at: {
+          created_at: {
+            // Changed from updated_at to created_at
             lt: sevenDaysAgo,
           },
         },
@@ -91,7 +93,6 @@ export class UserCleanupService {
             where: { user_id: user.user_id },
             data: {
               is_questionnaire_completed: false,
-              updated_at: new Date(),
             },
           });
 
@@ -129,6 +130,12 @@ export class UserCleanupService {
         await tx.dailyGoal.deleteMany({ where: { user_id: userId } });
         await tx.userAchievement.deleteMany({ where: { user_id: userId } });
         await tx.shoppingList.deleteMany({ where: { user_id: userId } });
+        await tx.meal.deleteMany({ where: { user_id: userId } });
+        await tx.subscriptionPayment.deleteMany({ where: { user_id: userId } });
+        await tx.userBadge.deleteMany({ where: { user_id: userId } });
+        await tx.gamificationBadge.deleteMany({ where: { user_id: userId } });
+        await tx.waterIntake.deleteMany({ where: { user_id: userId } });
+        await tx.foodProduct.deleteMany({ where: { user_id: userId } });
 
         // Delete user last
         await tx.user.delete({ where: { user_id: userId } });

@@ -151,7 +151,7 @@ export default function EmailVerificationScreen() {
 
   const handleResendCode = async () => {
     if (!canResend) return;
-
+    
     try {
       setResendLoading(true);
       console.log("🔄 Resending verification code...");
