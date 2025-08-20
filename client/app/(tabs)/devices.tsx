@@ -25,6 +25,13 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import { useGoogleFitAuth } from "@/hooks/useGoogleFitAuth";
 import axios from "axios";
 
+const getApiBaseUrl = () => {
+  if (__DEV__) {
+    return "http://127.0.0.1:3000/api";
+  }
+  return "https://your-production-api.com/api";
+};
+
 type DeviceType =
   | "APPLE_HEALTH"
   | "GOOGLE_FIT"
@@ -163,7 +170,6 @@ export default function DevicesScreen() {
     await loadDeviceData();
     setRefreshing(false);
   };
-  const { connectGoogleFit } = useGoogleFitAuth();
   const handleConnectDevice = async (deviceType: string) => {
     console.log("🔍 handleConnectDevice called with:", deviceType);
 
@@ -210,7 +216,12 @@ export default function DevicesScreen() {
               setError(null);
 
               try {
-                const result = await connectGoogleFit();
+                const { deviceConnectionService } = await import(
+                  "../../src/services/deviceConnections"
+                );
+                const result = await deviceConnectionService.connectDevice(
+                  deviceType
+                );
 
                 if (result.success) {
                   // Register with your server
@@ -822,66 +833,79 @@ export default function DevicesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
+    paddingHorizontal: 16,
+    paddingTop: 16,
   },
-  centered: {
+
+  // Error handling styles
+  errorContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     padding: 20,
   },
-  loadingText: {
-    marginTop: 10,
+  errorText: {
     fontSize: 16,
-    color: "#666",
-  },
-  section: {
-    margin: 16,
-    backgroundColor: "white",
-    borderRadius: 12,
-    padding: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 8,
-    color: "#333",
-  },
-  sectionSubtitle: {
-    fontSize: 14,
-    color: "#666",
+    color: "#F44336",
+    textAlign: "center",
     marginBottom: 16,
   },
+  retryButton: {
+    backgroundColor: "#007AFF",
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 8,
+  },
+  retryButtonText: {
+    color: "white",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+
+  // Empty state styles
   emptyState: {
     alignItems: "center",
+    justifyContent: "center",
     padding: 40,
-    margin: 16,
-    backgroundColor: "white",
     borderRadius: 12,
+    marginBottom: 20,
   },
   emptyStateTitle: {
     fontSize: 20,
-    fontWeight: "bold",
+    fontWeight: "600",
     marginTop: 16,
     marginBottom: 8,
-    color: "#333",
+    textAlign: "center",
   },
   emptyStateText: {
     fontSize: 16,
-    color: "#666",
     textAlign: "center",
-    lineHeight: 24,
+    lineHeight: 22,
   },
-  balanceCard: {
-    backgroundColor: "#f9f9f9",
-    borderRadius: 12,
+
+  // Section styles
+  section: {
+    marginBottom: 24,
     padding: 16,
+    borderRadius: 12,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: "600",
+    marginBottom: 4,
+  },
+  sectionSubtitle: {
+    fontSize: 14,
+    marginBottom: 16,
+    lineHeight: 20,
+  },
+
+  // Daily Balance styles
+  balanceCard: {
     borderLeftWidth: 4,
+    paddingLeft: 16,
+    paddingVertical: 16,
+    borderRadius: 8,
   },
   balanceStats: {
     flexDirection: "row",
@@ -892,51 +916,68 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   balanceValue: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#333",
+    fontSize: 24,
+    fontWeight: "700",
+    marginBottom: 4,
   },
   balanceLabel: {
     fontSize: 12,
-    color: "#666",
-    marginTop: 4,
+    fontWeight: "500",
+    textAlign: "center",
   },
   balanceMessage: {
     fontSize: 14,
-    color: "#666",
-    textAlign: "center",
     fontStyle: "italic",
+    textAlign: "center",
+    lineHeight: 20,
   },
+
+  // Activity data styles
   activityGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     justifyContent: "space-between",
-    gap: 6,
   },
   activityCard: {
     width: "48%",
-    backgroundColor: "#f9f9f9",
-    borderRadius: 12,
-    padding: 16,
     alignItems: "center",
+    padding: 16,
+    borderRadius: 8,
     marginBottom: 12,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   activityValue: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#333",
+    fontSize: 20,
+    fontWeight: "700",
     marginTop: 8,
+    marginBottom: 4,
   },
   activityLabel: {
     fontSize: 12,
-    color: "#666",
-    marginTop: 4,
+    fontWeight: "500",
+    textAlign: "center",
   },
+
+  // Connected device styles
   deviceCard: {
-    backgroundColor: "#f9f9f9",
-    borderRadius: 12,
     padding: 16,
+    borderRadius: 12,
     marginBottom: 12,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
   },
   deviceHeader: {
     flexDirection: "row",
@@ -946,6 +987,7 @@ const styles = StyleSheet.create({
   deviceInfo: {
     flexDirection: "row",
     flex: 1,
+    alignItems: "flex-start",
   },
   deviceDetails: {
     marginLeft: 12,
@@ -953,126 +995,108 @@ const styles = StyleSheet.create({
   },
   deviceName: {
     fontSize: 16,
-    fontWeight: "bold",
-    color: "#333",
+    fontWeight: "600",
+    marginBottom: 2,
   },
   deviceStatus: {
     fontSize: 14,
-    color: "#666",
-    marginTop: 4,
+    marginBottom: 4,
   },
   deviceDescription: {
     fontSize: 12,
-    color: "#999",
-    marginTop: 4,
+    lineHeight: 16,
   },
   deviceActions: {
     flexDirection: "row",
     gap: 8,
   },
   actionButton: {
-    padding: 8,
-    borderRadius: 8,
-    backgroundColor: "#f0f0f0",
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
   },
   syncButton: {
-    backgroundColor: "#e3f2fd",
+    backgroundColor: "#E3F2FD",
   },
   disconnectButton: {
-    backgroundColor: "#ffebee",
+    backgroundColor: "#FFEBEE",
   },
   lastSync: {
     fontSize: 12,
-    color: "#999",
-    marginTop: 12,
+    marginTop: 8,
+    fontStyle: "italic",
   },
+
+  // Available device styles
   availableDeviceCard: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#f9f9f9",
-    borderRadius: 12,
     padding: 16,
+    borderRadius: 12,
     marginBottom: 12,
-  },
-  unavailableDevice: {
-    opacity: 0.5,
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   availableDeviceInfo: {
     flex: 1,
     marginLeft: 12,
+    marginRight: 12,
   },
   availableDeviceName: {
     fontSize: 16,
-    fontWeight: "bold",
-    color: "#333",
+    fontWeight: "600",
+    marginBottom: 4,
   },
   availableDeviceDescription: {
     fontSize: 14,
-    color: "#666",
-    marginTop: 4,
+    lineHeight: 18,
+  },
+  unavailableDevice: {
+    opacity: 0.6,
   },
   unavailableDeviceText: {
-    color: "#999",
+    opacity: 0.7,
   },
   comingSoonText: {
     fontSize: 12,
-    color: "#ff9800",
+    color: "#FF9800",
+    fontWeight: "500",
     marginTop: 4,
-    fontStyle: "italic",
   },
+
+  // Sync all button
   syncAllButton: {
-    backgroundColor: "#007AFF",
-    borderRadius: 12,
-    padding: 16,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 16,
+    backgroundColor: "#007AFF",
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    marginTop: 8,
   },
   syncAllButtonText: {
     color: "white",
     fontSize: 16,
-    fontWeight: "bold",
+    fontWeight: "600",
     marginLeft: 8,
   },
+
+  // Help section styles
   helpText: {
     fontSize: 14,
-    color: "#666",
-    marginBottom: 8,
     lineHeight: 20,
+    marginBottom: 8,
   },
   bold: {
-    fontWeight: "bold",
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-    backgroundColor: "#f5f5f5",
-  },
-  errorText: {
-    fontSize: 16,
-    color: "#E74C3C",
-    textAlign: "center",
-    marginBottom: 20,
-  },
-  retryButton: {
-    backgroundColor: "#007AFF",
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  retryButtonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
     fontWeight: "600",
   },
 });
-function connectGoogleFit() {
-  throw new Error("Function not implemented.");
-}
-
-function getApiBaseUrl() {
-  throw new Error("Function not implemented.");
-}

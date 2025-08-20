@@ -25,6 +25,7 @@ const DEVICE_CONFIGS = {
   GOOGLE_FIT: {
     name: "Google Fit",
     clientId:
+      process.env.EXPO_PUBLIC_GOOGLE_FIT_CLIENT_ID ||
       "68705076317-s2vqnmlnpu7r2qlr95bhkh4f2lbfqhg1.apps.googleusercontent.com",
     clientSecret: process.env.EXPO_PUBLIC_GOOGLE_FIT_CLIENT_SECRET || "",
     authUrl: "https://accounts.google.com/o/oauth2/v2/auth",
@@ -163,8 +164,7 @@ class DeviceConnectionService {
     return DEVICE_CONFIGS[deviceType as keyof typeof DEVICE_CONFIGS];
   }
 
-  // GOOGLE FIT INTEGRATION
-  // GOOGLE FIT INTEGRATION - Updated for modern Expo AuthSession
+  // GOOGLE FIT INTEGRATION - Fixed implementation
   async connectGoogleFit(): Promise<DeviceConnectionResult> {
     try {
       console.log("🔗 Connecting to Google Fit...");
@@ -181,79 +181,81 @@ class DeviceConnectionService {
         };
       }
 
-      // Create redirect URI that works with your OAuth setup
+      // Create redirect URI without useProxy (deprecated)
       const redirectUri = AuthSession.makeRedirectUri({
-        useProxy: true,
+        scheme: "com.calo.app",
       });
 
       console.log("🔄 Using redirect URI:", redirectUri);
 
-      // Configure the auth request
-      const [request, response, promptAsync] = AuthSession.useAuthRequest(
-        {
-          clientId: config.clientId,
-          scopes: config.scopes,
-          redirectUri,
-          responseType: AuthSession.ResponseType.Code,
-          extraParams: {
-            access_type: "offline",
-            prompt: "consent",
-            include_granted_scopes: "true",
-          },
-        },
-        {
-          authorizationEndpoint: config.authUrl,
-        }
-      );
+      // Build authorization URL manually
+      const authParams = new URLSearchParams({
+        client_id: config.clientId,
+        redirect_uri: redirectUri,
+        response_type: "code",
+        scope: config.scopes.join(" "),
+        access_type: "offline",
+        prompt: "consent",
+        include_granted_scopes: "true",
+      });
 
-      if (!request) {
-        return {
-          success: false,
-          error: "Failed to create auth request",
-        };
-      }
+      const authUrl = `${config.authUrl}?${authParams.toString()}`;
 
       console.log("🔄 Starting auth session...");
 
-      // Start the authentication
-      const result = await promptAsync();
+      // Use WebBrowser for authentication instead of deprecated startAsync
+      const result = await WebBrowser.openAuthSessionAsync(
+        authUrl,
+        redirectUri
+      );
 
       console.log("🔄 Auth session result:", result);
 
-      if (result.type === "success" && result.params.code) {
-        console.log("✅ Got authorization code, exchanging for token...");
+      if (result.type === "success" && result.url) {
+        const url = new URL(result.url);
+        const code = url.searchParams.get("code");
 
-        const tokenResponse = await this.exchangeGoogleFitCode(
-          result.params.code,
-          redirectUri
-        );
+        if (code) {
+          console.log("✅ Got authorization code, exchanging for token...");
 
-        console.log("🔄 Token exchange response received");
-
-        if (tokenResponse.access_token) {
-          await this.storeDeviceTokens(
-            "GOOGLE_FIT",
-            tokenResponse.access_token,
-            tokenResponse.refresh_token
+          const tokenResponse = await this.exchangeGoogleFitCode(
+            code,
+            redirectUri
           );
 
-          console.log("✅ Google Fit connected successfully!");
+          console.log("🔄 Token exchange response received");
 
-          return {
-            success: true,
-            accessToken: tokenResponse.access_token,
-            refreshToken: tokenResponse.refresh_token,
-            expiresIn: tokenResponse.expires_in,
-            deviceData: { displayName: config.name },
-          };
+          if (tokenResponse.access_token) {
+            await this.storeDeviceTokens(
+              "GOOGLE_FIT",
+              tokenResponse.access_token,
+              tokenResponse.refresh_token
+            );
+
+            console.log("✅ Google Fit connected successfully!");
+
+            return {
+              success: true,
+              accessToken: tokenResponse.access_token,
+              refreshToken: tokenResponse.refresh_token,
+              expiresIn: tokenResponse.expires_in,
+              deviceData: { displayName: config.name },
+            };
+          } else {
+            console.error("❌ No access token received:", tokenResponse);
+            return {
+              success: false,
+              error:
+                tokenResponse.error_description ||
+                tokenResponse.error ||
+                "Failed to get access token",
+            };
+          }
         } else {
-          console.error("❌ No access token received:", tokenResponse);
+          console.error("❌ No authorization code received");
           return {
             success: false,
-            error:
-              tokenResponse.error_description ||
-              tokenResponse.error ||
-              "Failed to get access token",
+            error: "No authorization code received from Google",
           };
         }
       } else if (result.type === "cancel") {
@@ -407,7 +409,9 @@ class DeviceConnectionService {
         };
       }
 
-      const redirectUri = AuthSession.makeRedirectUri({ useProxy: true });
+      const redirectUri = AuthSession.makeRedirectUri({
+        scheme: "com.calo.app",
+      });
 
       const authUrl =
         `${config.authUrl}?` +
@@ -417,31 +421,36 @@ class DeviceConnectionService {
         `scope=${encodeURIComponent(config.scopes.join(" "))}&` +
         `expires_in=604800`; // 1 week
 
-      const result = await AuthSession.startAsync({
+      const result = await WebBrowser.openAuthSessionAsync(
         authUrl,
-        returnUrl: redirectUri,
-      });
+        redirectUri
+      );
 
-      if (result.type === "success" && result.params.code) {
-        const tokenResponse = await this.exchangeFitbitCode(
-          result.params.code,
-          redirectUri
-        );
+      if (result.type === "success" && result.url) {
+        const url = new URL(result.url);
+        const code = url.searchParams.get("code");
 
-        if (tokenResponse.access_token) {
-          await this.storeDeviceTokens(
-            "FITBIT",
-            tokenResponse.access_token,
-            tokenResponse.refresh_token
+        if (code) {
+          const tokenResponse = await this.exchangeFitbitCode(
+            code,
+            redirectUri
           );
 
-          return {
-            success: true,
-            accessToken: tokenResponse.access_token,
-            refreshToken: tokenResponse.refresh_token,
-            expiresIn: tokenResponse.expires_in,
-            deviceData: { displayName: config.name },
-          };
+          if (tokenResponse.access_token) {
+            await this.storeDeviceTokens(
+              "FITBIT",
+              tokenResponse.access_token,
+              tokenResponse.refresh_token
+            );
+
+            return {
+              success: true,
+              accessToken: tokenResponse.access_token,
+              refreshToken: tokenResponse.refresh_token,
+              expiresIn: tokenResponse.expires_in,
+              deviceData: { displayName: config.name },
+            };
+          }
         }
       }
 
@@ -526,7 +535,9 @@ class DeviceConnectionService {
         };
       }
 
-      const redirectUri = AuthSession.makeRedirectUri({ useProxy: true });
+      const redirectUri = AuthSession.makeRedirectUri({
+        scheme: "com.calo.app",
+      });
 
       const authUrl =
         `${config.authUrl}?` +
@@ -535,31 +546,33 @@ class DeviceConnectionService {
         `response_type=code&` +
         `scope=${encodeURIComponent(config.scopes.join(" "))}`;
 
-      const result = await AuthSession.startAsync({
+      const result = await WebBrowser.openAuthSessionAsync(
         authUrl,
-        returnUrl: redirectUri,
-      });
+        redirectUri
+      );
 
-      if (result.type === "success" && result.params.code) {
-        const tokenResponse = await this.exchangeWhoopCode(
-          result.params.code,
-          redirectUri
-        );
+      if (result.type === "success" && result.url) {
+        const url = new URL(result.url);
+        const code = url.searchParams.get("code");
 
-        if (tokenResponse.access_token) {
-          await this.storeDeviceTokens(
-            "WHOOP",
-            tokenResponse.access_token,
-            tokenResponse.refresh_token
-          );
+        if (code) {
+          const tokenResponse = await this.exchangeWhoopCode(code, redirectUri);
 
-          return {
-            success: true,
-            accessToken: tokenResponse.access_token,
-            refreshToken: tokenResponse.refresh_token,
-            expiresIn: tokenResponse.expires_in,
-            deviceData: { displayName: config.name },
-          };
+          if (tokenResponse.access_token) {
+            await this.storeDeviceTokens(
+              "WHOOP",
+              tokenResponse.access_token,
+              tokenResponse.refresh_token
+            );
+
+            return {
+              success: true,
+              accessToken: tokenResponse.access_token,
+              refreshToken: tokenResponse.refresh_token,
+              expiresIn: tokenResponse.expires_in,
+              deviceData: { displayName: config.name },
+            };
+          }
         }
       }
 
@@ -652,7 +665,9 @@ class DeviceConnectionService {
         };
       }
 
-      const redirectUri = AuthSession.makeRedirectUri({ useProxy: true });
+      const redirectUri = AuthSession.makeRedirectUri({
+        scheme: "com.calo.app",
+      });
 
       const authUrl =
         `${config.authUrl}?` +
@@ -661,31 +676,33 @@ class DeviceConnectionService {
         `response_type=code&` +
         `scope=${encodeURIComponent(config.scopes.join(" "))}`;
 
-      const result = await AuthSession.startAsync({
+      const result = await WebBrowser.openAuthSessionAsync(
         authUrl,
-        returnUrl: redirectUri,
-      });
+        redirectUri
+      );
 
-      if (result.type === "success" && result.params.code) {
-        const tokenResponse = await this.exchangePolarCode(
-          result.params.code,
-          redirectUri
-        );
+      if (result.type === "success" && result.url) {
+        const url = new URL(result.url);
+        const code = url.searchParams.get("code");
 
-        if (tokenResponse.access_token) {
-          await this.storeDeviceTokens(
-            "POLAR",
-            tokenResponse.access_token,
-            tokenResponse.refresh_token
-          );
+        if (code) {
+          const tokenResponse = await this.exchangePolarCode(code, redirectUri);
 
-          return {
-            success: true,
-            accessToken: tokenResponse.access_token,
-            refreshToken: tokenResponse.refresh_token,
-            expiresIn: tokenResponse.expires_in,
-            deviceData: { displayName: config.name },
-          };
+          if (tokenResponse.access_token) {
+            await this.storeDeviceTokens(
+              "POLAR",
+              tokenResponse.access_token,
+              tokenResponse.refresh_token
+            );
+
+            return {
+              success: true,
+              accessToken: tokenResponse.access_token,
+              refreshToken: tokenResponse.refresh_token,
+              expiresIn: tokenResponse.expires_in,
+              deviceData: { displayName: config.name },
+            };
+          }
         }
       }
 

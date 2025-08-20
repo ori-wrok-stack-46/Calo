@@ -20,7 +20,6 @@ import {
   Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useSelector, useDispatch } from "react-redux";
 import { router } from "expo-router";
 import { useFocusEffect, useTheme } from "@react-navigation/native";
 import { LinearGradient } from "expo-linear-gradient";
@@ -42,7 +41,6 @@ import {
   Calendar,
 } from "lucide-react-native";
 import { api, APIError } from "@/src/services/api";
-import { RootState, AppDispatch } from "@/src/store";
 import { fetchMeals } from "../../src/store/mealSlice";
 import { useTranslation } from "react-i18next";
 import { useLanguage } from "@/src/i18n/context/LanguageContext";
@@ -52,6 +50,9 @@ import XPNotification from "@/components/XPNotification";
 import { Colors, EmeraldSpectrum } from "@/constants/Colors";
 import { getStatistics } from "@/src/store/calendarSlice";
 import { setUser } from "@/src/store/authSlice"; // Assuming setUser is in authSlice
+import { useOptimizedSelector } from "../../src/utils/useOptimizedSelector"; // Import the optimized selector
+import { useDispatch } from "react-redux";
+import { AppDispatch, RootState } from "@/src/store";
 
 // Enable RTL support
 I18nManager.allowRTL(true);
@@ -108,8 +109,8 @@ const HomeScreen = React.memo(() => {
     []
   );
 
-  const { meals, isLoading } = useSelector(selectMealState);
-  const { user } = useSelector(selectAuthState);
+  const { meals, isLoading } = useOptimizedSelector(selectMealState); // Use optimized selector
+  const { user } = useOptimizedSelector(selectAuthState); // Use optimized selector
   const { colors } = useTheme();
   // ALL HOOKS MUST BE DECLARED FIRST - BEFORE ANY CONDITIONAL LOGIC
   const [userStats, setUserStats] = useState<UserStats>({
@@ -192,12 +193,12 @@ const HomeScreen = React.memo(() => {
     );
 
     const today = new Date().toISOString().split("T")[0];
-    const todayMeals = meals.filter((meal) =>
+    const todayMeals = meals.filter((meal: { created_at: string; }) =>
       meal.created_at.startsWith(today)
     );
 
     const dailyTotals = todayMeals.reduce(
-      (acc, meal) => ({
+      (acc: { calories: any; protein: any; carbs: any; fat: any; }, meal: { calories: any; protein: any; carbs: any; fat: any; }) => ({
         calories: acc.calories + (meal.calories || 0),
         protein: acc.protein + (meal.protein || 0),
         carbs: acc.carbs + (meal.carbs || 0),
@@ -644,7 +645,7 @@ const HomeScreen = React.memo(() => {
                     <Text style={styles.statsLabel}>
                       {t("home.total_xp") || "Total XP"}
                     </Text>
-                    <Text style={styles.statsValue}>{user?.current_xp}</Text>
+                    <Text style={styles.statsValue}>{user?.total_points}</Text>
                   </View>
                 </View>
                 <View style={styles.statsLevelContainer}>
