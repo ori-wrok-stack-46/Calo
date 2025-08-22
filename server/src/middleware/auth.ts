@@ -12,17 +12,6 @@ export async function authenticateToken(
 ) {
   try {
     console.log("🔐 Authenticating request...");
-    console.log("🍪 Cookies received:", req.cookies);
-    console.log(
-      "📱 Authorization header:",
-      req.headers.authorization ? "Present" : "Missing"
-    );
-    console.log("🌐 Origin:", req.headers.origin);
-    console.log("📍 IP:", req.ip);
-    console.log(
-      "🔍 User-Agent:",
-      req.headers["user-agent"]?.substring(0, 50) + "..."
-    );
 
     // Try to get token from cookies first (web), then fallback to Authorization header (mobile)
     let token = req.cookies.auth_token;
@@ -51,8 +40,21 @@ export async function authenticateToken(
 
     req.user = user;
     next();
-  } catch (error) {
-    console.error("💥 Token verification failed:", error);
+  } catch (error: any) {
+    console.error("💥 Token verification failed:", error.message);
+
+    // Check if it's a database connection error
+    if (
+      error.message?.includes("Can't reach database server") ||
+      error.message?.includes("connection")
+    ) {
+      return res.status(503).json({
+        success: false,
+        error: "Database temporarily unavailable, please try again",
+        retryAfter: 5,
+      });
+    }
+
     res.status(401).json({
       success: false,
       error: "Invalid or expired token",
