@@ -19,6 +19,7 @@ import { LinearGradient } from "expo-linear-gradient";
 import { useTranslation } from "react-i18next";
 import { useLanguage } from "@/src/i18n/context/LanguageContext";
 import { useTheme } from "@/src/context/ThemeContext";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   ChefHat,
   Plus,
@@ -736,6 +737,22 @@ export default function RecommendedMenusScreen() {
         return;
       }
 
+      // Get complete user questionnaire data
+      let userQuestionnaire = null;
+      try {
+        const questionnaireData = await AsyncStorage.getItem(
+          "user_questionnaire"
+        );
+        if (questionnaireData) {
+          userQuestionnaire = JSON.parse(questionnaireData);
+          console.log("✅ Retrieved complete user questionnaire for AI");
+        } else {
+          console.warn("⚠️ No questionnaire data found - using form data only");
+        }
+      } catch (error) {
+        console.error("💥 Error loading questionnaire:", error);
+      }
+
       const selectedShoppingItems = shoppingListItems.filter((item) =>
         includeShoppingItems.includes(item.id)
       );
@@ -757,6 +774,8 @@ export default function RecommendedMenusScreen() {
           quantity: item.quantity,
           unit: item.unit,
         })),
+        // Include complete user questionnaire data
+        userQuestionnaire: userQuestionnaire,
       };
 
       const response = await api.post(

@@ -14,6 +14,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { useLanguage } from "@/src/i18n/context/LanguageContext";
 import { useTheme } from "@/src/context/ThemeContext";
+import { LinearGradient } from "expo-linear-gradient";
 import {
   deviceAPI,
   ConnectedDevice,
@@ -22,7 +23,6 @@ import {
 import { HealthData } from "../../src/services/healthKit";
 import LoadingScreen from "@/components/LoadingScreen";
 import ErrorBoundary from "@/components/ErrorBoundary";
-import { useGoogleFitAuth } from "@/hooks/useGoogleFitAuth";
 import axios from "axios";
 
 const getApiBaseUrl = () => {
@@ -64,7 +64,7 @@ const SUPPORTED_DEVICES: SupportedDevice[] = [
     name: "Google Fit",
     icon: "fitness",
     color: "#4285F4",
-    available: true, // Available on all platforms via OAuth
+    available: true,
     description:
       "Connect your Google Fit data for comprehensive activity tracking",
   },
@@ -114,6 +114,7 @@ export default function DevicesScreen() {
   const { t } = useTranslation();
   const { isRTL, language } = useLanguage();
   const { colors, isDark } = useTheme();
+
   const [connectedDevices, setConnectedDevices] = useState<ConnectedDevice[]>(
     []
   );
@@ -137,20 +138,15 @@ export default function DevicesScreen() {
       setIsLoading(true);
       setError(null);
 
-      // Get connected devices
       const devices = await deviceAPI.getConnectedDevices();
       setConnectedDevices(devices);
 
-      // Only load activity data and balance if we have connected devices
       if (devices.length > 0) {
         const today = new Date().toISOString().split("T")[0];
-
-        // Get activity data and balance in parallel
         const [activity, balance] = await Promise.all([
           deviceAPI.getActivityData(today),
           deviceAPI.getDailyBalance(today),
         ]);
-
         setActivityData(activity);
         setDailyBalance(balance);
       } else {
@@ -170,6 +166,7 @@ export default function DevicesScreen() {
     await loadDeviceData();
     setRefreshing(false);
   };
+
   const handleConnectDevice = async (deviceType: string) => {
     console.log("🔍 handleConnectDevice called with:", deviceType);
 
@@ -191,7 +188,6 @@ export default function DevicesScreen() {
       return;
     }
 
-    // Special handling for Google Fit
     if (deviceType === "GOOGLE_FIT") {
       const clientSecret = process.env.EXPO_PUBLIC_GOOGLE_FIT_CLIENT_SECRET;
       if (!clientSecret) {
@@ -224,7 +220,6 @@ export default function DevicesScreen() {
                 );
 
                 if (result.success) {
-                  // Register with your server
                   try {
                     const deviceAxios = axios.create({
                       baseURL: getApiBaseUrl(),
@@ -274,7 +269,6 @@ export default function DevicesScreen() {
       return;
     }
 
-    // For other device types, use the existing logic
     Alert.alert(
       "Connect Device",
       `Connect to ${deviceInfo.name}?\n\n${deviceInfo.description}\n\nThis will request permission to access your health data.`,
@@ -340,10 +334,9 @@ export default function DevicesScreen() {
           onPress: async () => {
             try {
               const success = await deviceAPI.disconnectDevice(deviceId);
-
               if (success) {
                 Alert.alert("Success", "Device disconnected successfully");
-                await loadDeviceData(); // Refresh data
+                await loadDeviceData();
               } else {
                 Alert.alert("Error", "Failed to disconnect device");
               }
@@ -362,10 +355,9 @@ export default function DevicesScreen() {
 
     try {
       const success = await deviceAPI.syncDevice(deviceId);
-
       if (success) {
         Alert.alert("Success", "Device synced successfully!");
-        await loadDeviceData(); // Refresh data
+        await loadDeviceData();
       } else {
         Alert.alert(
           "Error",
@@ -392,7 +384,6 @@ export default function DevicesScreen() {
 
     try {
       const result = await deviceAPI.syncAllDevices();
-
       if (result.success > 0) {
         Alert.alert(
           "Sync Complete",
@@ -400,7 +391,7 @@ export default function DevicesScreen() {
             result.failed > 0 ? `, ${result.failed} failed` : ""
           }`
         );
-        await loadDeviceData(); // Refresh data
+        await loadDeviceData();
       } else {
         Alert.alert(
           "Sync Failed",
@@ -413,419 +404,424 @@ export default function DevicesScreen() {
     }
   };
 
-  const getBalanceColor = (status: string) => {
-    switch (status) {
-      case "balanced":
-        return "#4CAF50";
-      case "slight_imbalance":
-        return "#FF9800";
-      case "significant_imbalance":
-        return "#F44336";
-      default:
-        return "#666";
-    }
-  };
-
-  const getBalanceMessage = (balance: number, status: string) => {
-    if (status === "balanced") {
-      return "🎯 Great balance! You're on track.";
-    } else if (balance > 0) {
-      return `⚠️ You consumed ${balance} more calories than you burned. Consider being more active.`;
-    } else {
-      return `⚠️ You burned ${Math.abs(
-        balance
-      )} more calories than you consumed. Make sure you're eating enough.`;
-    }
-  };
-
-  const renderDeviceCard = (device: ConnectedDevice) => {
-    const deviceInfo = SUPPORTED_DEVICES.find((d) => d.type === device.type);
-    const isSyncing = syncingDevices.has(device.id);
-
-    return (
-      <View
-        key={device.id}
-        style={[styles.deviceCard, { backgroundColor: colors.card }]}
-      >
-        <View style={styles.deviceHeader}>
-          <View style={styles.deviceInfo}>
-            <Ionicons
-              name={deviceInfo?.icon || "watch"}
-              size={24}
-              color={deviceInfo?.color || "#666"}
-            />
-            <View style={styles.deviceDetails}>
-              <Text style={[styles.deviceName, { color: colors.text }]}>
-                {device.name}
-              </Text>
-              <Text style={[styles.deviceStatus, { color: colors.subtext }]}>
-                {device.status === "CONNECTED"
-                  ? t("connected")
-                  : t("disconnected")}
-                {device.isPrimary && ` • ${t("primary")}`}
-              </Text>
-              {deviceInfo?.description && (
-                <Text
-                  style={[styles.deviceDescription, { color: colors.muted }]}
-                >
-                  {t(deviceInfo.description)}
-                </Text>
-              )}
-            </View>
-          </View>
-
-          <View style={styles.deviceActions}>
-            <TouchableOpacity
-              style={[styles.actionButton, styles.syncButton]}
-              onPress={() => handleSyncDevice(device.id)}
-              disabled={isSyncing}
-            >
-              {isSyncing ? (
-                <ActivityIndicator size="small" color="#007AFF" />
-              ) : (
-                <Ionicons name="refresh" size={16} color="#007AFF" />
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.actionButton, styles.disconnectButton]}
-              onPress={() => handleDisconnectDevice(device.id)}
-            >
-              <Ionicons name="close" size={16} color="#F44336" />
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {device.lastSync && (
-          <Text style={[styles.lastSync, { color: colors.muted }]}>
-            {t("last_sync")}:{" "}
-            {new Date(device.lastSync).toLocaleString(language)}
-          </Text>
-        )}
-      </View>
-    );
-  };
-
-  const renderAvailableDevices = () => {
-    const connectedTypes = new Set(connectedDevices.map((d) => d.type));
-    const availableDevices = SUPPORTED_DEVICES.filter(
-      (d) => !connectedTypes.has(d.type)
-    );
-
-    if (availableDevices.length === 0) {
-      return null;
-    }
-
-    return (
-      <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>
-          {t("available_devices")}
-        </Text>
-        <Text style={[styles.sectionSubtitle, { color: colors.muted }]}>
-          {t("connect_devices_subtitle")}
-        </Text>
-        {availableDevices.map((device) => {
-          const isConnecting = connectingDevices.has(device.type);
-
-          return (
-            <TouchableOpacity
-              key={device.type}
-              style={[
-                styles.availableDeviceCard,
-                !device.available && styles.unavailableDevice,
-                { backgroundColor: colors.card },
-              ]}
-              onPress={() => {
-                console.log(
-                  "🎯 TouchableOpacity pressed for device:",
-                  device.type
-                );
-                console.log("🎯 Device available:", device.available);
-                console.log(
-                  "🎯 Is connecting:",
-                  connectingDevices.has(device.type)
-                );
-                handleConnectDevice(device.type);
-              }}
-              disabled={!device.available || isConnecting}
-            >
-              <Ionicons
-                name={device.icon}
-                size={24}
-                color={device.available ? device.color : "#ccc"}
-              />
-              <View style={styles.availableDeviceInfo}>
-                <Text
-                  style={[
-                    styles.availableDeviceName,
-                    !device.available && styles.unavailableDeviceText,
-                    { color: colors.text },
-                  ]}
-                >
-                  {t(device.name)}
-                </Text>
-                <Text
-                  style={[
-                    styles.availableDeviceDescription,
-                    !device.available && styles.unavailableDeviceText,
-                    { color: colors.muted },
-                  ]}
-                >
-                  {t(device.description)}
-                </Text>
-                {!device.available && (
-                  <Text style={styles.comingSoonText}>
-                    {t("not_available_on_platform")}
-                  </Text>
-                )}
-              </View>
-              {device.available &&
-                (isConnecting ? (
-                  <ActivityIndicator size="small" color="#007AFF" />
-                ) : (
-                  <Ionicons name="add-circle" size={24} color="#007AFF" />
-                ))}
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-    );
-  };
-
   if (isLoading) {
     return <LoadingScreen text={t("loading_smart_devices")} />;
   }
 
   if (error) {
     return (
-      <View style={styles.errorContainer}>
-        <Text style={styles.errorText}>{error}</Text>
+      <View
+        style={[styles.errorContainer, { backgroundColor: colors.background }]}
+      >
+        <Ionicons
+          name="warning-outline"
+          size={64}
+          color={colors.error || "#ef4444"}
+        />
+        <Text style={[styles.errorTitle, { color: colors.text }]}>
+          Oops! Something went wrong
+        </Text>
+        <Text style={[styles.errorText, { color: colors.subtext }]}>
+          {error}
+        </Text>
         <TouchableOpacity
-          style={styles.retryButton}
+          style={[
+            styles.retryButton,
+            { backgroundColor: colors.primary || "#10b981" },
+          ]}
           onPress={() => {
             setError(null);
             loadDeviceData();
           }}
         >
-          <Text style={styles.retryButtonText}>Retry</Text>
+          <Ionicons name="refresh" size={20} color="#ffffff" />
+          <Text style={styles.retryButtonText}>Try Again</Text>
         </TouchableOpacity>
       </View>
     );
   }
+
   return (
     <ErrorBoundary>
-      <ScrollView
-        style={[styles.container, { backgroundColor: colors.background }]}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-      >
-        {/* No Devices Connected State */}
-        {connectedDevices.length === 0 && (
-          <View style={[styles.emptyState, { backgroundColor: colors.card }]}>
-            <Ionicons name="watch-outline" size={64} color={colors.muted} />
-            <Text style={[styles.emptyStateTitle, { color: colors.text }]}>
-              {t("no_devices_connected")}
-            </Text>
-            <Text style={[styles.emptyStateText, { color: colors.muted }]}>
-              {t("connect_devices_description")}
-            </Text>
-          </View>
-        )}
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        {/* Header */}
+        <LinearGradient
+          colors={isDark ? ["#064e3b", "#047857"] : ["#10b981", "#059669"]}
+          style={styles.header}
+        >
+          <Text style={[styles.headerTitle, isRTL && styles.rtlText]}>
+            {t("devices.title")}
+          </Text>
+          <Text style={[styles.headerSubtitle, isRTL && styles.rtlText]}>
+            {t("devices.subtitle")}
+          </Text>
+        </LinearGradient>
 
-        {/* Daily Balance Section */}
-        {dailyBalance && (
-          <View style={[styles.section, { backgroundColor: colors.card }]}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              {t("todays_calorie_balance")}
-            </Text>
-            <View
-              style={[
-                styles.balanceCard,
-                {
-                  borderLeftColor: getBalanceColor(dailyBalance.balanceStatus),
-                  backgroundColor: colors.card,
-                },
-              ]}
-            >
-              <View style={styles.balanceStats}>
-                <View style={styles.balanceStat}>
+        <ScrollView
+          style={styles.scrollView}
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          }
+        >
+          {/* Daily Balance Section */}
+          {dailyBalance && (
+            <View style={[styles.section, { backgroundColor: colors.card }]}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                {t("devices.todays_calorie_balance")}
+              </Text>
+              <View style={styles.balanceContainer}>
+                <View style={styles.balanceItem}>
+                  <Ionicons name="arrow-down" size={24} color="#10b981" />
                   <Text style={[styles.balanceValue, { color: colors.text }]}>
                     {dailyBalance.caloriesIn}
                   </Text>
-                  <Text style={[styles.balanceLabel, { color: colors.muted }]}>
-                    {t("calories_in")}
+                  <Text
+                    style={[styles.balanceLabel, { color: colors.subtext }]}
+                  >
+                    {t("devices.calories_in")}
                   </Text>
                 </View>
-                <View style={styles.balanceStat}>
+                <View style={styles.balanceItem}>
+                  <Ionicons name="arrow-up" size={24} color="#ef4444" />
                   <Text style={[styles.balanceValue, { color: colors.text }]}>
                     {dailyBalance.caloriesOut}
                   </Text>
-                  <Text style={[styles.balanceLabel, { color: colors.muted }]}>
-                    {t("calories_out")}
+                  <Text
+                    style={[styles.balanceLabel, { color: colors.subtext }]}
+                  >
+                    {t("devices.calories_out")}
                   </Text>
                 </View>
-                <View style={styles.balanceStat}>
-                  <Text
-                    style={[
-                      styles.balanceValue,
-                      { color: getBalanceColor(dailyBalance.balanceStatus) },
-                    ]}
-                  >
+                <View style={styles.balanceItem}>
+                  <Ionicons name="analytics" size={24} color="#6366f1" />
+                  <Text style={[styles.balanceValue, { color: colors.text }]}>
                     {dailyBalance.balance > 0 ? "+" : ""}
                     {dailyBalance.balance}
                   </Text>
-                  <Text style={[styles.balanceLabel, { color: colors.muted }]}>
-                    {t("net_balance")}
+                  <Text
+                    style={[styles.balanceLabel, { color: colors.subtext }]}
+                  >
+                    {t("devices.net_balance")}
                   </Text>
                 </View>
               </View>
-              <Text style={[styles.balanceMessage, { color: colors.muted }]}>
-                {getBalanceMessage(
-                  dailyBalance.balance,
-                  dailyBalance.balanceStatus
-                )}
-              </Text>
             </View>
-          </View>
-        )}
+          )}
 
-        {/* Activity Data Section */}
-        {activityData && (
-          <View style={[styles.section, { backgroundColor: colors.card }]}>
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              {t("todays_activity")}
-            </Text>
-            <View style={styles.activityGrid}>
-              <View
-                style={[styles.activityCard, { backgroundColor: colors.card }]}
-              >
-                <Ionicons name="walk" size={24} color="#4CAF50" />
-                <Text style={[styles.activityValue, { color: colors.text }]}>
-                  {activityData.steps.toLocaleString(language)}
-                </Text>
-                <Text style={[styles.activityLabel, { color: colors.muted }]}>
-                  {t("steps")}
-                </Text>
-              </View>
-              <View
-                style={[styles.activityCard, { backgroundColor: colors.card }]}
-              >
-                <Ionicons name="flame" size={24} color="#FF5722" />
-                <Text style={[styles.activityValue, { color: colors.text }]}>
-                  {activityData.caloriesBurned}
-                </Text>
-                <Text style={[styles.activityLabel, { color: colors.muted }]}>
-                  {t("calories_burned")}
-                </Text>
-              </View>
-              <View
-                style={[styles.activityCard, { backgroundColor: colors.card }]}
-              >
-                <Ionicons name="time" size={24} color="#2196F3" />
-                <Text style={[styles.activityValue, { color: colors.text }]}>
-                  {activityData.activeMinutes}
-                </Text>
-                <Text style={[styles.activityLabel, { color: colors.muted }]}>
-                  {t("active_minutes")}
-                </Text>
-              </View>
-              {activityData.heartRate && (
+          {/* Activity Data Section */}
+          {activityData && (
+            <View style={[styles.section, { backgroundColor: colors.card }]}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                {t("devices.todays_activity")}
+              </Text>
+              <View style={styles.activityGrid}>
                 <View
                   style={[
                     styles.activityCard,
-                    { backgroundColor: colors.card },
+                    { backgroundColor: colors.surface },
                   ]}
                 >
-                  <Ionicons name="heart" size={24} color="#E91E63" />
+                  <Ionicons name="walk" size={28} color="#10b981" />
                   <Text style={[styles.activityValue, { color: colors.text }]}>
-                    {activityData.heartRate}
+                    {activityData.steps.toLocaleString()}
                   </Text>
-                  <Text style={[styles.activityLabel, { color: colors.muted }]}>
-                    {t("avg_heart_rate")}
+                  <Text
+                    style={[styles.activityLabel, { color: colors.subtext }]}
+                  >
+                    {t("devices.steps")}
                   </Text>
                 </View>
-              )}
+                <View
+                  style={[
+                    styles.activityCard,
+                    { backgroundColor: colors.surface },
+                  ]}
+                >
+                  <Ionicons name="flame" size={28} color="#ef4444" />
+                  <Text style={[styles.activityValue, { color: colors.text }]}>
+                    {activityData.caloriesBurned}
+                  </Text>
+                  <Text
+                    style={[styles.activityLabel, { color: colors.subtext }]}
+                  >
+                    {t("devices.calories_burned")}
+                  </Text>
+                </View>
+                <View
+                  style={[
+                    styles.activityCard,
+                    { backgroundColor: colors.surface },
+                  ]}
+                >
+                  <Ionicons name="time" size={28} color="#3b82f6" />
+                  <Text style={[styles.activityValue, { color: colors.text }]}>
+                    {activityData.activeMinutes}
+                  </Text>
+                  <Text
+                    style={[styles.activityLabel, { color: colors.subtext }]}
+                  >
+                    {t("devices.active_minutes")}
+                  </Text>
+                </View>
+                {activityData.heartRate && (
+                  <View
+                    style={[
+                      styles.activityCard,
+                      { backgroundColor: colors.surface },
+                    ]}
+                  >
+                    <Ionicons name="heart" size={28} color="#e91e63" />
+                    <Text
+                      style={[styles.activityValue, { color: colors.text }]}
+                    >
+                      {activityData.heartRate}
+                    </Text>
+                    <Text
+                      style={[styles.activityLabel, { color: colors.subtext }]}
+                    >
+                      {t("devices.avg_heart_rate")}
+                    </Text>
+                  </View>
+                )}
+              </View>
             </View>
-          </View>
-        )}
+          )}
 
-        {/* Connected Devices Section */}
-        {connectedDevices.length > 0 && (
-          <View style={styles.section}>
+          {/* Connected Devices */}
+          {connectedDevices.length > 0 && (
+            <View style={[styles.section, { backgroundColor: colors.card }]}>
+              <View style={styles.sectionHeader}>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                  {t("devices.connected_devices")}
+                </Text>
+                <TouchableOpacity
+                  style={[
+                    styles.syncAllButton,
+                    { backgroundColor: colors.primary || "#10b981" },
+                  ]}
+                  onPress={handleSyncAllDevices}
+                >
+                  <Ionicons name="refresh" size={16} color="#ffffff" />
+                  <Text style={styles.syncAllText}>Sync All</Text>
+                </TouchableOpacity>
+              </View>
+
+              {connectedDevices.map((device) => {
+                const deviceInfo = SUPPORTED_DEVICES.find(
+                  (d) => d.type === device.type
+                );
+                const isSyncing = syncingDevices.has(device.id);
+
+                return (
+                  <View
+                    key={device.id}
+                    style={[
+                      styles.deviceCard,
+                      { backgroundColor: colors.surface },
+                    ]}
+                  >
+                    <View style={styles.deviceHeader}>
+                      <View style={styles.deviceInfo}>
+                        <View
+                          style={[
+                            styles.deviceIcon,
+                            { backgroundColor: deviceInfo?.color + "20" },
+                          ]}
+                        >
+                          <Ionicons
+                            name={deviceInfo?.icon || "watch"}
+                            size={24}
+                            color={deviceInfo?.color || "#666"}
+                          />
+                        </View>
+                        <View style={styles.deviceDetails}>
+                          <Text
+                            style={[styles.deviceName, { color: colors.text }]}
+                          >
+                            {device.name}
+                          </Text>
+                          <View style={styles.deviceStatus}>
+                            <View
+                              style={[
+                                styles.statusDot,
+                                {
+                                  backgroundColor:
+                                    device.status === "CONNECTED"
+                                      ? "#10b981"
+                                      : "#ef4444",
+                                },
+                              ]}
+                            />
+                            <Text
+                              style={[
+                                styles.statusText,
+                                { color: colors.subtext },
+                              ]}
+                            >
+                              {device.status === "CONNECTED"
+                                ? "Connected"
+                                : "Disconnected"}
+                              {device.isPrimary && " • Primary"}
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+
+                      <View style={styles.deviceActions}>
+                        <TouchableOpacity
+                          style={[
+                            styles.actionButton,
+                            { backgroundColor: colors.primary + "20" },
+                          ]}
+                          onPress={() => handleSyncDevice(device.id)}
+                          disabled={isSyncing}
+                        >
+                          {isSyncing ? (
+                            <ActivityIndicator
+                              size="small"
+                              color={colors.primary}
+                            />
+                          ) : (
+                            <Ionicons
+                              name="refresh"
+                              size={16}
+                              color={colors.primary}
+                            />
+                          )}
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={[
+                            styles.actionButton,
+                            { backgroundColor: "#ef444420" },
+                          ]}
+                          onPress={() => handleDisconnectDevice(device.id)}
+                        >
+                          <Ionicons name="close" size={16} color="#ef4444" />
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+
+                    {device.lastSync && (
+                      <Text style={[styles.lastSync, { color: colors.muted }]}>
+                        Last synced:{" "}
+                        {new Date(device.lastSync).toLocaleString()}
+                      </Text>
+                    )}
+                  </View>
+                );
+              })}
+            </View>
+          )}
+
+          {/* Available Devices */}
+          <View style={[styles.section, { backgroundColor: colors.card }]}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>
-              {t("connected_devices")}
+              {connectedDevices.length === 0
+                ? "Connect Your First Device"
+                : "Available Devices"}
             </Text>
-            {connectedDevices.map(renderDeviceCard)}
-
-            {/* Sync All Button */}
-            <TouchableOpacity
-              style={styles.syncAllButton}
-              onPress={handleSyncAllDevices}
-            >
-              <Ionicons name="refresh-circle" size={24} color="white" />
-              <Text style={styles.syncAllButtonText}>
-                {t("sync_all_devices")}
+            {connectedDevices.length === 0 && (
+              <Text style={[styles.sectionSubtitle, { color: colors.subtext }]}>
+                Connect fitness trackers and health apps to automatically sync
+                your activity data
               </Text>
-            </TouchableOpacity>
+            )}
+
+            {SUPPORTED_DEVICES.filter(
+              (device) =>
+                !connectedDevices.some(
+                  (connected) => connected.type === device.type
+                )
+            ).map((device) => {
+              const isConnecting = connectingDevices.has(device.type);
+
+              return (
+                <TouchableOpacity
+                  key={device.type}
+                  style={[
+                    styles.availableDeviceCard,
+                    {
+                      backgroundColor: colors.surface,
+                      borderColor: colors.border,
+                    },
+                    !device.available && styles.unavailableDevice,
+                  ]}
+                  onPress={() => handleConnectDevice(device.type)}
+                  disabled={!device.available || isConnecting}
+                  activeOpacity={0.7}
+                >
+                  <View
+                    style={[
+                      styles.deviceIcon,
+                      { backgroundColor: device.color + "20" },
+                    ]}
+                  >
+                    <Ionicons
+                      name={device.icon}
+                      size={24}
+                      color={device.available ? device.color : "#ccc"}
+                    />
+                  </View>
+
+                  <View style={styles.availableDeviceInfo}>
+                    <Text
+                      style={[
+                        styles.availableDeviceName,
+                        { color: colors.text },
+                      ]}
+                    >
+                      {device.name}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.availableDeviceDescription,
+                        { color: colors.subtext },
+                      ]}
+                    >
+                      {device.description}
+                    </Text>
+                    {!device.available && (
+                      <Text style={styles.unavailableText}>
+                        Not available on this platform
+                      </Text>
+                    )}
+                  </View>
+
+                  {device.available && (
+                    <View style={styles.connectButton}>
+                      {isConnecting ? (
+                        <ActivityIndicator size="small" color={device.color} />
+                      ) : (
+                        <Ionicons
+                          name="add-circle"
+                          size={24}
+                          color={device.color}
+                        />
+                      )}
+                    </View>
+                  )}
+                </TouchableOpacity>
+              );
+            })}
           </View>
-        )}
 
-        {/* Available Devices Section */}
-        {renderAvailableDevices()}
-
-        {/* Help Section */}
-        <View style={[styles.section, { backgroundColor: colors.card }]}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>
-            {t("about_device_integration")}
-          </Text>
-          <Text style={[styles.helpText, { color: colors.muted }]}>
-            •{" "}
-            <Text style={[styles.bold, { color: colors.text }]}>
-              {t("apple_health")}:
-            </Text>{" "}
-            {t("apple_health_desc")}
-          </Text>
-          <Text style={[styles.helpText, { color: colors.muted }]}>
-            •{" "}
-            <Text style={[styles.bold, { color: colors.text }]}>
-              {t("google_fit")}:
-            </Text>{" "}
-            {t("google_fit_desc")}
-          </Text>
-          <Text style={[styles.helpText, { color: colors.muted }]}>
-            •{" "}
-            <Text style={[styles.bold, { color: colors.text }]}>
-              {t("fitbit")}:
-            </Text>{" "}
-            {t("fitbit_desc")}
-          </Text>
-          <Text style={[styles.helpText, { color: colors.muted }]}>
-            •{" "}
-            <Text style={[styles.bold, { color: colors.text }]}>
-              {t("garmin")}:
-            </Text>{" "}
-            {t("garmin_desc")}
-          </Text>
-          <Text style={[styles.helpText, { color: colors.muted }]}>
-            •{" "}
-            <Text style={[styles.bold, { color: colors.text }]}>
-              {t("whoop")}:
-            </Text>{" "}
-            {t("whoop_desc")}
-          </Text>
-          <Text style={[styles.helpText, { color: colors.muted }]}>
-            •{" "}
-            <Text style={[styles.bold, { color: colors.text }]}>
-              {t("polar")}:
-            </Text>{" "}
-            {t("polar_desc")}
-          </Text>
-          <Text style={[styles.helpText, { color: colors.muted }]}>
-            • {t("secure_data_processing")}
-          </Text>
-        </View>
-      </ScrollView>
+          {/* Empty State */}
+          {connectedDevices.length === 0 && (
+            <View style={styles.emptyState}>
+              <Ionicons name="fitness-outline" size={80} color={colors.muted} />
+              <Text style={[styles.emptyTitle, { color: colors.text }]}>
+                No Connected Devices
+              </Text>
+              <Text style={[styles.emptyText, { color: colors.subtext }]}>
+                Connect your fitness trackers and health apps to get
+                comprehensive insights into your wellness journey
+              </Text>
+            </View>
+          )}
+        </ScrollView>
+      </View>
     </ErrorBoundary>
   );
 }
@@ -833,222 +829,184 @@ export default function DevicesScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: 16,
-    paddingTop: 16,
   },
-
-  // Error handling styles
-  errorContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-  },
-  errorText: {
-    fontSize: 16,
-    color: "#F44336",
-    textAlign: "center",
-    marginBottom: 16,
-  },
-  retryButton: {
-    backgroundColor: "#007AFF",
+  header: {
+    paddingTop: 60,
     paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
+    paddingBottom: 30,
   },
-  retryButtonText: {
-    color: "white",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-
-  // Empty state styles
-  emptyState: {
-    alignItems: "center",
-    justifyContent: "center",
-    padding: 40,
-    borderRadius: 12,
-    marginBottom: 20,
-  },
-  emptyStateTitle: {
-    fontSize: 20,
-    fontWeight: "600",
-    marginTop: 16,
+  headerTitle: {
+    fontSize: 28,
+    fontWeight: "800",
+    color: "#ffffff",
     marginBottom: 8,
-    textAlign: "center",
   },
-  emptyStateText: {
+  headerSubtitle: {
     fontSize: 16,
-    textAlign: "center",
+    color: "#ffffff",
+    opacity: 0.9,
     lineHeight: 22,
   },
-
-  // Section styles
+  scrollView: {
+    flex: 1,
+    marginTop: -20,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+  },
   section: {
-    marginBottom: 24,
-    padding: 16,
-    borderRadius: 12,
+    margin: 16,
+    padding: 20,
+    borderRadius: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
   },
   sectionTitle: {
     fontSize: 20,
-    fontWeight: "600",
+    fontWeight: "700",
     marginBottom: 4,
   },
   sectionSubtitle: {
     fontSize: 14,
-    marginBottom: 16,
     lineHeight: 20,
+    marginBottom: 20,
   },
-
-  // Daily Balance styles
-  balanceCard: {
-    borderLeftWidth: 4,
-    paddingLeft: 16,
-    paddingVertical: 16,
-    borderRadius: 8,
+  syncAllButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    gap: 4,
   },
-  balanceStats: {
+  syncAllText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#ffffff",
+  },
+  balanceContainer: {
     flexDirection: "row",
     justifyContent: "space-around",
-    marginBottom: 16,
+    marginTop: 16,
   },
-  balanceStat: {
+  balanceItem: {
     alignItems: "center",
+    gap: 8,
   },
   balanceValue: {
     fontSize: 24,
-    fontWeight: "700",
-    marginBottom: 4,
+    fontWeight: "800",
   },
   balanceLabel: {
     fontSize: 12,
     fontWeight: "500",
-    textAlign: "center",
+    textTransform: "uppercase",
   },
-  balanceMessage: {
-    fontSize: 14,
-    fontStyle: "italic",
-    textAlign: "center",
-    lineHeight: 20,
-  },
-
-  // Activity data styles
   activityGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    justifyContent: "space-between",
+    gap: 12,
+    marginTop: 16,
   },
   activityCard: {
-    width: "48%",
+    flex: 1,
+    minWidth: "45%",
     alignItems: "center",
-    padding: 16,
-    borderRadius: 8,
-    marginBottom: 12,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    padding: 20,
+    borderRadius: 16,
+    gap: 8,
   },
   activityValue: {
     fontSize: 20,
     fontWeight: "700",
-    marginTop: 8,
-    marginBottom: 4,
   },
   activityLabel: {
     fontSize: 12,
     fontWeight: "500",
     textAlign: "center",
   },
-
-  // Connected device styles
   deviceCard: {
     padding: 16,
     borderRadius: 12,
     marginBottom: 12,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 3,
   },
   deviceHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "flex-start",
+    alignItems: "center",
   },
   deviceInfo: {
     flexDirection: "row",
+    alignItems: "center",
     flex: 1,
-    alignItems: "flex-start",
+    gap: 12,
+  },
+  deviceIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
   },
   deviceDetails: {
-    marginLeft: 12,
     flex: 1,
   },
   deviceName: {
     fontSize: 16,
     fontWeight: "600",
-    marginBottom: 2,
-  },
-  deviceStatus: {
-    fontSize: 14,
     marginBottom: 4,
   },
-  deviceDescription: {
-    fontSize: 12,
-    lineHeight: 16,
+  deviceStatus: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  statusDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  statusText: {
+    fontSize: 14,
   },
   deviceActions: {
     flexDirection: "row",
     gap: 8,
   },
   actionButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: "center",
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: "center",
-  },
-  syncButton: {
-    backgroundColor: "#E3F2FD",
-  },
-  disconnectButton: {
-    backgroundColor: "#FFEBEE",
+    alignItems: "center",
   },
   lastSync: {
     fontSize: 12,
-    marginTop: 8,
+    marginTop: 12,
     fontStyle: "italic",
   },
-
-  // Available device styles
   availableDeviceCard: {
     flexDirection: "row",
     alignItems: "center",
     padding: 16,
     borderRadius: 12,
     marginBottom: 12,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
+    borderWidth: 1,
+    gap: 12,
+  },
+  unavailableDevice: {
+    opacity: 0.5,
   },
   availableDeviceInfo: {
     flex: 1,
-    marginLeft: 12,
-    marginRight: 12,
   },
   availableDeviceName: {
     fontSize: 16,
@@ -1059,44 +1017,66 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 18,
   },
-  unavailableDevice: {
-    opacity: 0.6,
-  },
-  unavailableDeviceText: {
-    opacity: 0.7,
-  },
-  comingSoonText: {
+  unavailableText: {
     fontSize: 12,
-    color: "#FF9800",
+    color: "#f59e0b",
     fontWeight: "500",
     marginTop: 4,
   },
-
-  // Sync all button
-  syncAllButton: {
+  connectButton: {
+    padding: 4,
+  },
+  emptyState: {
+    alignItems: "center",
+    paddingVertical: 40,
+    paddingHorizontal: 20,
+  },
+  emptyTitle: {
+    fontSize: 24,
+    fontWeight: "700",
+    marginTop: 16,
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  emptyText: {
+    fontSize: 16,
+    textAlign: "center",
+    lineHeight: 22,
+    maxWidth: 280,
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  errorTitle: {
+    fontSize: 20,
+    fontWeight: "700",
+    marginTop: 16,
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  errorText: {
+    fontSize: 16,
+    textAlign: "center",
+    marginBottom: 24,
+    lineHeight: 22,
+  },
+  retryButton: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#007AFF",
+    paddingHorizontal: 24,
     paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    marginTop: 8,
+    borderRadius: 12,
+    gap: 8,
   },
-  syncAllButtonText: {
-    color: "white",
+  retryButtonText: {
+    color: "#ffffff",
     fontSize: 16,
     fontWeight: "600",
-    marginLeft: 8,
   },
-
-  // Help section styles
-  helpText: {
-    fontSize: 14,
-    lineHeight: 20,
-    marginBottom: 8,
-  },
-  bold: {
-    fontWeight: "600",
+  rtlText: {
+    textAlign: "right",
   },
 });

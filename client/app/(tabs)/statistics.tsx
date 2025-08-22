@@ -1039,7 +1039,66 @@ export default function StatisticsScreen() {
     const today = new Date().toISOString().split("T")[0];
     const todayData = weeklyData.find((day) => day.date === today);
 
-    return todayData ? todayData.mealsCount >= todayData.requiredMeals : false;
+    // Show warnings only if user has completed their required meals for the day
+    // This ensures users see insights only when they've provided sufficient data
+    const hasCompletedMeals = todayData
+      ? todayData.mealsCount >= todayData.requiredMeals
+      : false;
+
+    if (hasCompletedMeals) {
+      // Trigger achievement check for meal completion
+      checkMealCompletionAchievements(todayData, userQuestionnaire);
+    }
+
+    return hasCompletedMeals;
+  };
+
+  // Check for meal completion achievements
+  const checkMealCompletionAchievements = async (
+    todayData: any,
+    questionnaire: any
+  ) => {
+    if (!todayData || !questionnaire) return;
+
+    try {
+      // Check if user completed all required meals
+      if (todayData.mealsCount >= questionnaire.mealsPerDay) {
+        // Check for streak achievements
+        const weeklyData = generateWeeklyData();
+        const consecutiveDays = calculateConsecutiveMealDays(
+          weeklyData,
+          questionnaire.mealsPerDay
+        );
+
+        if (consecutiveDays >= 7) {
+          ToastService.streakAchieved(consecutiveDays);
+        }
+
+        // Check daily goal completion
+        ToastService.goalCompleted("daily meal");
+
+        // Update statistics to reflect achievement
+        await refetchNutrition();
+      }
+    } catch (error) {
+      console.error("Error checking meal achievements:", error);
+    }
+  };
+
+  // Calculate consecutive days of meeting meal goals
+  const calculateConsecutiveMealDays = (
+    weeklyData: any[],
+    requiredMeals: number
+  ): number => {
+    let consecutive = 0;
+    for (let i = weeklyData.length - 1; i >= 0; i--) {
+      if (weeklyData[i].mealsCount >= requiredMeals) {
+        consecutive++;
+      } else {
+        break;
+      }
+    }
+    return consecutive;
   };
 
   // Generate achievements from real API data

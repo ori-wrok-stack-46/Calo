@@ -1,13 +1,13 @@
 import Toast from "react-native-toast-message";
 
-export interface ToastConfig {
+interface ToastConfig {
   duration?: number;
   position?: "top" | "bottom";
   onPress?: () => void;
   onHide?: () => void;
 }
 
-export class ToastService {
+class ToastService {
   static success(title: string, message?: string, config?: ToastConfig) {
     Toast.show({
       type: "success",
@@ -124,5 +124,140 @@ export class ToastService {
     this.warning(title, message, {
       duration: 6000,
     });
+  }
+
+  // Meal-specific toasts
+  static mealAdded(mealName?: string) {
+    this.success(
+      "Meal Added Successfully",
+      mealName
+        ? `${mealName} has been logged to your diary.`
+        : "Your meal has been logged successfully.",
+      { duration: 3000 }
+    );
+  }
+
+  static mealDeleted(mealName?: string) {
+    this.success(
+      "Meal Deleted",
+      mealName
+        ? `${mealName} has been removed from your diary.`
+        : "Meal has been removed successfully.",
+      { duration: 3000 }
+    );
+  }
+
+  static mealUpdateError(error?: string) {
+    this.error(
+      "Meal Update Failed",
+      error || "Unable to update your meal. Please try again.",
+      { duration: 4000 }
+    );
+  }
+
+  // Achievement-specific toasts
+  static achievementUnlocked(title: string, xp?: number) {
+    this.success(
+      `🏆 Achievement Unlocked!`,
+      `${title}${xp ? ` (+${xp} XP)` : ""}`,
+      {
+        duration: 5000,
+        onPress: () => {
+          // Navigate to achievements or show detail
+          console.log("Achievement toast pressed");
+        },
+      }
+    );
+  }
+
+  static levelUp(newLevel: number, xp?: number) {
+    this.success(
+      `🎉 Level Up!`,
+      `Congratulations! You've reached Level ${newLevel}${
+        xp ? ` (+${xp} XP)` : ""
+      }`,
+      {
+        duration: 6000,
+        onPress: () => {
+          console.log("Level up toast pressed");
+        },
+      }
+    );
+  }
+
+  // Goal and progress toasts
+  static goalCompleted(goalName: string) {
+    this.success(
+      "🎯 Goal Completed!",
+      `Great job! You've completed your ${goalName} goal for today.`,
+      { duration: 4000 }
+    );
+  }
+
+  static streakAchieved(days: number) {
+    this.success(
+      `🔥 ${days}-Day Streak!`,
+      `Amazing! You've maintained your healthy habits for ${days} consecutive days.`,
+      { duration: 5000 }
+    );
+  }
+
+  // Questionnaire-related toasts
+  static questionnaireCompleted() {
+    this.success(
+      "Profile Complete",
+      "Your personalized nutrition plan is now ready!",
+      { duration: 4000 }
+    );
+  }
+
+  static questionnaireUpdated() {
+    this.success(
+      "Profile Updated",
+      "Your preferences have been updated. Your recommendations will be refreshed.",
+      { duration: 4000 }
+    );
+  }
+
+  // Water intake toasts
+  static waterGoalReached() {
+    this.success(
+      "💧 Hydration Goal Reached!",
+      "Excellent! You've met your daily water intake goal.",
+      { duration: 3000 }
+    );
+  }
+
+  // Sync and connection toasts
+  static deviceConnected(deviceName: string) {
+    this.success(
+      "Device Connected",
+      `${deviceName} has been successfully connected to your account.`,
+      { duration: 3000 }
+    );
+  }
+
+  static deviceDisconnected(deviceName: string) {
+    this.info(
+      "Device Disconnected",
+      `${deviceName} has been disconnected from your account.`,
+      { duration: 3000 }
+    );
+  }
+
+  static syncCompleted() {
+    this.success(
+      "Data Synced",
+      "Your health data has been successfully synchronized.",
+      { duration: 2500 }
+    );
+  }
+
+  static syncFailed() {
+    this.error(
+      "Sync Failed",
+      "Unable to sync your health data. Please check your connection and try again.",
+      { duration: 4000 }
+    );
   }
 }
