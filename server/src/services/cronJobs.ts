@@ -32,8 +32,13 @@ export class CronJobService {
     }
   }
 
-  static async createDailyGoalsForAllUsers() {
+  static async createDailyGoalsForAllUsers(): Promise<void> {
+    console.log("🧹 Initializing user cleanup jobs...");
+
     try {
+      // Test database connection first
+      await prisma.$connect();
+
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
@@ -83,6 +88,15 @@ export class CronJobService {
 
       console.log("✅ Daily goals created for all users");
     } catch (error) {
+      if (
+        error instanceof Error &&
+        error.message.includes("Can't reach database server")
+      ) {
+        console.error(
+          "❌ Database connection error during cron job. Skipping daily goals creation."
+        );
+        return;
+      }
       console.error("❌ Error creating daily goals:", error);
     }
   }

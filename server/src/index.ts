@@ -5,6 +5,8 @@ import cookieParser from "cookie-parser";
 import compression from "compression";
 import rateLimit from "express-rate-limit";
 import dotenv from "dotenv";
+import { PrismaClient } from "@prisma/client";
+import { Server } from "http"; // Add this import
 import { errorHandler } from "./middleware/errorHandler";
 import { authRoutes } from "./routes/auth";
 import { nutritionRoutes } from "./routes/nutrition";
@@ -24,8 +26,15 @@ import "./services/cron";
 import { dailyGoalsRoutes } from "./routes/dailyGoal";
 import achievementsRouter from "./routes/achievements";
 import shoppingListRoutes from "./routes/shoppingLists";
+
 // Load environment variables
 dotenv.config();
+
+// Initialize Prisma Client
+const prisma = new PrismaClient();
+
+// Declare server variable
+let server: Server;
 
 // Configuration
 const config = {
@@ -35,7 +44,11 @@ const config = {
   clientUrl: process.env.CLIENT_URL,
   openaiApiKey: process.env.OPENAI_API_KEY,
   isDevelopment: process.env.NODE_ENV !== "production",
-  serverIp: process.env.API_BASE_URL,
+  serverIp: process.env.API_BASE_URL
+    ? process.env.API_BASE_URL.replace(/\/api$/, "")
+        .split("//")[1]
+        ?.split(":")[0]
+    : "localhost", // Extract IP from API_BASE_URL or default to localhost
 };
 
 // Derived configuration
@@ -94,6 +107,7 @@ const corsOptions = {
 };
 
 app.use(cors(corsOptions));
+
 // Body parsing middleware
 app.use(cookieParser());
 app.use(
@@ -110,16 +124,32 @@ app.use(
 );
 
 // Health check endpoint
-app.get("/health", (req, res) => {
-  res.json({
-    status: "healthy",
-    timestamp: new Date().toISOString(),
-    database: "supabase-postgresql",
-    environment: config.nodeEnv,
-    version: process.env.npm_package_version || "unknown",
-    uptime: process.uptime(),
-    openai_enabled: !!config.openaiApiKey,
-  });
+app.get("/health", async (req, res) => {
+  try {
+    // Test database connection
+    await prisma.$queryRaw`SELECT 1`;
+    res.json({
+      status: "ok",
+      environment: config.nodeEnv,
+      database: "connected",
+      timestamp: new Date().toISOString(),
+      version: process.env.npm_package_version || "unknown",
+      uptime: process.uptime(),
+      openai_enabled: !!config.openaiApiKey,
+    });
+  } catch (error) {
+    log.error("Database connection check failed:", error);
+    res.status(500).json({
+      status: "error",
+      environment: config.nodeEnv,
+      database: "disconnected",
+      error: error instanceof Error ? error.message : "Unknown error",
+      timestamp: new Date().toISOString(),
+      version: process.env.npm_package_version || "unknown",
+      uptime: process.uptime(),
+      openai_enabled: !!config.openaiApiKey,
+    });
+  }
 });
 
 // Test endpoint
@@ -185,35 +215,63 @@ const logStartup = () => {
 // Graceful shutdown
 const gracefulShutdown = (signal: string) => {
   log.info(`Received ${signal}, shutting down gracefully...`);
-  server.close(() => {
-    log.info("Server closed successfully");
-    process.exit(0);
-  });
+
+  if (server) {
+    server.close(async () => {
+      log.info("Server closed successfully");
+      await prisma.$disconnect();
+      log.info("Database disconnected");
+      process.exit(0);
+    });
+  } else {
+    // If server is not initialized yet, just disconnect from database and exit
+    prisma.$disconnect().then(() => {
+      log.info("Database disconnected");
+      process.exit(0);
+    });
+  }
 };
 
 // Start server
-const server = app.listen(config.port, "0.0.0.0", () => {
-  logStartup();
-  log.rocket(`Server running on port ${config.port}`);
-  log.info(`Database: Supabase PostgreSQL`);
-  log.info(`Environment: ${config.nodeEnv}`);
-  log.info(`Access from phone: http://${config.serverIp}:${config.port}`);
-  log.success("Cookie-based authentication enabled");
-  log.info(`Test endpoint: http://${config.serverIp}:${config.port}/test`);
-  log.info(`Health check: http://${config.serverIp}:${config.port}/health`);
+async function startServer() {
+  try {
+    // Test database connection
+    await prisma.$connect();
+    log.success("Database connection successful");
 
-  if (!config.openaiApiKey) {
-    log.warn(
-      "Note: AI features are using mock data. Add OPENAI_API_KEY to enable real AI analysis."
+    // Store the server instance
+    server = app.listen(config.port, "0.0.0.0", () => {
+      logStartup();
+      log.rocket(`Server running on port ${config.port}`);
+      log.info(`Database: Supabase PostgreSQL`);
+      log.info(`Environment: ${config.nodeEnv}`);
+      log.info(`Access from phone: http://${config.serverIp}:${config.port}`);
+      log.success("Cookie-based authentication enabled");
+      log.info(`Test endpoint: http://${config.serverIp}:${config.port}/test`);
+      log.info(`Health check: http://${config.serverIp}:${config.port}/health`);
+
+      if (!config.openaiApiKey) {
+        log.warn(
+          "Note: AI features are using mock data. Add OPENAI_API_KEY to enable real AI analysis."
+        );
+      }
+      // Initialize cron jobs
+      CronJobService.initializeCronJobs();
+      UserCleanupService.initializeCleanupJobs();
+
+      // Create daily goals for existing users
+      CronJobService.createDailyGoalsForAllUsers();
+    });
+  } catch (error) {
+    log.error("❌ Database connection failed:", error);
+    log.error(
+      "Please check your DATABASE_URL in .env file and ensure the database is running."
     );
+    process.exit(1);
   }
-  // Initialize cron jobs
-  CronJobService.initializeCronJobs();
-  UserCleanupService.initializeCleanupJobs();
+}
 
-  // Create daily goals for existing users
-  CronJobService.createDailyGoalsForAllUsers();
-});
+startServer();
 
 // Handle process termination
 process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
@@ -222,12 +280,14 @@ process.on("SIGINT", () => gracefulShutdown("SIGINT"));
 // Handle uncaught exceptions
 process.on("uncaughtException", (error) => {
   log.error("Uncaught Exception:", error);
-  process.exit(1);
+  // Attempt graceful shutdown before exiting
+  gracefulShutdown("uncaughtException");
 });
 
 process.on("unhandledRejection", (reason, promise) => {
   log.error("Unhandled Rejection at:", promise, "reason:", reason);
-  process.exit(1);
+  // Attempt graceful shutdown before exiting
+  gracefulShutdown("unhandledRejection");
 });
 
 export default app;

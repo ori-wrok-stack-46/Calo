@@ -1,6 +1,7 @@
 import express, { Request, Response } from "express";
 import { PrismaClient } from "@prisma/client";
 import { authenticateToken } from "../middleware/auth";
+import { z } from "zod";
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -14,6 +15,25 @@ interface AuthenticatedUser {
 interface AuthenticatedRequest extends Request {
   user?: AuthenticatedUser;
 }
+
+// Validation schemas
+const createSchema = z.object({
+  name: z.string().min(1, "Name is required"),
+  quantity: z.number().positive("Quantity must be positive").default(1),
+  unit: z.string().default("pieces"),
+  category: z.string().default("Manual"),
+  added_from: z.string().optional(),
+  product_barcode: z.string().optional(),
+  estimated_price: z.number().optional(),
+});
+
+const updateSchema = z.object({
+  name: z.string().min(1, "Name is required").optional(),
+  quantity: z.number().positive("Quantity must be positive").optional(),
+  unit: z.string().optional(),
+  category: z.string().optional(),
+  estimated_cost: z.number().optional().nullable(),
+});
 
 // Validation helpers
 const validateShoppingItem = (item: any) => {
@@ -81,6 +101,12 @@ router.get(
           estimated_cost: item.estimated_cost,
           created_at: item.created_at,
           updated_at: item.updated_at,
+          barcode:
+            item.metadata &&
+            typeof item.metadata === "object" &&
+            "barcode" in item.metadata
+              ? item.metadata.barcode
+              : undefined,
         })),
       });
     } catch (error) {
@@ -110,37 +136,15 @@ router.post(
 
       console.log("📦 Adding shopping list item:", req.body);
 
-      const {
-        name,
-        quantity = 1,
-        unit = "pieces",
-        category = "Other",
-        added_from = "manual",
-        estimated_cost,
-      } = req.body;
-
-      // Basic validation
-      if (!name || typeof name !== "string" || name.trim().length === 0) {
-        return res.status(400).json({
-          success: false,
-          error: "Item name is required",
-        });
-      }
-
-      const itemQuantity = parseFloat(quantity) || 1;
-      if (itemQuantity <= 0) {
-        return res.status(400).json({
-          success: false,
-          error: "Quantity must be greater than 0",
-        });
-      }
+      // Validate input using zod schema
+      const validatedData = createSchema.parse(req.body);
 
       // Check for duplicate items
       const existingItem = await prisma.shoppingList.findFirst({
         where: {
           user_id: userId,
           name: {
-            equals: name.trim(),
+            equals: validatedData.name.trim(),
             mode: "insensitive",
           },
           is_purchased: false,
@@ -152,7 +156,7 @@ router.post(
         const updatedItem = await prisma.shoppingList.update({
           where: { id: existingItem.id },
           data: {
-            quantity: existingItem.quantity + itemQuantity,
+            quantity: existingItem.quantity + validatedData.quantity,
             updated_at: new Date(),
           },
         });
@@ -164,28 +168,42 @@ router.post(
         });
       }
 
-      const newItem = await prisma.shoppingList.create({
-        data: {
-          user_id: userId,
-          name: name.trim(),
-          quantity: itemQuantity,
-          unit: unit?.trim() || "pieces",
-          category: category?.trim() || "Other",
-          added_from: added_from || "manual",
-          estimated_cost: estimated_cost ? parseFloat(estimated_cost) : null,
-          is_purchased: false,
-        },
+      const createData: any = {
+        user_id: userId,
+        name: validatedData.name.trim(),
+        quantity: validatedData.quantity,
+        unit: validatedData.unit,
+        category: validatedData.category,
+        added_from: validatedData.added_from || "manual",
+        estimated_cost: validatedData.estimated_price || null,
+        is_purchased: false,
+      };
+
+      // Add metadata if barcode is provided
+      if (validatedData.product_barcode) {
+        createData.metadata = { barcode: validatedData.product_barcode };
+      }
+
+      const item = await prisma.shoppingList.create({
+        data: createData,
       });
 
-      console.log("✅ Shopping list item created:", newItem);
+      console.log("✅ Shopping list item created:", item);
 
       res.status(201).json({
         success: true,
-        data: newItem,
+        data: item,
         message: "Item added successfully",
       });
     } catch (error) {
       console.error("❌ Error adding item to shopping list:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          error: "Validation failed",
+          details: error.errors,
+        });
+      }
       res.status(500).json({
         success: false,
         error: "Failed to add item",
@@ -220,41 +238,23 @@ router.post(
 
       console.log("📦 Bulk adding shopping list items:", items.length);
 
-      const addedItems = [];
-      const updatedItems = [];
-      const errors = [];
+      const addedItems: any[] = [];
+      const updatedItems: any[] = [];
+      const errors: string[] = [];
 
       for (let i = 0; i < items.length; i++) {
-        const item = items[i];
+        const itemData = items[i];
 
         try {
-          const {
-            name,
-            quantity = 1,
-            unit = "pieces",
-            category = "Other",
-            added_from = "manual",
-            estimated_cost,
-          } = item;
-
-          // Basic validation for each item
-          if (!name || typeof name !== "string" || name.trim().length === 0) {
-            errors.push(`Item ${i + 1}: Name is required`);
-            continue;
-          }
-
-          const itemQuantity = parseFloat(quantity) || 1;
-          if (itemQuantity <= 0) {
-            errors.push(`Item ${i + 1}: Quantity must be greater than 0`);
-            continue;
-          }
+          // Validate each item
+          const validatedData = createSchema.parse(itemData);
 
           // Check for existing item
           const existingItem = await prisma.shoppingList.findFirst({
             where: {
               user_id: userId,
               name: {
-                equals: name.trim(),
+                equals: validatedData.name.trim(),
                 mode: "insensitive",
               },
               is_purchased: false,
@@ -265,35 +265,48 @@ router.post(
             const updated = await prisma.shoppingList.update({
               where: { id: existingItem.id },
               data: {
-                quantity: existingItem.quantity + itemQuantity,
+                quantity: existingItem.quantity + validatedData.quantity,
                 updated_at: new Date(),
               },
             });
             updatedItems.push(updated);
           } else {
+            const createData: any = {
+              user_id: userId,
+              name: validatedData.name.trim(),
+              quantity: validatedData.quantity,
+              unit: validatedData.unit,
+              category: validatedData.category,
+              added_from: validatedData.added_from || "manual",
+              estimated_cost: validatedData.estimated_price || null,
+              is_purchased: false,
+            };
+
+            // Add metadata if barcode is provided
+            if (validatedData.product_barcode) {
+              createData.metadata = { barcode: validatedData.product_barcode };
+            }
+
             const newItem = await prisma.shoppingList.create({
-              data: {
-                user_id: userId,
-                name: name.trim(),
-                quantity: itemQuantity,
-                unit: unit?.trim() || "pieces",
-                category: category?.trim() || "Other",
-                added_from: added_from || "manual",
-                estimated_cost: estimated_cost
-                  ? parseFloat(estimated_cost)
-                  : null,
-                is_purchased: false,
-              },
+              data: createData,
             });
             addedItems.push(newItem);
           }
         } catch (itemError) {
           console.error(`Error processing item ${i + 1}:`, itemError);
-          errors.push(
-            `Item ${i + 1}: ${
-              itemError instanceof Error ? itemError.message : "Unknown error"
-            }`
-          );
+          if (itemError instanceof z.ZodError) {
+            errors.push(
+              `Item ${i + 1}: Validation failed - ${itemError.errors
+                .map((e) => e.message)
+                .join(", ")}`
+            );
+          } else {
+            errors.push(
+              `Item ${i + 1}: ${
+                itemError instanceof Error ? itemError.message : "Unknown error"
+              }`
+            );
+          }
         }
       }
 
@@ -327,6 +340,13 @@ router.post(
       });
     } catch (error) {
       console.error("❌ Error bulk adding items:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          error: "Validation failed for bulk add request",
+          details: error.errors,
+        });
+      }
       res.status(500).json({
         success: false,
         error: "Failed to add items",
@@ -374,27 +394,32 @@ router.put(
         });
       }
 
-      const validationErrors = validateShoppingItem(req.body);
-      if (validationErrors.length > 0) {
-        return res.status(400).json({
-          success: false,
-          error: "Validation failed",
-          details: validationErrors,
-        });
-      }
-
-      const { name, quantity, unit, category, estimated_cost } = req.body;
+      // Validate input using zod schema
+      const validatedData = updateSchema.parse(req.body);
 
       const updateData: any = { updated_at: new Date() };
 
-      if (name !== undefined) updateData.name = name.trim();
-      if (quantity !== undefined) updateData.quantity = parseFloat(quantity);
-      if (unit !== undefined) updateData.unit = unit.trim();
-      if (category !== undefined) updateData.category = category.trim();
-      if (estimated_cost !== undefined)
-        updateData.estimated_cost = estimated_cost
-          ? parseFloat(estimated_cost)
-          : null;
+      if (validatedData.name !== undefined)
+        updateData.name = validatedData.name.trim();
+      if (validatedData.quantity !== undefined)
+        updateData.quantity = validatedData.quantity;
+      if (validatedData.unit !== undefined)
+        updateData.unit = validatedData.unit.trim();
+      if (validatedData.category !== undefined)
+        updateData.category = validatedData.category.trim();
+      if (validatedData.estimated_cost !== undefined)
+        updateData.estimated_cost = validatedData.estimated_cost;
+
+      // Handle potential metadata updates if provided, e.g., barcode
+      if (req.body.metadata?.barcode !== undefined) {
+        updateData.metadata = {
+          ...existingItem.metadata,
+          barcode: req.body.metadata.barcode,
+        };
+      } else if (req.body.metadata === null) {
+        // Allow clearing metadata if needed
+        updateData.metadata = null;
+      }
 
       const updatedItem = await prisma.shoppingList.update({
         where: { id: itemId },
@@ -408,6 +433,13 @@ router.put(
       });
     } catch (error) {
       console.error("Error updating shopping list item:", error);
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          error: "Validation failed",
+          details: error.errors,
+        });
+      }
       res.status(500).json({
         success: false,
         error: "Failed to update item",

@@ -420,6 +420,7 @@ model ShoppingList {
   is_purchased   Boolean  @default(false)
   added_from     String?  @default("manual") // 'menu', 'scanner', 'manual'
   estimated_cost Float?
+  metadata       Json? // For storing additional data like barcode, etc.
   created_at     DateTime @default(now())
   updated_at     DateTime @updatedAt
 
