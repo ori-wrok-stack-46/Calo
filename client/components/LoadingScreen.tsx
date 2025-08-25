@@ -136,7 +136,7 @@ const icons = [LeafIcon, SeedlingIcon, TreeIcon, FlowerIcon];
 export default function LoadingScreen({
   text = "Loading...",
   size = "large",
-  appName = "GreenApp",
+  appName = "Calo",
 }: LoadingScreenProps) {
   const { colors, isDark } = useTheme();
   const fadeAnim = React.useRef(new Animated.Value(0)).current;

@@ -76,7 +76,9 @@ import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import { useSelector } from "react-redux";
 import { RootState } from "@/src/store";
-import { ToastService } from "@/src/services/totastService"; // Assuming ToastService is available
+import { ToastService } from "@/src/services/totastService";
+import ButtonLoader from "@/components/ButtonLoader";
+import CardLoader from "@/components/CardLoader";
 import { useQuery } from "@tanstack/react-query";
 
 const { width, height } = Dimensions.get("window");
@@ -962,31 +964,31 @@ export default function StatisticsScreen() {
       // Handle different calculation logic for limited vs target nutrients
       if (metric.maxTarget) {
         // For nutrients that should be limited (sodium, sugar)
-        if (metric.target === 0) {
+        if (metric.value === 0) {
           percentage = 0;
           status = "excellent";
-        } else if (metric.value === 0) {
+        } else if (metric.target === 0) {
           percentage = 0;
           status = "excellent";
         } else {
-          // Calculate percentage of limit used
+          // Calculate percentage of limit used - cap at 100% for display
           percentage = Math.min((metric.value / metric.target) * 100, 100);
 
-          if (metric.value <= metric.target * 0.5) status = "excellent";
-          else if (metric.value <= metric.target * 0.8) status = "good";
-          else if (metric.value <= metric.target) status = "warning";
+          if (metric.value <= metric.target * 0.3) status = "excellent";
+          else if (metric.value <= metric.target * 0.6) status = "good";
+          else if (metric.value <= metric.target * 0.8) status = "warning";
           else status = "danger";
         }
       } else {
         // For nutrients with minimum targets (protein, fiber, etc.)
-        if (metric.target === 0) {
-          percentage = 0;
-          status = "excellent";
-        } else if (metric.value === 0) {
+        if (metric.value === 0) {
           percentage = 0;
           status = "danger";
+        } else if (metric.target === 0) {
+          percentage = 100;
+          status = "excellent";
         } else {
-          percentage = Math.min((metric.value / metric.target) * 100, 100);
+          percentage = (metric.value / metric.target) * 100;
 
           if (percentage >= 100) status = "excellent";
           else if (percentage >= 80) status = "good";
@@ -997,7 +999,7 @@ export default function StatisticsScreen() {
 
       return {
         ...metric,
-        percentage: Math.round(percentage),
+        percentage: Math.round(Math.max(0, percentage)),
         status,
       };
     });
@@ -1146,7 +1148,39 @@ export default function StatisticsScreen() {
     if (achievementsData?.data) {
       setAchievements(generateAchievements());
     }
-  }, [nutritionData, achievementsData, userQuestionnaire]);
+  }, [nutritionData, achievementsData, userQuestionnaire, selectedPeriod]);
+
+  // Real-time achievement checking
+  useEffect(() => {
+    if (nutritionData?.data && userQuestionnaire) {
+      checkForNewAchievements();
+    }
+  }, [nutritionData?.data?.currentStreak, nutritionData?.data?.totalDays]);
+
+  const checkForNewAchievements = async () => {
+    if (!achievements.length || !nutritionData?.data) return;
+    
+    const newlyUnlockedAchievements = achievements.filter(achievement => {
+      if (achievement.unlocked) return false;
+      
+      // Check if achievement should be unlocked based on current progress
+      const progress = achievement.progress || 0;
+      const maxProgress = achievement.maxProgress || 1;
+      
+      return progress >= maxProgress;
+    });
+
+    if (newlyUnlockedAchievements.length > 0) {
+      // Show achievement notification for the first one
+      const newAchievement = newlyUnlockedAchievements[0];
+      setNewAchievementModal({ show: true, achievement: newAchievement });
+      
+      // Refetch achievements to update the display
+      setTimeout(() => {
+        refetchAchievements();
+      }, 1000);
+    }
+  };
 
   const timeFilters: TimeFilter[] = [
     { key: "today", label: t("statistics.today") },
@@ -1511,7 +1545,7 @@ export default function StatisticsScreen() {
     <TouchableOpacity
       key={metric.id}
       style={styles.metricCard}
-      onPress={() => Alert.alert(metric.name, metric.description)}
+      onPress={() => ToastService.info(metric.name, metric.description)}
     >
       <View style={styles.metricCardContent}>
         <View style={styles.metricHeader}>
@@ -1703,47 +1737,144 @@ export default function StatisticsScreen() {
     return `nutrition_statistics_${formatDateRange(selectedPeriod)}.pdf`;
   };
 
+  const generatePDFContent = () => {
+    const filename = generatePDFFilename();
+    
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Nutrition Statistics Report</title>
+          <meta charset="utf-8">
+          <style>
+            body { font-family: Arial, sans-serif; margin: 40px; color: #333; }
+            .header { text-align: center; margin-bottom: 40px; }
+            .title { color: #16A085; font-size: 28px; margin-bottom: 10px; }
+            .subtitle { color: #64748B; font-size: 16px; }
+            .section { margin: 30px 0; }
+            .section-title { color: #0F172A; font-size: 20px; margin-bottom: 20px; border-bottom: 2px solid #16A085; padding-bottom: 10px; }
+            .metric { display: flex; justify-content: space-between; margin: 15px 0; padding: 15px; background: #F8FAFC; border-radius: 8px; }
+            .metric-name { font-weight: bold; }
+            .metric-value { color: #16A085; font-weight: bold; }
+            .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+            .stat-card { padding: 20px; background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 12px; text-align: center; }
+            .stat-value { font-size: 24px; font-weight: bold; color: #16A085; }
+            .stat-label { color: #64748B; margin-top: 8px; }
+            .footer { margin-top: 50px; text-align: center; color: #64748B; font-size: 12px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1 class="title">Nutrition Statistics Report</h1>
+            <p class="subtitle">${t("statistics.subtitle")} - ${selectedPeriod.toUpperCase()}</p>
+            <p>Generated on: ${new Date().toLocaleDateString()}</p>
+          </div>
+
+          <div class="section">
+            <h2 class="section-title">${t("statistics.gamification")}</h2>
+            <div class="stats-grid">
+              <div class="stat-card">
+                <div class="stat-value">${gamificationStats.level}</div>
+                <div class="stat-label">${t("statistics.level")}</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value">${gamificationStats.totalPoints}</div>
+                <div class="stat-label">${t("statistics.total_points")}</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value">${gamificationStats.dailyStreak}</div>
+                <div class="stat-label">${t("statistics.daily_streak")}</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value">${gamificationStats.perfectDays}</div>
+                <div class="stat-label">${t("statistics.perfect_days")}</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="section">
+            <h2 class="section-title">${t("statistics.macronutrients")}</h2>
+            ${categorizedMetrics.macros.map(metric => `
+              <div class="metric">
+                <span class="metric-name">${metric.name}</span>
+                <span class="metric-value">${metric.value.toFixed(1)} ${metric.unit} (${metric.percentage}%)</span>
+              </div>
+            `).join('')}
+          </div>
+
+          <div class="section">
+            <h2 class="section-title">${t("statistics.micronutrients")}</h2>
+            ${categorizedMetrics.micros.map(metric => `
+              <div class="metric">
+                <span class="metric-name">${metric.name}</span>
+                <span class="metric-value">${metric.value.toFixed(1)} ${metric.unit} (${metric.percentage}%)</span>
+              </div>
+            `).join('')}
+          </div>
+
+          <div class="section">
+            <h2 class="section-title">${t("statistics.progress_overview")}</h2>
+            <div class="stats-grid">
+              <div class="stat-card">
+                <div class="stat-value">${progressStats.successfulDays}/${progressStats.totalDays}</div>
+                <div class="stat-label">${t("statistics.successful_days")}</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value">${progressStats.averageCompletion}%</div>
+                <div class="stat-label">${t("statistics.average_completion")}</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value">${progressStats.bestStreak}</div>
+                <div class="stat-label">${t("statistics.best_streak")}</div>
+              </div>
+              <div class="stat-card">
+                <div class="stat-value">${progressStats.currentStreak}</div>
+                <div class="stat-label">${t("statistics.current_streak")}</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="footer">
+            <p>This report was generated from your nutrition tracking data.</p>
+            <p>Generated by CALO - Your Personal Nutrition Assistant</p>
+          </div>
+        </body>
+      </html>
+    `;
+  };
+
   const downloadPDF = async () => {
+    if (!nutritionData?.data) {
+      ToastService.error(
+        t("statistics.error_message"),
+        "No statistics data available to generate PDF."
+      );
+      return;
+    }
+
     setIsDownloading(true);
     try {
-      // Mock API call and response for demonstration purposes
-      // In a real app, replace this with your actual API call
-      console.log("Simulating PDF generation and download...");
+      const filename = generatePDFFilename();
+      const htmlContent = generatePDFContent();
 
-      // Simulate fetching data
-      const mockHtmlContent = `
-        <html>
-          <head><title>Mock PDF</title></head>
-          <body><h1>Mock PDF Content</h1><p>This is a mock PDF report.</p></body>
-        </html>
-      `;
-
-      // Simulate PDF creation using expo-print
       const { uri } = await Print.printToFileAsync({
-        html: mockHtmlContent,
+        html: htmlContent,
         base64: false,
-        fileName: generatePDFFilename(), // Use the custom filename
+        width: 612,
+        height: 792,
       });
 
       if (!uri) {
         throw new Error("Failed to create PDF file.");
       }
 
-      // Simulate sharing the PDF
-      if (
-        !(await Sharing.shareAsync(uri, {
-          mimeType: "application/pdf",
-          dialogTitle: "Share your statistics report",
-          UTI: "com.adobe.pdf",
-          filename: generatePDFFilename(), // Ensure filename is set here too for sharing
-        }))
-      ) {
-        // If sharing is cancelled or fails, still consider the download successful if URI was generated
-        ToastService.success(
-          "PDF Generated",
-          `Your ${selectedPeriod} nutrition report was generated successfully.`
-        );
-      } else {
+      const shareResult = await Sharing.shareAsync(uri, {
+        mimeType: "application/pdf",
+        dialogTitle: t("statistics.title"),
+        UTI: "com.adobe.pdf",
+      });
+
+      if (shareResult.action === Sharing.sharedAction) {
         ToastService.success(
           "PDF Downloaded",
           `Your ${selectedPeriod} nutrition report has been downloaded successfully!`
@@ -1922,12 +2053,18 @@ export default function StatisticsScreen() {
               <Text style={styles.subtitle}>{t("statistics.subtitle")}</Text>
             </View>
             <TouchableOpacity
-              style={[styles.downloadButton, { backgroundColor: "#16A085" }]}
+              style={[
+                styles.downloadButton, 
+                { 
+                  backgroundColor: isDownloading ? "#95A5A6" : "#16A085",
+                  opacity: isDownloading ? 0.7 : 1,
+                }
+              ]}
               onPress={downloadPDF}
               disabled={isDownloading}
             >
               {isDownloading ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
+                <ButtonLoader size="small" color="#FFFFFF" />
               ) : (
                 <Download size={24} color="#FFFFFF" />
               )}

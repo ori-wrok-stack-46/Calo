@@ -8,6 +8,7 @@ const tintColorDark = "#34d399"; // emerald-400 (softer for dark mode)
 
 export const Colors = {
   light: {
+    detructive: '#ef4444',
     // Core text and backgrounds
     text: "#1f2937", // gray-800 (warmer black for readability)
     background: "#ffffff", // pure white for cleanliness

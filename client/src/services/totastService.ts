@@ -7,7 +7,28 @@ interface ToastConfig {
   onHide?: () => void;
 }
 
-class ToastService {
+export class ToastService {
+  // Enhanced error handling with context
+  static handleError(error: any, context?: string, onRetry?: () => void) {
+    let title = "Error";
+    let message = "An unexpected error occurred";
+
+    if (error?.response?.data?.error) {
+      message = error.response.data.error;
+    } else if (error?.message) {
+      message = error.message;
+    }
+
+    if (context) {
+      title = `${context} Failed`;
+    }
+
+    this.error(title, message, {
+      duration: onRetry ? 6000 : 4000,
+      onPress: onRetry,
+    });
+  }
+
   static success(title: string, message?: string, config?: ToastConfig) {
     Toast.show({
       type: "success",

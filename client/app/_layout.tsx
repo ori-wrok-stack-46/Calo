@@ -32,6 +32,7 @@ import { useOptimizedAuthSelector } from "@/hooks/useOptimizedSelector";
 import { ErrorHandler } from "@/src/utils/errorHandler";
 import { useTranslation } from "react-i18next";
 import Toast from "react-native-toast-message";
+import ToastWrapper from "@/components/ToastWrapper";
 
 // Enable RTL support globally
 if (Platform.OS !== "web") {
@@ -358,7 +359,7 @@ const MainApp = React.memo(() => {
       <AppContent />
       <LanguageToolbar helpContent={helpContent} />
       {isAuthenticated && <FloatingChatButton />}
-      <Toast />
+      <ToastWrapper />
     </View>
   );
 });
