@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -6,12 +6,10 @@ import {
   ScrollView,
   TouchableOpacity,
   Dimensions,
-  Alert,
-  Modal,
-  RefreshControl,
-  ColorValue,
   ActivityIndicator,
+  RefreshControl,
   Animated,
+  Modal,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -720,15 +718,20 @@ export default function StatisticsScreen() {
 
   // Refresh handler
   const handleRefresh = useCallback(async () => {
+    if (refreshing) return; // Prevent multiple simultaneous refresh calls
+
     setRefreshing(true);
     try {
+      console.log("🔄 Manual refresh triggered for statistics");
       await Promise.all([refetchNutrition(), refetchAchievements()]);
+      ToastService.success(t("statistics.refreshed"));
     } catch (error) {
-      console.error("Error refreshing data:", error);
+      console.error("❌ Error refreshing data:", error);
+      ToastService.error(t("statistics.refreshError"));
     } finally {
       setRefreshing(false);
     }
-  }, [refetchNutrition, refetchAchievements]);
+  }, [refetchNutrition, refetchAchievements, t, refreshing]);
 
   const isLoading = isNutritionLoading || isAchievementsLoading;
 
@@ -964,12 +967,16 @@ export default function StatisticsScreen() {
       // Handle different calculation logic for limited vs target nutrients
       if (metric.maxTarget) {
         // For nutrients that should be limited (sodium, sugar)
-        if (metric.value === 0) {
+        if (metric.value === 0 && metric.target === 0) {
           percentage = 0;
           status = "excellent";
-        } else if (metric.target === 0) {
+        } else if (metric.value === 0) {
           percentage = 0;
           status = "excellent";
+        } else if (metric.target === 0 || !metric.target) {
+          // If no target is set, show actual value without percentage
+          percentage = 0;
+          status = metric.value > 0 ? "warning" : "excellent";
         } else {
           // Calculate percentage of limit used - cap at 100% for display
           percentage = Math.min((metric.value / metric.target) * 100, 100);
@@ -1157,30 +1164,32 @@ export default function StatisticsScreen() {
     }
   }, [nutritionData?.data?.currentStreak, nutritionData?.data?.totalDays]);
 
-  const checkForNewAchievements = async () => {
-    if (!achievements.length || !nutritionData?.data) return;
-    
-    const newlyUnlockedAchievements = achievements.filter(achievement => {
+  const newlyUnlockedAchievements = useMemo(() => {
+    if (!achievements.length || !nutritionData?.data) return [];
+
+    return achievements.filter((achievement) => {
       if (achievement.unlocked) return false;
-      
+
       // Check if achievement should be unlocked based on current progress
       const progress = achievement.progress || 0;
       const maxProgress = achievement.maxProgress || 1;
-      
+
       return progress >= maxProgress;
     });
+  }, [achievements, nutritionData?.data]);
 
+  const checkForNewAchievements = useCallback(async () => {
     if (newlyUnlockedAchievements.length > 0) {
       // Show achievement notification for the first one
       const newAchievement = newlyUnlockedAchievements[0];
       setNewAchievementModal({ show: true, achievement: newAchievement });
-      
+
       // Refetch achievements to update the display
       setTimeout(() => {
         refetchAchievements();
       }, 1000);
     }
-  };
+  }, [newlyUnlockedAchievements, refetchAchievements]);
 
   const timeFilters: TimeFilter[] = [
     { key: "today", label: t("statistics.today") },
@@ -1532,18 +1541,26 @@ export default function StatisticsScreen() {
     };
   };
 
-  const categorizedMetrics = {
-    macros: metrics.filter((m) => m.category === "macros"),
-    micros: metrics.filter((m) => m.category === "micros"),
-    lifestyle: metrics.filter((m) => m.category === "lifestyle"),
-  };
+  const categorizedMetrics = useMemo(
+    () => ({
+      macros: metrics.filter((m) => m.category === "macros"),
+      micros: metrics.filter((m) => m.category === "micros"),
+      lifestyle: metrics.filter((m) => m.category === "lifestyle"),
+    }),
+    [metrics]
+  );
 
-  const progressStats = calculateProgressStats();
-  const gamificationStats = calculateGamificationStats();
+  const progressStats = useMemo(
+    () => calculateProgressStats(),
+    [nutritionData?.data]
+  );
+  const gamificationStats = useMemo(
+    () => calculateGamificationStats(),
+    [nutritionData?.data]
+  );
 
-  const renderMetricCard = (metric: NutritionMetric) => (
+  const MetricCard = React.memo(({ metric }: { metric: NutritionMetric }) => (
     <TouchableOpacity
-      key={metric.id}
       style={styles.metricCard}
       onPress={() => ToastService.info(metric.name, metric.description)}
     >
@@ -1618,9 +1635,14 @@ export default function StatisticsScreen() {
         )}
       </View>
     </TouchableOpacity>
+  ));
+
+  const renderMetricCard = useCallback(
+    (metric: NutritionMetric) => <MetricCard key={metric.id} metric={metric} />,
+    []
   );
 
-  const alerts = getAlertsData();
+  const alerts = useMemo(() => getAlertsData(), [metrics, shouldShowWarnings]);
 
   // Loading state
   if (isLoading) {
@@ -1701,7 +1723,7 @@ export default function StatisticsScreen() {
   };
 
   // PDF generation function
-  const generatePDFFilename = () => {
+  const generatePDFFilename = useCallback(() => {
     const now = new Date();
     const formatDate = (date: Date) => {
       return date
@@ -1734,12 +1756,13 @@ export default function StatisticsScreen() {
       }
     };
 
-    return `nutrition_statistics_${formatDateRange(selectedPeriod)}.pdf`;
-  };
+    const fileName = `CALO_Nutrition_Report_${formatDateRange(selectedPeriod)}`;
+    return fileName;
+  }, [selectedPeriod]);
 
   const generatePDFContent = () => {
     const filename = generatePDFFilename();
-    
+
     return `
       <!DOCTYPE html>
       <html>
@@ -1766,7 +1789,9 @@ export default function StatisticsScreen() {
         <body>
           <div class="header">
             <h1 class="title">Nutrition Statistics Report</h1>
-            <p class="subtitle">${t("statistics.subtitle")} - ${selectedPeriod.toUpperCase()}</p>
+            <p class="subtitle">${t(
+              "statistics.subtitle"
+            )} - ${selectedPeriod.toUpperCase()}</p>
             <p>Generated on: ${new Date().toLocaleDateString()}</p>
           </div>
 
@@ -1794,34 +1819,52 @@ export default function StatisticsScreen() {
 
           <div class="section">
             <h2 class="section-title">${t("statistics.macronutrients")}</h2>
-            ${categorizedMetrics.macros.map(metric => `
+            ${categorizedMetrics.macros
+              .map(
+                (metric) => `
               <div class="metric">
                 <span class="metric-name">${metric.name}</span>
-                <span class="metric-value">${metric.value.toFixed(1)} ${metric.unit} (${metric.percentage}%)</span>
+                <span class="metric-value">${metric.value.toFixed(1)} ${
+                  metric.unit
+                } (${metric.percentage}%)</span>
               </div>
-            `).join('')}
+            `
+              )
+              .join("")}
           </div>
 
           <div class="section">
             <h2 class="section-title">${t("statistics.micronutrients")}</h2>
-            ${categorizedMetrics.micros.map(metric => `
+            ${categorizedMetrics.micros
+              .map(
+                (metric) => `
               <div class="metric">
                 <span class="metric-name">${metric.name}</span>
-                <span class="metric-value">${metric.value.toFixed(1)} ${metric.unit} (${metric.percentage}%)</span>
+                <span class="metric-value">${metric.value.toFixed(1)} ${
+                  metric.unit
+                } (${metric.percentage}%)</span>
               </div>
-            `).join('')}
+            `
+              )
+              .join("")}
           </div>
 
           <div class="section">
             <h2 class="section-title">${t("statistics.progress_overview")}</h2>
             <div class="stats-grid">
               <div class="stat-card">
-                <div class="stat-value">${progressStats.successfulDays}/${progressStats.totalDays}</div>
+                <div class="stat-value">${progressStats.successfulDays}/${
+      progressStats.totalDays
+    }</div>
                 <div class="stat-label">${t("statistics.successful_days")}</div>
               </div>
               <div class="stat-card">
-                <div class="stat-value">${progressStats.averageCompletion}%</div>
-                <div class="stat-label">${t("statistics.average_completion")}</div>
+                <div class="stat-value">${
+                  progressStats.averageCompletion
+                }%</div>
+                <div class="stat-label">${t(
+                  "statistics.average_completion"
+                )}</div>
               </div>
               <div class="stat-card">
                 <div class="stat-value">${progressStats.bestStreak}</div>
@@ -2054,11 +2097,11 @@ export default function StatisticsScreen() {
             </View>
             <TouchableOpacity
               style={[
-                styles.downloadButton, 
-                { 
+                styles.downloadButton,
+                {
                   backgroundColor: isDownloading ? "#95A5A6" : "#16A085",
                   opacity: isDownloading ? 0.7 : 1,
-                }
+                },
               ]}
               onPress={downloadPDF}
               disabled={isDownloading}

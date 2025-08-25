@@ -200,15 +200,18 @@ export default function FloatingChatButton() {
       <Modal
         visible={showChat}
         animationType="slide"
-        presentationStyle="pageSheet"
+        presentationStyle="fullScreen"
         onRequestClose={handleClose}
-        statusBarTranslucent={false}
+        statusBarTranslucent={true}
       >
-        <SafeAreaView style={styles.modalContainer}>
-          <StatusBar 
-            barStyle="dark-content" 
-            backgroundColor="#FFFFFF" 
-            translucent={false}
+        <SafeAreaView
+          style={styles.modalContainer}
+          edges={["top", "left", "right"]}
+        >
+          <StatusBar
+            barStyle="dark-content"
+            backgroundColor="transparent"
+            translucent={true}
           />
 
           {/* Header */}
@@ -223,15 +226,17 @@ export default function FloatingChatButton() {
 
             <View style={styles.headerTitle}>
               <View style={styles.headerIconContainer}>
-                <MessageCircle size={22} color={COLORS.emerald} strokeWidth={2.5} />
+                <MessageCircle
+                  size={22}
+                  color={COLORS.emerald}
+                  strokeWidth={2.5}
+                />
               </View>
-              <Text style={styles.headerTitleText}>
-                AI Chat
-              </Text>
+              <Text style={styles.headerTitleText}>AI Chat</Text>
             </View>
 
-            <TouchableOpacity 
-              onPress={handleClose} 
+            <TouchableOpacity
+              onPress={handleClose}
               style={styles.headerButton}
               activeOpacity={0.7}
             >
@@ -277,7 +282,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 20,
     backgroundColor: COLORS.white,
     borderBottomWidth: 1,
     borderBottomColor: "#E2E8F0",
@@ -286,7 +291,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
-    minHeight: 64,
+    minHeight: 80,
   },
   headerButton: {
     width: 44,

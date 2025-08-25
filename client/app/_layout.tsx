@@ -15,7 +15,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ThemeProvider } from "@/src/context/ThemeContext";
 import { useRouter, useSegments } from "expo-router";
 import { useEffect, useMemo, useRef } from "react";
-import { queryClient } from "@/src/providers/QueryProvider";
+import { queryClient } from "@/src/services/queryClient";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import "@/src/i18n"; // Initialize i18n
 import { LanguageProvider } from "@/src/i18n/context/LanguageContext";
@@ -336,9 +336,12 @@ const AppContent = React.memo(() => {
   useEffect(() => {
     if (loaded) {
       SplashScreen.hideAsync();
-      NotificationService.requestPermissions().catch((error) => {
-        console.warn("Failed to request notification permissions:", error);
-      });
+      // Only initialize notifications in production builds to avoid Expo Go warnings
+      if (!__DEV__) {
+        NotificationService.requestPermissions().catch((error) => {
+          console.warn("Failed to request notification permissions:", error);
+        });
+      }
     }
   }, [loaded]);
 
@@ -366,9 +369,9 @@ const MainApp = React.memo(() => {
 
 export default function RootLayout() {
   return (
-    <I18nextProvider i18n={i18n}>
-      <GestureHandlerRootView style={styles.root}>
-        <SafeAreaProvider>
+    <SafeAreaProvider>
+      <I18nextProvider i18n={i18n}>
+        <GestureHandlerRootView style={styles.root}>
           <Provider store={store}>
             <QueryClientProvider client={queryClient}>
               <PersistGate loading={<LoadingScreen />} persistor={persistor}>
@@ -381,9 +384,9 @@ export default function RootLayout() {
               </PersistGate>
             </QueryClientProvider>
           </Provider>
-        </SafeAreaProvider>
-      </GestureHandlerRootView>
-    </I18nextProvider>
+        </GestureHandlerRootView>
+      </I18nextProvider>
+    </SafeAreaProvider>
   );
 }
 

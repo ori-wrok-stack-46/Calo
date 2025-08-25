@@ -4,6 +4,7 @@ import {
   useQueryClient,
   useInfiniteQuery,
 } from "@tanstack/react-query";
+import { useMemo, useEffect, useCallback, useRef } from "react";
 import {
   nutritionAPI,
   authAPI,
@@ -13,6 +14,15 @@ import {
 } from "@/src/services/api";
 import { MealAnalysisData, Meal } from "@/src/types";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import {
+  requestDeduplicator,
+  createRequestKey,
+} from "@/src/utils/requestDeduplication";
+
+const STALE_TIME = 5 * 60 * 1000; // 5 minutes
+const CACHE_TIME = 10 * 60 * 1000; // 10 minutes
+const RETRY_DELAY = 1000; // 1 second
+const THROTTLE_DELAY = 1000; // 1 second between requests
 
 // Centralized query keys
 export const queryKeys = {
@@ -389,66 +399,83 @@ export const useStatistics = (
   startDate?: string,
   endDate?: string
 ) => {
-  const fallbackResult = {
-    data: { success: false, data: null },
-    isLoading: false,
-    error: null,
-    refetch: () => Promise.resolve(),
-    isError: false,
-    isSuccess: false,
-  };
+  // Calculate dates once and memoize them
+  const { calculatedStart, calculatedEnd } = useMemo(() => {
+    if (timeRange === "custom" && startDate && endDate) {
+      return { calculatedStart: startDate, calculatedEnd: endDate };
+    }
 
-  try {
-    const result = useQuery({
-      queryKey: queryKeys.statistics(timeRange, startDate, endDate),
-      queryFn: async () => {
-        try {
-          if (timeRange === "custom" && startDate && endDate) {
-            return await nutritionAPI.getRangeStatistics(startDate, endDate);
-          }
-          // For other time ranges, calculate dates
-          const today = new Date();
-          let start: string;
-          let end: string = today.toISOString().split("T")[0];
+    const today = new Date();
+    let start: string;
+    const end: string = today.toISOString().split("T")[0];
 
-          switch (timeRange) {
-            case "today":
-              start = end;
-              break;
-            case "week":
-              const weekAgo = new Date(today);
-              weekAgo.setDate(today.getDate() - 7);
-              start = weekAgo.toISOString().split("T")[0];
-              break;
-            case "month":
-              const monthAgo = new Date(today);
-              monthAgo.setDate(today.getDate() - 30);
-              start = monthAgo.toISOString().split("T")[0];
-              break;
-            default:
-              start = end;
-          }
+    switch (timeRange) {
+      case "today":
+        start = end;
+        break;
+      case "week":
+        const weekAgo = new Date(today);
+        weekAgo.setDate(today.getDate() - 7);
+        start = weekAgo.toISOString().split("T")[0];
+        break;
+      case "month":
+        const monthAgo = new Date(today);
+        monthAgo.setDate(today.getDate() - 30);
+        start = monthAgo.toISOString().split("T")[0];
+        break;
+      default:
+        start = end;
+    }
 
-          return await nutritionAPI.getRangeStatistics(start, end);
-        } catch (error: any) {
-          console.error("Error in useStatistics queryFn:", error);
-          throw new Error(error?.message || "Failed to fetch statistics");
+    return { calculatedStart: start, calculatedEnd: end };
+  }, [timeRange, startDate, endDate]);
+
+  // Create stable query key to prevent unnecessary refetches
+  const queryKey = useMemo(
+    () => queryKeys.statistics(timeRange, calculatedStart, calculatedEnd),
+    [timeRange, calculatedStart, calculatedEnd]
+  );
+
+  return useQuery({
+    queryKey,
+    queryFn: async () => {
+      const requestKey = createRequestKey("GET", `/api/statistics`, {
+        period: timeRange,
+        start: calculatedStart,
+        end: calculatedEnd,
+      });
+
+      return await requestDeduplicator.deduplicate(
+        requestKey,
+        async () => {
+          console.log(
+            `📊 Fetching statistics for ${timeRange} (${calculatedStart} to ${calculatedEnd})`
+          );
+          const result = await nutritionAPI.getRangeStatistics(
+            calculatedStart,
+            calculatedEnd
+          );
+          console.log(`✅ Statistics fetched successfully for ${timeRange}`);
+          return result;
+        },
+        {
+          maxRetries: 1,
+          retryDelay: 2000,
+          throttle: true,
         }
-      },
-      staleTime: 5 * 60 * 1000,
-      gcTime: 10 * 60 * 1000,
-      retry: 3,
-      retryDelay: 1000,
-      // Ensure we always have a valid structure
-      select: (data) => data || { success: false, data: null },
-    });
-
-    // Return the result if it exists, otherwise return fallback
-    return result || fallbackResult;
-  } catch (error) {
-    console.error("Error in useStatistics hook:", error);
-    return fallbackResult;
-  }
+      );
+    },
+    staleTime: 15 * 60 * 1000, // 15 minutes
+    gcTime: 60 * 60 * 1000, // 1 hour
+    retry: 1,
+    retryDelay: 2000,
+    refetchOnWindowFocus: false,
+    refetchOnMount: true,
+    refetchInterval: false,
+    refetchOnReconnect: false,
+    enabled: Boolean(timeRange && calculatedStart && calculatedEnd),
+    select: (data: any) => data || { success: false, data: null },
+  });
 };
 
 // User profile query

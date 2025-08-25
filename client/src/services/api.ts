@@ -547,19 +547,24 @@ export const nutritionAPI = {
 
   async getRangeStatistics(startDate: string, endDate: string): Promise<any> {
     try {
-      console.log("📊 Fetching range statistics:", { startDate, endDate });
-
-      const response = await api.get("/nutrition/stats/range", {
-        params: { startDate, endDate },
+      const { requestDeduplicator, createRequestKey } = await import(
+        "@/src/utils/requestDeduplication"
+      );
+      const requestKey = createRequestKey("GET", "/nutrition/stats/range", {
+        startDate,
+        endDate,
       });
 
-      if (response.data.success) {
-        console.log("✅ Range statistics fetched successfully");
+      return requestDeduplicator.deduplicate(requestKey, async () => {
+        console.log(
+          `📊 Making statistics API call: ${startDate} to ${endDate}`
+        );
+        const response = await api.get("/nutrition/stats/range", {
+          params: { startDate, endDate },
+        });
         return response.data;
-      }
-
-      throw new APIError(response.data.error || "Failed to fetch statistics");
-    } catch (error) {
+      });
+    } catch (error: any) {
       console.error("💥 Range statistics error:", error);
       if (error instanceof APIError) throw error;
       throw new APIError(

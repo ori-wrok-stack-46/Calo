@@ -54,9 +54,9 @@ import { useLanguage } from "@/src/i18n/context/LanguageContext";
 import { api } from "@/src/services/api";
 import { Ionicons } from "@expo/vector-icons";
 import LoadingScreen from "@/components/LoadingScreen";
-import ElementLoader from '@/components/ElementLoader';
-import ButtonLoader from '@/components/ButtonLoader';
-import { ToastService } from '@/src/services/totastService';
+import ElementLoader from "@/components/ElementLoader";
+import ButtonLoader from "@/components/ButtonLoader";
+import { ToastService } from "@/src/services/totastService";
 
 const { width, height } = Dimensions.get("window");
 
@@ -131,7 +131,9 @@ export default function FoodScannerScreen() {
 
   // Product and analysis states
   const [scanResult, setScanResult] = useState<ScanResult | null>(null);
-  const [priceEstimate, setPriceEstimate] = useState<PriceEstimate | null>(null);
+  const [priceEstimate, setPriceEstimate] = useState<PriceEstimate | null>(
+    null
+  );
   const [showResults, setShowResults] = useState(false);
 
   // Input states
@@ -173,7 +175,7 @@ export default function FoodScannerScreen() {
     close: isRTL ? "סגור" : "Close",
     added: isRTL ? "נוסף!" : "Added!",
     g: isRTL ? "גר'" : "g",
-    ml: isRTL ? "מ\"ל" : "ml",
+    ml: isRTL ? 'מ"ל' : "ml",
     nis: isRTL ? "₪" : "₪",
     calories: isRTL ? "קלוריות" : "Calories",
     protein: isRTL ? "חלבון" : "Protein",
@@ -214,7 +216,10 @@ export default function FoodScannerScreen() {
     const { status } = await Camera.requestCameraPermissionsAsync();
     setHasPermission(status === "granted");
     if (status !== "granted") {
-      ToastService.error('Permission Required', 'Camera permission is required to scan food items');
+      ToastService.error(
+        "Permission Required",
+        "Camera permission is required to scan food items"
+      );
     }
   };
 
@@ -227,60 +232,61 @@ export default function FoodScannerScreen() {
       }
     } catch (error) {
       console.error("Error loading scan history:", error);
-      ToastService.handleError(error, 'Load Scan History');
+      ToastService.handleError(error, "Load Scan History");
     } finally {
       setIsLoadingHistory(false);
     }
   };
 
-  const estimatePrice = async (productData: ProductData): Promise<PriceEstimate | null> => {
+  const estimatePrice = async (
+    productData: ProductData
+  ): Promise<PriceEstimate | null> => {
     try {
       setLoadingText(texts.estimatingPrice);
 
-      // Create a detailed product description for OpenAI
-      const productDescription = `
-        Product: ${productData.name}
-        Brand: ${productData.brand || "Unknown"}
-        Category: ${productData.category}
-        Size/Weight: Approximately ${quantity}${isBeverage ? 'ml' : 'g'}
-        Type: ${isBeverage ? 'Beverage' : 'Food product'}
-        Ingredients: ${productData.ingredients.slice(0, 5).join(', ')}
-        Health Score: ${productData.health_score || 'N/A'}
-      `;
+      // Use a simple price estimation based on category and product name
+      // This avoids using the chat API which was causing issues
+      const basePrice = getBasePriceByCategory(productData.category);
+      const sizeMultiplier = quantity > 100 ? 1.5 : 1;
+      const estimatedPrice = Math.round(basePrice * sizeMultiplier);
 
-      // Use OpenAI to estimate price based on Israeli market
-      const response = await api.post("/chat/message", {
-        message: `Based on Israeli supermarket prices (2024), estimate the price for this product: ${productDescription}. 
-        Respond in JSON format: {
-          "estimated_price": number_in_shekels,
-          "price_range": "X-Y ₪",
-          "currency": "ILS",
-          "confidence": "high/medium/low",
-          "market_context": "brief explanation"
-        }`,
-        language: "english"
-      });
-
-      if (response.data.success) {
-        try {
-          const priceData = JSON.parse(response.data.data.response);
-          return priceData;
-        } catch (parseError) {
-          console.warn("Failed to parse price estimation");
-          ToastService.error('Price Estimation Error', 'Could not parse price data. Please try again.');
-          return null;
-        }
-      }
+      return {
+        estimated_price: estimatedPrice,
+        price_range: `${estimatedPrice - 2}-${estimatedPrice + 5} ₪`,
+        currency: "ILS",
+        confidence: "medium",
+        market_context: "Estimated based on category and size",
+      };
     } catch (error) {
       console.error("Price estimation error:", error);
-      ToastService.handleError(error, 'Price Estimation');
+      ToastService.handleError(error, "Price Estimation");
     }
     return null;
   };
 
+  const getBasePriceByCategory = (category: string): number => {
+    const lowerCategory = category.toLowerCase();
+    if (lowerCategory.includes("dairy") || lowerCategory.includes("milk"))
+      return 8;
+    if (lowerCategory.includes("meat") || lowerCategory.includes("protein"))
+      return 25;
+    if (lowerCategory.includes("vegetable") || lowerCategory.includes("fruit"))
+      return 6;
+    if (lowerCategory.includes("snack") || lowerCategory.includes("candy"))
+      return 5;
+    if (lowerCategory.includes("beverage") || lowerCategory.includes("drink"))
+      return 4;
+    if (lowerCategory.includes("bread") || lowerCategory.includes("bakery"))
+      return 7;
+    return 10; // Default price
+  };
+
   const handleBarcodeSearch = async () => {
     if (!barcodeInput.trim()) {
-      ToastService.error(texts.scanError, isRTL ? "אנא הכנס ברקוד" : "Please enter a barcode");
+      ToastService.error(
+        texts.scanError,
+        isRTL ? "אנא הכנס ברקוד" : "Please enter a barcode"
+      );
       return;
     }
 
@@ -303,11 +309,14 @@ export default function FoodScannerScreen() {
         setShowResults(true);
         await loadScanHistory(); // Refresh history
       } else {
-        ToastService.handleError(response.data.error || texts.noResults, 'Barcode Search');
+        ToastService.handleError(
+          response.data.error || texts.noResults,
+          "Barcode Search"
+        );
       }
     } catch (error) {
       console.error("Barcode scan error:", error);
-      ToastService.handleError(error, 'Barcode Search');
+      ToastService.handleError(error, "Barcode Search");
     } finally {
       setIsLoading(false);
       setLoadingText("");
@@ -337,11 +346,14 @@ export default function FoodScannerScreen() {
         setShowResults(true);
         await loadScanHistory(); // Refresh history
       } else {
-        ToastService.error(texts.scanError, isRTL ? "מוצר לא נמצא במאגר" : "Product not found");
+        ToastService.error(
+          texts.scanError,
+          isRTL ? "מוצר לא נמצא במאגר" : "Product not found"
+        );
       }
     } catch (error) {
       console.error("Barcode scan error:", error);
-      ToastService.handleError(error, 'Barcode Scan');
+      ToastService.handleError(error, "Barcode Scan");
     } finally {
       setIsLoading(false);
       setLoadingText("");
@@ -378,11 +390,16 @@ export default function FoodScannerScreen() {
             setShowResults(true);
             await loadScanHistory(); // Refresh history
           } else {
-            ToastService.error(texts.scanError, isRTL ? "לא הצלחנו לזהות את המוצר בתמונה" : "Could not identify product in image");
+            ToastService.error(
+              texts.scanError,
+              isRTL
+                ? "לא הצלחנו לזהות את המוצר בתמונה"
+                : "Could not identify product in image"
+            );
           }
         } catch (error) {
           console.error("Image scan error:", error);
-          ToastService.handleError(error, 'Image Scan');
+          ToastService.handleError(error, "Image Scan");
         } finally {
           setIsLoading(false);
           setLoadingText("");
@@ -390,7 +407,10 @@ export default function FoodScannerScreen() {
       }
     } catch (error) {
       console.error("Camera error:", error);
-      ToastService.error(texts.scanError, isRTL ? "לא הצלחנו לפתוח את המצלמה" : "Could not open camera");
+      ToastService.error(
+        texts.scanError,
+        isRTL ? "לא הצלחנו לפתוח את המצלמה" : "Could not open camera"
+      );
     }
   };
 
@@ -425,13 +445,16 @@ export default function FoodScannerScreen() {
       });
 
       if (response.data.success) {
-        ToastService.success('Shopping List Updated', `${scanResult.product.name} added to shopping list!`);
+        ToastService.success(
+          "Shopping List Updated",
+          `${scanResult.product.name} added to shopping list!`
+        );
       } else {
-        ToastService.handleError(response.data.error, 'Add to Shopping List');
+        ToastService.handleError(response.data.error, "Add to Shopping List");
       }
     } catch (error) {
       console.error("Add to shopping list error:", error);
-      ToastService.handleError(error, 'Add to Shopping List');
+      ToastService.handleError(error, "Add to Shopping List");
     } finally {
       setIsLoading(false);
     }
@@ -451,11 +474,11 @@ export default function FoodScannerScreen() {
       if (response.data.success) {
         ToastService.mealAdded(scanResult.product.name);
       } else {
-        ToastService.handleError(response.data.error, 'Log Meal');
+        ToastService.handleError(response.data.error, "Log Meal");
       }
     } catch (error) {
       console.error("Add to meal history error:", error);
-      ToastService.handleError(error, 'Log Meal');
+      ToastService.handleError(error, "Log Meal");
     } finally {
       setIsLoading(false);
     }
@@ -488,9 +511,13 @@ export default function FoodScannerScreen() {
             <View style={styles.productInfo}>
               <Text style={styles.productName}>{scanResult.product.name}</Text>
               {scanResult.product.brand && (
-                <Text style={styles.productBrand}>{scanResult.product.brand}</Text>
+                <Text style={styles.productBrand}>
+                  {scanResult.product.brand}
+                </Text>
               )}
-              <Text style={styles.productCategory}>{scanResult.product.category}</Text>
+              <Text style={styles.productCategory}>
+                {scanResult.product.category}
+              </Text>
               {scanResult.product.barcode && (
                 <Text style={styles.productBarcode}>
                   {isRTL ? "ברקוד" : "Barcode"}: {scanResult.product.barcode}
@@ -509,28 +536,41 @@ export default function FoodScannerScreen() {
             <View style={styles.nutritionQuickItem}>
               <Zap size={16} color="#E74C3C" />
               <Text style={styles.nutritionQuickValue}>
-                {Math.round((scanResult.product.nutrition_per_100g.calories * quantity) / 100)}
+                {Math.round(
+                  (scanResult.product.nutrition_per_100g.calories * quantity) /
+                    100
+                )}
               </Text>
               <Text style={styles.nutritionQuickLabel}>{texts.calories}</Text>
             </View>
             <View style={styles.nutritionQuickItem}>
               <Heart size={16} color="#9B59B6" />
               <Text style={styles.nutritionQuickValue}>
-                {Math.round((scanResult.product.nutrition_per_100g.protein * quantity) / 100)}{texts.g}
+                {Math.round(
+                  (scanResult.product.nutrition_per_100g.protein * quantity) /
+                    100
+                )}
+                {texts.g}
               </Text>
               <Text style={styles.nutritionQuickLabel}>{texts.protein}</Text>
             </View>
             <View style={styles.nutritionQuickItem}>
               <Wheat size={16} color="#F39C12" />
               <Text style={styles.nutritionQuickValue}>
-                {Math.round((scanResult.product.nutrition_per_100g.carbs * quantity) / 100)}{texts.g}
+                {Math.round(
+                  (scanResult.product.nutrition_per_100g.carbs * quantity) / 100
+                )}
+                {texts.g}
               </Text>
               <Text style={styles.nutritionQuickLabel}>{texts.carbs}</Text>
             </View>
             <View style={styles.nutritionQuickItem}>
               <Droplet size={16} color="#3498DB" />
               <Text style={styles.nutritionQuickValue}>
-                {Math.round((scanResult.product.nutrition_per_100g.fat * quantity) / 100)}{texts.g}
+                {Math.round(
+                  (scanResult.product.nutrition_per_100g.fat * quantity) / 100
+                )}
+                {texts.g}
               </Text>
               <Text style={styles.nutritionQuickLabel}>{texts.fat}</Text>
             </View>
@@ -547,7 +587,8 @@ export default function FoodScannerScreen() {
               </Text>
               <Text style={styles.priceRange}>{priceEstimate.price_range}</Text>
               <Text style={styles.priceConfidence}>
-                {isRTL ? "דרגת ביטחון" : "Confidence"}: {priceEstimate.confidence}
+                {isRTL ? "דרגת ביטחון" : "Confidence"}:{" "}
+                {priceEstimate.confidence}
               </Text>
             </View>
           )}
@@ -566,11 +607,25 @@ export default function FoodScannerScreen() {
         {/* Compatibility Score */}
         <View style={styles.compatibilityCard}>
           <View style={styles.compatibilityHeader}>
-            <Star size={20} color={getScoreColor(scanResult.user_analysis.compatibility_score)} />
+            <Star
+              size={20}
+              color={getScoreColor(
+                scanResult.user_analysis.compatibility_score
+              )}
+            />
             <Text style={styles.compatibilityTitle}>{texts.compatibility}</Text>
           </View>
           <View style={styles.scoreDisplay}>
-            <Text style={[styles.compatibilityScore, { color: getScoreColor(scanResult.user_analysis.compatibility_score) }]}>
+            <Text
+              style={[
+                styles.compatibilityScore,
+                {
+                  color: getScoreColor(
+                    scanResult.user_analysis.compatibility_score
+                  ),
+                },
+              ]}
+            >
               {scanResult.user_analysis.compatibility_score}/100
             </Text>
             <Text style={styles.healthAssessment}>
@@ -582,35 +637,52 @@ export default function FoodScannerScreen() {
         {/* Detailed Nutrition */}
         <View style={styles.nutritionDetailsCard}>
           <Text style={styles.cardTitle}>
-            {isRTL ? `ערכים תזונתיים ל-${quantity} ${isBeverage ? 'מל' : 'גרם'}` : `Nutrition per ${quantity} ${isBeverage ? 'ml' : 'g'}`}
+            {isRTL
+              ? `ערכים תזונתיים ל-${quantity} ${isBeverage ? "מל" : "גרם"}`
+              : `Nutrition per ${quantity} ${isBeverage ? "ml" : "g"}`}
           </Text>
           <View style={styles.nutritionGrid}>
-            {Object.entries(scanResult.product.nutrition_per_100g).map(([key, value]) => {
-              if (!value || value === 0) return null;
-              const multiplier = quantity / 100;
-              return (
-                <View key={key} style={styles.nutritionDetailItem}>
-                  <Text style={styles.nutritionDetailLabel}>
-                    {key === 'calories' ? texts.calories :
-                     key === 'protein' ? texts.protein :
-                     key === 'carbs' ? texts.carbs :
-                     key === 'fat' ? texts.fat :
-                     key === 'fiber' ? texts.fiber :
-                     key === 'sugar' ? texts.sugar :
-                     key === 'sodium' ? texts.sodium :
-                     key}
-                  </Text>
-                  <Text style={styles.nutritionDetailValue}>
-                    {Math.round(value * multiplier)}
-                    {key === 'calories' ? '' :
-                     key === 'sodium' ? 'mg' :
-                     key.includes('vitamin') ? 'mg' :
-                     key.includes('calcium') || key.includes('iron') || key.includes('potassium') ? 'mg' :
-                     'g'}
-                  </Text>
-                </View>
-              );
-            })}
+            {Object.entries(scanResult.product.nutrition_per_100g).map(
+              ([key, value]) => {
+                if (!value || value === 0) return null;
+                const multiplier = quantity / 100;
+                return (
+                  <View key={key} style={styles.nutritionDetailItem}>
+                    <Text style={styles.nutritionDetailLabel}>
+                      {key === "calories"
+                        ? texts.calories
+                        : key === "protein"
+                        ? texts.protein
+                        : key === "carbs"
+                        ? texts.carbs
+                        : key === "fat"
+                        ? texts.fat
+                        : key === "fiber"
+                        ? texts.fiber
+                        : key === "sugar"
+                        ? texts.sugar
+                        : key === "sodium"
+                        ? texts.sodium
+                        : key}
+                    </Text>
+                    <Text style={styles.nutritionDetailValue}>
+                      {Math.round(value * multiplier)}
+                      {key === "calories"
+                        ? ""
+                        : key === "sodium"
+                        ? "mg"
+                        : key.includes("vitamin")
+                        ? "mg"
+                        : key.includes("calcium") ||
+                          key.includes("iron") ||
+                          key.includes("potassium")
+                        ? "mg"
+                        : "g"}
+                    </Text>
+                  </View>
+                );
+              }
+            )}
           </View>
         </View>
 
@@ -655,7 +727,9 @@ export default function FoodScannerScreen() {
               </Text>
             </View>
             {scanResult.user_analysis.alerts.map((alert, index) => (
-              <Text key={index} style={styles.alertText}>{alert}</Text>
+              <Text key={index} style={styles.alertText}>
+                {alert}
+              </Text>
             ))}
           </View>
         )}
@@ -669,7 +743,9 @@ export default function FoodScannerScreen() {
               </Text>
             </View>
             {scanResult.user_analysis.recommendations.map((rec, index) => (
-              <Text key={index} style={styles.recommendationText}>{rec}</Text>
+              <Text key={index} style={styles.recommendationText}>
+                {rec}
+              </Text>
             ))}
           </View>
         )}
@@ -678,7 +754,13 @@ export default function FoodScannerScreen() {
   };
 
   if (hasPermission === null) {
-    return <LoadingScreen text={isRTL ? "מבקש הרשאות מצלמה..." : "Requesting camera permissions..."} />;
+    return (
+      <LoadingScreen
+        text={
+          isRTL ? "מבקש הרשאות מצלמה..." : "Requesting camera permissions..."
+        }
+      />
+    );
   }
 
   if (hasPermission === false) {
@@ -686,9 +768,14 @@ export default function FoodScannerScreen() {
       <View style={styles.noPermissionContainer}>
         <Ionicons name="camera" size={48} color="#666" />
         <Text style={styles.noPermissionText}>
-          {isRTL ? "נדרשת הרשאה למצלמה כדי לסרוק מוצרים" : "Camera permission required to scan products"}
+          {isRTL
+            ? "נדרשת הרשאה למצלמה כדי לסרוק מוצרים"
+            : "Camera permission required to scan products"}
         </Text>
-        <TouchableOpacity style={styles.permissionButton} onPress={getCameraPermissions}>
+        <TouchableOpacity
+          style={styles.permissionButton}
+          onPress={getCameraPermissions}
+        >
           <Text style={styles.permissionButtonText}>
             {isRTL ? "הענק הרשאה" : "Grant Permission"}
           </Text>
@@ -757,7 +844,10 @@ export default function FoodScannerScreen() {
                     ]}
                     onPress={() => setScanMode("barcode")}
                   >
-                    <QrCode size={20} color={scanMode === "barcode" ? "#fff" : "#666"} />
+                    <QrCode
+                      size={20}
+                      color={scanMode === "barcode" ? "#fff" : "#666"}
+                    />
                     <Text
                       style={[
                         styles.modeButtonText,
@@ -774,7 +864,10 @@ export default function FoodScannerScreen() {
                     ]}
                     onPress={() => setScanMode("image")}
                   >
-                    <CameraIcon size={20} color={scanMode === "image" ? "#fff" : "#666"} />
+                    <CameraIcon
+                      size={20}
+                      color={scanMode === "image" ? "#fff" : "#666"}
+                    />
                     <Text
                       style={[
                         styles.modeButtonText,
@@ -793,9 +886,14 @@ export default function FoodScannerScreen() {
                       onPress={() => setIsScanning(true)}
                       disabled={isLoading}
                     >
-                      <LinearGradient colors={["#16A085", "#1ABC9C"]} style={styles.scanButtonGradient}>
+                      <LinearGradient
+                        colors={["#16A085", "#1ABC9C"]}
+                        style={styles.scanButtonGradient}
+                      >
                         <QrCode size={32} color="#FFFFFF" />
-                        <Text style={styles.scanButtonText}>{texts.scanBarcode}</Text>
+                        <Text style={styles.scanButtonText}>
+                          {texts.scanBarcode}
+                        </Text>
                       </LinearGradient>
                     </TouchableOpacity>
 
@@ -819,7 +917,9 @@ export default function FoodScannerScreen() {
                         {isLoading ? (
                           <ActivityIndicator size="small" color="#FFFFFF" />
                         ) : (
-                          <Text style={styles.scanButtonSmallText}>{texts.scan}</Text>
+                          <Text style={styles.scanButtonSmallText}>
+                            {texts.scan}
+                          </Text>
                         )}
                       </TouchableOpacity>
                     </View>
@@ -830,9 +930,14 @@ export default function FoodScannerScreen() {
                     onPress={handleImageScan}
                     disabled={isLoading}
                   >
-                    <LinearGradient colors={["#16A085", "#1ABC9C"]} style={styles.scanButtonGradient}>
+                    <LinearGradient
+                      colors={["#16A085", "#1ABC9C"]}
+                      style={styles.scanButtonGradient}
+                    >
                       <CameraIcon size={32} color="#FFFFFF" />
-                      <Text style={styles.scanButtonText}>{texts.scanImage}</Text>
+                      <Text style={styles.scanButtonText}>
+                        {texts.scanImage}
+                      </Text>
                     </LinearGradient>
                   </TouchableOpacity>
                 )}
@@ -846,18 +951,31 @@ export default function FoodScannerScreen() {
                   style={styles.camera}
                   onBarcodeScanned={handleBarcodeScan}
                   barcodeScannerSettings={{
-                    barcodeTypes: ["ean13", "ean8", "upc_a", "code128", "code39"],
+                    barcodeTypes: [
+                      "ean13",
+                      "ean8",
+                      "upc_a",
+                      "code128",
+                      "code39",
+                    ],
                   }}
                 >
                   <View style={styles.overlay}>
                     <View style={styles.scanFrame} />
                     <Text style={styles.scanInstructions}>
-                      {isRTL ? "כוון את הברקוד למרכז המסגרת" : "Align barcode in the center of the frame"}
+                      {isRTL
+                        ? "כוון את הברקוד למרכז המסגרת"
+                        : "Align barcode in the center of the frame"}
                     </Text>
                   </View>
                 </CameraView>
-                <TouchableOpacity style={styles.cancelButton} onPress={() => setIsScanning(false)}>
-                  <Text style={styles.cancelButtonText}>{isRTL ? "ביטול" : "Cancel"}</Text>
+                <TouchableOpacity
+                  style={styles.cancelButton}
+                  onPress={() => setIsScanning(false)}
+                >
+                  <Text style={styles.cancelButtonText}>
+                    {isRTL ? "ביטול" : "Cancel"}
+                  </Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -879,11 +997,16 @@ export default function FoodScannerScreen() {
                     onChangeText={(text) => setQuantity(parseInt(text) || 1)}
                     keyboardType="numeric"
                   />
-                  <Text style={styles.unitLabel}>{isBeverage ? texts.ml : texts.g}</Text>
+                  <Text style={styles.unitLabel}>
+                    {isBeverage ? texts.ml : texts.g}
+                  </Text>
                 </View>
 
                 <View style={styles.beverageToggle}>
-                  <Droplet size={16} color={isBeverage ? "#16A085" : "#7F8C8D"} />
+                  <Droplet
+                    size={16}
+                    color={isBeverage ? "#16A085" : "#7F8C8D"}
+                  />
                   <Text style={styles.beverageLabel}>{texts.isBeverage}</Text>
                   <Switch
                     value={isBeverage}
@@ -928,9 +1051,7 @@ export default function FoodScannerScreen() {
       </ScrollView>
 
       {/* Loading Overlay */}
-      {isLoading && (
-        <LoadingScreen text={loadingText || texts.scanning} />
-      )}
+      {isLoading && <LoadingScreen text={loadingText || texts.scanning} />}
 
       {/* History Modal */}
       <Modal

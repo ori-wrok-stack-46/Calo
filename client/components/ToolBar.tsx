@@ -298,15 +298,10 @@ const ToolBar: React.FC<ToolBarProps> = ({ helpContent }) => {
         transparent={true}
         animationType="fade"
         onRequestClose={handleCloseHelp}
-        statusBarTranslucent={false}
+        statusBarTranslucent={true}
         presentationStyle="overFullScreen"
       >
-        <View
-          style={[
-            styles.modalOverlay,
-            { backgroundColor: "rgba(0, 0, 0, 0.7)" },
-          ]}
-        >
+        <View style={styles.modalOverlay}>
           <TouchableOpacity
             style={StyleSheet.absoluteFillObject}
             onPress={handleCloseHelp}
@@ -314,12 +309,16 @@ const ToolBar: React.FC<ToolBarProps> = ({ helpContent }) => {
           />
 
           <View style={styles.modalContainer}>
-            <View
+            <BlurView
+              intensity={Platform.OS === "ios" ? 100 : 50}
+              tint={isDark ? "dark" : "light"}
               style={[
                 styles.modalContent,
                 {
-                  backgroundColor: isDark ? "#1F2937" : "#FFFFFF",
-                  shadowColor: "#000000",
+                  backgroundColor:
+                    (isDark ? colors.surface : colors.background) +
+                    (Platform.OS === "ios" ? "00" : "F0"),
+                  shadowColor: colors.shadow,
                   shadowOffset: { width: 0, height: 10 },
                   shadowOpacity: 0.3,
                   shadowRadius: 20,
@@ -449,7 +448,7 @@ const ToolBar: React.FC<ToolBarProps> = ({ helpContent }) => {
                   )}
                 </View>
               </ScrollView>
-            </View>
+            </BlurView>
           </View>
         </View>
       </Modal>
@@ -527,22 +526,24 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     padding: 20,
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
+    backgroundColor: "rgba(0, 0, 0, 0.8)",
   },
   modalContainer: {
     width: "100%",
     maxWidth: 420,
-    maxHeight: "85%",
+    maxHeight: "90%",
     justifyContent: "center",
     alignItems: "center",
-    zIndex: 9999,
+    zIndex: 10000,
   },
   modalContent: {
     width: "100%",
     borderRadius: 24,
     overflow: "hidden",
     maxHeight: "100%",
-    minHeight: 200,
+    minHeight: 300,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.1)",
   },
   modalHeader: {
     flexDirection: "row",
