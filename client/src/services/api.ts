@@ -561,11 +561,22 @@ export const nutritionAPI = {
         );
         const response = await api.get("/nutrition/stats/range", {
           params: { startDate, endDate },
+          timeout: 35000, // 35 second timeout
         });
         return response.data;
       });
     } catch (error: any) {
       console.error("💥 Range statistics error:", error);
+
+      if (error.code === "ECONNABORTED" || error.message?.includes("timeout")) {
+        throw new APIError(
+          "Statistics request timed out. Please try again with a shorter time period.",
+          408,
+          "TIMEOUT",
+          true
+        );
+      }
+
       if (error instanceof APIError) throw error;
       throw new APIError(
         "Network error while fetching statistics",

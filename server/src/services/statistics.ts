@@ -85,91 +85,146 @@ export class StatisticsService {
           break;
       }
 
-      // Get user's meals for the period
-      const meals = await prisma.meal.findMany({
-        where: {
-          user_id: userId,
-          created_at: {
-            gte: startDate,
-            lte: now,
-          },
-        },
-        orderBy: {
-          created_at: "desc",
-        },
-      });
-
-      // Get user data for level and XP
-      const user = await prisma.user.findUnique({
-        where: { user_id: userId },
-        select: {
-          level: true,
-          current_xp: true,
-          total_points: true,
-          current_streak: true,
-          best_streak: true,
-          total_complete_days: true,
-          ai_requests_count: true,
-        },
-      });
-
-      // Get user's daily goals
-      const dailyGoals = await prisma.dailyGoal.findMany({
-        where: {
-          user_id: userId,
-          date: {
-            gte: startDate,
-            lte: now,
-          },
-        },
-        orderBy: {
-          date: "desc",
-        },
-      });
-
-      // Get water intake data
-      const waterIntakes = await prisma.waterIntake.findMany({
-        where: {
-          user_id: userId,
-          date: {
-            gte: startDate,
-            lte: now,
-          },
-        },
-        orderBy: {
-          date: "desc",
-        },
-      });
-
-      // Calculate daily breakdown
-      const dailyBreakdown = await this.calculateDailyBreakdown(
+      // Execute all database queries in parallel for better performance
+      const [
         meals,
+        user,
         dailyGoals,
         waterIntakes,
-        startDate,
-        now
-      );
+        waterIntakeCount,
+        allAchievements,
+        userAchievements,
+      ] = await Promise.all([
+        // Meals with optimized selection
+        prisma.meal.findMany({
+          where: {
+            user_id: userId,
+            created_at: {
+              gte: startDate,
+              lte: now,
+            },
+          },
+          select: {
+            created_at: true,
+            upload_time: true,
+            calories: true,
+            protein_g: true,
+            carbs_g: true,
+            fats_g: true,
+            fiber_g: true,
+            sugar_g: true,
+            sodium_mg: true,
+            liquids_ml: true,
+          },
+          orderBy: {
+            created_at: "desc",
+          },
+        }),
 
-      // Calculate averages
-      const averages = this.calculateAverages(meals);
+        // User data
+        prisma.user.findUnique({
+          where: { user_id: userId },
+          select: {
+            level: true,
+            current_xp: true,
+            total_points: true,
+            current_streak: true,
+            best_streak: true,
+            total_complete_days: true,
+            ai_requests_count: true,
+          },
+        }),
 
-      // Get water intake count for achievements
-      const waterIntakeCount = await prisma.waterIntake.count({
-        where: {
-          user_id: userId,
-          cups_consumed: { gte: 8 },
-        },
-      });
+        // Daily goals
+        prisma.dailyGoal.findMany({
+          where: {
+            user_id: userId,
+            date: {
+              gte: startDate,
+              lte: now,
+            },
+          },
+          orderBy: {
+            date: "desc",
+          },
+        }),
 
-      // Get calorie goal completions
-      const mealDays = await prisma.meal.groupBy({
-        by: ["created_at"],
-        where: { user_id: userId },
-        _sum: { calories: true },
-        having: {
-          calories: { _sum: { gte: 1800 } },
-        },
-      });
+        // Water intakes
+        prisma.waterIntake.findMany({
+          where: {
+            user_id: userId,
+            date: {
+              gte: startDate,
+              lte: now,
+            },
+          },
+          select: {
+            date: true,
+            cups_consumed: true,
+            milliliters_consumed: true,
+          },
+          orderBy: {
+            date: "desc",
+          },
+        }),
+
+        // Water intake count for achievements
+        prisma.waterIntake.count({
+          where: {
+            user_id: userId,
+            cups_consumed: { gte: 8 },
+          },
+        }),
+
+        // All achievements (cached-friendly)
+        prisma.achievement.findMany({
+          select: {
+            id: true,
+            key: true,
+            title: true,
+            description: true,
+            category: true,
+            points_awarded: true,
+            icon: true,
+            rarity: true,
+            max_progress: true,
+          },
+          orderBy: {
+            points_awarded: "asc",
+          },
+        }),
+
+        // User achievements
+        prisma.userAchievement.findMany({
+          where: { user_id: userId },
+          select: {
+            achievement_id: true,
+            unlocked: true,
+            unlocked_date: true,
+          },
+        }),
+      ]);
+
+      // Calculate calorie goal completions efficiently with error handling
+      let mealDays: Array<{ count: number }> = [{ count: 0 }];
+      try {
+        mealDays = await prisma.$queryRaw<Array<{ count: number }>>`
+          SELECT COUNT(DISTINCT DATE(created_at)) as count
+          FROM "Meal" 
+          WHERE user_id = ${userId}
+          GROUP BY DATE(created_at)
+          HAVING SUM(calories) >= 1800
+        `;
+        if (mealDays.length === 0) {
+          mealDays = [{ count: 0 }];
+        }
+      } catch (error) {
+        console.warn(
+          "⚠️ Could not query meal days, using default value:",
+          error.message
+        );
+        mealDays = [{ count: 0 }];
+      }
 
       const userStats: UserStats = {
         currentStreak: user?.current_streak || 0,
@@ -177,26 +232,40 @@ export class StatisticsService {
         totalCompleteDays: user?.total_complete_days || 0,
         level: user?.level || 1,
         totalWaterGoals: waterIntakeCount,
-        totalCalorieGoals: mealDays.length,
+        totalCalorieGoals: mealDays[0]?.count || 0,
         totalXP: user?.total_points || 0,
         aiRequestsCount: user?.ai_requests_count || 0,
       };
 
-      // Calculate streaks and achievements
-      const streaks = await this.calculateStreaks(userId, userStats);
-
-      // Get achievements and badges
-      const achievementData = await this.getDetailedAchievements(
-        userId,
-        userStats
-      );
-
-      // Calculate wellbeing metrics
-      const wellbeingMetrics = await this.calculateWellbeingMetrics(
-        userId,
-        startDate,
-        now
-      );
+      // Calculate all metrics in parallel
+      const [
+        dailyBreakdown,
+        averages,
+        streaks,
+        achievementData,
+        wellbeingMetrics,
+      ] = await Promise.all([
+        this.calculateDailyBreakdown(
+          meals,
+          dailyGoals,
+          waterIntakes,
+          startDate,
+          now
+        ),
+        Promise.resolve(this.calculateAverages(meals)),
+        this.calculateStreaksOptimized(userId, userStats, meals, waterIntakes),
+        this.getDetailedAchievementsOptimized(
+          allAchievements,
+          userAchievements,
+          userStats
+        ),
+        this.calculateWellbeingMetricsOptimized(
+          meals,
+          waterIntakes,
+          startDate,
+          now
+        ),
+      ]);
 
       const statisticsData: StatisticsData = {
         level: user?.level || 1,
@@ -284,6 +353,241 @@ export class StatisticsService {
     } catch (error) {
       console.error("Error getting detailed achievements:", error);
       return [];
+    }
+  }
+
+  private static getDetailedAchievementsOptimized(
+    allAchievements: any[],
+    userAchievements: any[],
+    userStats: UserStats
+  ): Achievement[] {
+    try {
+      const userAchievementMap = new Map(
+        userAchievements.map((ua) => [ua.achievement_id, ua])
+      );
+
+      return allAchievements.map((achievement) => {
+        const userAchievement = userAchievementMap.get(achievement.id);
+        const currentProgress = this.calculateAchievementProgress(
+          achievement,
+          userStats
+        );
+
+        return {
+          id: achievement.id,
+          key: achievement.key,
+          title: achievement.title,
+          description: achievement.description,
+          category: achievement.category,
+          xpReward: achievement.points_awarded,
+          icon: achievement.icon || "trophy",
+          rarity: achievement.rarity,
+          progress: userAchievement?.unlocked
+            ? achievement.max_progress
+            : currentProgress,
+          maxProgress: achievement.max_progress,
+          unlocked: userAchievement?.unlocked || false,
+          unlockedDate: userAchievement?.unlocked_date?.toISOString(),
+        };
+      });
+    } catch (error) {
+      console.error("Error getting detailed achievements:", error);
+      return [];
+    }
+  }
+
+  private static async calculateStreaksOptimized(
+    userId: string,
+    userStats: UserStats,
+    meals: any[],
+    waterIntakes: any[]
+  ): Promise<{
+    currentStreak: number;
+    weeklyStreak: number;
+    perfectDays: number;
+    successfulDays: number;
+    averageCompletion: number;
+    bestStreak: number;
+  }> {
+    try {
+      // Group meals by date for efficient processing
+      const mealsByDate = new Map<string, any[]>();
+      meals.forEach((meal) => {
+        const date = meal.created_at.toISOString().split("T")[0];
+        if (!mealsByDate.has(date)) {
+          mealsByDate.set(date, []);
+        }
+        mealsByDate.get(date)!.push(meal);
+      });
+
+      let perfectDays = 0;
+      let successfulDays = 0;
+      let totalCompletion = 0;
+
+      // Calculate completion metrics efficiently
+      for (const waterRecord of waterIntakes) {
+        const date = waterRecord.date.toISOString().split("T")[0];
+        const dayMeals = mealsByDate.get(date) || [];
+
+        const cups = waterRecord.cups_consumed || 0;
+        const dailyCalories = dayMeals.reduce(
+          (sum, meal) => sum + (meal.calories || 0),
+          0
+        );
+
+        const waterCompletion = Math.min(100, (cups / 8) * 100);
+        const nutritionCompletion = Math.min(100, (dailyCalories / 1800) * 100);
+        const overallCompletion =
+          waterCompletion * 0.4 + nutritionCompletion * 0.6;
+
+        totalCompletion += overallCompletion;
+
+        if (overallCompletion >= 80) {
+          successfulDays++;
+          if (overallCompletion >= 95 && cups >= 10 && dailyCalories >= 1600) {
+            perfectDays++;
+          }
+        }
+      }
+
+      const currentStreak = userStats.currentStreak;
+      const bestStreak = userStats.bestStreak;
+      const weeklyStreak = Math.floor(currentStreak / 7);
+      const averageCompletion =
+        waterIntakes.length > 0 ? totalCompletion / waterIntakes.length : 0;
+
+      return {
+        currentStreak,
+        weeklyStreak,
+        perfectDays,
+        successfulDays,
+        averageCompletion: Math.round(averageCompletion),
+        bestStreak,
+      };
+    } catch (error) {
+      console.error("Error calculating streaks:", error);
+      return {
+        currentStreak: 0,
+        weeklyStreak: 0,
+        perfectDays: 0,
+        successfulDays: 0,
+        averageCompletion: 0,
+        bestStreak: 0,
+      };
+    }
+  }
+
+  private static calculateWellbeingMetricsOptimized(
+    meals: any[],
+    waterIntakes: any[],
+    startDate: Date,
+    endDate: Date
+  ): {
+    happyDays: number;
+    highEnergyDays: number;
+    satisfiedDays: number;
+    averageMealQuality: number;
+    perfectDays: number;
+  } {
+    try {
+      // Group by date for daily analysis
+      const dailyData = new Map<
+        string,
+        {
+          calories: number;
+          water: number;
+          mealCount: number;
+          quality: number;
+        }
+      >();
+
+      // Process meals efficiently
+      meals.forEach((meal) => {
+        const date = meal.created_at.toISOString().split("T")[0];
+        if (!dailyData.has(date)) {
+          dailyData.set(date, {
+            calories: 0,
+            water: 0,
+            mealCount: 0,
+            quality: 0,
+          });
+        }
+        const day = dailyData.get(date)!;
+        day.calories += meal.calories || 0;
+        day.mealCount += 1;
+
+        const proteinScore = Math.min(1, (meal.protein_g || 0) / 30);
+        const fiberScore = Math.min(1, (meal.fiber_g || 0) / 8);
+        const calorieScore =
+          meal.calories >= 300 && meal.calories <= 800 ? 1 : 0.5;
+        day.quality = Math.max(
+          day.quality,
+          ((proteinScore + fiberScore + calorieScore) / 3) * 5
+        );
+      });
+
+      // Process water intake efficiently
+      waterIntakes.forEach((water) => {
+        const date = water.date.toISOString().split("T")[0];
+        if (!dailyData.has(date)) {
+          dailyData.set(date, {
+            calories: 0,
+            water: 0,
+            mealCount: 0,
+            quality: 3,
+          });
+        }
+        dailyData.get(date)!.water = water.cups_consumed || 0;
+      });
+
+      let happyDays = 0;
+      let highEnergyDays = 0;
+      let satisfiedDays = 0;
+      let totalQuality = 0;
+      let qualityDays = 0;
+      let perfectDays = 0;
+
+      dailyData.forEach((day) => {
+        if (day.calories >= 1500 && day.calories <= 2200 && day.water >= 6) {
+          happyDays++;
+        }
+        if (day.calories >= 1600 && day.water >= 8 && day.mealCount >= 3) {
+          highEnergyDays++;
+        }
+        if (day.calories >= 1400 && day.mealCount >= 2) {
+          satisfiedDays++;
+        }
+        if (
+          day.calories >= 1600 &&
+          day.calories <= 2200 &&
+          day.water >= 8 &&
+          day.mealCount >= 3 &&
+          day.quality >= 4
+        ) {
+          perfectDays++;
+        }
+        if (day.quality > 0) {
+          totalQuality += day.quality;
+          qualityDays++;
+        }
+      });
+
+      return {
+        happyDays,
+        highEnergyDays,
+        satisfiedDays,
+        averageMealQuality: qualityDays > 0 ? totalQuality / qualityDays : 3,
+        perfectDays,
+      };
+    } catch (error) {
+      console.error("Error calculating wellbeing metrics:", error);
+      return {
+        happyDays: 0,
+        highEnergyDays: 0,
+        satisfiedDays: 0,
+        averageMealQuality: 3,
+        perfectDays: 0,
+      };
     }
   }
 

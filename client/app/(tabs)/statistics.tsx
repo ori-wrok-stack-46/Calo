@@ -594,6 +594,9 @@ export default function StatisticsScreen() {
   const { t } = useTranslation();
   const { language } = useLanguage();
   const isRTL = language === "he";
+  const { user, token } = useSelector((state: RootState) => state.auth);
+
+  // All useState hooks - keep them at the top and consistent
   const [selectedPeriod, setSelectedPeriod] = useState<
     "today" | "week" | "month"
   >("week");
@@ -606,7 +609,6 @@ export default function StatisticsScreen() {
   );
   const [userQuestionnaire, setUserQuestionnaire] =
     useState<UserQuestionnaire | null>(null);
-  const { user, token } = useSelector((state: RootState) => state.auth);
   const [isDownloading, setIsDownloading] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
   const [selectedAchievement, setSelectedAchievement] =
@@ -616,6 +618,9 @@ export default function StatisticsScreen() {
     show: boolean;
     achievement: Achievement | null;
   }>({ show: false, achievement: null });
+  const [metrics, setMetrics] = useState<NutritionMetric[]>([]);
+  const [weeklyData, setWeeklyData] = useState<ProgressData[]>([]);
+  const [achievements, setAchievements] = useState<Achievement[]>([]);
 
   // Fetch statistics data from API
   const fetchStatistics = async (period: "today" | "week" | "month") => {
@@ -682,21 +687,33 @@ export default function StatisticsScreen() {
     fetchStatistics(selectedPeriod);
   }, [selectedPeriod]);
 
-  // Fetch statistics data using react-query
+  // Fetch statistics data using react-query with optimized settings
   const {
     data: nutritionData,
     isLoading: isNutritionLoading,
     error: nutritionError,
     refetch: refetchNutrition,
+    isFetching: isNutritionFetching,
   } = useQuery({
-    queryKey: ["nutrition-statistics", user?.user_id],
+    queryKey: ["nutrition-statistics", user?.user_id, selectedPeriod],
     queryFn: async () => {
-      const response = await api.get(`/statistics?period=${selectedPeriod}`);
+      console.log(`🔄 Fetching statistics for period: ${selectedPeriod}`);
+      const response = await api.get(`/statistics?period=${selectedPeriod}`, {
+        timeout: 35000, // 35 second timeout
+      });
+      console.log(
+        `✅ Statistics fetched successfully for period: ${selectedPeriod}`
+      );
       return response.data;
     },
     enabled: !!user?.user_id,
-    staleTime: 5 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
+    staleTime: 10 * 60 * 1000, // 10 minutes
+    gcTime: 30 * 60 * 1000, // 30 minutes
+    retry: 2,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+    refetchOnWindowFocus: false,
+    refetchOnMount: false,
+    refetchOnReconnect: true,
   });
 
   // Fetch achievements data
@@ -1141,10 +1158,6 @@ export default function StatisticsScreen() {
       unlockedDate: achievement.unlockedDate || achievement.unlocked_date,
     }));
   };
-
-  const [metrics, setMetrics] = useState<NutritionMetric[]>([]);
-  const [weeklyData, setWeeklyData] = useState<ProgressData[]>([]);
-  const [achievements, setAchievements] = useState<Achievement[]>([]);
 
   // Update metrics and achievements when data changes
   useEffect(() => {
@@ -1644,12 +1657,31 @@ export default function StatisticsScreen() {
 
   const alerts = useMemo(() => getAlertsData(), [metrics, shouldShowWarnings]);
 
-  // Loading state
-  if (isLoading) {
+  // Loading state with progressive feedback
+  if (isLoading || (isNutritionLoading && !nutritionData)) {
     return (
-      <LoadingScreen
-        text={isRTL ? "טוען סטיסטיקות..." : "Loading your statistics..."}
-      />
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <LoadingScreen
+            text={
+              isRTL
+                ? "טוען סטיסטיקות..."
+                : isNutritionFetching
+                ? "Analyzing your nutrition data..."
+                : "Loading your statistics..."
+            }
+          />
+          {isNutritionFetching && (
+            <View style={styles.loadingDetails}>
+              <Text style={styles.loadingDetailText}>
+                {isRTL
+                  ? "זה עשוי לקחת מספר שניות..."
+                  : "This may take a few moments..."}
+              </Text>
+            </View>
+          )}
+        </View>
+      </SafeAreaView>
     );
   }
 
@@ -4126,11 +4158,21 @@ const styles = StyleSheet.create({
 
   // Added styles for achievements loading and error states
   loadingContainer: {
-    flexDirection: "row",
-    alignItems: "center",
+    flex: 1,
     justifyContent: "center",
-    paddingVertical: 20,
-    gap: 8,
+    alignItems: "center",
+    paddingHorizontal: 20,
+  },
+  loadingDetails: {
+    marginTop: 20,
+    alignItems: "center",
+  },
+  loadingDetailText: {
+    fontSize: 14,
+    color: "#64748B",
+    fontWeight: "500",
+    textAlign: "center",
+    opacity: 0.8,
   },
   loadingText: {
     fontSize: 14,

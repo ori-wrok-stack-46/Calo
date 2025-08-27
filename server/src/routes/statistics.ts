@@ -33,31 +33,37 @@ router.get(
       let statisticsPeriod: "today" | "week" | "month" | undefined;
 
       if (period === "custom") {
-        // Handle custom period - you might need start_date and end_date from query params
-        // For now, default to week or implement custom date range logic
         statisticsPeriod = "week";
-
-        // Optional: Add custom date range handling
-        // const startDate = req.query.start_date as string;
-        // const endDate = req.query.end_date as string;
-        // if (startDate && endDate) {
-        //   const statistics = await StatisticsService.getNutritionStatisticsCustom(
-        //     userId,
-        //     new Date(startDate),
-        //     new Date(endDate)
-        //   );
-        //   return res.json(statistics);
-        // }
       } else {
         statisticsPeriod = period;
       }
 
-      const statistics = await StatisticsService.getNutritionStatistics(
+      // Set a timeout for the statistics request (30 seconds)
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(
+          () => reject(new Error("Statistics request timeout")),
+          30000
+        );
+      });
+
+      const statisticsPromise = StatisticsService.getNutritionStatistics(
         userId,
         statisticsPeriod
       );
 
+      const statistics = await Promise.race([
+        statisticsPromise,
+        timeoutPromise,
+      ]);
+
       console.log(`✅ Statistics fetched successfully for user: ${userId}`);
+
+      // Add cache headers for better performance
+      res.set({
+        "Cache-Control": "public, max-age=300", // 5 minutes cache
+        ETag: `"statistics-${userId}-${statisticsPeriod}-${Date.now()}"`,
+      });
+
       res.json(statistics);
     } catch (error) {
       console.error("❌ Error fetching statistics:", error);
@@ -70,9 +76,27 @@ router.get(
         });
       }
 
+      if (error === "Statistics request timeout") {
+        return res.status(408).json({
+          error: "Request timeout",
+          message: "Statistics calculation took too long. Please try again.",
+        });
+      }
+
+      // Handle database connection/table issues
+      if (error === "P2010") {
+        return res.status(503).json({
+          error: "Database schema issue",
+          message:
+            "The database schema is not properly synchronized. Please contact support.",
+          code: error,
+        });
+      }
+
       res.status(500).json({
         error: "Failed to fetch statistics",
         message: error instanceof Error ? error.message : "Unknown error",
+        code: error || "UNKNOWN_ERROR",
       });
     }
   }
