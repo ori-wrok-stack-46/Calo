@@ -71,5 +71,29 @@ const queryClient = new QueryClient({
   },
 });
 
+// Function to clear all queries - needed for auth signout
+export const clearAllQueries = () => {
+  console.log("🗑️ Clearing all TanStack Query cache...");
+  queryClient.clear();
+  console.log("✅ TanStack Query cache cleared");
+};
+
+// Additional utility functions for cache management
+export const invalidateAllQueries = () => {
+  console.log("♻️ Invalidating all queries...");
+  return queryClient.invalidateQueries();
+};
+
+export const removeAllQueries = () => {
+  console.log("🗑️ Removing all queries...");
+  queryClient.removeQueries();
+};
+
+export const resetQueryClient = () => {
+  console.log("🔄 Resetting query client...");
+  queryClient.clear();
+  queryClient.resetQueries();
+};
+
 export { queryClient };
 export default queryClient;

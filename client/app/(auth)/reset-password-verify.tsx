@@ -18,7 +18,7 @@ import { Shield, ArrowLeft, RefreshCw } from "lucide-react-native";
 export default function ResetPasswordVerifyScreen() {
   const { t } = useTranslation();
   const { isRTL } = useLanguage();
-  const { colors, isDarkMode } = useTheme();
+  const { colors } = useTheme();
   const router = useRouter();
   const { email } = useLocalSearchParams();
 
@@ -209,7 +209,7 @@ export default function ResetPasswordVerifyScreen() {
       left: 0,
       right: 0,
       height: "35%",
-      backgroundColor: isDarkMode ? "#1f2937" : "#f0fdf4",
+      backgroundColor: "#f0fdf4",
       borderBottomLeftRadius: 30,
       borderBottomRightRadius: 30,
     },
@@ -241,9 +241,7 @@ export default function ResetPasswordVerifyScreen() {
       width: 80,
       height: 80,
       borderRadius: 40,
-      backgroundColor: isDarkMode
-        ? colors.primary + "40"
-        : colors.primary + "20",
+      backgroundColor: colors.primary + "40",
       justifyContent: "center",
       alignItems: "center",
       marginBottom: 24,
@@ -308,19 +306,19 @@ export default function ResetPasswordVerifyScreen() {
       width: 45,
       height: 55,
       borderRadius: 12,
-      backgroundColor: isDarkMode ? "#374151" : colors.surface,
+      backgroundColor: colors.surface,
       borderWidth: 2,
-      borderColor: isDarkMode ? "#4b5563" : colors.border,
+      borderColor: colors.border,
       fontSize: 24,
       fontWeight: "bold",
       color: colors.text,
       textAlign: "center",
-      shadowColor: isDarkMode ? "#000" : colors.primary,
+      shadowColor: colors.primary,
       shadowOffset: {
         width: 0,
         height: 2,
       },
-      shadowOpacity: isDarkMode ? 0.3 : 0.1,
+      shadowOpacity: 0.1,
       shadowRadius: 4,
       elevation: 2,
     },

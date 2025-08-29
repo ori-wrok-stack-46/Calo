@@ -512,7 +512,8 @@
     "insoluble_fiber": "Insoluble Fiber",
     "confidence": "Confidence",
     "no_data": "No data available",
-    "all": "All"
+    "all": "All",
+    "data_visualization": "Data Visualization"
   },
   "devices": {
     "title": "Smart Devices",

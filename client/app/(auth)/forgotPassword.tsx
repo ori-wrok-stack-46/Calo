@@ -18,7 +18,7 @@ import { Mail, ArrowLeft } from "lucide-react-native";
 export default function ForgotPasswordScreen() {
   const { t } = useTranslation();
   const { isRTL } = useLanguage();
-  const { colors, isDarkMode } = useTheme();
+  const { colors } = useTheme();
   const router = useRouter();
 
   const [email, setEmail] = useState("");
@@ -86,7 +86,7 @@ export default function ForgotPasswordScreen() {
       left: 0,
       right: 0,
       height: "35%",
-      backgroundColor: isDarkMode ? colors.surface : "#f0fdf4",
+      backgroundColor:  "#f0fdf4",
       borderBottomLeftRadius: 30,
       borderBottomRightRadius: 30,
     },

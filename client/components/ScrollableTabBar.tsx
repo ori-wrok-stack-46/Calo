@@ -48,7 +48,7 @@ const TAB_CONFIG = {
   labelFontSize: 10,
   iconSize: 22,
   cameraIconSize: 28,
-  tabHeight: 50,
+  tabHeight: 80,
   cameraSize: 60,
   barHeight: 80,
   spacing: 4,
@@ -413,8 +413,7 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 16,
-    paddingTop: 12,
+    paddingHorizontal: 12,
     height: TAB_CONFIG.barHeight,
     borderTopWidth: StyleSheet.hairlineWidth,
     ...Platform.select({

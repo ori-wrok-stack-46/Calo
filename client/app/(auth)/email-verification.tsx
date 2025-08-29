@@ -20,7 +20,7 @@ import { Mail, ArrowLeft, Shield, RefreshCw, Check } from "lucide-react-native";
 export default function EmailVerificationScreen() {
   const { t } = useTranslation();
   const { isRTL } = useLanguage();
-  const { colors, isDarkMode } = useTheme();
+  const { colors } = useTheme();
   const router = useRouter();
   const dispatch = useDispatch<AppDispatch>();
   const { email } = useLocalSearchParams();
@@ -151,7 +151,7 @@ export default function EmailVerificationScreen() {
 
   const handleResendCode = async () => {
     if (!canResend) return;
-    
+
     try {
       setResendLoading(true);
       console.log("🔄 Resending verification code...");
@@ -213,7 +213,7 @@ export default function EmailVerificationScreen() {
       left: 0,
       right: 0,
       height: "35%",
-      backgroundColor: isDarkMode ? colors.surface : "#f0fdf4",
+      backgroundColor: "#f0fdf4",
       borderBottomLeftRadius: 30,
       borderBottomRightRadius: 30,
     },

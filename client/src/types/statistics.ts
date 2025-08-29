@@ -111,3 +111,7 @@ export interface UserQuestionnaire {
 
 export type TimePeriod = "today" | "week" | "month";
 export type ChartType = "overview" | "macros" | "trends";
+export interface TimeFilterOption {
+  key: TimePeriod;
+  label: string;
+}

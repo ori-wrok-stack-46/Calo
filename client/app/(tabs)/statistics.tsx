@@ -12,7 +12,13 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
-import { LineChart, BarChart, PieChart } from "react-native-chart-kit";
+import Svg, {
+  Circle,
+  Path,
+  Text as SvgText,
+  Line,
+  Rect,
+} from "react-native-svg";
 import {
   ChartBar as BarChart3,
   TrendingUp,
@@ -44,171 +50,531 @@ import {
   Moon,
   Dumbbell,
   Gem,
-  Dumbbell as DumbbellIcon,
   Activity,
-  ChartPie as PieChartIcon,
+  ChartPie as PieChart,
+  Download,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
 import { useLanguage } from "@/src/i18n/context/LanguageContext";
 import { api } from "@/src/services/api";
 import LoadingScreen from "@/components/LoadingScreen";
+import { StatisticsData } from "@/src/store/calendarSlice";
+import {
+  UserQuestionnaire,
+  NutritionMetric,
+  ProgressData,
+  Achievement,
+  TimeFilterOption,
+} from "@/src/types/statistics";
+import * as Print from "expo-print";
+import * as Sharing from "expo-sharing";
+import { useSelector } from "react-redux";
+import { RootState } from "@/src/store";
 
-const { width } = Dimensions.get("window");
-const chartWidth = width - 40;
+const { width, height } = Dimensions.get("window");
+const CHART_WIDTH = width - 40;
+const CHART_HEIGHT = 200;
 
-interface NutritionMetric {
-  id: string;
-  name: string;
-  nameEn: string;
-  value: number;
-  unit: string;
-  target: number;
-  minTarget?: number;
-  maxTarget?: number;
+// Chart Types
+type ChartType = "weekly" | "macros" | "progress" | "hydration";
+
+interface ChartNavigationProps {
+  charts: { key: ChartType; title: string; available: boolean }[];
+  activeChart: ChartType;
+  onChartChange: (chart: ChartType) => void;
+}
+
+// Custom Chart Components
+const CircularProgress = ({
+  percentage,
+  size = 120,
+  strokeWidth = 12,
+  color = "#16A085",
+  backgroundColor = "#F1F5F9",
+  children,
+}: {
   percentage: number;
-  status: "excellent" | "good" | "warning" | "danger";
-  icon: React.ReactNode;
-  color: string;
-  category: "macros" | "micros" | "lifestyle" | "quality";
-  description: string;
-  recommendation?: string;
-  trend: "up" | "down" | "stable";
-  weeklyAverage: number;
-  lastWeekChange: number;
-  chartData?: number[];
-  chartLabels?: string[];
-}
+  size?: number;
+  strokeWidth?: number;
+  color?: string;
+  backgroundColor?: string;
+  children: React.ReactNode;
+}) => {
+  const radius = (size - strokeWidth) / 2;
+  const circumference = radius * 2 * Math.PI;
+  const strokeDasharray = circumference;
+  const strokeDashoffset = circumference - (percentage / 100) * circumference;
 
-interface ProgressData {
-  date: string;
-  calories: number;
-  protein: number;
-  carbs: number;
-  fats: number;
-  water: number;
-  fiber: number;
-  sugar: number;
-  sodium: number;
-  weight?: number;
-  mood?: "happy" | "neutral" | "sad";
-  energy?: "high" | "medium" | "low";
-  satiety?: "very_full" | "satisfied" | "hungry";
-  mealQuality?: number;
-  mealsCount: number;
-  requiredMeals: number;
-}
+  return (
+    <View
+      style={{
+        width: size,
+        height: size,
+        justifyContent: "center",
+        alignItems: "center",
+      }}
+    >
+      <Svg width={size} height={size}>
+        <Circle
+          stroke={backgroundColor}
+          fill="none"
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          strokeWidth={strokeWidth}
+        />
+        <Circle
+          stroke={color}
+          fill="none"
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          strokeWidth={strokeWidth}
+          strokeDasharray={strokeDasharray}
+          strokeDashoffset={strokeDashoffset}
+          strokeLinecap="round"
+          transform={`rotate(-90 ${size / 2} ${size / 2})`}
+        />
+      </Svg>
+      <View style={{ position: "absolute", alignItems: "center" }}>
+        {children}
+      </View>
+    </View>
+  );
+};
 
-interface Achievement {
-  id: string;
-  title: {
-    en: string;
-    he: string;
-  };
-  description: {
-    en: string;
-    he: string;
-  };
-  icon: string;
-  color: string;
-  progress: number;
-  maxProgress?: number;
-  unlocked: boolean;
-  category: "STREAK" | "GOAL" | "IMPROVEMENT" | "CONSISTENCY" | "MILESTONE";
-  xpReward: number;
-  rarity: "COMMON" | "RARE" | "EPIC" | "LEGENDARY";
-  unlockedDate?: string;
-}
+const ChartNavigation = ({
+  charts,
+  activeChart,
+  onChartChange,
+}: ChartNavigationProps) => {
+  return (
+    <View style={styles.chartNavigation}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        <View style={styles.chartNavButtons}>
+          {charts.map((chart) => (
+            <TouchableOpacity
+              key={chart.key}
+              style={[
+                styles.chartNavButton,
+                activeChart === chart.key && styles.chartNavButtonActive,
+                !chart.available && styles.chartNavButtonDisabled,
+              ]}
+              onPress={() => chart.available && onChartChange(chart.key)}
+              disabled={!chart.available}
+            >
+              <Text
+                style={[
+                  styles.chartNavButtonText,
+                  activeChart === chart.key && styles.chartNavButtonTextActive,
+                  !chart.available && styles.chartNavButtonTextDisabled,
+                ]}
+              >
+                {chart.title}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </ScrollView>
+    </View>
+  );
+};
 
-interface TimeFilter {
-  key: "today" | "week" | "month";
-  label: string;
-}
+const WeeklyProgressChart = ({
+  data,
+  width = CHART_WIDTH,
+  height = CHART_HEIGHT,
+}: {
+  data: ProgressData[];
+  width?: number;
+  height?: number;
+}) => {
+  if (!data || data.length === 0) {
+    return (
+      <View style={[styles.chartContainer, { height: 200 }]}>
+        <View style={styles.noChartDataContainer}>
+          <BarChart3 size={48} color="#BDC3C7" />
+          <Text style={styles.noChartDataText}>No weekly data available</Text>
+        </View>
+      </View>
+    );
+  }
 
-interface StatisticsData {
-  level: number;
-  currentXP: number;
-  totalPoints: number;
-  currentStreak: number;
-  weeklyStreak: number;
-  perfectDays: number;
-  dailyGoalDays: number;
-  totalDays: number;
-  averageCalories: number;
-  averageProtein: number;
-  averageCarbs: number;
-  averageFats: number;
-  averageFiber: number;
-  averageSugar: number;
-  averageSodium: number;
-  averageFluids: number;
-  achievements: any[];
-  badges: any[];
-  dailyBreakdown: any[];
-  successfulDays: number;
-  averageCompletion: number;
-  bestStreak: number;
-  happyDays: number;
-  highEnergyDays: number;
-  satisfiedDays: number;
-  averageMealQuality: number;
-  userGoals: {
-    dailyCalories: number;
-    dailyProtein: number;
-    dailyCarbs: number;
-    dailyFats: number;
-    dailyFiber: number;
-    dailyWater: number;
-    mealsPerDay: number;
-  };
-}
+  const maxCalories = Math.max(...data.map((d) => d.calories || 0)) || 1;
+  const padding = 40;
+  const chartWidth = width - padding * 2;
+  const chartHeight = height - padding * 2;
 
-interface UserQuestionnaire {
-  mealsPerDay: number;
-  dailyCalories: number;
-  dailyProtein: number;
-  dailyCarbs: number;
-  dailyFats: number;
-  dailyFiber: number;
-  dailyWater: number;
-}
+  const xStep = chartWidth / Math.max(data.length - 1, 1);
 
-interface ChartData {
-  labels: string[];
-  datasets: {
-    data: number[];
-    color?: (opacity?: number) => string;
-    strokeWidth?: number;
-  }[];
-}
+  const pathData = data
+    .map((item, index) => {
+      const x = padding + index * xStep;
+      const y =
+        padding +
+        chartHeight -
+        ((item.calories || 0) / maxCalories) * chartHeight;
+      return `${index === 0 ? "M" : "L"} ${x} ${y}`;
+    })
+    .join(" ");
 
-// Chart configuration
-const chartConfig = {
-  backgroundGradientFrom: "#ffffff",
-  backgroundGradientTo: "#ffffff",
-  color: (opacity = 1) => `rgba(22, 160, 133, ${opacity})`,
-  strokeWidth: 3,
-  barPercentage: 0.7,
-  fillShadowGradient: "#16A085",
-  fillShadowGradientOpacity: 0.1,
-  decimalPlaces: 0,
-  style: {
-    borderRadius: 16,
-  },
-  propsForDots: {
-    r: "4",
-    strokeWidth: "2",
-    stroke: "#16A085",
-    fill: "#ffffff",
-  },
-  propsForBackgroundLines: {
-    strokeWidth: 1,
-    stroke: "#E5E7EB",
-    strokeDasharray: "5,5",
-  },
-  propsForLabels: {
-    fontSize: 12,
-    fill: "#64748B",
-  },
+  return (
+    <View style={styles.chartContainer}>
+      <Svg width={width} height={height}>
+        {/* Grid lines */}
+        {[0, 0.25, 0.5, 0.75, 1].map((ratio, index) => {
+          const y = padding + chartHeight * ratio;
+          return (
+            <Line
+              key={`grid-${index}`}
+              x1={padding}
+              y1={y}
+              x2={width - padding}
+              y2={y}
+              stroke="#F1F5F9"
+              strokeWidth={1}
+            />
+          );
+        })}
+
+        {/* Chart line */}
+        {pathData && (
+          <Path
+            d={pathData}
+            stroke="#16A085"
+            strokeWidth={3}
+            fill="none"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        )}
+
+        {/* Data points */}
+        {data.map((item, index) => {
+          const x = padding + index * xStep;
+          const y =
+            padding +
+            chartHeight -
+            ((item.calories || 0) / maxCalories) * chartHeight;
+          return (
+            <Circle
+              key={`point-${index}`}
+              cx={x}
+              cy={y}
+              r={4}
+              fill="#16A085"
+              stroke="#FFFFFF"
+              strokeWidth={2}
+            />
+          );
+        })}
+
+        {/* Y-axis labels */}
+        {[0, 0.5, 1].map((ratio, index) => {
+          const value = Math.round(maxCalories * (1 - ratio));
+          const y = padding + chartHeight * ratio;
+          return (
+            <SvgText
+              key={`y-label-${index}`}
+              x={padding - 10}
+              y={y + 4}
+              fontSize="12"
+              fill="#64748B"
+              textAnchor="end"
+            >
+              {value}
+            </SvgText>
+          );
+        })}
+      </Svg>
+
+      {/* X-axis labels */}
+      <View style={styles.chartXLabels}>
+        {data.map((item, index) => (
+          <Text key={`x-label-${index}`} style={styles.chartXLabel}>
+            {new Date(item.date).toLocaleDateString("en", {
+              weekday: "short",
+            })}
+          </Text>
+        ))}
+      </View>
+    </View>
+  );
+};
+
+const MacronutrientChart = ({
+  metrics,
+  width = CHART_WIDTH,
+}: {
+  metrics: NutritionMetric[];
+  width?: number;
+}) => {
+  const macros = metrics.filter((m) => m.category === "macros");
+
+  if (macros.length === 0) {
+    return (
+      <View style={[styles.chartContainer, { height: 200 }]}>
+        <View style={styles.noChartDataContainer}>
+          <PieChart size={48} color="#BDC3C7" />
+          <Text style={styles.noChartDataText}>
+            No macronutrient data available
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  const total = macros.reduce((sum, macro) => sum + (macro.value || 0), 0) || 1;
+  let currentAngle = 0;
+  const radius = 80;
+  const centerX = width / 2;
+  const centerY = 120;
+
+  return (
+    <View style={styles.chartContainer}>
+      <Svg width={width} height={240}>
+        {macros.map((macro, index) => {
+          const percentage = ((macro.value || 0) / total) * 100;
+          const angle = (percentage / 100) * 360;
+          const startAngle = currentAngle;
+          const endAngle = currentAngle + angle;
+
+          const startAngleRad = (startAngle * Math.PI) / 180;
+          const endAngleRad = (endAngle * Math.PI) / 180;
+
+          const x1 = centerX + radius * Math.cos(startAngleRad);
+          const y1 = centerY + radius * Math.sin(startAngleRad);
+          const x2 = centerX + radius * Math.cos(endAngleRad);
+          const y2 = centerY + radius * Math.sin(endAngleRad);
+
+          const largeArcFlag = angle > 180 ? 1 : 0;
+
+          const pathData = [
+            `M ${centerX} ${centerY}`,
+            `L ${x1} ${y1}`,
+            `A ${radius} ${radius} 0 ${largeArcFlag} 1 ${x2} ${y2}`,
+            "Z",
+          ].join(" ");
+
+          currentAngle += angle;
+
+          return (
+            <Path
+              key={`macro-${index}`}
+              d={pathData}
+              fill={macro.color}
+              opacity={0.8}
+            />
+          );
+        })}
+      </Svg>
+
+      <View style={styles.macroLegend}>
+        {macros.map((macro, index) => (
+          <View key={`legend-${index}`} style={styles.macroLegendItem}>
+            <View
+              style={[
+                styles.macroLegendColor,
+                { backgroundColor: macro.color },
+              ]}
+            />
+            <Text style={styles.macroLegendText}>
+              {macro.nameEn}: {(macro.value || 0).toFixed(1)}g
+            </Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+};
+
+const ProgressBarChart = ({
+  metrics,
+  width = CHART_WIDTH,
+}: {
+  metrics: NutritionMetric[];
+  width?: number;
+}) => {
+  const displayMetrics = metrics.slice(0, 6);
+
+  if (displayMetrics.length === 0) {
+    return (
+      <View style={[styles.chartContainer, { height: 200 }]}>
+        <View style={styles.noChartDataContainer}>
+          <BarChart3 size={48} color="#BDC3C7" />
+          <Text style={styles.noChartDataText}>No progress data available</Text>
+        </View>
+      </View>
+    );
+  }
+
+  const barHeight = 24;
+  const barSpacing = 40;
+  const chartHeight = displayMetrics.length * barSpacing + 40;
+
+  return (
+    <View style={styles.chartContainer}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+        <Svg width={Math.max(width, 300)} height={chartHeight}>
+          {displayMetrics.map((metric, index) => {
+            const y = 20 + index * barSpacing;
+            const barWidth = Math.min(width - 120, 200);
+            const fillWidth = ((metric.percentage || 0) / 100) * barWidth;
+
+            return (
+              <React.Fragment key={`progress-bar-${index}`}>
+                {/* Background bar */}
+                <Rect
+                  x={100}
+                  y={y}
+                  width={barWidth}
+                  height={barHeight}
+                  fill="#F1F5F9"
+                  rx={12}
+                />
+
+                {/* Progress bar */}
+                <Rect
+                  x={100}
+                  y={y}
+                  width={fillWidth}
+                  height={barHeight}
+                  fill={metric.color}
+                  rx={12}
+                />
+
+                {/* Label */}
+                <SvgText
+                  x={95}
+                  y={y + barHeight / 2 + 4}
+                  fontSize="12"
+                  fill="#64748B"
+                  textAnchor="end"
+                >
+                  {(metric.nameEn || "").length > 8
+                    ? (metric.nameEn || "").substring(0, 8) + "..."
+                    : metric.nameEn}
+                </SvgText>
+
+                {/* Percentage */}
+                <SvgText
+                  x={100 + barWidth + 10}
+                  y={y + barHeight / 2 + 4}
+                  fontSize="12"
+                  fill="#0F172A"
+                  fontWeight="600"
+                >
+                  {metric.percentage || 0}%
+                </SvgText>
+              </React.Fragment>
+            );
+          })}
+        </Svg>
+      </ScrollView>
+    </View>
+  );
+};
+
+const HydrationChart = ({
+  data,
+  target,
+  width = CHART_WIDTH,
+  height = CHART_HEIGHT,
+}: {
+  data: ProgressData[];
+  target: number;
+  width?: number;
+  height?: number;
+}) => {
+  if (!data || data.length === 0) {
+    return (
+      <View style={[styles.chartContainer, { height: 200 }]}>
+        <View style={styles.noChartDataContainer}>
+          <Droplets size={48} color="#BDC3C7" />
+          <Text style={styles.noChartDataText}>
+            No hydration data available
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  const maxValue = Math.max(target, ...data.map((d) => d.water || 0)) || 1;
+  const padding = 40;
+  const chartWidth = width - padding * 2;
+  const chartHeight = height - padding * 2;
+  const barWidth = (chartWidth / data.length) * 0.8;
+
+  return (
+    <View style={styles.chartContainer}>
+      <Svg width={width} height={height}>
+        {/* Target line */}
+        <Line
+          x1={padding}
+          y1={padding + chartHeight - (target / maxValue) * chartHeight}
+          x2={width - padding}
+          y2={padding + chartHeight - (target / maxValue) * chartHeight}
+          stroke="#E67E22"
+          strokeWidth={2}
+          strokeDasharray="5,5"
+        />
+
+        {/* Bars */}
+        {data.map((item, index) => {
+          const x =
+            padding +
+            (index * chartWidth) / data.length +
+            (chartWidth / data.length - barWidth) / 2;
+          const barHeightCalc = ((item.water || 0) / maxValue) * chartHeight;
+          const y = padding + chartHeight - barHeightCalc;
+          const isAboveTarget = (item.water || 0) >= target;
+
+          return (
+            <Rect
+              key={`hydration-bar-${index}`}
+              x={x}
+              y={y}
+              width={barWidth}
+              height={barHeightCalc}
+              fill={isAboveTarget ? "#3498DB" : "#95A5A6"}
+              rx={4}
+            />
+          );
+        })}
+
+        {/* Y-axis labels */}
+        {[0, 0.5, 1].map((ratio, index) => {
+          const value = Math.round(maxValue * (1 - ratio));
+          const y = padding + chartHeight * ratio;
+          return (
+            <SvgText
+              key={`hydration-y-label-${index}`}
+              x={padding - 10}
+              y={y + 4}
+              fontSize="12"
+              fill="#64748B"
+              textAnchor="end"
+            >
+              {value}ml
+            </SvgText>
+          );
+        })}
+      </Svg>
+
+      {/* X-axis labels */}
+      <View style={styles.chartXLabels}>
+        {data.map((item, index) => (
+          <Text key={`hydration-x-label-${index}`} style={styles.chartXLabel}>
+            {new Date(item.date).toLocaleDateString("en", {
+              weekday: "short",
+            })}
+          </Text>
+        ))}
+      </View>
+    </View>
+  );
 };
 
 // Helper function to get the appropriate Lucide icon component
@@ -236,16 +602,12 @@ const getAchievementIcon = (
       return <Droplets {...iconProps} />;
     case "waves":
       return <Waves {...iconProps} />;
-    case "droplet":
-      return <Droplets {...iconProps} />;
     case "mountain-snow":
       return <Mountain {...iconProps} />;
     case "flame":
       return <Flame {...iconProps} />;
     case "calendar":
       return <Calendar {...iconProps} />;
-    case "muscle":
-      return <DumbbellIcon {...iconProps} />;
     case "sunrise":
       return <Sunrise {...iconProps} />;
     case "moon":
@@ -276,16 +638,16 @@ const getAchievementBackgroundColor = (rarity: string, unlocked: boolean) => {
 
   switch (rarity.toUpperCase()) {
     case "LEGENDARY":
-      return "#FFFBEB"; // Very light gold
+      return "#FFFBEB";
     case "EPIC":
-      return "#F9F5FF"; // Very light purple
+      return "#F9F5FF";
     case "RARE":
-      return "#F0F9FF"; // Very light blue
+      return "#F0F9FF";
     case "UNCOMMON":
-      return "#FFF7ED"; // Very light orange
+      return "#FFF7ED";
     case "COMMON":
     default:
-      return "#F0FDF4"; // Very light green
+      return "#F0FDF4";
   }
 };
 
@@ -305,79 +667,16 @@ const getRarityColor = (rarity: string) => {
   }
 };
 
-// Helper function to format dates based on period
-const formatDateLabel = (
-  date: string,
-  period: "today" | "week" | "month"
-): string => {
-  const dateObj = new Date(date);
-
-  switch (period) {
-    case "today":
-      return dateObj.toLocaleTimeString("en", {
-        hour: "2-digit",
-        minute: "2-digit",
-      });
-    case "week":
-      return dateObj.toLocaleDateString("en", { weekday: "short" });
-    case "month":
-      return dateObj.toLocaleDateString("en", {
-        month: "short",
-        day: "numeric",
-      });
-    default:
-      return dateObj.toLocaleDateString("en", {
-        month: "short",
-        day: "numeric",
-      });
-  }
-};
-
-// Helper function to generate chart data from progress data
-const generateChartData = (
-  data: ProgressData[],
-  metric: keyof ProgressData,
-  period: "today" | "week" | "month"
-): ChartData => {
-  if (!data || data.length === 0) {
-    return {
-      labels: ["No Data"],
-      datasets: [{ data: [0] }],
-    };
-  }
-
-  // Sort data by date
-  const sortedData = [...data].sort(
-    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-  );
-
-  const labels = sortedData.map((item) => formatDateLabel(item.date, period));
-  const values = sortedData.map((item) => {
-    const value = item[metric];
-    return typeof value === "number" ? value : 0;
-  });
-
-  return {
-    labels,
-    datasets: [
-      {
-        data: values.length > 0 ? values : [0],
-        color: (opacity = 1) => `rgba(22, 160, 133, ${opacity})`,
-        strokeWidth: 3,
-      },
-    ],
-  };
-};
-
 export default function StatisticsScreen() {
   const { t } = useTranslation();
   const { language } = useLanguage();
   const isRTL = language === "he";
+
+  // State management
   const [selectedPeriod, setSelectedPeriod] = useState<
     "today" | "week" | "month"
   >("week");
-  const [selectedChart, setSelectedChart] = useState<string>("overview");
-  const [showAlerts, setShowAlerts] = useState(true);
+  const [activeChart, setActiveChart] = useState<ChartType>("weekly");
   const [showAchievements, setShowAchievements] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -387,6 +686,11 @@ export default function StatisticsScreen() {
   );
   const [userQuestionnaire, setUserQuestionnaire] =
     useState<UserQuestionnaire | null>(null);
+  const [metrics, setMetrics] = useState<NutritionMetric[]>([]);
+  const [weeklyData, setWeeklyData] = useState<ProgressData[]>([]);
+  const [achievements, setAchievements] = useState<Achievement[]>([]);
+
+  const { user } = useSelector((state: RootState) => state.auth);
 
   // Fetch statistics data from API
   const fetchStatistics = async (period: "today" | "week" | "month") => {
@@ -400,55 +704,20 @@ export default function StatisticsScreen() {
         api.get("/questionnaire"),
       ]);
 
-      console.log("📊 Raw statistics response:", statisticsResponse.data);
-
       if (statisticsResponse.data.success && statisticsResponse.data.data) {
-        const data = statisticsResponse.data.data;
-
-        // Ensure all required fields exist with defaults
-        const processedData = {
-          ...data,
-          averageCalories: data.averageCalories || 0,
-          averageProtein: data.averageProtein || 0,
-          averageCarbs: data.averageCarbs || 0,
-          averageFats: data.averageFats || 0,
-          averageFiber: data.averageFiber || 0,
-          averageSugar: data.averageSugar || 0,
-          averageSodium: data.averageSodium || 0,
-          averageFluids: data.averageFluids || 0,
-          dailyBreakdown: data.dailyBreakdown || [],
-          achievements: data.achievements || [],
-          totalPoints: data.totalPoints || 0,
-          currentStreak: data.currentStreak || 0,
-          weeklyStreak: data.weeklyStreak || 0,
-          perfectDays: data.perfectDays || 0,
-          successfulDays: data.successfulDays || 0,
-          totalDays: data.totalDays || 0,
-          averageCompletion: data.averageCompletion || 0,
-          bestStreak: data.bestStreak || 0,
-          happyDays: data.happyDays || 0,
-          highEnergyDays: data.highEnergyDays || 0,
-          satisfiedDays: data.satisfiedDays || 0,
-          averageMealQuality: data.averageMealQuality || 3,
-        };
-
-        setStatisticsData(processedData);
-        console.log(`✅ Statistics loaded successfully:`, processedData);
+        setStatisticsData(statisticsResponse.data.data);
       } else {
-        console.warn("⚠️ Statistics response unsuccessful or no data");
         setError(
           statisticsResponse.data.message || "No statistics data available"
         );
       }
 
-      // Set user questionnaire for meal requirements
       if (
         questionnaireResponse.data.success &&
         questionnaireResponse.data.data
       ) {
         const qData = questionnaireResponse.data.data;
-        // Fix the meals_per_day parsing issue
-        let mealsPerDay = 3; // default
+        let mealsPerDay = 3;
         if (qData.meals_per_day) {
           const cleanedMeals = qData.meals_per_day
             .toString()
@@ -482,13 +751,8 @@ export default function StatisticsScreen() {
   // Generate nutrition data from real API response
   const generateNutritionMetrics = (): NutritionMetric[] => {
     if (!statisticsData || !userQuestionnaire) {
-      console.warn(
-        "⚠️ No statistics data or questionnaire available for metrics generation"
-      );
       return [];
     }
-
-    console.log("📊 Generating nutrition metrics from data:", statisticsData);
 
     const calculateTrend = (
       current: number,
@@ -508,20 +772,14 @@ export default function StatisticsScreen() {
       return ((current - previous) / previous) * 100;
     };
 
-    // Generate chart data for each metric
-    const generateMetricChartData = (metricKey: keyof ProgressData) => {
-      const weeklyData = generateWeeklyData();
-      return generateChartData(weeklyData, metricKey, selectedPeriod);
-    };
-
     const baseData = [
       {
         id: "calories",
-        name: t("statistics.total_calories"),
+        name: t("statistics.total_calories") || "Total Calories",
         nameEn: "Total Calories",
-        value: Math.round(statisticsData.averageCalories || 0),
+        value: statisticsData.averageCalories || 0,
         target: userQuestionnaire.dailyCalories,
-        unit: t("statistics.kcal"),
+        unit: t("statistics.kcal") || "kcal",
         icon: <Flame size={20} color="#E74C3C" />,
         color: "#E74C3C",
         category: "macros" as const,
@@ -533,21 +791,19 @@ export default function StatisticsScreen() {
           statisticsData.averageCalories || 0,
           userQuestionnaire.dailyCalories
         ),
-        weeklyAverage: Math.round(statisticsData.averageCalories || 0),
+        weeklyAverage: statisticsData.averageCalories || 0,
         lastWeekChange: calculateWeeklyChange(
           statisticsData.averageCalories || 0,
           statisticsData.averageCalories || 0
         ),
-        chartData: generateMetricChartData("calories").datasets[0].data,
-        chartLabels: generateMetricChartData("calories").labels,
       },
       {
         id: "protein",
-        name: t("statistics.protein"),
+        name: t("statistics.protein") || "Protein",
         nameEn: "Protein",
-        value: Math.round(statisticsData.averageProtein || 0),
+        value: statisticsData.averageProtein || 0,
         target: userQuestionnaire.dailyProtein,
-        unit: t("statistics.g"),
+        unit: t("statistics.g") || "g",
         icon: <Zap size={20} color="#9B59B6" />,
         color: "#9B59B6",
         category: "macros" as const,
@@ -559,21 +815,19 @@ export default function StatisticsScreen() {
           statisticsData.averageProtein || 0,
           userQuestionnaire.dailyProtein
         ),
-        weeklyAverage: Math.round(statisticsData.averageProtein || 0),
+        weeklyAverage: statisticsData.averageProtein || 0,
         lastWeekChange: calculateWeeklyChange(
           statisticsData.averageProtein || 0,
           statisticsData.averageProtein || 0
         ),
-        chartData: generateMetricChartData("protein").datasets[0].data,
-        chartLabels: generateMetricChartData("protein").labels,
       },
       {
         id: "carbs",
-        name: t("statistics.carbohydrates"),
+        name: t("statistics.carbohydrates") || "Carbohydrates",
         nameEn: "Carbohydrates",
-        value: Math.round(statisticsData.averageCarbs || 0),
+        value: statisticsData.averageCarbs || 0,
         target: userQuestionnaire.dailyCarbs,
-        unit: t("statistics.g"),
+        unit: t("statistics.g") || "g",
         icon: <Wheat size={20} color="#F39C12" />,
         color: "#F39C12",
         category: "macros" as const,
@@ -585,21 +839,19 @@ export default function StatisticsScreen() {
           statisticsData.averageCarbs || 0,
           userQuestionnaire.dailyCarbs
         ),
-        weeklyAverage: Math.round(statisticsData.averageCarbs || 0),
+        weeklyAverage: statisticsData.averageCarbs || 0,
         lastWeekChange: calculateWeeklyChange(
           statisticsData.averageCarbs || 0,
           statisticsData.averageCarbs || 0
         ),
-        chartData: generateMetricChartData("carbs").datasets[0].data,
-        chartLabels: generateMetricChartData("carbs").labels,
       },
       {
         id: "fats",
-        name: t("statistics.fats"),
+        name: t("statistics.fats") || "Fats",
         nameEn: "Fats",
-        value: Math.round(statisticsData.averageFats || 0),
+        value: statisticsData.averageFats || 0,
         target: userQuestionnaire.dailyFats,
-        unit: t("statistics.g"),
+        unit: t("statistics.g") || "g",
         icon: <Fish size={20} color="#16A085" />,
         color: "#16A085",
         category: "macros" as const,
@@ -611,21 +863,19 @@ export default function StatisticsScreen() {
           statisticsData.averageFats || 0,
           userQuestionnaire.dailyFats
         ),
-        weeklyAverage: Math.round(statisticsData.averageFats || 0),
+        weeklyAverage: statisticsData.averageFats || 0,
         lastWeekChange: calculateWeeklyChange(
           statisticsData.averageFats || 0,
           statisticsData.averageFats || 0
         ),
-        chartData: generateMetricChartData("fats").datasets[0].data,
-        chartLabels: generateMetricChartData("fats").labels,
       },
       {
         id: "fiber",
-        name: t("statistics.fiber"),
+        name: t("statistics.fiber") || "Fiber",
         nameEn: "Fiber",
-        value: Math.round(statisticsData.averageFiber || 0),
+        value: statisticsData.averageFiber || 0,
         target: userQuestionnaire.dailyFiber,
-        unit: t("statistics.g"),
+        unit: t("statistics.g") || "g",
         icon: <Leaf size={20} color="#27AE60" />,
         color: "#27AE60",
         category: "micros" as const,
@@ -633,27 +883,25 @@ export default function StatisticsScreen() {
           language === "he"
             ? "סיבים תזונתיים לבריאות העיכול"
             : "Dietary fiber for digestive health",
-        recommendation: t("statistics.increaseIntake"),
+        recommendation: t("statistics.increaseIntake") || "Increase intake",
         trend: calculateTrend(
           statisticsData.averageFiber || 0,
           userQuestionnaire.dailyFiber
         ),
-        weeklyAverage: Math.round(statisticsData.averageFiber || 0),
+        weeklyAverage: statisticsData.averageFiber || 0,
         lastWeekChange: calculateWeeklyChange(
           statisticsData.averageFiber || 0,
           statisticsData.averageFiber || 0
         ),
-        chartData: generateMetricChartData("fiber").datasets[0].data,
-        chartLabels: generateMetricChartData("fiber").labels,
       },
       {
         id: "sugars",
-        name: t("statistics.sugars"),
+        name: t("statistics.sugars") || "Sugars",
         nameEn: "Sugars",
-        value: Math.round(statisticsData.averageSugar || 0),
+        value: statisticsData.averageSugar || 0,
         target: 50,
         maxTarget: 50,
-        unit: t("statistics.g"),
+        unit: t("statistics.g") || "g",
         icon: <Apple size={20} color="#E67E22" />,
         color: "#E67E22",
         category: "micros" as const,
@@ -661,24 +909,22 @@ export default function StatisticsScreen() {
           language === "he"
             ? "סוכרים פשוטים - מומלץ להגביל"
             : "Simple sugars - recommended to limit",
-        recommendation: t("statistics.decreaseIntake"),
+        recommendation: t("statistics.decreaseIntake") || "Decrease intake",
         trend: calculateTrend(statisticsData.averageSugar || 0, 50),
-        weeklyAverage: Math.round(statisticsData.averageSugar || 0),
+        weeklyAverage: statisticsData.averageSugar || 0,
         lastWeekChange: calculateWeeklyChange(
           statisticsData.averageSugar || 0,
           statisticsData.averageSugar || 0
         ),
-        chartData: generateMetricChartData("sugar").datasets[0].data,
-        chartLabels: generateMetricChartData("sugar").labels,
       },
       {
         id: "sodium",
-        name: t("statistics.sodium"),
+        name: t("statistics.sodium") || "Sodium",
         nameEn: "Sodium",
-        value: Math.round(statisticsData.averageSodium || 0),
+        value: statisticsData.averageSodium || 0,
         target: 2300,
         maxTarget: 2300,
-        unit: t("statistics.mg"),
+        unit: t("statistics.mg") || "mg",
         icon: <Shield size={20} color="#E74C3C" />,
         color: "#E74C3C",
         category: "micros" as const,
@@ -686,40 +932,36 @@ export default function StatisticsScreen() {
           language === "he"
             ? "נתרן - חשוב להגביל למניעת יתר לחץ דם"
             : "Sodium - important to limit to prevent hypertension",
-        recommendation: t("statistics.decreaseIntake"),
+        recommendation: t("statistics.decreaseIntake") || "Decrease intake",
         trend: calculateTrend(statisticsData.averageSodium || 0, 2300),
-        weeklyAverage: Math.round(statisticsData.averageSodium || 0),
+        weeklyAverage: statisticsData.averageSodium || 0,
         lastWeekChange: calculateWeeklyChange(
           statisticsData.averageSodium || 0,
           statisticsData.averageSodium || 0
         ),
-        chartData: generateMetricChartData("sodium").datasets[0].data,
-        chartLabels: generateMetricChartData("sodium").labels,
       },
       {
         id: "hydration",
-        name: t("statistics.hydration"),
+        name: t("statistics.hydration") || "Hydration",
         nameEn: "Hydration",
-        value: Math.round(statisticsData.averageFluids || 0),
+        value: statisticsData.averageFluids || 0,
         target: userQuestionnaire.dailyWater,
-        unit: t("statistics.ml"),
+        unit: t("statistics.ml") || "ml",
         icon: <Droplets size={20} color="#3498DB" />,
         color: "#3498DB",
         category: "lifestyle" as const,
         description:
           language === "he" ? "רמת הידרציה יומית" : "Daily hydration level",
-        recommendation: t("statistics.increaseIntake"),
+        recommendation: t("statistics.increaseIntake") || "Increase intake",
         trend: calculateTrend(
           statisticsData.averageFluids || 0,
           userQuestionnaire.dailyWater
         ),
-        weeklyAverage: Math.round(statisticsData.averageFluids || 0),
+        weeklyAverage: statisticsData.averageFluids || 0,
         lastWeekChange: calculateWeeklyChange(
           statisticsData.averageFluids || 0,
           statisticsData.averageFluids || 0
         ),
-        chartData: generateMetricChartData("water").datasets[0].data,
-        chartLabels: generateMetricChartData("water").labels,
       },
     ];
 
@@ -750,7 +992,7 @@ export default function StatisticsScreen() {
     });
   };
 
-  // Generate weekly progress data with meal completion tracking
+  // Generate weekly progress data
   const generateWeeklyData = (): ProgressData[] => {
     if (
       !statisticsData?.dailyBreakdown ||
@@ -767,9 +1009,6 @@ export default function StatisticsScreen() {
       carbs: day.carbs_g || 0,
       fats: day.fats_g || 0,
       water: day.liquids_ml || 0,
-      fiber: day.fiber_g || 0,
-      sugar: day.sugar_g || 0,
-      sodium: day.sodium_mg || 0,
       weight: day.weight_kg,
       mood: (day.mood as "happy" | "neutral" | "sad") || "neutral",
       energy: (day.energy as "high" | "medium" | "low") || "medium",
@@ -779,17 +1018,6 @@ export default function StatisticsScreen() {
       mealsCount: day.meals_count || 0,
       requiredMeals: userQuestionnaire.mealsPerDay,
     }));
-  };
-
-  // Check if user has completed daily meals for warnings
-  const shouldShowWarnings = (): boolean => {
-    if (!userQuestionnaire) return false;
-
-    const weeklyData = generateWeeklyData();
-    const today = new Date().toISOString().split("T")[0];
-    const todayData = weeklyData.find((day) => day.date === today);
-
-    return todayData ? todayData.mealsCount >= todayData.requiredMeals : false;
   };
 
   // Generate achievements from real API data
@@ -815,10 +1043,6 @@ export default function StatisticsScreen() {
     }));
   };
 
-  const [metrics, setMetrics] = useState<NutritionMetric[]>([]);
-  const [weeklyData, setWeeklyData] = useState<ProgressData[]>([]);
-  const [achievements, setAchievements] = useState<Achievement[]>([]);
-
   // Update metrics when data changes
   useEffect(() => {
     if (statisticsData && userQuestionnaire) {
@@ -826,7 +1050,7 @@ export default function StatisticsScreen() {
       setWeeklyData(generateWeeklyData());
       setAchievements(generateAchievements());
     }
-  }, [statisticsData, userQuestionnaire, selectedPeriod]);
+  }, [statisticsData, userQuestionnaire, t]);
 
   // Refresh handler
   const handleRefresh = async () => {
@@ -838,18 +1062,13 @@ export default function StatisticsScreen() {
     }
   };
 
-  const timeFilters: TimeFilter[] = [
-    { key: "today", label: t("statistics.today") },
-    { key: "week", label: t("statistics.week") },
-    { key: "month", label: t("statistics.month") },
+  const timeFilters: TimeFilterOption[] = [
+    { key: "today", label: t("statistics.today") || "Today" },
+    { key: "week", label: t("statistics.week") || "Week" },
+    { key: "month", label: t("statistics.month") || "Month" },
   ];
 
-  const chartTypes = [
-    { key: "overview", label: "Overview", icon: BarChart3 },
-    { key: "macros", label: "Macros", icon: PieChartIcon },
-    { key: "trends", label: "Trends", icon: Activity },
-  ];
-
+  // Helper functions for status and trends
   const getStatusColor = (status: string) => {
     switch (status) {
       case "excellent":
@@ -891,28 +1110,6 @@ export default function StatisticsScreen() {
     }
   };
 
-  const getAlertsData = () => {
-    if (!shouldShowWarnings()) {
-      return [];
-    }
-
-    return metrics
-      .filter(
-        (metric) => metric.status === "danger" || metric.status === "warning"
-      )
-      .map((metric) => ({
-        id: metric.id,
-        title: metric.name,
-        message:
-          metric.recommendation ||
-          (metric.status === "danger"
-            ? t("statistics.consultDoctor")
-            : t("statistics.maintainLevel")),
-        severity: metric.status,
-        icon: metric.icon,
-      }));
-  };
-
   // Calculate progress statistics
   const calculateProgressStats = () => {
     if (!statisticsData) {
@@ -944,7 +1141,7 @@ export default function StatisticsScreen() {
     };
   };
 
-  // Calculate gamification stats from real data
+  // Calculate gamification stats
   const calculateGamificationStats = () => {
     if (!statisticsData) {
       return {
@@ -964,69 +1161,26 @@ export default function StatisticsScreen() {
     const level = Math.max(1, Math.floor(totalPoints / 1000) + 1);
     const currentXP = totalPoints % 1000;
     const nextLevelXP = 1000;
-    const dailyStreak = statisticsData.currentStreak || 0;
-    const weeklyStreak = statisticsData.weeklyStreak || 0;
-    const perfectDays = statisticsData.perfectDays || 0;
 
     return {
       level,
       currentXP,
       nextLevelXP,
       totalPoints,
-      dailyStreak,
-      weeklyStreak,
-      perfectDays,
+      dailyStreak: statisticsData.currentStreak || 0,
+      weeklyStreak: statisticsData.weeklyStreak || 0,
+      perfectDays: statisticsData.perfectDays || 0,
       xpToNext: nextLevelXP - currentXP,
       xpProgress: (currentXP / nextLevelXP) * 100,
     };
   };
 
-  // Generate chart data for overview
-  const generateOverviewChartData = () => {
-    if (!weeklyData || weeklyData.length === 0) {
-      return {
-        labels: ["No Data"],
-        datasets: [{ data: [0] }],
-      };
-    }
-
-    return generateChartData(weeklyData, "calories", selectedPeriod);
-  };
-
-  // Generate pie chart data for macros
-  const generateMacrosPieData = () => {
-    if (!statisticsData) return [];
-
-    const totalMacros =
-      (statisticsData.averageProtein || 0) * 4 +
-      (statisticsData.averageCarbs || 0) * 4 +
-      (statisticsData.averageFats || 0) * 9;
-
-    if (totalMacros === 0) return [];
-
-    return [
-      {
-        name: "Protein",
-        calories: (statisticsData.averageProtein || 0) * 4,
-        color: "#9B59B6",
-        legendFontColor: "#7F7F7F",
-        legendFontSize: 12,
-      },
-      {
-        name: "Carbs",
-        calories: (statisticsData.averageCarbs || 0) * 4,
-        color: "#F39C12",
-        legendFontColor: "#7F7F7F",
-        legendFontSize: 12,
-      },
-      {
-        name: "Fats",
-        calories: (statisticsData.averageFats || 0) * 9,
-        color: "#16A085",
-        legendFontColor: "#7F7F7F",
-        legendFontSize: 12,
-      },
-    ];
+  // Check if user has completed daily meals for warnings
+  const shouldShowWarnings = (): boolean => {
+    if (!userQuestionnaire) return false;
+    const today = new Date().toISOString().split("T")[0];
+    const todayData = weeklyData.find((day) => day.date === today);
+    return todayData ? todayData.mealsCount >= todayData.requiredMeals : false;
   };
 
   const categorizedMetrics = {
@@ -1038,240 +1192,326 @@ export default function StatisticsScreen() {
   const progressStats = calculateProgressStats();
   const gamificationStats = calculateGamificationStats();
 
-  // Chart rendering functions
-  const renderChart = () => {
-    switch (selectedChart) {
-      case "overview":
-        const overviewData = generateOverviewChartData();
-        if (overviewData.datasets[0].data.every((value) => value === 0)) {
-          return (
-            <View style={styles.noChartData}>
-              <BarChart3 size={48} color="#BDC3C7" />
-              <Text style={styles.noChartDataText}>No data to display</Text>
-            </View>
-          );
-        }
-        return (
-          <LineChart
-            data={overviewData}
-            width={chartWidth}
-            height={220}
-            chartConfig={chartConfig}
-            bezier
-            style={styles.chart}
-          />
-        );
+  // Chart configuration
+  const availableCharts = [
+    {
+      key: "weekly" as ChartType,
+      title: "Weekly Progress",
+      available: weeklyData.length > 0,
+    },
+    {
+      key: "macros" as ChartType,
+      title: "Macronutrients",
+      available: categorizedMetrics.macros.length > 0,
+    },
+    {
+      key: "progress" as ChartType,
+      title: "Goal Progress",
+      available: metrics.length > 0,
+    },
+    {
+      key: "hydration" as ChartType,
+      title: "Hydration",
+      available: weeklyData.length > 0 && userQuestionnaire !== null,
+    },
+  ];
 
+  // Render chart based on active selection
+  const renderActiveChart = () => {
+    switch (activeChart) {
+      case "weekly":
+        return <WeeklyProgressChart data={weeklyData} />;
       case "macros":
-        const pieData = generateMacrosPieData();
-        if (pieData.length === 0) {
-          return (
-            <View style={styles.noChartData}>
-              <PieChartIcon size={48} color="#BDC3C7" />
-              <Text style={styles.noChartDataText}>
-                No macro data available
-              </Text>
-            </View>
-          );
-        }
+        return <MacronutrientChart metrics={categorizedMetrics.macros} />;
+      case "progress":
+        return <ProgressBarChart metrics={metrics} />;
+      case "hydration":
         return (
-          <PieChart
-            data={pieData}
-            width={chartWidth}
-            height={220}
-            chartConfig={chartConfig}
-            accessor={"calories"}
-            backgroundColor={"transparent"}
-            paddingLeft={"15"}
-            style={styles.chart}
+          <HydrationChart
+            data={weeklyData}
+            target={userQuestionnaire?.dailyWater || 2500}
           />
         );
-
-      case "trends":
-        const trendMetrics = ["protein", "carbs", "fats", "water"];
-        return (
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={styles.trendChartsContainer}>
-              {trendMetrics
-                .map((metricKey) => {
-                  const metric = metrics.find((m) => m.id === metricKey);
-                  if (
-                    !metric ||
-                    !metric.chartData ||
-                    metric.chartData.every((v) => v === 0)
-                  ) {
-                    return null;
-                  }
-
-                  const chartData = {
-                    labels: metric.chartLabels || [],
-                    datasets: [
-                      {
-                        data: metric.chartData,
-                        color: (opacity = 1) =>
-                          `rgba(22, 160, 133, ${opacity})`,
-                        strokeWidth: 2,
-                      },
-                    ],
-                  };
-
-                  return (
-                    <View key={metricKey} style={styles.trendChart}>
-                      <Text style={styles.trendChartTitle}>{metric.name}</Text>
-                      <LineChart
-                        data={chartData}
-                        width={280}
-                        height={160}
-                        chartConfig={{
-                          ...chartConfig,
-                          color: (opacity = 1) =>
-                            metric.color
-                              .replace("rgb", "rgba")
-                              .replace(")", `, ${opacity})`),
-                        }}
-                        bezier
-                        style={styles.smallChart}
-                      />
-                    </View>
-                  );
-                })
-                .filter(Boolean)}
-            </View>
-          </ScrollView>
-        );
-
       default:
-        return null;
+        return <WeeklyProgressChart data={weeklyData} />;
     }
   };
 
+  // Render metric card
   const renderMetricCard = (metric: NutritionMetric) => (
     <TouchableOpacity
       key={metric.id}
       style={styles.metricCard}
       onPress={() => Alert.alert(metric.name, metric.description)}
     >
-      <LinearGradient
-        colors={["rgba(255, 255, 255, 0.95)", "rgba(255, 255, 255, 0.85)"]}
-        style={styles.metricCardGradient}
-      >
-        <View style={styles.metricCardContent}>
-          <View style={styles.metricHeader}>
-            <View
-              style={[
-                styles.metricIconContainer,
-                { backgroundColor: `${metric.color}15` },
-              ]}
-            >
-              {metric.icon}
-            </View>
-            <View style={styles.metricInfo}>
-              <Text style={styles.metricName}>{metric.name}</Text>
-              <View style={styles.metricStatus}>
-                {getStatusIcon(metric.status)}
-                <Text
-                  style={[
-                    styles.metricStatusText,
-                    { color: getStatusColor(metric.status) },
-                  ]}
-                >
-                  {metric.status}
-                </Text>
-              </View>
-            </View>
-            <View style={styles.metricTrend}>
-              {getTrendIcon(metric.trend)}
-              <Text style={styles.metricTrendText}>
-                {metric.lastWeekChange > 0 ? "+" : ""}
-                {metric.lastWeekChange.toFixed(1)}%
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.metricValues}>
-            <View style={styles.metricCurrentValue}>
-              <Text style={styles.metricValueText}>
-                {metric.value.toLocaleString()} {metric.unit}
-              </Text>
-              <Text style={styles.metricTargetText}>
-                {language === "he" ? "יעד" : "Target"}:{" "}
-                {metric.target.toLocaleString()} {metric.unit}
-              </Text>
-            </View>
-            <View
-              style={[
-                styles.metricPercentage,
-                { backgroundColor: `${metric.color}10` },
-              ]}
-            >
+      <View style={styles.metricCardContent}>
+        <View style={styles.metricHeader}>
+          <View style={styles.metricIconContainer}>{metric.icon}</View>
+          <View style={styles.metricInfo}>
+            <Text style={styles.metricName} numberOfLines={1}>
+              {metric.name}
+            </Text>
+            <View style={styles.metricStatus}>
+              {getStatusIcon(metric.status)}
               <Text
-                style={[styles.metricPercentageText, { color: metric.color }]}
-              >
-                {metric.percentage}%
-              </Text>
-            </View>
-          </View>
-
-          <View style={styles.metricProgress}>
-            <View style={styles.metricProgressBg}>
-              <LinearGradient
-                colors={[`${metric.color}80`, metric.color]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
                 style={[
-                  styles.metricProgressFill,
-                  { width: `${Math.min(metric.percentage, 100)}%` },
+                  styles.metricStatusText,
+                  { color: getStatusColor(metric.status) },
                 ]}
-              />
+              >
+                {metric.status}
+              </Text>
             </View>
           </View>
+          <View style={styles.metricTrend}>
+            {getTrendIcon(metric.trend)}
+            <Text style={styles.metricTrendText}>
+              {metric.lastWeekChange > 0 ? "+" : ""}
+              {metric.lastWeekChange.toFixed(1)}%
+            </Text>
+          </View>
+        </View>
 
-          {/* Mini chart for each metric */}
-          {metric.chartData && metric.chartData.some((v) => v > 0) && (
-            <View style={styles.miniChart}>
-              <Text style={styles.miniChartTitle}>
-                {language === "he" ? "מגמה" : "Trend"}
-              </Text>
-              <View style={styles.miniChartContainer}>
-                {metric.chartData.slice(-7).map((value, index) => (
-                  <View
-                    key={index}
-                    style={[
-                      styles.miniChartBar,
-                      {
-                        height: Math.max(
-                          4,
-                          (value / Math.max(...metric.chartData.slice(-7))) * 20
-                        ),
-                        backgroundColor: metric.color,
-                        opacity: 0.4 + (index / 7) * 0.6,
-                      },
-                    ]}
-                  />
-                ))}
-              </View>
-            </View>
-          )}
+        <View style={styles.metricValues}>
+          <View style={styles.metricCurrentValue}>
+            <Text style={styles.metricValueText} numberOfLines={1}>
+              {(metric.value || 0).toLocaleString()} {metric.unit}
+            </Text>
+            <Text style={styles.metricTargetText} numberOfLines={1}>
+              {language === "he" ? "יעד" : "Target"}:{" "}
+              {(metric.target || 0).toLocaleString()} {metric.unit}
+            </Text>
+          </View>
+          <View style={styles.metricPercentage}>
+            <Text
+              style={[styles.metricPercentageText, { color: metric.color }]}
+            >
+              {metric.percentage || 0}%
+            </Text>
+          </View>
+        </View>
 
-          {metric.recommendation && shouldShowWarnings() && (
+        <View style={styles.metricProgress}>
+          <View style={styles.metricProgressBg}>
             <View
               style={[
-                styles.metricRecommendation,
-                { backgroundColor: `${metric.color}10` },
+                styles.metricProgressFill,
+                {
+                  width: `${Math.min(metric.percentage || 0, 100)}%`,
+                  backgroundColor: metric.color,
+                },
               ]}
-            >
-              <Sparkles size={12} color={metric.color} />
-              <Text style={styles.metricRecommendationText}>
-                {metric.recommendation}
-              </Text>
-            </View>
-          )}
+            />
+          </View>
         </View>
-      </LinearGradient>
+
+        {metric.recommendation && shouldShowWarnings() && (
+          <View style={styles.metricRecommendation}>
+            <Sparkles size={12} color={metric.color} />
+            <Text style={styles.metricRecommendationText} numberOfLines={2}>
+              {metric.recommendation}
+            </Text>
+          </View>
+        )}
+      </View>
     </TouchableOpacity>
   );
 
-  const alerts = getAlertsData();
+  // Meal completion status component
+  const renderMealCompletionStatus = () => {
+    const today = new Date().toISOString().split("T")[0];
+    const todayData = weeklyData.find((day) => day.date === today);
+
+    if (!todayData || !userQuestionnaire) return null;
+
+    const isCompleted = todayData.mealsCount >= todayData.requiredMeals;
+    const completionPercentage =
+      (todayData.mealsCount / todayData.requiredMeals) * 100;
+
+    return (
+      <View style={styles.mealCompletionCard}>
+        <View style={styles.mealCompletionHeader}>
+          <View style={styles.mealCompletionIcon}>
+            {isCompleted ? (
+              <CheckCircle size={24} color="#2ECC71" />
+            ) : (
+              <Clock size={24} color="#E67E22" />
+            )}
+          </View>
+          <Text style={styles.mealCompletionTitle}>
+            {t("statistics.meals_completed") || "Meals Completed"}
+          </Text>
+        </View>
+
+        <View style={styles.mealCompletionContent}>
+          <CircularProgress
+            percentage={Math.min(completionPercentage, 100)}
+            size={100}
+            strokeWidth={8}
+            color={isCompleted ? "#2ECC71" : "#E67E22"}
+          >
+            <Text style={styles.mealCompletionText}>
+              {todayData.mealsCount}
+            </Text>
+            <Text style={styles.mealCompletionSubtext}>
+              {t("statistics.of") || "of"} {todayData.requiredMeals}
+            </Text>
+          </CircularProgress>
+
+          {!isCompleted && (
+            <Text style={styles.mealCompletionMessage}>
+              {t("statistics.complete_meals_first") ||
+                "Complete your meals first"}
+            </Text>
+          )}
+        </View>
+      </View>
+    );
+  };
+
+  // PDF generation function
+  const generatePdf = async () => {
+    if (!statisticsData) {
+      Alert.alert("No Data", "There is no data to generate a PDF from.");
+      return;
+    }
+
+    Alert.alert(
+      "Generating PDF",
+      "Please wait while we generate your report..."
+    );
+
+    const htmlContent = `
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <title>Statistics Report</title>
+        <style>
+          body { 
+            font-family: 'Arial', sans-serif; 
+            padding: 20px; 
+            color: #333; 
+            line-height: 1.4;
+          }
+          h1 { 
+            color: #16A085; 
+            text-align: center; 
+            margin-bottom: 30px; 
+          }
+          h2 { 
+            color: #0F172A; 
+            border-bottom: 2px solid #EEE; 
+            padding-bottom: 10px; 
+            margin-top: 25px; 
+            margin-bottom: 15px; 
+            font-size: 20px; 
+          }
+          .section { 
+            margin-bottom: 20px; 
+            page-break-inside: avoid;
+          }
+          .metric-card { 
+            background-color: #F8FAFC; 
+            border-radius: 12px; 
+            padding: 16px; 
+            margin-bottom: 12px; 
+            border: 1px solid #E5E7EB;
+          }
+          .progress-bar {
+            height: 8px;
+            background-color: #F1F5F9;
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 8px 0;
+          }
+          .progress-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 0.3s ease;
+          }
+        </style>
+      </head>
+      <body>
+        <h1>Statistics Report</h1>
+        
+        <div class="section">
+          <h2>Progress Overview</h2>
+          <p>Average Completion: ${progressStats?.averageCompletion || 0}%</p>
+          <p>Best Streak: ${progressStats?.bestStreak || 0} days</p>
+          <p>Current Streak: ${progressStats?.currentStreak || 0} days</p>
+        </div>
+
+        <div class="section">
+          <h2>Nutrition Averages</h2>
+          <p>Calories: ${progressStats?.averages?.calories || 0} kcal</p>
+          <p>Protein: ${progressStats?.averages?.protein || 0} g</p>
+          <p>Carbohydrates: ${progressStats?.averages?.carbs || 0} g</p>
+          <p>Fats: ${progressStats?.averages?.fats || 0} g</p>
+          <p>Water: ${progressStats?.averages?.water || 0} ml</p>
+        </div>
+
+        ${
+          metrics
+            ?.map(
+              (metric, index) => `
+          <div class="section">
+            <h2>${metric.name || `Metric ${index + 1}`}</h2>
+            <div class="metric-card">
+              <p><strong>Value:</strong> ${(
+                metric.value || 0
+              ).toLocaleString()} ${metric.unit || ""}</p>
+              <p><strong>Target:</strong> ${(
+                metric.target || 0
+              ).toLocaleString()} ${metric.unit || ""}</p>
+              <p><strong>Status:</strong> ${metric.status || "N/A"}</p>
+              <div class="progress-bar">
+                <div class="progress-fill" style="width: ${Math.min(
+                  metric.percentage || 0,
+                  100
+                )}%; background-color: ${metric.color || "#ccc"};"></div>
+              </div>
+              ${
+                metric.recommendation
+                  ? `<p><em>💡 ${metric.recommendation}</em></p>`
+                  : ""
+              }
+            </div>
+          </div>
+        `
+            )
+            .join("") || ""
+        }
+      </body>
+    </html>
+    `;
+
+    try {
+      if (!Print || !Print.printToFileAsync) {
+        throw new Error("Print module is not available");
+      }
+
+      const fileName = `Calo Stats ${user?.name || "User"}.pdf`;
+      const { uri } = await Print.printToFileAsync({
+        html: htmlContent,
+        base64: false,
+      });
+
+      if (uri) {
+        if (!Sharing || !Sharing.shareAsync) {
+          throw new Error("Sharing module is not available");
+        }
+
+        await Sharing.shareAsync(uri, {
+          mimeType: "application/pdf",
+          dialogTitle: "Share your statistics report",
+          UTI: "com.adobe.pdf",
+        });
+      }
+    } catch (error: any) {
+      console.error("Error generating PDF:", error);
+      Alert.alert("Error", "Failed to generate PDF: " + error.message);
+    }
+  };
 
   // Loading state
   if (isLoading) {
@@ -1285,1504 +1525,1187 @@ export default function StatisticsScreen() {
   // Error state
   if (error) {
     return (
-      <LinearGradient colors={["#f8fafc", "#e2e8f0"]} style={styles.container}>
-        <SafeAreaView style={styles.errorContainer}>
-          <View style={styles.errorCard}>
-            <View style={styles.errorIconContainer}>
-              <AlertTriangle size={56} color="#EF4444" />
-            </View>
-            <Text style={styles.errorText}>{t("statistics.errorMessage")}</Text>
-            <TouchableOpacity
-              style={styles.retryButton}
-              onPress={handleRefresh}
-            >
-              <LinearGradient
-                colors={["#EF4444", "#DC2626"]}
-                style={styles.retryButtonGradient}
-              >
-                <Text style={styles.retryButtonText}>
-                  {t("statistics.retryButton")}
-                </Text>
-              </LinearGradient>
-            </TouchableOpacity>
-          </View>
-        </SafeAreaView>
-      </LinearGradient>
+      <SafeAreaView style={styles.container}>
+        <View style={styles.errorContainer}>
+          <AlertTriangle size={48} color="#E74C3C" />
+          <Text style={styles.errorText}>
+            {t("statistics.error_message") || "An error occurred"}
+          </Text>
+          <TouchableOpacity style={styles.retryButton} onPress={handleRefresh}>
+            <Text style={styles.retryButtonText}>
+              {t("statistics.retry_button") || "Retry"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
     );
   }
 
-  // Meal completion status component
-  const renderMealCompletionStatus = () => {
-    const weeklyData = generateWeeklyData();
-    const today = new Date().toISOString().split("T")[0];
-    const todayData = weeklyData.find((day) => day.date === today);
-
-    if (!todayData || !userQuestionnaire) return null;
-
-    const isCompleted = todayData.mealsCount >= todayData.requiredMeals;
-    const completionPercentage =
-      (todayData.mealsCount / todayData.requiredMeals) * 100;
-
-    return (
-      <View style={styles.mealCompletionCard}>
-        <LinearGradient
-          colors={isCompleted ? ["#10B981", "#059669"] : ["#F59E0B", "#D97706"]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.mealCompletionGradient}
-        >
-          <View style={styles.mealCompletionContent}>
-            <View style={styles.mealCompletionHeader}>
-              <View style={styles.mealCompletionIconContainer}>
-                {isCompleted ? (
-                  <CheckCircle size={28} color="#FFFFFF" />
-                ) : (
-                  <Clock size={28} color="#FFFFFF" />
-                )}
-              </View>
-              <View style={styles.mealCompletionInfo}>
-                <Text style={styles.mealCompletionTitle}>
-                  {t("statistics.mealsCompleted")}
-                </Text>
-                <Text style={styles.mealCompletionSubtitle}>
-                  {todayData.mealsCount} {t("statistics.of")}{" "}
-                  {todayData.requiredMeals} meals
-                </Text>
-              </View>
-              <View style={styles.mealCompletionPercentage}>
-                <Text style={styles.mealCompletionPercentageText}>
-                  {Math.round(completionPercentage)}%
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.mealProgressBar}>
-              <View style={styles.mealProgressBg}>
-                <View
-                  style={[
-                    styles.mealProgressFill,
-                    { width: `${Math.min(completionPercentage, 100)}%` },
-                  ]}
-                />
-              </View>
-            </View>
-
-            {!isCompleted && (
-              <Text style={styles.mealCompletionMessage}>
-                {t("statistics.completeMealsFirst")}
-              </Text>
-            )}
-          </View>
-        </LinearGradient>
-      </View>
-    );
-  };
-
   return (
-    <LinearGradient colors={["#f8fafc", "#e2e8f0"]} style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={handleRefresh}
-              colors={["#16A085"]}
-              tintColor="#16A085"
-            />
-          }
-        >
-          {/* Header */}
-          <LinearGradient colors={["#FFFFFF", "#F8FAFC"]} style={styles.header}>
-            <View style={styles.headerContent}>
-              <Text style={styles.title}>{t("statistics.title")}</Text>
-              <Text style={styles.subtitle}>{t("statistics.subtitle")}</Text>
+    <SafeAreaView style={styles.container}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            colors={["#16A085"]}
+            tintColor="#16A085"
+          />
+        }
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <View style={styles.headerContent}>
+            <View style={styles.titleContainer}>
+              <Text style={styles.title}>
+                {t("statistics.title") || "Statistics"}
+              </Text>
+              <Text style={styles.subtitle}>
+                {t("statistics.subtitle") || "Your nutrition insights"}
+              </Text>
             </View>
-          </LinearGradient>
-
-          {/* Time Filter */}
-          <View style={styles.timeFilterContainer}>
-            <View style={styles.timeFilter}>
-              {timeFilters.map((filter) => (
-                <TouchableOpacity
-                  key={filter.key}
-                  style={[
-                    styles.timeFilterButton,
-                    selectedPeriod === filter.key &&
-                      styles.timeFilterButtonActive,
-                  ]}
-                  onPress={() => setSelectedPeriod(filter.key)}
-                >
-                  {selectedPeriod === filter.key ? (
-                    <LinearGradient
-                      colors={["#16A085", "#1ABC9C"]}
-                      style={styles.timeFilterGradient}
-                    >
-                      <Text style={styles.timeFilterTextActive}>
-                        {filter.label}
-                      </Text>
-                    </LinearGradient>
-                  ) : (
-                    <Text style={styles.timeFilterText}>{filter.label}</Text>
-                  )}
-                </TouchableOpacity>
-              ))}
-            </View>
+            <TouchableOpacity
+              style={[styles.downloadButton, { backgroundColor: "#16A085" }]}
+              onPress={generatePdf}
+            >
+              <Download size={24} color="#FFFFFF" />
+            </TouchableOpacity>
           </View>
+        </View>
 
-          {/* No Data Message */}
-          {!statisticsData && !isLoading && (
-            <View style={styles.noDataContainer}>
-              <LinearGradient
-                colors={["#FFFFFF", "#F8FAFC"]}
-                style={styles.noDataCard}
+        {/* Time Filter */}
+        <View style={styles.timeFilterContainer}>
+          <View style={styles.timeFilter}>
+            {timeFilters.map((filter) => (
+              <TouchableOpacity
+                key={filter.key}
+                style={[
+                  styles.timeFilterButton,
+                  selectedPeriod === filter.key &&
+                    styles.timeFilterButtonActive,
+                ]}
+                onPress={() => setSelectedPeriod(filter.key)}
               >
-                <BarChart3 size={72} color="#BDC3C7" />
-                <Text style={styles.noDataText}>
-                  {t("statistics.noDataMessage")}
-                </Text>
-              </LinearGradient>
+                {selectedPeriod === filter.key ? (
+                  <LinearGradient
+                    colors={["#16A085", "#1ABC9C"]}
+                    style={styles.timeFilterGradient}
+                  >
+                    <Text style={styles.timeFilterTextActive}>
+                      {filter.label}
+                    </Text>
+                  </LinearGradient>
+                ) : (
+                  <Text style={styles.timeFilterText}>{filter.label}</Text>
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        {/* No Data Message */}
+        {!statisticsData && !isLoading && (
+          <View style={styles.noDataContainer}>
+            <BarChart3 size={64} color="#BDC3C7" />
+            <Text style={styles.noDataText}>
+              {t("statistics.noDataMessage") || "No data available"}
+            </Text>
+          </View>
+        )}
+
+        {/* Main Content */}
+        {statisticsData && (
+          <>
+            {/* Meal Completion Status */}
+            {renderMealCompletionStatus()}
+
+            {/* Charts Section */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>
+                {t("statistics.data_visualization") || "Data Visualization"}
+              </Text>
+
+              {/* Chart Navigation */}
+              <ChartNavigation
+                charts={availableCharts}
+                activeChart={activeChart}
+                onChartChange={setActiveChart}
+              />
+
+              {/* Active Chart */}
+              {renderActiveChart()}
             </View>
-          )}
 
-          {/* Main Content */}
-          {statisticsData && (
-            <>
-              {/* Meal Completion Status */}
-              {renderMealCompletionStatus()}
-
-              {/* Charts Section */}
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>
-                  {language === "he" ? "תרשימים ונתונים" : "Charts & Data"}
-                </Text>
-
-                {/* Chart Type Filter */}
-                <View style={styles.chartTypeContainer}>
-                  {chartTypes.map((type) => (
-                    <TouchableOpacity
-                      key={type.key}
-                      style={[
-                        styles.chartTypeButton,
-                        selectedChart === type.key &&
-                          styles.chartTypeButtonActive,
-                      ]}
-                      onPress={() => setSelectedChart(type.key)}
-                    >
-                      <type.icon
-                        size={20}
-                        color={
-                          selectedChart === type.key ? "#16A085" : "#64748B"
-                        }
-                      />
-                      <Text
-                        style={[
-                          styles.chartTypeText,
-                          selectedChart === type.key &&
-                            styles.chartTypeTextActive,
-                        ]}
-                      >
-                        {type.label}
+            {/* Gamification Dashboard */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>
+                {t("statistics.gamification") || "Gamification"}
+              </Text>
+              <View style={styles.gamificationContainer}>
+                <View style={styles.levelContainer}>
+                  <View style={styles.levelInfo}>
+                    <View style={styles.levelIcon}>
+                      <Crown size={32} color="#F39C12" />
+                    </View>
+                    <View style={styles.levelDetails}>
+                      <Text style={styles.levelText}>
+                        {t("statistics.level") || "Level"}{" "}
+                        {gamificationStats.level}
                       </Text>
-                    </TouchableOpacity>
-                  ))}
+                      <Text style={styles.xpText}>
+                        {gamificationStats.currentXP} /{" "}
+                        {gamificationStats.nextLevelXP}{" "}
+                        {t("statistics.xp") || "XP"}
+                      </Text>
+                    </View>
+                  </View>
+                  <View style={styles.xpProgress}>
+                    <View style={styles.xpProgressBg}>
+                      <View
+                        style={[
+                          styles.xpProgressFill,
+                          { width: `${gamificationStats.xpProgress}%` },
+                        ]}
+                      />
+                    </View>
+                    <Text style={styles.xpToNext}>
+                      {gamificationStats.xpToNext}{" "}
+                      {t("statistics.next_level") || "XP to next level"}
+                    </Text>
+                  </View>
                 </View>
 
-                {/* Chart Container */}
-                <LinearGradient
-                  colors={["#FFFFFF", "#F8FAFC"]}
-                  style={styles.chartContainer}
-                >
-                  {renderChart()}
-                </LinearGradient>
+                <View style={styles.gamificationStats}>
+                  <View style={styles.gamificationStatItem}>
+                    <Flame size={20} color="#E74C3C" />
+                    <Text style={styles.gamificationStatValue}>
+                      {gamificationStats.dailyStreak}
+                    </Text>
+                    <Text
+                      style={styles.gamificationStatLabel}
+                      numberOfLines={2}
+                    >
+                      {t("statistics.daily_streak") || "Daily Streak"}
+                    </Text>
+                  </View>
+                  <View style={styles.gamificationStatItem}>
+                    <Calendar size={20} color="#3498DB" />
+                    <Text style={styles.gamificationStatValue}>
+                      {gamificationStats.weeklyStreak}
+                    </Text>
+                    <Text
+                      style={styles.gamificationStatLabel}
+                      numberOfLines={2}
+                    >
+                      {t("statistics.weekly_streak") || "Weekly Streak"}
+                    </Text>
+                  </View>
+                  <View style={styles.gamificationStatItem}>
+                    <Star size={20} color="#F39C12" />
+                    <Text style={styles.gamificationStatValue}>
+                      {gamificationStats.perfectDays}
+                    </Text>
+                    <Text
+                      style={styles.gamificationStatLabel}
+                      numberOfLines={2}
+                    >
+                      {t("statistics.perfect_days") || "Perfect Days"}
+                    </Text>
+                  </View>
+                  <View style={styles.gamificationStatItem}>
+                    <Trophy size={20} color="#16A085" />
+                    <Text style={styles.gamificationStatValue}>
+                      {gamificationStats.totalPoints.toLocaleString()}
+                    </Text>
+                    <Text
+                      style={styles.gamificationStatLabel}
+                      numberOfLines={2}
+                    >
+                      {t("statistics.total_points") || "Total Points"}
+                    </Text>
+                  </View>
+                </View>
               </View>
+            </View>
 
-              {/* Gamification Dashboard */}
-              <View style={styles.section}>
+            {/* Enhanced Achievements Section */}
+            <View style={styles.section}>
+              <View style={styles.achievementsHeader}>
                 <Text style={styles.sectionTitle}>
-                  {t("statistics.gamification")}
+                  {t("statistics.achievements") || "Achievements"}
                 </Text>
-                <LinearGradient
-                  colors={["#FFFFFF", "#F8FAFC"]}
-                  style={styles.gamificationContainer}
-                >
-                  <View style={styles.levelContainer}>
-                    <View style={styles.levelInfo}>
-                      <LinearGradient
-                        colors={["#FEF3E2", "#FED7AA"]}
-                        style={styles.levelIcon}
-                      >
-                        <Crown size={40} color="#F59E0B" />
-                      </LinearGradient>
-                      <View style={styles.levelDetails}>
-                        <Text style={styles.levelText}>
-                          {t("statistics.level")} {gamificationStats.level}
-                        </Text>
-                        <Text style={styles.xpText}>
-                          {gamificationStats.currentXP} /{" "}
-                          {gamificationStats.nextLevelXP} {t("statistics.xp")}
-                        </Text>
-                      </View>
-                    </View>
-                    <View style={styles.xpProgress}>
-                      <View style={styles.xpProgressBg}>
-                        <LinearGradient
-                          colors={["#F59E0B", "#D97706"]}
-                          start={{ x: 0, y: 0 }}
-                          end={{ x: 1, y: 0 }}
-                          style={[
-                            styles.xpProgressFill,
-                            { width: `${gamificationStats.xpProgress}%` },
-                          ]}
-                        />
-                      </View>
-                      <Text style={styles.xpToNext}>
-                        {gamificationStats.xpToNext} {t("statistics.nextLevel")}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.gamificationStats}>
-                    <View style={styles.gamificationStatItem}>
-                      <View
-                        style={[
-                          styles.statIconContainer,
-                          { backgroundColor: "#FEF2F2" },
-                        ]}
-                      >
-                        <Flame size={24} color="#E74C3C" />
-                      </View>
-                      <Text style={styles.gamificationStatValue}>
-                        {gamificationStats.dailyStreak}
-                      </Text>
-                      <Text style={styles.gamificationStatLabel}>
-                        {t("statistics.dailyStreak")}
-                      </Text>
-                    </View>
-                    <View style={styles.gamificationStatItem}>
-                      <View
-                        style={[
-                          styles.statIconContainer,
-                          { backgroundColor: "#EFF6FF" },
-                        ]}
-                      >
-                        <Calendar size={24} color="#3498DB" />
-                      </View>
-                      <Text style={styles.gamificationStatValue}>
-                        {gamificationStats.weeklyStreak}
-                      </Text>
-                      <Text style={styles.gamificationStatLabel}>
-                        {t("statistics.weeklyStreak")}
-                      </Text>
-                    </View>
-                    <View style={styles.gamificationStatItem}>
-                      <View
-                        style={[
-                          styles.statIconContainer,
-                          { backgroundColor: "#FEF3E2" },
-                        ]}
-                      >
-                        <Star size={24} color="#F39C12" />
-                      </View>
-                      <Text style={styles.gamificationStatValue}>
-                        {gamificationStats.perfectDays}
-                      </Text>
-                      <Text style={styles.gamificationStatLabel}>
-                        {t("statistics.perfectDays")}
-                      </Text>
-                    </View>
-                    <View style={styles.gamificationStatItem}>
-                      <View
-                        style={[
-                          styles.statIconContainer,
-                          { backgroundColor: "#E0F2F1" },
-                        ]}
-                      >
-                        <Trophy size={24} color="#16A085" />
-                      </View>
-                      <Text style={styles.gamificationStatValue}>
-                        {gamificationStats.totalPoints.toLocaleString()}
-                      </Text>
-                      <Text style={styles.gamificationStatLabel}>
-                        {t("statistics.totalPoints")}
-                      </Text>
-                    </View>
-                  </View>
-                </LinearGradient>
-              </View>
-
-              {/* Enhanced Achievements Section */}
-              <View style={styles.section}>
-                <View style={styles.achievementsHeader}>
-                  <Text style={styles.sectionTitle}>
-                    {t("statistics.achievements")}
-                  </Text>
+                {achievements.length > 3 && (
                   <TouchableOpacity
                     style={styles.viewAllButton}
                     onPress={() => setShowAchievements(true)}
                   >
-                    <LinearGradient
-                      colors={["#E0F2F1", "#B2DFDB"]}
-                      style={styles.viewAllButtonGradient}
-                    >
-                      <Text style={styles.viewAllText}>
-                        {t("statistics.viewAllAchievements")}
-                      </Text>
-                    </LinearGradient>
+                    <Text style={styles.viewAllText}>
+                      {t("statistics.view_all_achievements") || "View All"}
+                    </Text>
                   </TouchableOpacity>
-                </View>
+                )}
+              </View>
 
-                <View style={styles.achievementsContainer}>
-                  {achievements.slice(0, 3).map((achievement) => (
-                    <LinearGradient
-                      key={achievement.id}
-                      colors={[
-                        getAchievementBackgroundColor(
-                          achievement.rarity,
-                          achievement.unlocked
-                        ),
-                        "#FFFFFF",
-                      ]}
-                      style={[
-                        styles.achievementCard,
-                        {
-                          borderWidth: 2,
-                          borderColor: achievement.unlocked
-                            ? `${achievement.color}30`
-                            : "#E5E7EB",
-                        },
-                      ]}
-                    >
-                      <View style={styles.achievementContent}>
-                        <LinearGradient
-                          colors={
-                            achievement.unlocked
-                              ? [
-                                  `${achievement.color}20`,
-                                  `${achievement.color}10`,
-                                ]
-                              : ["#F3F4F6", "#E5E7EB"]
-                          }
-                          style={styles.achievementIconContainer}
-                        >
-                          {getAchievementIcon(
-                            achievement.icon,
-                            32,
-                            achievement.unlocked ? achievement.color : "#9CA3AF"
-                          )}
-                        </LinearGradient>
-
-                        <View style={styles.achievementDetails}>
-                          <View style={styles.achievementHeader}>
-                            <Text
-                              style={[
-                                styles.achievementTitle,
-                                {
-                                  color: achievement.unlocked
-                                    ? "#111827"
-                                    : "#6B7280",
-                                },
-                              ]}
-                            >
-                              {typeof achievement.title === "object"
-                                ? achievement.title.en
-                                : achievement.title}
-                            </Text>
-                            <LinearGradient
-                              colors={
-                                achievement.unlocked
-                                  ? [
-                                      `${achievement.color}20`,
-                                      `${achievement.color}10`,
-                                    ]
-                                  : ["#F3F4F6", "#E5E7EB"]
-                              }
-                              style={styles.rarityBadge}
-                            >
-                              <Text
-                                style={[
-                                  styles.rarityText,
-                                  {
-                                    color: achievement.unlocked
-                                      ? achievement.color
-                                      : "#6B7280",
-                                  },
-                                ]}
-                              >
-                                {achievement.rarity}
-                              </Text>
-                            </LinearGradient>
-                          </View>
-
-                          <Text
+              {achievements.length > 0 ? (
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  <View style={styles.achievementsContainer}>
+                    {achievements.slice(0, 3).map((achievement) => (
+                      <View
+                        key={achievement.id}
+                        style={[
+                          styles.achievementCard,
+                          {
+                            backgroundColor: getAchievementBackgroundColor(
+                              achievement.rarity,
+                              achievement.unlocked
+                            ),
+                            borderWidth: 1,
+                            borderColor: achievement.unlocked
+                              ? `${achievement.color}30`
+                              : "#E5E7EB",
+                          },
+                        ]}
+                      >
+                        <View style={styles.achievementContent}>
+                          <View
                             style={[
-                              styles.achievementDescription,
+                              styles.achievementIconContainer,
                               {
-                                color: achievement.unlocked
-                                  ? "#374151"
-                                  : "#9CA3AF",
+                                backgroundColor: achievement.unlocked
+                                  ? `${achievement.color}20`
+                                  : "#F3F4F6",
                               },
                             ]}
                           >
-                            {typeof achievement.description === "object"
-                              ? achievement.description.en
-                              : achievement.description}
-                          </Text>
+                            {getAchievementIcon(
+                              achievement.icon,
+                              28,
+                              achievement.unlocked
+                                ? achievement.color
+                                : "#9CA3AF"
+                            )}
+                          </View>
 
-                          <View style={styles.achievementProgress}>
-                            <View style={styles.progressBarContainer}>
-                              <View style={styles.progressBarBg}>
-                                <LinearGradient
-                                  colors={
-                                    achievement.unlocked
-                                      ? [
-                                          `${achievement.color}80`,
-                                          achievement.color,
-                                        ]
-                                      : ["#D1D5DB", "#9CA3AF"]
-                                  }
-                                  start={{ x: 0, y: 0 }}
-                                  end={{ x: 1, y: 0 }}
-                                  style={[
-                                    styles.progressBarFill,
-                                    {
-                                      width: `${
-                                        achievement.unlocked
-                                          ? 100
-                                          : (achievement.progress /
-                                              (achievement.maxProgress || 1)) *
-                                            100
-                                      }%`,
-                                    },
-                                  ]}
-                                />
-                              </View>
-                              <Text style={styles.progressText}>
-                                {achievement.progress}/
-                                {achievement.maxProgress || 1}
-                              </Text>
-                            </View>
-
-                            <View style={styles.xpRewardContainer}>
-                              <Sparkles
-                                size={16}
-                                color={
-                                  achievement.unlocked
-                                    ? achievement.color
-                                    : "#9CA3AF"
-                                }
-                              />
+                          <View style={styles.achievementDetails}>
+                            <View style={styles.achievementHeader}>
                               <Text
                                 style={[
-                                  styles.xpRewardText,
+                                  styles.achievementTitle,
                                   {
                                     color: achievement.unlocked
-                                      ? achievement.color
-                                      : "#9CA3AF",
+                                      ? "#111827"
+                                      : "#6B7280",
+                                  },
+                                ]}
+                                numberOfLines={1}
+                              >
+                                {typeof achievement.title === "object"
+                                  ? achievement.title.en
+                                  : achievement.title}
+                              </Text>
+                              <View
+                                style={[
+                                  styles.rarityBadge,
+                                  {
+                                    backgroundColor: achievement.unlocked
+                                      ? `${achievement.color}20`
+                                      : "#F3F4F6",
                                   },
                                 ]}
                               >
-                                +{achievement.xpReward} XP
-                              </Text>
+                                <Text
+                                  style={[
+                                    styles.rarityText,
+                                    {
+                                      color: achievement.unlocked
+                                        ? achievement.color
+                                        : "#6B7280",
+                                    },
+                                  ]}
+                                >
+                                  {achievement.rarity}
+                                </Text>
+                              </View>
+                            </View>
+
+                            <Text
+                              style={[
+                                styles.achievementDescription,
+                                {
+                                  color: achievement.unlocked
+                                    ? "#374151"
+                                    : "#9CA3AF",
+                                },
+                              ]}
+                              numberOfLines={2}
+                            >
+                              {typeof achievement.description === "object"
+                                ? achievement.description.en
+                                : achievement.description}
+                            </Text>
+
+                            <View style={styles.achievementProgress}>
+                              <View style={styles.progressBarContainer}>
+                                <View style={styles.progressBarBg}>
+                                  <View
+                                    style={[
+                                      styles.progressBarFill,
+                                      {
+                                        width: `${
+                                          achievement.unlocked
+                                            ? 100
+                                            : (achievement.progress /
+                                                (achievement.maxProgress ||
+                                                  1)) *
+                                              100
+                                        }%`,
+                                        backgroundColor: achievement.unlocked
+                                          ? achievement.color
+                                          : "#D1D5DB",
+                                      },
+                                    ]}
+                                  />
+                                </View>
+                                <Text style={styles.progressText}>
+                                  {achievement.progress}/
+                                  {achievement.maxProgress || 1}
+                                </Text>
+                              </View>
+
+                              <View style={styles.xpRewardContainer}>
+                                <Sparkles
+                                  size={16}
+                                  color={
+                                    achievement.unlocked
+                                      ? achievement.color
+                                      : "#9CA3AF"
+                                  }
+                                />
+                                <Text
+                                  style={[
+                                    styles.xpRewardText,
+                                    {
+                                      color: achievement.unlocked
+                                        ? achievement.color
+                                        : "#9CA3AF",
+                                    },
+                                  ]}
+                                >
+                                  +{achievement.xpReward} XP
+                                </Text>
+                              </View>
                             </View>
                           </View>
+
+                          {achievement.unlocked && (
+                            <View style={styles.unlockedBadge}>
+                              <CheckCircle
+                                size={24}
+                                color={achievement.color}
+                              />
+                            </View>
+                          )}
                         </View>
-
-                        {achievement.unlocked && (
-                          <LinearGradient
-                            colors={[
-                              "rgba(255, 255, 255, 0.95)",
-                              "rgba(255, 255, 255, 0.85)",
-                            ]}
-                            style={styles.unlockedBadge}
-                          >
-                            <CheckCircle size={28} color={achievement.color} />
-                          </LinearGradient>
-                        )}
                       </View>
-                    </LinearGradient>
-                  ))}
+                    ))}
+                  </View>
+                </ScrollView>
+              ) : (
+                <View style={styles.noDataContainer}>
+                  <Trophy size={64} color="#BDC3C7" />
+                  <Text style={styles.noDataText}>
+                    {t("statistics.no_achievements") || "No achievements yet"}
+                  </Text>
                 </View>
-              </View>
+              )}
+            </View>
 
-              {/* Progress Overview with Real Data */}
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>
-                  {t("statistics.progressOverview")}
-                </Text>
-                <LinearGradient
-                  colors={["#FFFFFF", "#F8FAFC"]}
-                  style={styles.progressOverviewContainer}
-                >
+            {/* Progress Overview */}
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>
+                {t("statistics.progress_overview") || "Progress Overview"}
+              </Text>
+              <View style={styles.progressOverviewContainer}>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                   <View style={styles.progressStatsGrid}>
                     <View style={styles.progressStatItem}>
-                      <LinearGradient
-                        colors={["#ECFDF5", "#D1FAE5"]}
-                        style={styles.progressStatIcon}
-                      >
-                        <CheckCircle size={24} color="#059669" />
-                      </LinearGradient>
+                      <View style={styles.progressStatIcon}>
+                        <CheckCircle size={20} color="#2ECC71" />
+                      </View>
                       <Text style={styles.progressStatValue}>
                         {progressStats.successfulDays}/{progressStats.totalDays}
                       </Text>
-                      <Text style={styles.progressStatLabel}>
-                        {t("statistics.successfulDays")}
+                      <Text style={styles.progressStatLabel} numberOfLines={2}>
+                        {t("statistics.successful_days") || "Successful Days"}
                       </Text>
                     </View>
 
                     <View style={styles.progressStatItem}>
-                      <LinearGradient
-                        colors={["#EFF6FF", "#DBEAFE"]}
-                        style={styles.progressStatIcon}
-                      >
-                        <Target size={24} color="#2563EB" />
-                      </LinearGradient>
+                      <View style={styles.progressStatIcon}>
+                        <Target size={20} color="#3498DB" />
+                      </View>
                       <Text style={styles.progressStatValue}>
                         {progressStats.averageCompletion}%
                       </Text>
-                      <Text style={styles.progressStatLabel}>
-                        {t("statistics.averageCompletion")}
+                      <Text style={styles.progressStatLabel} numberOfLines={2}>
+                        {t("statistics.average_completion") ||
+                          "Average Completion"}
                       </Text>
                     </View>
 
                     <View style={styles.progressStatItem}>
-                      <LinearGradient
-                        colors={["#FEF3E2", "#FED7AA"]}
-                        style={styles.progressStatIcon}
-                      >
-                        <Award size={24} color="#D97706" />
-                      </LinearGradient>
+                      <View style={styles.progressStatIcon}>
+                        <Award size={20} color="#F39C12" />
+                      </View>
                       <Text style={styles.progressStatValue}>
                         {progressStats.bestStreak}
                       </Text>
-                      <Text style={styles.progressStatLabel}>
-                        {t("statistics.bestStreak")}
+                      <Text style={styles.progressStatLabel} numberOfLines={2}>
+                        {t("statistics.best_streak") || "Best Streak"}
                       </Text>
                     </View>
 
                     <View style={styles.progressStatItem}>
-                      <LinearGradient
-                        colors={["#FEF2F2", "#FECACA"]}
-                        style={styles.progressStatIcon}
-                      >
-                        <Trophy size={24} color="#DC2626" />
-                      </LinearGradient>
+                      <View style={styles.progressStatIcon}>
+                        <Trophy size={20} color="#E74C3C" />
+                      </View>
                       <Text style={styles.progressStatValue}>
                         {progressStats.currentStreak}
                       </Text>
-                      <Text style={styles.progressStatLabel}>
-                        {t("statistics.currentStreak")}
+                      <Text style={styles.progressStatLabel} numberOfLines={2}>
+                        {t("statistics.current_streak") || "Current Streak"}
                       </Text>
                     </View>
                   </View>
+                </ScrollView>
 
-                  {/* Real nutrition averages */}
-                  <View style={styles.nutritionAverages}>
-                    <Text style={styles.nutritionAveragesTitle}>
-                      {language === "he"
-                        ? "ממוצעים תזונתיים"
-                        : "Nutrition Averages"}
-                    </Text>
+                {/* Nutrition averages */}
+                <View style={styles.nutritionAverages}>
+                  <Text style={styles.nutritionAveragesTitle}>
+                    {language === "he"
+                      ? "ממוצעים תזונתיים"
+                      : "Nutrition Averages"}
+                  </Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                     <View style={styles.nutritionAveragesGrid}>
                       <View style={styles.nutritionAverage}>
-                        <View
-                          style={[
-                            styles.nutritionAverageIcon,
-                            { backgroundColor: "#FEF2F2" },
-                          ]}
-                        >
-                          <Flame size={18} color="#E74C3C" />
-                        </View>
+                        <Flame size={16} color="#E74C3C" />
                         <Text style={styles.nutritionAverageValue}>
                           {progressStats.averages.calories}
                         </Text>
                         <Text style={styles.nutritionAverageLabel}>
-                          {t("statistics.kcal")}
+                          {t("statistics.kcal") || "kcal"}
                         </Text>
                       </View>
                       <View style={styles.nutritionAverage}>
-                        <View
-                          style={[
-                            styles.nutritionAverageIcon,
-                            { backgroundColor: "#F3F4F6" },
-                          ]}
-                        >
-                          <Zap size={18} color="#9B59B6" />
-                        </View>
+                        <Zap size={16} color="#9B59B6" />
                         <Text style={styles.nutritionAverageValue}>
                           {progressStats.averages.protein}
                         </Text>
                         <Text style={styles.nutritionAverageLabel}>
-                          {t("statistics.g")}
+                          {t("statistics.g") || "g"}
                         </Text>
                       </View>
                       <View style={styles.nutritionAverage}>
-                        <View
-                          style={[
-                            styles.nutritionAverageIcon,
-                            { backgroundColor: "#FEF3E2" },
-                          ]}
-                        >
-                          <Wheat size={18} color="#F39C12" />
-                        </View>
+                        <Wheat size={16} color="#F39C12" />
                         <Text style={styles.nutritionAverageValue}>
                           {progressStats.averages.carbs}
                         </Text>
                         <Text style={styles.nutritionAverageLabel}>
-                          {t("statistics.g")}
+                          {t("statistics.g") || "g"}
                         </Text>
                       </View>
                       <View style={styles.nutritionAverage}>
-                        <View
-                          style={[
-                            styles.nutritionAverageIcon,
-                            { backgroundColor: "#E0F2F1" },
-                          ]}
-                        >
-                          <Fish size={18} color="#16A085" />
-                        </View>
+                        <Fish size={16} color="#16A085" />
                         <Text style={styles.nutritionAverageValue}>
                           {progressStats.averages.fats}
                         </Text>
                         <Text style={styles.nutritionAverageLabel}>
-                          {t("statistics.g")}
+                          {t("statistics.g") || "g"}
                         </Text>
                       </View>
                       <View style={styles.nutritionAverage}>
-                        <View
-                          style={[
-                            styles.nutritionAverageIcon,
-                            { backgroundColor: "#EFF6FF" },
-                          ]}
-                        >
-                          <Droplets size={18} color="#3498DB" />
-                        </View>
+                        <Droplets size={16} color="#3498DB" />
                         <Text style={styles.nutritionAverageValue}>
                           {progressStats.averages.water}
                         </Text>
                         <Text style={styles.nutritionAverageLabel}>
-                          {t("statistics.ml")}
+                          {t("statistics.ml") || "ml"}
                         </Text>
                       </View>
                     </View>
-                  </View>
-                </LinearGradient>
-              </View>
-
-              {/* Alerts Section - Only show when meals are completed */}
-              {shouldShowWarnings() && alerts.length > 0 && (
-                <View style={styles.section}>
-                  <View style={styles.alertsHeader}>
-                    <Text style={styles.sectionTitle}>
-                      {t("statistics.alertsTitle")}
-                    </Text>
-                    <TouchableOpacity
-                      style={styles.hideAlertsButton}
-                      onPress={() => setShowAlerts(false)}
-                    >
-                      <Text style={styles.hideAlertsText}>
-                        {t("statistics.hideAlerts")}
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-                  <View style={styles.alertsContainer}>
-                    {alerts.map((alert) => (
-                      <LinearGradient
-                        key={alert.id}
-                        colors={["#FFFFFF", "#FEF7F7"]}
-                        style={styles.alertCard}
-                      >
-                        <View style={styles.alertContent}>
-                          <LinearGradient
-                            colors={["#FEF2F2", "#FECACA"]}
-                            style={styles.alertIcon}
-                          >
-                            <AlertTriangle
-                              size={24}
-                              color={
-                                alert.severity === "danger"
-                                  ? "#E74C3C"
-                                  : "#E67E22"
-                              }
-                            />
-                          </LinearGradient>
-                          <View style={styles.alertText}>
-                            <Text style={styles.alertTitle}>{alert.title}</Text>
-                            <Text style={styles.alertMessage}>
-                              {alert.message}
-                            </Text>
-                          </View>
-                        </View>
-                      </LinearGradient>
-                    ))}
-                  </View>
+                  </ScrollView>
                 </View>
-              )}
+              </View>
+            </View>
 
-              {/* Macronutrients */}
+            {/* Macronutrients */}
+            {categorizedMetrics.macros.length > 0 && (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>
-                  {t("statistics.macronutrients")}
+                  {t("statistics.macronutrients") || "Macronutrients"}
                 </Text>
                 <View style={styles.metricsGrid}>
                   {categorizedMetrics.macros.map(renderMetricCard)}
                 </View>
               </View>
+            )}
 
-              {/* Micronutrients */}
+            {/* Micronutrients */}
+            {categorizedMetrics.micros.length > 0 && (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>
-                  {t("statistics.micronutrients")}
+                  {t("statistics.micronutrients") || "Micronutrients"}
                 </Text>
                 <View style={styles.metricsGrid}>
                   {categorizedMetrics.micros.map(renderMetricCard)}
                 </View>
               </View>
+            )}
 
-              {/* Lifestyle Metrics */}
+            {/* Lifestyle Metrics */}
+            {categorizedMetrics.lifestyle.length > 0 && (
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>
-                  {t("statistics.lifestyle")}
+                  {t("statistics.lifestyle") || "Lifestyle"}
                 </Text>
                 <View style={styles.metricsGrid}>
                   {categorizedMetrics.lifestyle.map(renderMetricCard)}
                 </View>
               </View>
-            </>
-          )}
+            )}
+          </>
+        )}
 
-          {/* Achievements Modal */}
-          <Modal
-            visible={showAchievements}
-            animationType="slide"
-            presentationStyle="pageSheet"
-          >
-            <LinearGradient
-              colors={["#f8fafc", "#e2e8f0"]}
-              style={styles.modalContainer}
-            >
-              <SafeAreaView>
-                <LinearGradient
-                  colors={["#FFFFFF", "#F8FAFC"]}
-                  style={styles.modalHeader}
+        {/* Achievements Modal */}
+        <Modal
+          visible={showAchievements}
+          animationType="slide"
+          presentationStyle="pageSheet"
+        >
+          <SafeAreaView style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <TouchableOpacity onPress={() => setShowAchievements(false)}>
+                <X size={24} color="#2C3E50" />
+              </TouchableOpacity>
+              <Text style={styles.modalTitle}>
+                {t("statistics.achievements") || "Achievements"}
+              </Text>
+              <View style={{ width: 24 }} />
+            </View>
+
+            <ScrollView style={styles.modalContent}>
+              {achievements.map((achievement) => (
+                <View
+                  key={achievement.id}
+                  style={[
+                    styles.achievementCard,
+                    { marginBottom: 16, width: "100%" },
+                    {
+                      backgroundColor: getAchievementBackgroundColor(
+                        achievement.rarity,
+                        achievement.unlocked
+                      ),
+                      borderWidth: 1,
+                      borderColor: achievement.unlocked
+                        ? `${achievement.color}30`
+                        : "#E5E7EB",
+                    },
+                  ]}
                 >
-                  <TouchableOpacity
-                    style={styles.modalCloseButton}
-                    onPress={() => setShowAchievements(false)}
-                  >
-                    <X size={28} color="#2C3E50" />
-                  </TouchableOpacity>
-                  <Text style={styles.modalTitle}>
-                    {t("statistics.achievements")}
-                  </Text>
-                  <View style={{ width: 28 }} />
-                </LinearGradient>
-
-                <ScrollView style={styles.modalContent}>
-                  {achievements.map((achievement) => (
-                    <LinearGradient
-                      key={achievement.id}
-                      colors={[
-                        getAchievementBackgroundColor(
-                          achievement.rarity,
-                          achievement.unlocked
-                        ),
-                        "#FFFFFF",
-                      ]}
+                  <View style={styles.achievementContent}>
+                    <View
                       style={[
-                        styles.achievementCard,
+                        styles.achievementIconContainer,
                         {
-                          borderWidth: 2,
-                          borderColor: achievement.unlocked
-                            ? `${achievement.color}30`
-                            : "#E5E7EB",
+                          backgroundColor: achievement.unlocked
+                            ? `${achievement.color}20`
+                            : "#F3F4F6",
                         },
                       ]}
                     >
-                      <View style={styles.achievementContent}>
-                        <LinearGradient
-                          colors={
-                            achievement.unlocked
-                              ? [
-                                  `${achievement.color}20`,
-                                  `${achievement.color}10`,
-                                ]
-                              : ["#F3F4F6", "#E5E7EB"]
-                          }
-                          style={styles.achievementIconContainer}
+                      {getAchievementIcon(
+                        achievement.icon,
+                        28,
+                        achievement.unlocked ? achievement.color : "#9CA3AF"
+                      )}
+                    </View>
+
+                    <View style={styles.achievementDetails}>
+                      <View style={styles.achievementHeader}>
+                        <Text
+                          style={[
+                            styles.achievementTitle,
+                            {
+                              color: achievement.unlocked
+                                ? "#111827"
+                                : "#6B7280",
+                            },
+                          ]}
+                          numberOfLines={2}
                         >
-                          {getAchievementIcon(
-                            achievement.icon,
-                            32,
-                            achievement.unlocked ? achievement.color : "#9CA3AF"
-                          )}
-                        </LinearGradient>
-
-                        <View style={styles.achievementDetails}>
-                          <View style={styles.achievementHeader}>
-                            <Text
-                              style={[
-                                styles.achievementTitle,
-                                {
-                                  color: achievement.unlocked
-                                    ? "#111827"
-                                    : "#6B7280",
-                                },
-                              ]}
-                            >
-                              {typeof achievement.title === "object"
-                                ? achievement.title.en
-                                : achievement.title}
-                            </Text>
-                            <LinearGradient
-                              colors={
-                                achievement.unlocked
-                                  ? [
-                                      `${achievement.color}20`,
-                                      `${achievement.color}10`,
-                                    ]
-                                  : ["#F3F4F6", "#E5E7EB"]
-                              }
-                              style={styles.rarityBadge}
-                            >
-                              <Text
-                                style={[
-                                  styles.rarityText,
-                                  {
-                                    color: achievement.unlocked
-                                      ? achievement.color
-                                      : "#6B7280",
-                                  },
-                                ]}
-                              >
-                                {achievement.rarity}
-                              </Text>
-                            </LinearGradient>
-                          </View>
-
+                          {typeof achievement.title === "object"
+                            ? achievement.title.en
+                            : achievement.title}
+                        </Text>
+                        <View
+                          style={[
+                            styles.rarityBadge,
+                            {
+                              backgroundColor: achievement.unlocked
+                                ? `${achievement.color}20`
+                                : "#F3F4F6",
+                            },
+                          ]}
+                        >
                           <Text
                             style={[
-                              styles.achievementDescription,
+                              styles.rarityText,
                               {
                                 color: achievement.unlocked
-                                  ? "#374151"
+                                  ? achievement.color
+                                  : "#6B7280",
+                              },
+                            ]}
+                          >
+                            {achievement.rarity}
+                          </Text>
+                        </View>
+                      </View>
+
+                      <Text
+                        style={[
+                          styles.achievementDescription,
+                          {
+                            color: achievement.unlocked ? "#374151" : "#9CA3AF",
+                          },
+                        ]}
+                        numberOfLines={3}
+                      >
+                        {typeof achievement.description === "object"
+                          ? achievement.description.en
+                          : achievement.description}
+                      </Text>
+
+                      <View style={styles.achievementProgress}>
+                        <View style={styles.progressBarContainer}>
+                          <View style={styles.progressBarBg}>
+                            <View
+                              style={[
+                                styles.progressBarFill,
+                                {
+                                  width: `${
+                                    (achievement.progress /
+                                      (achievement.maxProgress || 1)) *
+                                    100
+                                  }%`,
+                                  backgroundColor: achievement.unlocked
+                                    ? achievement.color
+                                    : "#D1D5DB",
+                                },
+                              ]}
+                            />
+                          </View>
+                          <Text style={styles.progressText}>
+                            {achievement.progress}/
+                            {achievement.maxProgress || 1}
+                          </Text>
+                        </View>
+
+                        <View style={styles.xpRewardContainer}>
+                          <Sparkles
+                            size={16}
+                            color={
+                              achievement.unlocked
+                                ? achievement.color
+                                : "#9CA3AF"
+                            }
+                          />
+                          <Text
+                            style={[
+                              styles.xpRewardText,
+                              {
+                                color: achievement.unlocked
+                                  ? achievement.color
                                   : "#9CA3AF",
                               },
                             ]}
                           >
-                            {typeof achievement.description === "object"
-                              ? achievement.description.en
-                              : achievement.description}
+                            +{achievement.xpReward} XP
                           </Text>
-
-                          <View style={styles.achievementProgress}>
-                            <View style={styles.progressBarContainer}>
-                              <View style={styles.progressBarBg}>
-                                <LinearGradient
-                                  colors={
-                                    achievement.unlocked
-                                      ? [
-                                          `${achievement.color}80`,
-                                          achievement.color,
-                                        ]
-                                      : ["#D1D5DB", "#9CA3AF"]
-                                  }
-                                  start={{ x: 0, y: 0 }}
-                                  end={{ x: 1, y: 0 }}
-                                  style={[
-                                    styles.progressBarFill,
-                                    {
-                                      width: `${
-                                        (achievement.progress /
-                                          (achievement.maxProgress || 1)) *
-                                        100
-                                      }%`,
-                                    },
-                                  ]}
-                                />
-                              </View>
-                              <Text style={styles.progressText}>
-                                {achievement.progress}/
-                                {achievement.maxProgress || 1}
-                              </Text>
-                            </View>
-
-                            <View style={styles.xpRewardContainer}>
-                              <Sparkles
-                                size={16}
-                                color={
-                                  achievement.unlocked
-                                    ? achievement.color
-                                    : "#9CA3AF"
-                                }
-                              />
-                              <Text
-                                style={[
-                                  styles.xpRewardText,
-                                  {
-                                    color: achievement.unlocked
-                                      ? achievement.color
-                                      : "#9CA3AF",
-                                  },
-                                ]}
-                              >
-                                +{achievement.xpReward} XP
-                              </Text>
-                            </View>
-                          </View>
                         </View>
-
-                        {achievement.unlocked && (
-                          <LinearGradient
-                            colors={[
-                              "rgba(255, 255, 255, 0.95)",
-                              "rgba(255, 255, 255, 0.85)",
-                            ]}
-                            style={styles.unlockedBadge}
-                          >
-                            <CheckCircle size={28} color={achievement.color} />
-                          </LinearGradient>
-                        )}
                       </View>
-                    </LinearGradient>
-                  ))}
-                </ScrollView>
-              </SafeAreaView>
-            </LinearGradient>
-          </Modal>
-        </ScrollView>
-      </SafeAreaView>
-    </LinearGradient>
+                    </View>
+
+                    {achievement.unlocked && (
+                      <View style={styles.unlockedBadge}>
+                        <CheckCircle size={24} color={achievement.color} />
+                      </View>
+                    )}
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
+          </SafeAreaView>
+        </Modal>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  safeArea: {
-    flex: 1,
+    backgroundColor: "#F8FAFC",
   },
 
-  // Enhanced Header Styles
+  // Header Styles
   header: {
-    marginHorizontal: 20,
-    marginTop: 10,
-    borderRadius: 28,
-    shadowColor: "#1E293B",
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.15,
-    shadowRadius: 32,
-    elevation: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
   },
   headerContent: {
-    padding: 32,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  titleContainer: {
+    flex: 1,
   },
   title: {
-    fontSize: 36,
-    fontWeight: "900",
+    fontSize: Math.min(32, width * 0.08),
+    fontWeight: "800",
     color: "#0F172A",
-    letterSpacing: -1.2,
-    marginBottom: 12,
-    textShadowColor: "rgba(0, 0, 0, 0.1)",
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
+    letterSpacing: -0.5,
+    marginBottom: 8,
   },
   subtitle: {
-    fontSize: 18,
+    fontSize: 16,
     color: "#64748B",
-    fontWeight: "600",
-    lineHeight: 28,
-    letterSpacing: 0.3,
+    fontWeight: "500",
+    lineHeight: 24,
+    letterSpacing: 0.1,
+  },
+  downloadButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
 
-  // Enhanced Error & Loading States
+  // Error & Loading States
   errorContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    padding: 20,
-  },
-  errorCard: {
+    padding: 32,
     backgroundColor: "#FFFFFF",
-    borderRadius: 32,
-    padding: 40,
-    alignItems: "center",
+    margin: 20,
+    borderRadius: 24,
     shadowColor: "#EF4444",
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.2,
-    shadowRadius: 32,
-    elevation: 16,
-    maxWidth: 350,
-    width: "100%",
-  },
-  errorIconContainer: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    backgroundColor: "#FEF2F2",
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 24,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
   },
   errorText: {
-    fontSize: 20,
+    fontSize: 18,
     color: "#1E293B",
     textAlign: "center",
-    marginBottom: 32,
-    fontWeight: "700",
-    lineHeight: 30,
+    marginVertical: 20,
+    fontWeight: "600",
+    lineHeight: 26,
   },
   retryButton: {
-    borderRadius: 20,
-    overflow: "hidden",
+    paddingHorizontal: 32,
+    paddingVertical: 16,
+    borderRadius: 16,
+    backgroundColor: "#EF4444",
     shadowColor: "#EF4444",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.4,
-    shadowRadius: 16,
-    elevation: 8,
-  },
-  retryButtonGradient: {
-    paddingHorizontal: 40,
-    paddingVertical: 18,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
   },
   retryButtonText: {
     color: "#FFFFFF",
-    fontSize: 18,
-    fontWeight: "800",
-    letterSpacing: 0.8,
-    textTransform: "uppercase",
+    fontSize: 16,
+    fontWeight: "700",
+    letterSpacing: 0.5,
   },
 
   noDataContainer: {
-    padding: 20,
+    flex: 1,
+    justifyContent: "center",
     alignItems: "center",
-  },
-  noDataCard: {
     paddingVertical: 80,
-    paddingHorizontal: 40,
-    borderRadius: 32,
-    alignItems: "center",
-    width: "100%",
+    backgroundColor: "#FFFFFF",
+    margin: 20,
+    borderRadius: 24,
     shadowColor: "#1E293B",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.08,
-    shadowRadius: 24,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 16,
   },
   noDataText: {
-    marginTop: 32,
-    fontSize: 20,
+    marginTop: 24,
+    fontSize: 18,
     color: "#64748B",
     textAlign: "center",
-    fontWeight: "700",
-    lineHeight: 30,
+    fontWeight: "600",
+    lineHeight: 26,
   },
 
-  // Enhanced Time Filter
+  noChartDataContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 40,
+  },
+  noChartDataText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: "#64748B",
+    textAlign: "center",
+    fontWeight: "500",
+  },
+
+  // Time Filter
   timeFilterContainer: {
     paddingHorizontal: 20,
-    marginVertical: 24,
+    marginBottom: 24,
   },
   timeFilter: {
     flexDirection: "row",
     backgroundColor: "#FFFFFF",
-    borderRadius: 24,
-    padding: 8,
+    borderRadius: 20,
+    padding: 6,
     shadowColor: "#1E293B",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 24,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 16,
   },
   timeFilterButton: {
     flex: 1,
-    borderRadius: 18,
+    borderRadius: 16,
     overflow: "hidden",
   },
   timeFilterButtonActive: {},
   timeFilterGradient: {
-    paddingVertical: 16,
+    paddingVertical: 14,
     alignItems: "center",
     shadowColor: "#16A085",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
   },
   timeFilterText: {
-    fontSize: 17,
-    fontWeight: "700",
+    fontSize: 16,
+    fontWeight: "600",
     color: "#64748B",
     textAlign: "center",
-    paddingVertical: 16,
-    letterSpacing: 0.4,
+    paddingVertical: 14,
+    letterSpacing: 0.2,
   },
   timeFilterTextActive: {
-    fontSize: 17,
-    fontWeight: "800",
-    color: "#FFFFFF",
-    letterSpacing: 0.6,
-    textTransform: "uppercase",
-  },
-
-  // Enhanced Chart Styles
-  chartTypeContainer: {
-    flexDirection: "row",
-    backgroundColor: "#F8FAFC",
-    borderRadius: 20,
-    padding: 6,
-    marginBottom: 24,
-    shadowColor: "#1E293B",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  chartTypeButton: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 14,
-    paddingHorizontal: 18,
-    borderRadius: 16,
-    gap: 10,
-  },
-  chartTypeButtonActive: {
-    backgroundColor: "#FFFFFF",
-    shadowColor: "#16A085",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  chartTypeText: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "700",
-    color: "#64748B",
-  },
-  chartTypeTextActive: {
-    color: "#16A085",
-  },
-  chartContainer: {
-    borderRadius: 28,
-    padding: 24,
-    alignItems: "center",
-    shadowColor: "#1E293B",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.12,
-    shadowRadius: 24,
-    elevation: 8,
-  },
-  chart: {
-    marginVertical: 12,
-    borderRadius: 20,
-  },
-  noChartData: {
-    paddingVertical: 80,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  noChartDataText: {
-    marginTop: 24,
-    fontSize: 18,
-    color: "#64748B",
-    fontWeight: "600",
-  },
-  trendChartsContainer: {
-    flexDirection: "row",
-    gap: 20,
-    paddingHorizontal: 8,
-  },
-  trendChart: {
-    alignItems: "center",
-  },
-  trendChartTitle: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: "#0F172A",
-    marginBottom: 16,
-  },
-  smallChart: {
-    borderRadius: 16,
+    color: "#FFFFFF",
+    letterSpacing: 0.3,
   },
 
-  // Enhanced Meal Completion Status
+  // Meal Completion Status
   mealCompletionCard: {
     marginHorizontal: 20,
-    marginBottom: 28,
-    borderRadius: 28,
-    overflow: "hidden",
+    marginBottom: 24,
+    borderRadius: 20,
+    backgroundColor: "#FFFFFF",
     shadowColor: "#1E293B",
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.2,
-    shadowRadius: 32,
-    elevation: 16,
-  },
-  mealCompletionGradient: {
-    padding: 28,
-  },
-  mealCompletionContent: {
-    alignItems: "stretch",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 16,
+    padding: 20,
   },
   mealCompletionHeader: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 20,
-  },
-  mealCompletionIconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 20,
-  },
-  mealCompletionInfo: {
-    flex: 1,
-  },
-  mealCompletionTitle: {
-    fontSize: 20,
-    fontWeight: "800",
-    color: "#FFFFFF",
-    marginBottom: 4,
-    textShadowColor: "rgba(0, 0, 0, 0.3)",
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
-  },
-  mealCompletionSubtitle: {
-    fontSize: 16,
-    color: "rgba(255, 255, 255, 0.9)",
-    fontWeight: "600",
-  },
-  mealCompletionPercentage: {
-    alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 16,
-  },
-  mealCompletionPercentageText: {
-    fontSize: 24,
-    fontWeight: "900",
-    color: "#FFFFFF",
-    textShadowColor: "rgba(0, 0, 0, 0.3)",
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
-  },
-  mealProgressBar: {
     marginBottom: 16,
   },
-  mealProgressBg: {
-    height: 12,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    borderRadius: 6,
-    overflow: "hidden",
+  mealCompletionIcon: {
+    marginRight: 12,
   },
-  mealProgressFill: {
-    height: "100%",
-    backgroundColor: "rgba(255, 255, 255, 0.9)",
-    borderRadius: 6,
+  mealCompletionTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#0F172A",
+  },
+  mealCompletionContent: {
+    alignItems: "center",
+    gap: 16,
+  },
+  mealCompletionText: {
+    fontSize: 24,
+    fontWeight: "800",
+    color: "#0F172A",
+  },
+  mealCompletionSubtext: {
+    fontSize: 14,
+    color: "#64748B",
   },
   mealCompletionMessage: {
-    fontSize: 15,
-    color: "rgba(255, 255, 255, 0.8)",
+    fontSize: 14,
+    color: "#64748B",
     fontStyle: "italic",
-    fontWeight: "600",
     textAlign: "center",
   },
 
-  // Enhanced Section Styling
-  section: {
-    paddingHorizontal: 20,
-    marginBottom: 36,
+  // Chart Navigation
+  chartNavigation: {
+    marginBottom: 20,
   },
-  sectionTitle: {
-    fontSize: 28,
-    fontWeight: "900",
-    color: "#0F172A",
-    marginBottom: 24,
-    letterSpacing: -0.8,
-    textShadowColor: "rgba(0, 0, 0, 0.1)",
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
+  chartNavButtons: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  chartNavButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: "#F8FAFC",
+    borderRadius: 12,
+    minWidth: 100,
+  },
+  chartNavButtonActive: {
+    backgroundColor: "#16A085",
+  },
+  chartNavButtonDisabled: {
+    opacity: 0.5,
+  },
+  chartNavButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#64748B",
+    textAlign: "center",
+  },
+  chartNavButtonTextActive: {
+    color: "#FFFFFF",
+  },
+  chartNavButtonTextDisabled: {
+    color: "#9CA3AF",
   },
 
-  // Enhanced Gamification
-  gamificationContainer: {
-    borderRadius: 32,
-    padding: 32,
+  // Chart Styles
+  chartContainer: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 20,
     shadowColor: "#1E293B",
-    shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 0.15,
-    shadowRadius: 32,
-    elevation: 16,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 16,
+  },
+  chartTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#0F172A",
+    marginBottom: 16,
+    textAlign: "center",
+  },
+  chartXLabels: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    paddingHorizontal: 40,
+    marginTop: 8,
+  },
+  chartXLabel: {
+    fontSize: 12,
+    color: "#64748B",
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  macroLegend: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    marginTop: 16,
+    gap: 12,
+  },
+  macroLegendItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: "#F8FAFC",
+    borderRadius: 12,
+  },
+  macroLegendColor: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    marginRight: 8,
+  },
+  macroLegendText: {
+    fontSize: 12,
+    color: "#64748B",
+    fontWeight: "600",
+  },
+
+  // Section Styling
+  section: {
+    paddingHorizontal: 20,
+    marginBottom: 32,
+  },
+  sectionTitle: {
+    fontSize: Math.min(24, width * 0.06),
+    fontWeight: "700",
+    color: "#0F172A",
+    marginBottom: 20,
+    letterSpacing: -0.3,
+  },
+
+  // Gamification
+  gamificationContainer: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 24,
+    padding: 24,
+    shadowColor: "#1E293B",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 20,
   },
   levelContainer: {
-    marginBottom: 32,
+    marginBottom: 24,
   },
   levelInfo: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 24,
+    marginBottom: 20,
   },
   levelIcon: {
-    width: 88,
-    height: 88,
-    borderRadius: 44,
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: "#FEF3E2",
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 24,
-    shadowColor: "#F59E0B",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 8,
+    marginRight: 20,
   },
   levelDetails: {
     flex: 1,
   },
   levelText: {
-    fontSize: 32,
-    fontWeight: "900",
+    fontSize: Math.min(28, width * 0.07),
+    fontWeight: "800",
     color: "#0F172A",
-    marginBottom: 8,
-    letterSpacing: -1,
-    textShadowColor: "rgba(0, 0, 0, 0.1)",
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
+    marginBottom: 4,
+    letterSpacing: -0.5,
   },
   xpText: {
-    fontSize: 18,
-    fontWeight: "700",
+    fontSize: 16,
+    fontWeight: "600",
     color: "#64748B",
-    letterSpacing: 0.3,
+    letterSpacing: 0.1,
   },
   xpProgress: {
-    gap: 16,
+    gap: 12,
   },
   xpProgressBg: {
-    height: 16,
-    backgroundColor: "#E2E8F0",
-    borderRadius: 8,
+    height: 12,
+    backgroundColor: "#F1F5F9",
+    borderRadius: 6,
     overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
   },
   xpProgressFill: {
     height: "100%",
-    borderRadius: 8,
+    borderRadius: 6,
+    backgroundColor: "#F39C12",
   },
   xpToNext: {
-    fontSize: 16,
+    fontSize: 14,
     color: "#64748B",
-    fontWeight: "700",
+    fontWeight: "600",
     textAlign: "center",
-    letterSpacing: 0.3,
+    letterSpacing: 0.1,
   },
 
   gamificationStats: {
     flexDirection: "row",
     justifyContent: "space-around",
-    paddingTop: 28,
-    borderTopWidth: 2,
-    borderTopColor: "#E2E8F0",
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: "#F1F5F9",
   },
   gamificationStatItem: {
     alignItems: "center",
-    paddingHorizontal: 16,
-  },
-  statIconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    paddingHorizontal: Math.max(8, width * 0.02),
+    flex: 1,
   },
   gamificationStatValue: {
-    fontSize: 28,
-    fontWeight: "900",
+    fontSize: Math.min(24, width * 0.06),
+    fontWeight: "800",
     color: "#0F172A",
-    marginBottom: 8,
-    textShadowColor: "rgba(0, 0, 0, 0.1)",
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
+    marginTop: 12,
+    marginBottom: 6,
   },
   gamificationStatLabel: {
-    fontSize: 14,
+    fontSize: Math.min(13, width * 0.03),
     color: "#64748B",
-    fontWeight: "700",
+    fontWeight: "600",
     textAlign: "center",
-    letterSpacing: 0.4,
-    textTransform: "uppercase",
+    letterSpacing: 0.2,
   },
 
-  // Enhanced Achievements
+  // Achievements
   achievementsHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 24,
+    marginBottom: 20,
   },
   viewAllButton: {
-    borderRadius: 16,
-    overflow: "hidden",
-    shadowColor: "#16A085",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  viewAllButtonGradient: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    backgroundColor: "#E0F2F1",
+    borderRadius: 12,
   },
   viewAllText: {
-    fontSize: 15,
-    fontWeight: "800",
+    fontSize: 14,
+    fontWeight: "700",
     color: "#16A085",
-    letterSpacing: 0.4,
-    textTransform: "uppercase",
+    letterSpacing: 0.3,
   },
 
   achievementsContainer: {
-    gap: 20,
-    marginBottom: 28,
+    flexDirection: "row",
+    gap: 16,
   },
   achievementCard: {
-    borderRadius: 28,
-    padding: 28,
+    borderRadius: 20,
+    padding: 20,
     shadowColor: "#1E293B",
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.15,
-    shadowRadius: 24,
-    elevation: 12,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 16,
+    width: width * 0.8,
+    minWidth: 300,
+    maxWidth: 400,
   },
   achievementContent: {
     flexDirection: "row",
     alignItems: "flex-start",
   },
   achievementIconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 24,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 4,
+    marginRight: 20,
   },
   achievementDetails: {
     flex: 1,
@@ -2791,37 +2714,31 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 12,
+    marginBottom: 8,
   },
   achievementTitle: {
-    fontSize: 20,
-    fontWeight: "800",
-    letterSpacing: -0.4,
+    fontSize: 18,
+    fontWeight: "700",
+    letterSpacing: -0.2,
     flex: 1,
-    marginRight: 16,
-    lineHeight: 26,
+    marginRight: 12,
   },
   rarityBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
   },
   rarityText: {
-    fontSize: 11,
-    fontWeight: "900",
+    fontSize: 10,
+    fontWeight: "800",
     textTransform: "uppercase",
-    letterSpacing: 1.2,
+    letterSpacing: 1,
   },
   achievementDescription: {
-    fontSize: 16,
-    lineHeight: 24,
-    marginBottom: 20,
-    fontWeight: "600",
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 16,
+    fontWeight: "500",
   },
   achievementProgress: {
     flexDirection: "row",
@@ -2830,450 +2747,280 @@ const styles = StyleSheet.create({
   },
   progressBarContainer: {
     flex: 1,
-    marginRight: 20,
+    marginRight: 16,
   },
   progressBarBg: {
-    height: 10,
-    backgroundColor: "#E2E8F0",
-    borderRadius: 5,
+    height: 8,
+    backgroundColor: "#F1F5F9",
+    borderRadius: 4,
     overflow: "hidden",
-    marginBottom: 10,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    marginBottom: 8,
   },
   progressBarFill: {
     height: "100%",
-    borderRadius: 5,
+    borderRadius: 4,
   },
   progressText: {
-    fontSize: 13,
-    fontWeight: "700",
+    fontSize: 12,
+    fontWeight: "600",
     color: "#64748B",
   },
   xpRewardContainer: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
+    gap: 4,
   },
   xpRewardText: {
-    fontSize: 16,
-    fontWeight: "800",
-    letterSpacing: 0.4,
+    fontSize: 14,
+    fontWeight: "700",
+    letterSpacing: 0.2,
   },
   unlockedBadge: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
     justifyContent: "center",
     alignItems: "center",
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
 
-  // Enhanced Progress Overview
+  // Progress Overview
   progressOverviewContainer: {
-    borderRadius: 32,
-    padding: 32,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 24,
+    padding: 24,
     shadowColor: "#1E293B",
-    shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 0.15,
-    shadowRadius: 32,
-    elevation: 16,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.06,
+    shadowRadius: 20,
   },
   progressStatsGrid: {
     flexDirection: "row",
-    justifyContent: "space-around",
-    marginBottom: 32,
+    gap: 20,
+    marginBottom: 24,
   },
   progressStatItem: {
     alignItems: "center",
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
+    minWidth: 100,
   },
   progressStatIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "#F8FAFC",
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
+    marginBottom: 12,
   },
   progressStatValue: {
-    fontSize: 24,
-    fontWeight: "900",
-    color: "#0F172A",
-    marginBottom: 6,
-    textShadowColor: "rgba(0, 0, 0, 0.1)",
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
-  },
-  progressStatLabel: {
-    fontSize: 14,
-    color: "#64748B",
-    textAlign: "center",
-    fontWeight: "700",
-    letterSpacing: 0.3,
-    textTransform: "uppercase",
-  },
-
-  // Enhanced Nutrition Averages
-  nutritionAverages: {
-    borderTopWidth: 2,
-    borderTopColor: "#E2E8F0",
-    paddingTop: 32,
-  },
-  nutritionAveragesTitle: {
-    fontSize: 22,
+    fontSize: Math.min(20, width * 0.05),
     fontWeight: "800",
     color: "#0F172A",
-    marginBottom: 20,
+    marginBottom: 4,
+  },
+  progressStatLabel: {
+    fontSize: Math.min(13, width * 0.03),
+    color: "#64748B",
     textAlign: "center",
-    letterSpacing: -0.4,
+    fontWeight: "600",
+    letterSpacing: 0.1,
+  },
+
+  // Nutrition Averages
+  nutritionAverages: {
+    borderTopWidth: 1,
+    borderTopColor: "#F1F5F9",
+    paddingTop: 24,
+  },
+  nutritionAveragesTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#0F172A",
+    marginBottom: 16,
+    textAlign: "center",
   },
   nutritionAveragesGrid: {
     flexDirection: "row",
-    justifyContent: "space-around",
+    gap: 16,
   },
   nutritionAverage: {
     alignItems: "center",
     paddingHorizontal: 12,
-  },
-  nutritionAverageIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    minWidth: 80,
   },
   nutritionAverageValue: {
-    fontSize: 20,
-    fontWeight: "900",
-    color: "#0F172A",
-    marginBottom: 6,
-    textShadowColor: "rgba(0, 0, 0, 0.1)",
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
-  },
-  nutritionAverageLabel: {
-    fontSize: 13,
-    color: "#64748B",
-    fontWeight: "700",
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
-  },
-
-  // Enhanced Alerts
-  alertsHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 24,
-  },
-  hideAlertsButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    backgroundColor: "#F1F5F9",
-    borderRadius: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  hideAlertsText: {
-    fontSize: 15,
-    color: "#64748B",
-    fontWeight: "700",
-  },
-  alertsContainer: {
-    gap: 20,
-  },
-  alertCard: {
-    borderRadius: 24,
-    padding: 24,
-    shadowColor: "#EF4444",
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.2,
-    shadowRadius: 24,
-    elevation: 12,
-  },
-  alertContent: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  alertIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  alertText: {
-    flex: 1,
-  },
-  alertTitle: {
-    fontSize: 20,
+    fontSize: Math.min(18, width * 0.045),
     fontWeight: "800",
     color: "#0F172A",
-    marginBottom: 8,
-    letterSpacing: -0.4,
+    marginTop: 8,
+    marginBottom: 4,
   },
-  alertMessage: {
-    fontSize: 16,
+  nutritionAverageLabel: {
+    fontSize: 12,
     color: "#64748B",
     fontWeight: "600",
-    lineHeight: 24,
   },
 
-  // Enhanced Metrics
+  // Metrics
   metricsGrid: {
-    gap: 24,
+    gap: 20,
   },
   metricCard: {
-    borderRadius: 28,
+    borderRadius: 20,
+    backgroundColor: "#FFFFFF",
     shadowColor: "#1E293B",
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.15,
-    shadowRadius: 24,
-    elevation: 12,
-    overflow: "hidden",
-  },
-  metricCardGradient: {
-    borderRadius: 28,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 16,
   },
   metricCardContent: {
-    padding: 32,
+    padding: 24,
   },
   metricHeader: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 24,
+    marginBottom: 20,
   },
   metricIconContainer: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "#F8FAFC",
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    marginRight: 16,
   },
   metricInfo: {
     flex: 1,
   },
   metricName: {
-    fontSize: 20,
-    fontWeight: "800",
+    fontSize: Math.min(18, width * 0.045),
+    fontWeight: "700",
     color: "#0F172A",
-    marginBottom: 8,
-    letterSpacing: -0.4,
+    marginBottom: 6,
+    letterSpacing: -0.2,
   },
   metricStatus: {
     flexDirection: "row",
     alignItems: "center",
   },
   metricStatusText: {
-    fontSize: 14,
-    fontWeight: "700",
-    marginLeft: 10,
-    letterSpacing: 0.4,
-    textTransform: "uppercase",
+    fontSize: 13,
+    fontWeight: "600",
+    marginLeft: 8,
+    letterSpacing: 0.2,
   },
   metricTrend: {
     alignItems: "center",
-    backgroundColor: "rgba(248, 250, 252, 0.8)",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    backgroundColor: "#F8FAFC",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    minWidth: 60,
   },
   metricTrendText: {
-    fontSize: 13,
-    fontWeight: "700",
+    fontSize: 12,
+    fontWeight: "600",
     color: "#64748B",
-    marginTop: 6,
-    letterSpacing: 0.3,
+    marginTop: 4,
+    letterSpacing: 0.1,
   },
   metricValues: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 24,
+    marginBottom: 20,
   },
   metricCurrentValue: {
     flex: 1,
   },
   metricValueText: {
-    fontSize: 28,
-    fontWeight: "900",
+    fontSize: Math.min(24, width * 0.06),
+    fontWeight: "800",
     color: "#0F172A",
-    marginBottom: 8,
-    letterSpacing: -1,
-    textShadowColor: "rgba(0, 0, 0, 0.1)",
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
+    marginBottom: 6,
+    letterSpacing: -0.5,
   },
   metricTargetText: {
-    fontSize: 16,
+    fontSize: 15,
     color: "#64748B",
-    fontWeight: "700",
+    fontWeight: "600",
   },
   metricPercentage: {
     alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderRadius: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    backgroundColor: "#F8FAFC",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 16,
+    minWidth: 80,
   },
   metricPercentageText: {
-    fontSize: 32,
-    fontWeight: "900",
-    letterSpacing: -1,
-    textShadowColor: "rgba(0, 0, 0, 0.1)",
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
+    fontSize: Math.min(28, width * 0.07),
+    fontWeight: "800",
+    letterSpacing: -0.5,
   },
   metricProgress: {
-    marginBottom: 20,
+    marginBottom: 16,
   },
   metricProgressBg: {
-    height: 12,
-    backgroundColor: "#E2E8F0",
-    borderRadius: 6,
+    height: 10,
+    backgroundColor: "#F1F5F9",
+    borderRadius: 5,
     overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
   },
   metricProgressFill: {
     height: "100%",
-    borderRadius: 6,
+    borderRadius: 5,
   },
-
-  // Enhanced Mini Chart Styles
-  miniChart: {
-    marginTop: 20,
-    marginBottom: 12,
-  },
-  miniChartTitle: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#64748B",
-    marginBottom: 12,
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
-  },
-  miniChartContainer: {
-    flexDirection: "row",
-    alignItems: "end",
-    height: 28,
-    gap: 3,
-  },
-  miniChartBar: {
-    flex: 1,
-    minHeight: 6,
-    borderRadius: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-
   metricRecommendation: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderRadius: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    backgroundColor: "#F8FAFC",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 16,
   },
   metricRecommendationText: {
-    fontSize: 14,
-    fontWeight: "700",
+    fontSize: 13,
+    fontWeight: "600",
     color: "#0F172A",
-    marginLeft: 16,
+    marginLeft: 12,
     flex: 1,
-    letterSpacing: 0.3,
+    letterSpacing: 0.1,
   },
 
-  // Enhanced Modal
+  // Modal
   modalContainer: {
     flex: 1,
+    backgroundColor: "#F8FAFC",
   },
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 32,
-    paddingVertical: 24,
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+    backgroundColor: "#FFFFFF",
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
     shadowColor: "#1E293B",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 24,
-    elevation: 8,
-  },
-  modalCloseButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: "rgba(44, 62, 80, 0.1)",
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOpacity: 0.08,
+    shadowRadius: 16,
   },
   modalTitle: {
-    fontSize: 24,
-    fontWeight: "900",
+    fontSize: 20,
+    fontWeight: "700",
     color: "#0F172A",
-    letterSpacing: -0.6,
-    textShadowColor: "rgba(0, 0, 0, 0.1)",
-    textShadowOffset: { width: 0, height: 2 },
-    textShadowRadius: 4,
+    letterSpacing: -0.3,
   },
   modalContent: {
     flex: 1,
-    padding: 32,
+    padding: 24,
   },
 });

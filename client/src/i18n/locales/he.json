@@ -698,7 +698,8 @@
     "soluble_fiber": "סיבים מסיסים",
     "insoluble_fiber": "סיבים בלתי מסיסים",
     "confidence": "רמת ביטחון",
-    "no_data": "אין נתונים זמינים"
+    "no_data": "אין נתונים זמינים",
+    "data_visualization": "הצגת נתונים"
   },
   "devices": {
     "title": "מכשירים חכמים",

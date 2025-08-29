@@ -18,7 +18,7 @@ import { Lock, ArrowLeft, Eye, EyeOff } from "lucide-react-native";
 export default function ResetPasswordScreen() {
   const { t } = useTranslation();
   const { isRTL } = useLanguage();
-  const { colors, isDarkMode } = useTheme();
+  const { colors } = useTheme();
   const router = useRouter();
   const { resetToken } = useLocalSearchParams();
 
@@ -108,7 +108,7 @@ export default function ResetPasswordScreen() {
       left: 0,
       right: 0,
       height: "35%",
-      backgroundColor: isDarkMode ? "#1f2937" : "#f0fdf4",
+      backgroundColor: "#f0fdf4",
       borderBottomLeftRadius: 30,
       borderBottomRightRadius: 30,
     },
@@ -140,9 +140,7 @@ export default function ResetPasswordScreen() {
       width: 80,
       height: 80,
       borderRadius: 40,
-      backgroundColor: isDarkMode
-        ? colors.primary + "40"
-        : colors.primary + "20",
+      backgroundColor: colors.primary + "40",
       justifyContent: "center",
       alignItems: "center",
       marginBottom: 24,
@@ -196,12 +194,12 @@ export default function ResetPasswordScreen() {
     },
     input: {
       borderWidth: 2,
-      borderColor: isDarkMode ? "#4b5563" : colors.border,
+      borderColor: colors.border,
       borderRadius: 16,
       padding: 18,
       paddingRight: 60,
       fontSize: 16,
-      backgroundColor: isDarkMode ? "#374151" : colors.surface,
+      backgroundColor: colors.surface,
       color: colors.text,
       fontWeight: "500",
     },
@@ -251,17 +249,17 @@ export default function ResetPasswordScreen() {
       letterSpacing: 0.5,
     },
     passwordRequirements: {
-      backgroundColor: isDarkMode ? "#374151" : colors.surface,
+      backgroundColor: colors.surface,
       borderRadius: 12,
       padding: 16,
       borderLeftWidth: 4,
       borderLeftColor: colors.primary,
-      shadowColor: isDarkMode ? "#000" : colors.primary,
+      shadowColor: colors.primary,
       shadowOffset: {
         width: 0,
         height: 2,
       },
-      shadowOpacity: isDarkMode ? 0.3 : 0.1,
+      shadowOpacity: 0.1,
       shadowRadius: 4,
       elevation: 2,
     },
