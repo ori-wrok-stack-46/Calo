@@ -157,32 +157,31 @@ export function useSaveMeal() {
 
       const previousMeals = queryClient.getQueryData<Meal[]>(queryKeys.meals);
 
-      const tempId = Date.now();
       const optimisticMeal: Meal = {
-        meal_id: tempId,
-        id: `temp-${tempId}`,
-        user_id: "temp-user",
-        image_url: "",
-        upload_time: new Date().toISOString(),
-        analysis_status: "COMPLETED" as const,
+        id: Date.now().toString(),
+        meal_id: Date.now(),
         meal_name: mealData.meal_name || "New Meal",
         calories: mealData.calories || 0,
         protein_g: mealData.protein_g || 0,
         carbs_g: mealData.carbs_g || 0,
         fats_g: mealData.fats_g || 0,
-        fiber_g: mealData.fiber_g || null,
-        sugar_g: mealData.sugar_g || null,
-        sodium_mg: mealData.sodium_g || null,
+        fiber_g: mealData.fiber_g || 0,
+        sugar_g: mealData.sugar_g || 0,
+        sodium_mg: mealData.sodium_g || 0,
+        upload_time: new Date().toISOString(),
         created_at: new Date().toISOString(),
-        name: mealData.meal_name || "New Meal",
-        description: mealData.description,
-        protein: mealData.protein_g || 0,
-        carbs: mealData.carbs_g || 0,
-        fat: mealData.fats_g || 0,
-        fiber: mealData.fiber_g,
-        sugar: mealData.sugar_g,
-        sodium: mealData.sodium_g,
-        userId: "temp-user",
+        analysis_status: "COMPLETED",
+        image_url: "",
+        is_favorite: false,
+        ingredients: mealData.ingredients || [],
+        serving_size_g: mealData.serving_size_g || 100,
+        food_category: mealData.food_category || "Unknown",
+        user_id: "",
+        name: "",
+        protein: 0,
+        carbs: 0,
+        fat: 0,
+        userId: ""
       };
 
       queryClient.setQueryData<Meal[]>(queryKeys.meals, (old) => {
@@ -192,22 +191,28 @@ export function useSaveMeal() {
 
       return { previousMeals };
     },
-    onSuccess: (data, variables, context) => {
-      queryClient.setQueryData<Meal[]>(queryKeys.meals, (old) => {
-        if (!old) return [data];
-        return [data, ...old.slice(1)];
-      });
+    onSuccess: async (response, variables) => {
+      // Force refresh all meal-related data
+      await queryClient.invalidateQueries({ queryKey: queryKeys.meals });
 
       const today = new Date().toISOString().split("T")[0];
-      queryClient.invalidateQueries({ queryKey: queryKeys.dailyStats(today) });
-      queryClient.invalidateQueries({ queryKey: queryKeys.globalStats });
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.dailyStats(today),
+      });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.globalStats });
 
       const currentDate = new Date();
-      queryClient.invalidateQueries({
+      await queryClient.invalidateQueries({
         queryKey: queryKeys.calendar(
           currentDate.getFullYear(),
           currentDate.getMonth() + 1
         ),
+      });
+
+      // Force refetch to get fresh data
+      await queryClient.refetchQueries({ queryKey: queryKeys.meals });
+      await queryClient.refetchQueries({
+        queryKey: queryKeys.dailyStats(today),
       });
     },
     onError: (err, variables, context) => {
@@ -495,3 +500,54 @@ export const useDailyGoals = () => {
     gcTime: 30 * 60 * 1000, // 30 minutes
   });
 };
+
+export function useRemoveMeal() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (mealId: string) => nutritionAPI.removeMeal(mealId),
+    onMutate: async (mealId) => {
+      await queryClient.cancelQueries({ queryKey: queryKeys.meals });
+
+      const previousMeals = queryClient.getQueryData<Meal[]>(queryKeys.meals);
+
+      queryClient.setQueryData<Meal[]>(queryKeys.meals, (old) => {
+        if (!old) return old;
+        return old.filter(
+          (meal) => meal.meal_id?.toString() !== mealId && meal.id !== mealId
+        );
+      });
+
+      return { previousMeals };
+    },
+    onSuccess: async () => {
+      // Force refresh all meal-related data
+      await queryClient.invalidateQueries({ queryKey: queryKeys.meals });
+
+      const today = new Date().toISOString().split("T")[0];
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.dailyStats(today),
+      });
+      await queryClient.invalidateQueries({ queryKey: queryKeys.globalStats });
+
+      const currentDate = new Date();
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.calendar(
+          currentDate.getFullYear(),
+          currentDate.getMonth() + 1
+        ),
+      });
+
+      // Force refetch to get fresh data
+      await queryClient.refetchQueries({ queryKey: queryKeys.meals });
+      await queryClient.refetchQueries({
+        queryKey: queryKeys.dailyStats(today),
+      });
+    },
+    onError: (err, variables, context) => {
+      if (context?.previousMeals) {
+        queryClient.setQueryData(queryKeys.meals, context.previousMeals);
+      }
+    },
+  });
+}

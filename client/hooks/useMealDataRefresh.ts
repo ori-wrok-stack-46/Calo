@@ -9,10 +9,12 @@ export const useMealDataRefresh = () => {
 
   const refreshAllMealData = useCallback(async () => {
     try {
-      // Refresh Redux meal data
+      console.log("🔄 Starting comprehensive data refresh...");
+
+      // Clear and refresh Redux meal data
       await dispatch(fetchMeals());
 
-      // Invalidate and refetch React Query cache for meal-related data
+      // Invalidate all meal-related React Query cache
       await queryClient.invalidateQueries({ queryKey: ["meals"] });
       await queryClient.invalidateQueries({ queryKey: ["statistics"] });
       await queryClient.invalidateQueries({ queryKey: ["calendar"] });
@@ -20,10 +22,25 @@ export const useMealDataRefresh = () => {
       await queryClient.invalidateQueries({ queryKey: ["recent-meals"] });
       await queryClient.invalidateQueries({ queryKey: ["nutrition"] });
       await queryClient.invalidateQueries({ queryKey: ["recommended-menus"] });
+      await queryClient.invalidateQueries({ queryKey: ["dailyStats"] });
+      await queryClient.invalidateQueries({ queryKey: ["globalStats"] });
 
-      console.log("✅ All meal-related data refreshed");
+      // Force refetch the most critical data
+      await queryClient.refetchQueries({
+        queryKey: ["meals"],
+        type: "active",
+      });
+
+      const today = new Date().toISOString().split("T")[0];
+      await queryClient.refetchQueries({
+        queryKey: ["dailyStats", today],
+        type: "active",
+      });
+
+      console.log("✅ All meal-related data refreshed successfully");
     } catch (error) {
       console.error("❌ Error refreshing meal data:", error);
+      throw error;
     }
   }, [dispatch]);
 

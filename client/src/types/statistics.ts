@@ -17,6 +17,8 @@ export interface NutritionMetric {
   trend: "up" | "down" | "stable";
   weeklyAverage: number;
   lastWeekChange: number;
+  chartData?: number[];
+  chartLabels?: string[];
 }
 
 export interface ProgressData {
@@ -26,6 +28,9 @@ export interface ProgressData {
   carbs: number;
   fats: number;
   water: number;
+  fiber: number;
+  sugar: number;
+  sodium: number;
   weight?: number;
   mood?: "happy" | "neutral" | "sad";
   energy?: "high" | "medium" | "low";
@@ -54,11 +59,6 @@ export interface Achievement {
   xpReward: number;
   rarity: "COMMON" | "RARE" | "EPIC" | "LEGENDARY";
   unlockedDate?: string;
-}
-
-export interface TimeFilter {
-  key: "today" | "week" | "month";
-  label: string;
 }
 
 export interface StatisticsData {
@@ -108,3 +108,6 @@ export interface UserQuestionnaire {
   dailyFiber: number;
   dailyWater: number;
 }
+
+export type TimePeriod = "today" | "week" | "month";
+export type ChartType = "overview" | "macros" | "trends";

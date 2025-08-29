@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,20 +6,13 @@ import {
   ScrollView,
   TouchableOpacity,
   Dimensions,
-  ActivityIndicator,
-  RefreshControl,
-  Animated,
+  Alert,
   Modal,
+  RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
-import Svg, {
-  Circle,
-  Path,
-  Text as SvgText,
-  Line,
-  Rect,
-} from "react-native-svg";
+import { LineChart, BarChart, PieChart } from "react-native-chart-kit";
 import {
   ChartBar as BarChart3,
   TrendingUp,
@@ -50,450 +43,172 @@ import {
   Sunrise,
   Moon,
   Dumbbell,
+  Gem,
   Dumbbell as DumbbellIcon,
   Activity,
-  ChartPie as PieChart,
-  Download,
-  Lock,
-  ChevronRight,
-  Gem,
+  ChartPie as PieChartIcon,
 } from "lucide-react-native";
 import { useTranslation } from "react-i18next";
 import { useLanguage } from "@/src/i18n/context/LanguageContext";
 import { api } from "@/src/services/api";
 import LoadingScreen from "@/components/LoadingScreen";
-import { StatisticsData } from "@/src/store/calendarSlice";
-import {
-  UserQuestionnaire,
-  NutritionMetric,
-  ProgressData,
-  Achievement,
-  TimeFilter,
-} from "@/src/types/statistics";
-import * as Print from "expo-print";
-import * as Sharing from "expo-sharing";
-import { useSelector } from "react-redux";
-import { RootState } from "@/src/store";
-import { ToastService } from "@/src/services/totastService";
-import ButtonLoader from "@/components/ButtonLoader";
-import CardLoader from "@/components/CardLoader";
-import { useQuery } from "@tanstack/react-query";
 
-const { width, height } = Dimensions.get("window");
-const CHART_WIDTH = width - 40;
-const CHART_HEIGHT = 200;
+const { width } = Dimensions.get("window");
+const chartWidth = width - 40;
 
-// Custom Chart Components
-const CircularProgress = ({
-  percentage,
-  size = 120,
-  strokeWidth = 12,
-  color = "#16A085",
-  backgroundColor = "#F1F5F9",
-  children,
-}) => {
-  const radius = (size - strokeWidth) / 2;
-  const circumference = radius * 2 * Math.PI;
-  const strokeDasharray = circumference;
-  const strokeDashoffset = circumference - (percentage / 100) * circumference;
+interface NutritionMetric {
+  id: string;
+  name: string;
+  nameEn: string;
+  value: number;
+  unit: string;
+  target: number;
+  minTarget?: number;
+  maxTarget?: number;
+  percentage: number;
+  status: "excellent" | "good" | "warning" | "danger";
+  icon: React.ReactNode;
+  color: string;
+  category: "macros" | "micros" | "lifestyle" | "quality";
+  description: string;
+  recommendation?: string;
+  trend: "up" | "down" | "stable";
+  weeklyAverage: number;
+  lastWeekChange: number;
+  chartData?: number[];
+  chartLabels?: string[];
+}
 
-  return (
-    <View
-      style={{
-        width: size,
-        height: size,
-        justifyContent: "center",
-        alignItems: "center",
-      }}
-    >
-      <Svg width={size} height={size}>
-        <Circle
-          stroke={backgroundColor}
-          fill="none"
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          strokeWidth={strokeWidth}
-        />
-        <Circle
-          stroke={color}
-          fill="none"
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          strokeWidth={strokeWidth}
-          strokeDasharray={strokeDasharray}
-          strokeDashoffset={strokeDashoffset}
-          strokeLinecap="round"
-          transform={`rotate(-90 ${size / 2} ${size / 2})`}
-        />
-      </Svg>
-      <View style={{ position: "absolute", alignItems: "center" }}>
-        {children}
-      </View>
-    </View>
-  );
-};
+interface ProgressData {
+  date: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fats: number;
+  water: number;
+  fiber: number;
+  sugar: number;
+  sodium: number;
+  weight?: number;
+  mood?: "happy" | "neutral" | "sad";
+  energy?: "high" | "medium" | "low";
+  satiety?: "very_full" | "satisfied" | "hungry";
+  mealQuality?: number;
+  mealsCount: number;
+  requiredMeals: number;
+}
 
-const WeeklyProgressChart = ({
-  data,
-  width = CHART_WIDTH,
-  height = CHART_HEIGHT,
-}) => {
-  if (!data || data.length === 0) return null;
+interface Achievement {
+  id: string;
+  title: {
+    en: string;
+    he: string;
+  };
+  description: {
+    en: string;
+    he: string;
+  };
+  icon: string;
+  color: string;
+  progress: number;
+  maxProgress?: number;
+  unlocked: boolean;
+  category: "STREAK" | "GOAL" | "IMPROVEMENT" | "CONSISTENCY" | "MILESTONE";
+  xpReward: number;
+  rarity: "COMMON" | "RARE" | "EPIC" | "LEGENDARY";
+  unlockedDate?: string;
+}
 
-  const maxCalories =
-    Math.max(...data.map((d: { calories: any }) => d.calories)) || 1;
-  const padding = 40;
-  const chartWidth = width - padding * 2;
-  const chartHeight = height - padding * 2;
+interface TimeFilter {
+  key: "today" | "week" | "month";
+  label: string;
+}
 
-  const xStep = chartWidth / (data.length - 1 || 1);
+interface StatisticsData {
+  level: number;
+  currentXP: number;
+  totalPoints: number;
+  currentStreak: number;
+  weeklyStreak: number;
+  perfectDays: number;
+  dailyGoalDays: number;
+  totalDays: number;
+  averageCalories: number;
+  averageProtein: number;
+  averageCarbs: number;
+  averageFats: number;
+  averageFiber: number;
+  averageSugar: number;
+  averageSodium: number;
+  averageFluids: number;
+  achievements: any[];
+  badges: any[];
+  dailyBreakdown: any[];
+  successfulDays: number;
+  averageCompletion: number;
+  bestStreak: number;
+  happyDays: number;
+  highEnergyDays: number;
+  satisfiedDays: number;
+  averageMealQuality: number;
+  userGoals: {
+    dailyCalories: number;
+    dailyProtein: number;
+    dailyCarbs: number;
+    dailyFats: number;
+    dailyFiber: number;
+    dailyWater: number;
+    mealsPerDay: number;
+  };
+}
 
-  const pathData = data
-    .map((item: { calories: number }, index: number) => {
-      const x = padding + index * xStep;
-      const y =
-        padding + chartHeight - (item.calories / maxCalories) * chartHeight;
-      return `${index === 0 ? "M" : "L"} ${x} ${y}`;
-    })
-    .join(" ");
+interface UserQuestionnaire {
+  mealsPerDay: number;
+  dailyCalories: number;
+  dailyProtein: number;
+  dailyCarbs: number;
+  dailyFats: number;
+  dailyFiber: number;
+  dailyWater: number;
+}
 
-  return (
-    <View style={styles.chartContainer}>
-      <Text style={styles.chartTitle}>Weekly Calorie Progress</Text>
-      <Svg width={width} height={height}>
-        {/* Grid lines */}
-        {[0, 0.25, 0.5, 0.75, 1].map((ratio, index) => {
-          const y = padding + chartHeight * ratio;
-          return (
-            <Line
-              key={index}
-              x1={padding}
-              y1={y}
-              x2={width - padding}
-              y2={y}
-              stroke="#F1F5F9"
-              strokeWidth={1}
-            />
-          );
-        })}
+interface ChartData {
+  labels: string[];
+  datasets: {
+    data: number[];
+    color?: (opacity?: number) => string;
+    strokeWidth?: number;
+  }[];
+}
 
-        {/* Chart line */}
-        <Path
-          d={pathData}
-          stroke="#16A085"
-          strokeWidth={3}
-          fill="none"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-
-        {/* Data points */}
-        {data.map(
-          (item: { calories: number }, index: React.Key | null | undefined) => {
-            const x = padding + index * xStep;
-            const y =
-              padding +
-              chartHeight -
-              (item.calories / maxCalories) * chartHeight;
-            return (
-              <Circle
-                key={index}
-                cx={x}
-                cy={y}
-                r={4}
-                fill="#16A085"
-                stroke="#FFFFFF"
-                strokeWidth={2}
-              />
-            );
-          }
-        )}
-
-        {/* Y-axis labels */}
-        {[0, 0.5, 1].map((ratio, index) => {
-          const value = Math.round(maxCalories * (1 - ratio));
-          const y = padding + chartHeight * ratio;
-          return (
-            <SvgText
-              key={index}
-              x={padding - 10}
-              y={y + 4}
-              fontSize="12"
-              fill="#64748B"
-              textAnchor="end"
-            >
-              {value}
-            </SvgText>
-          );
-        })}
-      </Svg>
-
-      {/* X-axis labels */}
-      <View style={styles.chartXLabels}>
-        {data.map(
-          (
-            item: { date: string | number | Date },
-            index: React.Key | null | undefined
-          ) => (
-            <Text key={index} style={styles.chartXLabel}>
-              {new Date(item.date).toLocaleDateString("en", {
-                weekday: "short",
-              })}
-            </Text>
-          )
-        )}
-      </View>
-    </View>
-  );
-};
-
-const MacronutrientChart = ({ metrics, width = CHART_WIDTH }) => {
-  const macros = metrics.filter(
-    (m: { category: string }) => m.category === "macros"
-  );
-  if (macros.length === 0) return null;
-
-  const total =
-    macros.reduce((sum: any, macro: { value: any }) => sum + macro.value, 0) ||
-    1;
-  let currentAngle = 0;
-  const radius = 80;
-  const centerX = width / 2;
-  const centerY = 120;
-
-  return (
-    <View style={styles.chartContainer}>
-      <Text style={styles.chartTitle}>Macronutrient Distribution</Text>
-      <Svg width={width} height={240}>
-        {macros.map(
-          (
-            macro: {
-              value: number;
-              id: React.Key | null | undefined;
-              color: ColorValue | undefined;
-            },
-            index: any
-          ) => {
-            const percentage = (macro.value / total) * 100;
-            const angle = (percentage / 100) * 360;
-            const startAngle = currentAngle;
-            const endAngle = currentAngle + angle;
-
-            const startAngleRad = (startAngle * Math.PI) / 180;
-            const endAngleRad = (endAngle * Math.PI) / 180;
-
-            const x1 = centerX + radius * Math.cos(startAngleRad);
-            const y1 = centerY + radius * Math.sin(startAngleRad);
-            const x2 = centerX + radius * Math.cos(endAngleRad);
-            const y2 = centerY + radius * Math.sin(endAngleRad);
-
-            const largeArcFlag = angle > 180 ? 1 : 0;
-
-            const pathData = [
-              `M ${centerX} ${centerY}`,
-              `L ${x1} ${y1}`,
-              `A ${radius} ${radius} 0 ${largeArcFlag} 1 ${x2} ${y2}`,
-              "Z",
-            ].join(" ");
-
-            currentAngle += angle;
-
-            return (
-              <Path
-                key={macro.id}
-                d={pathData}
-                fill={macro.color}
-                opacity={0.8}
-              />
-            );
-          }
-        )}
-      </Svg>
-
-      <View style={styles.macroLegend}>
-        {macros.map(
-          (macro: {
-            id: React.Key | null | undefined;
-            color: any;
-            nameEn:
-              | string
-              | number
-              | bigint
-              | boolean
-              | React.ReactElement<
-                  unknown,
-                  string | React.JSXElementConstructor<any>
-                >
-              | Iterable<React.ReactNode>
-              | React.ReactPortal
-              | Promise<
-                  | string
-                  | number
-                  | bigint
-                  | boolean
-                  | React.ReactPortal
-                  | React.ReactElement<
-                      unknown,
-                      string | React.JSXElementConstructor<any>
-                    >
-                  | Iterable<React.ReactNode>
-                  | null
-                  | undefined
-                >
-              | null
-              | undefined;
-            value: number;
-          }) => (
-            <View key={macro.id} style={styles.macroLegendItem}>
-              <View
-                style={[
-                  styles.macroLegendColor,
-                  { backgroundColor: macro.color },
-                ]}
-              />
-              <Text style={styles.macroLegendText}>
-                {macro.nameEn}: {macro.value.toFixed(1)}g
-              </Text>
-            </View>
-          )
-        )}
-      </View>
-    </View>
-  );
-};
-
-const ProgressBarChart = ({ metrics, width = CHART_WIDTH }) => {
-  const displayMetrics = metrics.slice(0, 6); // Limit to prevent overflow
-  if (displayMetrics.length === 0) return null;
-
-  const barHeight = 24;
-  const barSpacing = 40;
-  const chartHeight = displayMetrics.length * barSpacing + 40;
-
-  return (
-    <View style={styles.chartContainer}>
-      <Text style={styles.chartTitle}>Goal Progress Overview</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        <Svg width={Math.max(width, 300)} height={chartHeight}>
-          {displayMetrics.map(
-            (
-              metric: {
-                percentage:
-                  | string
-                  | number
-                  | bigint
-                  | boolean
-                  | React.ReactElement<
-                      unknown,
-                      string | React.JSXElementConstructor<any>
-                    >
-                  | Iterable<React.ReactNode>
-                  | Promise<
-                      | string
-                      | number
-                      | bigint
-                      | boolean
-                      | React.ReactPortal
-                      | React.ReactElement<
-                          unknown,
-                          string | React.JSXElementConstructor<any>
-                        >
-                      | Iterable<React.ReactNode>
-                      | null
-                      | undefined
-                    >
-                  | null
-                  | undefined;
-                id: React.Key | null | undefined;
-                color: ColorValue | undefined;
-                nameEn:
-                  | string
-                  | number
-                  | bigint
-                  | boolean
-                  | React.ReactElement<
-                      unknown,
-                      string | React.JSXElementConstructor<any>
-                    >
-                  | Iterable<React.ReactNode>
-                  | Promise<
-                      | string
-                      | number
-                      | bigint
-                      | boolean
-                      | React.ReactPortal
-                      | React.ReactElement<
-                          unknown,
-                          string | React.JSXElementConstructor<any>
-                        >
-                      | Iterable<React.ReactNode>
-                      | null
-                      | undefined
-                    >
-                  | null
-                  | undefined;
-              },
-              index: number
-            ) => {
-              const y = 20 + index * barSpacing;
-              const barWidth = Math.min(width - 120, 200);
-              const fillWidth = (metric.percentage / 100) * barWidth;
-
-              return (
-                <React.Fragment key={metric.id}>
-                  {/* Background bar */}
-                  <Rect
-                    x={100}
-                    y={y}
-                    width={barWidth}
-                    height={barHeight}
-                    fill="#F1F5F9"
-                    rx={12}
-                  />
-
-                  {/* Progress bar */}
-                  <Rect
-                    x={100}
-                    y={y}
-                    width={fillWidth}
-                    height={barHeight}
-                    fill={metric.color}
-                    rx={12}
-                  />
-
-                  {/* Label */}
-                  <SvgText
-                    x={95}
-                    y={y + barHeight / 2 + 4}
-                    fontSize="12"
-                    fill="#64748B"
-                    textAnchor="end"
-                  >
-                    {metric.nameEn.length > 8
-                      ? metric.nameEn.substring(0, 8) + "..."
-                      : metric.nameEn}
-                  </SvgText>
-
-                  {/* Percentage */}
-                  <SvgText
-                    x={100 + barWidth + 10}
-                    y={y + barHeight / 2 + 4}
-                    fontSize="12"
-                    fill="#0F172A"
-                    fontWeight="600"
-                  >
-                    {metric.percentage}%
-                  </SvgText>
-                </React.Fragment>
-              );
-            }
-          )}
-        </Svg>
-      </ScrollView>
-    </View>
-  );
+// Chart configuration
+const chartConfig = {
+  backgroundGradientFrom: "#ffffff",
+  backgroundGradientTo: "#ffffff",
+  color: (opacity = 1) => `rgba(22, 160, 133, ${opacity})`,
+  strokeWidth: 3,
+  barPercentage: 0.7,
+  fillShadowGradient: "#16A085",
+  fillShadowGradientOpacity: 0.1,
+  decimalPlaces: 0,
+  style: {
+    borderRadius: 16,
+  },
+  propsForDots: {
+    r: "4",
+    strokeWidth: "2",
+    stroke: "#16A085",
+    fill: "#ffffff",
+  },
+  propsForBackgroundLines: {
+    strokeWidth: 1,
+    stroke: "#E5E7EB",
+    strokeDasharray: "5,5",
+  },
+  propsForLabels: {
+    fontSize: 12,
+    fill: "#64748B",
+  },
 };
 
 // Helper function to get the appropriate Lucide icon component
@@ -590,41 +305,93 @@ const getRarityColor = (rarity: string) => {
   }
 };
 
+// Helper function to format dates based on period
+const formatDateLabel = (
+  date: string,
+  period: "today" | "week" | "month"
+): string => {
+  const dateObj = new Date(date);
+
+  switch (period) {
+    case "today":
+      return dateObj.toLocaleTimeString("en", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    case "week":
+      return dateObj.toLocaleDateString("en", { weekday: "short" });
+    case "month":
+      return dateObj.toLocaleDateString("en", {
+        month: "short",
+        day: "numeric",
+      });
+    default:
+      return dateObj.toLocaleDateString("en", {
+        month: "short",
+        day: "numeric",
+      });
+  }
+};
+
+// Helper function to generate chart data from progress data
+const generateChartData = (
+  data: ProgressData[],
+  metric: keyof ProgressData,
+  period: "today" | "week" | "month"
+): ChartData => {
+  if (!data || data.length === 0) {
+    return {
+      labels: ["No Data"],
+      datasets: [{ data: [0] }],
+    };
+  }
+
+  // Sort data by date
+  const sortedData = [...data].sort(
+    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+  );
+
+  const labels = sortedData.map((item) => formatDateLabel(item.date, period));
+  const values = sortedData.map((item) => {
+    const value = item[metric];
+    return typeof value === "number" ? value : 0;
+  });
+
+  return {
+    labels,
+    datasets: [
+      {
+        data: values.length > 0 ? values : [0],
+        color: (opacity = 1) => `rgba(22, 160, 133, ${opacity})`,
+        strokeWidth: 3,
+      },
+    ],
+  };
+};
+
 export default function StatisticsScreen() {
   const { t } = useTranslation();
   const { language } = useLanguage();
   const isRTL = language === "he";
-  const { user, token } = useSelector((state: RootState) => state.auth);
-
-  // All useState hooks - keep them at the top and consistent
   const [selectedPeriod, setSelectedPeriod] = useState<
     "today" | "week" | "month"
   >("week");
+  const [selectedChart, setSelectedChart] = useState<string>("overview");
   const [showAlerts, setShowAlerts] = useState(true);
   const [showAchievements, setShowAchievements] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [statisticsData, setStatisticsData] = useState<StatisticsData | null>(
     null
   );
   const [userQuestionnaire, setUserQuestionnaire] =
     useState<UserQuestionnaire | null>(null);
-  const [isDownloading, setIsDownloading] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState<string>("All");
-  const [selectedAchievement, setSelectedAchievement] =
-    useState<Achievement | null>(null);
-  const [showAchievementDetail, setShowAchievementDetail] = useState(false);
-  const [newAchievementModal, setNewAchievementModal] = useState<{
-    show: boolean;
-    achievement: Achievement | null;
-  }>({ show: false, achievement: null });
-  const [metrics, setMetrics] = useState<NutritionMetric[]>([]);
-  const [weeklyData, setWeeklyData] = useState<ProgressData[]>([]);
-  const [achievements, setAchievements] = useState<Achievement[]>([]);
 
   // Fetch statistics data from API
   const fetchStatistics = async (period: "today" | "week" | "month") => {
-    setError(null); // Clear previous errors
+    setIsLoading(true);
+    setError(null);
 
     try {
       console.log(`📊 Fetching statistics for period: ${period}`);
@@ -633,18 +400,45 @@ export default function StatisticsScreen() {
         api.get("/questionnaire"),
       ]);
 
+      console.log("📊 Raw statistics response:", statisticsResponse.data);
+
       if (statisticsResponse.data.success && statisticsResponse.data.data) {
-        setStatisticsData(statisticsResponse.data.data);
-        console.log(
-          `✅ Statistics loaded successfully:`,
-          statisticsResponse.data.data
-        );
+        const data = statisticsResponse.data.data;
+
+        // Ensure all required fields exist with defaults
+        const processedData = {
+          ...data,
+          averageCalories: data.averageCalories || 0,
+          averageProtein: data.averageProtein || 0,
+          averageCarbs: data.averageCarbs || 0,
+          averageFats: data.averageFats || 0,
+          averageFiber: data.averageFiber || 0,
+          averageSugar: data.averageSugar || 0,
+          averageSodium: data.averageSodium || 0,
+          averageFluids: data.averageFluids || 0,
+          dailyBreakdown: data.dailyBreakdown || [],
+          achievements: data.achievements || [],
+          totalPoints: data.totalPoints || 0,
+          currentStreak: data.currentStreak || 0,
+          weeklyStreak: data.weeklyStreak || 0,
+          perfectDays: data.perfectDays || 0,
+          successfulDays: data.successfulDays || 0,
+          totalDays: data.totalDays || 0,
+          averageCompletion: data.averageCompletion || 0,
+          bestStreak: data.bestStreak || 0,
+          happyDays: data.happyDays || 0,
+          highEnergyDays: data.highEnergyDays || 0,
+          satisfiedDays: data.satisfiedDays || 0,
+          averageMealQuality: data.averageMealQuality || 3,
+        };
+
+        setStatisticsData(processedData);
+        console.log(`✅ Statistics loaded successfully:`, processedData);
       } else {
         console.warn("⚠️ Statistics response unsuccessful or no data");
         setError(
           statisticsResponse.data.message || "No statistics data available"
         );
-        setStatisticsData(null); // Clear data on error
       }
 
       // Set user questionnaire for meal requirements
@@ -671,14 +465,12 @@ export default function StatisticsScreen() {
           dailyFiber: qData.daily_fiber || 25,
           dailyWater: qData.daily_water || 2500,
         });
-      } else {
-        setUserQuestionnaire(null); // Clear questionnaire data if not available
       }
     } catch (err: any) {
       console.error("❌ Error fetching statistics:", err);
       setError(err.response?.data?.message || "Failed to load statistics data");
-      setStatisticsData(null); // Clear data on error
-      setUserQuestionnaire(null); // Clear questionnaire data on error
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -687,84 +479,16 @@ export default function StatisticsScreen() {
     fetchStatistics(selectedPeriod);
   }, [selectedPeriod]);
 
-  // Fetch statistics data using react-query with optimized settings
-  const {
-    data: nutritionData,
-    isLoading: isNutritionLoading,
-    error: nutritionError,
-    refetch: refetchNutrition,
-    isFetching: isNutritionFetching,
-  } = useQuery({
-    queryKey: ["nutrition-statistics", user?.user_id, selectedPeriod],
-    queryFn: async () => {
-      console.log(`🔄 Fetching statistics for period: ${selectedPeriod}`);
-      const response = await api.get(`/statistics?period=${selectedPeriod}`, {
-        timeout: 35000, // 35 second timeout
-      });
-      console.log(
-        `✅ Statistics fetched successfully for period: ${selectedPeriod}`
-      );
-      return response.data;
-    },
-    enabled: !!user?.user_id,
-    staleTime: 10 * 60 * 1000, // 10 minutes
-    gcTime: 30 * 60 * 1000, // 30 minutes
-    retry: 2,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
-    refetchOnWindowFocus: false,
-    refetchOnMount: false,
-    refetchOnReconnect: true,
-  });
-
-  // Fetch achievements data
-  const {
-    data: achievementsData,
-    isLoading: isAchievementsLoading,
-    error: achievementsError,
-    refetch: refetchAchievements,
-  } = useQuery({
-    queryKey: ["achievements", user?.user_id],
-    queryFn: async () => {
-      const response = await api.get("/statistics/achievements");
-      return response.data;
-    },
-    enabled: !!user?.user_id,
-    staleTime: 5 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
-  });
-
-  // Refresh handler
-  const handleRefresh = useCallback(async () => {
-    if (refreshing) return; // Prevent multiple simultaneous refresh calls
-
-    setRefreshing(true);
-    try {
-      console.log("🔄 Manual refresh triggered for statistics");
-      await Promise.all([refetchNutrition(), refetchAchievements()]);
-      ToastService.success(t("statistics.refreshed"));
-    } catch (error) {
-      console.error("❌ Error refreshing data:", error);
-      ToastService.error(t("statistics.refreshError"));
-    } finally {
-      setRefreshing(false);
-    }
-  }, [refetchNutrition, refetchAchievements, t, refreshing]);
-
-  const isLoading = isNutritionLoading || isAchievementsLoading;
-
   // Generate nutrition data from real API response
   const generateNutritionMetrics = (): NutritionMetric[] => {
-    if (!nutritionData?.data || !userQuestionnaire) {
+    if (!statisticsData || !userQuestionnaire) {
       console.warn(
-        "⚠️ No nutrition data or questionnaire available for metrics generation"
+        "⚠️ No statistics data or questionnaire available for metrics generation"
       );
       return [];
     }
 
-    console.log(
-      "📊 Generating nutrition metrics from data:",
-      nutritionData.data
-    );
+    console.log("📊 Generating nutrition metrics from data:", statisticsData);
 
     const calculateTrend = (
       current: number,
@@ -784,12 +508,18 @@ export default function StatisticsScreen() {
       return ((current - previous) / previous) * 100;
     };
 
+    // Generate chart data for each metric
+    const generateMetricChartData = (metricKey: keyof ProgressData) => {
+      const weeklyData = generateWeeklyData();
+      return generateChartData(weeklyData, metricKey, selectedPeriod);
+    };
+
     const baseData = [
       {
         id: "calories",
         name: t("statistics.total_calories"),
         nameEn: "Total Calories",
-        value: nutritionData.data.averageCalories || 0,
+        value: Math.round(statisticsData.averageCalories || 0),
         target: userQuestionnaire.dailyCalories,
         unit: t("statistics.kcal"),
         icon: <Flame size={20} color="#E74C3C" />,
@@ -800,20 +530,22 @@ export default function StatisticsScreen() {
             ? "צריכת קלוריות יומית כוללת"
             : "Total daily calorie intake",
         trend: calculateTrend(
-          nutritionData.data.averageCalories || 0,
+          statisticsData.averageCalories || 0,
           userQuestionnaire.dailyCalories
         ),
-        weeklyAverage: nutritionData.data.averageCalories || 0,
+        weeklyAverage: Math.round(statisticsData.averageCalories || 0),
         lastWeekChange: calculateWeeklyChange(
-          nutritionData.data.averageCalories || 0,
-          nutritionData.data.averageCalories || 0 // Assuming this should be previous week's average if available
+          statisticsData.averageCalories || 0,
+          statisticsData.averageCalories || 0
         ),
+        chartData: generateMetricChartData("calories").datasets[0].data,
+        chartLabels: generateMetricChartData("calories").labels,
       },
       {
         id: "protein",
         name: t("statistics.protein"),
         nameEn: "Protein",
-        value: nutritionData.data.averageProtein || 0,
+        value: Math.round(statisticsData.averageProtein || 0),
         target: userQuestionnaire.dailyProtein,
         unit: t("statistics.g"),
         icon: <Zap size={20} color="#9B59B6" />,
@@ -824,20 +556,22 @@ export default function StatisticsScreen() {
             ? "חלבון לבניית שרירים ותיקון רקמות"
             : "Protein for muscle building and tissue repair",
         trend: calculateTrend(
-          nutritionData.data.averageProtein || 0,
+          statisticsData.averageProtein || 0,
           userQuestionnaire.dailyProtein
         ),
-        weeklyAverage: nutritionData.data.averageProtein || 0,
+        weeklyAverage: Math.round(statisticsData.averageProtein || 0),
         lastWeekChange: calculateWeeklyChange(
-          nutritionData.data.averageProtein || 0,
-          nutritionData.data.averageProtein || 0 // Assuming this should be previous week's average if available
+          statisticsData.averageProtein || 0,
+          statisticsData.averageProtein || 0
         ),
+        chartData: generateMetricChartData("protein").datasets[0].data,
+        chartLabels: generateMetricChartData("protein").labels,
       },
       {
         id: "carbs",
         name: t("statistics.carbohydrates"),
         nameEn: "Carbohydrates",
-        value: nutritionData.data.averageCarbs || 0,
+        value: Math.round(statisticsData.averageCarbs || 0),
         target: userQuestionnaire.dailyCarbs,
         unit: t("statistics.g"),
         icon: <Wheat size={20} color="#F39C12" />,
@@ -848,20 +582,22 @@ export default function StatisticsScreen() {
             ? "פחמימות לאנרגיה ותפקוד המוח"
             : "Carbohydrates for energy and brain function",
         trend: calculateTrend(
-          nutritionData.data.averageCarbs || 0,
+          statisticsData.averageCarbs || 0,
           userQuestionnaire.dailyCarbs
         ),
-        weeklyAverage: nutritionData.data.averageCarbs || 0,
+        weeklyAverage: Math.round(statisticsData.averageCarbs || 0),
         lastWeekChange: calculateWeeklyChange(
-          nutritionData.data.averageCarbs || 0,
-          nutritionData.data.averageCarbs || 0 // Assuming this should be previous week's average if available
+          statisticsData.averageCarbs || 0,
+          statisticsData.averageCarbs || 0
         ),
+        chartData: generateMetricChartData("carbs").datasets[0].data,
+        chartLabels: generateMetricChartData("carbs").labels,
       },
       {
         id: "fats",
         name: t("statistics.fats"),
         nameEn: "Fats",
-        value: nutritionData.data.averageFats || 0,
+        value: Math.round(statisticsData.averageFats || 0),
         target: userQuestionnaire.dailyFats,
         unit: t("statistics.g"),
         icon: <Fish size={20} color="#16A085" />,
@@ -872,20 +608,22 @@ export default function StatisticsScreen() {
             ? "שומנים בריאים לתפקוד הורמונלי"
             : "Healthy fats for hormonal function",
         trend: calculateTrend(
-          nutritionData.data.averageFats || 0,
+          statisticsData.averageFats || 0,
           userQuestionnaire.dailyFats
         ),
-        weeklyAverage: nutritionData.data.averageFats || 0,
+        weeklyAverage: Math.round(statisticsData.averageFats || 0),
         lastWeekChange: calculateWeeklyChange(
-          nutritionData.data.averageFats || 0,
-          nutritionData.data.averageFats || 0 // Assuming this should be previous week's average if available
+          statisticsData.averageFats || 0,
+          statisticsData.averageFats || 0
         ),
+        chartData: generateMetricChartData("fats").datasets[0].data,
+        chartLabels: generateMetricChartData("fats").labels,
       },
       {
         id: "fiber",
         name: t("statistics.fiber"),
         nameEn: "Fiber",
-        value: nutritionData.data.averageFiber || 0,
+        value: Math.round(statisticsData.averageFiber || 0),
         target: userQuestionnaire.dailyFiber,
         unit: t("statistics.g"),
         icon: <Leaf size={20} color="#27AE60" />,
@@ -897,20 +635,22 @@ export default function StatisticsScreen() {
             : "Dietary fiber for digestive health",
         recommendation: t("statistics.increaseIntake"),
         trend: calculateTrend(
-          nutritionData.data.averageFiber || 0,
+          statisticsData.averageFiber || 0,
           userQuestionnaire.dailyFiber
         ),
-        weeklyAverage: nutritionData.data.averageFiber || 0,
+        weeklyAverage: Math.round(statisticsData.averageFiber || 0),
         lastWeekChange: calculateWeeklyChange(
-          nutritionData.data.averageFiber || 0,
-          nutritionData.data.averageFiber || 0 // Assuming this should be previous week's average if available
+          statisticsData.averageFiber || 0,
+          statisticsData.averageFiber || 0
         ),
+        chartData: generateMetricChartData("fiber").datasets[0].data,
+        chartLabels: generateMetricChartData("fiber").labels,
       },
       {
         id: "sugars",
         name: t("statistics.sugars"),
         nameEn: "Sugars",
-        value: nutritionData.data.averageSugar || 0,
+        value: Math.round(statisticsData.averageSugar || 0),
         target: 50,
         maxTarget: 50,
         unit: t("statistics.g"),
@@ -922,18 +662,20 @@ export default function StatisticsScreen() {
             ? "סוכרים פשוטים - מומלץ להגביל"
             : "Simple sugars - recommended to limit",
         recommendation: t("statistics.decreaseIntake"),
-        trend: calculateTrend(nutritionData.data.averageSugar || 0, 50),
-        weeklyAverage: nutritionData.data.averageSugar || 0,
+        trend: calculateTrend(statisticsData.averageSugar || 0, 50),
+        weeklyAverage: Math.round(statisticsData.averageSugar || 0),
         lastWeekChange: calculateWeeklyChange(
-          nutritionData.data.averageSugar || 0,
-          nutritionData.data.averageSugar || 0 // Assuming this should be previous week's average if available
+          statisticsData.averageSugar || 0,
+          statisticsData.averageSugar || 0
         ),
+        chartData: generateMetricChartData("sugar").datasets[0].data,
+        chartLabels: generateMetricChartData("sugar").labels,
       },
       {
         id: "sodium",
         name: t("statistics.sodium"),
         nameEn: "Sodium",
-        value: nutritionData.data.averageSodium || 0,
+        value: Math.round(statisticsData.averageSodium || 0),
         target: 2300,
         maxTarget: 2300,
         unit: t("statistics.mg"),
@@ -945,18 +687,20 @@ export default function StatisticsScreen() {
             ? "נתרן - חשוב להגביל למניעת יתר לחץ דם"
             : "Sodium - important to limit to prevent hypertension",
         recommendation: t("statistics.decreaseIntake"),
-        trend: calculateTrend(nutritionData.data.averageSodium || 0, 2300),
-        weeklyAverage: nutritionData.data.averageSodium || 0,
+        trend: calculateTrend(statisticsData.averageSodium || 0, 2300),
+        weeklyAverage: Math.round(statisticsData.averageSodium || 0),
         lastWeekChange: calculateWeeklyChange(
-          nutritionData.data.averageSodium || 0,
-          nutritionData.data.averageSodium || 0 // Assuming this should be previous week's average if available
+          statisticsData.averageSodium || 0,
+          statisticsData.averageSodium || 0
         ),
+        chartData: generateMetricChartData("sodium").datasets[0].data,
+        chartLabels: generateMetricChartData("sodium").labels,
       },
       {
         id: "hydration",
         name: t("statistics.hydration"),
         nameEn: "Hydration",
-        value: nutritionData.data.averageFluids || 0,
+        value: Math.round(statisticsData.averageFluids || 0),
         target: userQuestionnaire.dailyWater,
         unit: t("statistics.ml"),
         icon: <Droplets size={20} color="#3498DB" />,
@@ -966,64 +710,41 @@ export default function StatisticsScreen() {
           language === "he" ? "רמת הידרציה יומית" : "Daily hydration level",
         recommendation: t("statistics.increaseIntake"),
         trend: calculateTrend(
-          nutritionData.data.averageFluids || 0,
+          statisticsData.averageFluids || 0,
           userQuestionnaire.dailyWater
         ),
-        weeklyAverage: nutritionData.data.averageFluids || 0,
+        weeklyAverage: Math.round(statisticsData.averageFluids || 0),
         lastWeekChange: calculateWeeklyChange(
-          nutritionData.data.averageFluids || 0,
-          nutritionData.data.averageFluids || 0 // Assuming this should be previous week's average if available
+          statisticsData.averageFluids || 0,
+          statisticsData.averageFluids || 0
         ),
+        chartData: generateMetricChartData("water").datasets[0].data,
+        chartLabels: generateMetricChartData("water").labels,
       },
     ];
 
     return baseData.map((metric) => {
-      let percentage = 0;
-      let status: "excellent" | "good" | "warning" | "danger" = "danger";
+      const percentage = metric.maxTarget
+        ? Math.min((metric.target / Math.max(metric.value, 1)) * 100, 100)
+        : Math.min((metric.value / Math.max(metric.target, 1)) * 100, 100);
 
-      // Handle different calculation logic for limited vs target nutrients
+      let status: "excellent" | "good" | "warning" | "danger";
+
       if (metric.maxTarget) {
-        // For nutrients that should be limited (sodium, sugar)
-        if (metric.value === 0 && metric.target === 0) {
-          percentage = 0;
-          status = "excellent";
-        } else if (metric.value === 0) {
-          percentage = 0;
-          status = "excellent";
-        } else if (metric.target === 0 || !metric.target) {
-          // If no target is set, show actual value without percentage
-          percentage = 0;
-          status = metric.value > 0 ? "warning" : "excellent";
-        } else {
-          // Calculate percentage of limit used - cap at 100% for display
-          percentage = Math.min((metric.value / metric.target) * 100, 100);
-
-          if (metric.value <= metric.target * 0.3) status = "excellent";
-          else if (metric.value <= metric.target * 0.6) status = "good";
-          else if (metric.value <= metric.target * 0.8) status = "warning";
-          else status = "danger";
-        }
+        if (metric.value <= metric.target * 0.8) status = "excellent";
+        else if (metric.value <= metric.target) status = "good";
+        else if (metric.value <= metric.target * 1.2) status = "warning";
+        else status = "danger";
       } else {
-        // For nutrients with minimum targets (protein, fiber, etc.)
-        if (metric.value === 0) {
-          percentage = 0;
-          status = "danger";
-        } else if (metric.target === 0) {
-          percentage = 100;
-          status = "excellent";
-        } else {
-          percentage = (metric.value / metric.target) * 100;
-
-          if (percentage >= 100) status = "excellent";
-          else if (percentage >= 80) status = "good";
-          else if (percentage >= 60) status = "warning";
-          else status = "danger";
-        }
+        if (percentage >= 100) status = "excellent";
+        else if (percentage >= 80) status = "good";
+        else if (percentage >= 60) status = "warning";
+        else status = "danger";
       }
 
       return {
         ...metric,
-        percentage: Math.round(Math.max(0, percentage)),
+        percentage: Math.round(percentage),
         status,
       };
     });
@@ -1032,20 +753,23 @@ export default function StatisticsScreen() {
   // Generate weekly progress data with meal completion tracking
   const generateWeeklyData = (): ProgressData[] => {
     if (
-      !nutritionData?.data?.dailyBreakdown ||
-      nutritionData.data.dailyBreakdown.length === 0 ||
+      !statisticsData?.dailyBreakdown ||
+      statisticsData.dailyBreakdown.length === 0 ||
       !userQuestionnaire
     ) {
       return [];
     }
 
-    return nutritionData.data.dailyBreakdown.map((day: any) => ({
+    return statisticsData.dailyBreakdown.map((day: any) => ({
       date: day.date,
       calories: day.calories || 0,
       protein: day.protein_g || 0,
       carbs: day.carbs_g || 0,
       fats: day.fats_g || 0,
       water: day.liquids_ml || 0,
+      fiber: day.fiber_g || 0,
+      sugar: day.sugar_g || 0,
+      sodium: day.sodium_mg || 0,
       weight: day.weight_kg,
       mood: (day.mood as "happy" | "neutral" | "sad") || "neutral",
       energy: (day.energy as "high" | "medium" | "low") || "medium",
@@ -1065,82 +789,14 @@ export default function StatisticsScreen() {
     const today = new Date().toISOString().split("T")[0];
     const todayData = weeklyData.find((day) => day.date === today);
 
-    // Show warnings only if user has completed their required meals for the day
-    // This ensures users see insights only when they've provided sufficient data
-    const hasCompletedMeals = todayData
-      ? todayData.mealsCount >= todayData.requiredMeals
-      : false;
-
-    if (hasCompletedMeals) {
-      // Trigger achievement check for meal completion
-      checkMealCompletionAchievements(todayData, userQuestionnaire);
-    }
-
-    return hasCompletedMeals;
-  };
-
-  // Check for meal completion achievements
-  const checkMealCompletionAchievements = async (
-    todayData: any,
-    questionnaire: any
-  ) => {
-    if (!todayData || !questionnaire) return;
-
-    try {
-      // Check if user completed all required meals
-      if (todayData.mealsCount >= questionnaire.mealsPerDay) {
-        // Check for streak achievements
-        const weeklyData = generateWeeklyData();
-        const consecutiveDays = calculateConsecutiveMealDays(
-          weeklyData,
-          questionnaire.mealsPerDay
-        );
-
-        if (consecutiveDays >= 7) {
-          ToastService.streakAchieved(consecutiveDays);
-        }
-
-        // Check daily goal completion
-        ToastService.goalCompleted("daily meal");
-
-        // Update statistics to reflect achievement
-        await refetchNutrition();
-      }
-    } catch (error) {
-      console.error("Error checking meal achievements:", error);
-    }
-  };
-
-  // Calculate consecutive days of meeting meal goals
-  const calculateConsecutiveMealDays = (
-    weeklyData: any[],
-    requiredMeals: number
-  ): number => {
-    let consecutive = 0;
-    for (let i = weeklyData.length - 1; i >= 0; i--) {
-      if (weeklyData[i].mealsCount >= requiredMeals) {
-        consecutive++;
-      } else {
-        break;
-      }
-    }
-    return consecutive;
+    return todayData ? todayData.mealsCount >= todayData.requiredMeals : false;
   };
 
   // Generate achievements from real API data
   const generateAchievements = (): Achievement[] => {
-    if (!achievementsData?.data || !Array.isArray(achievementsData.data)) {
-      console.warn("⚠️ No achievement data available or invalid format");
-      return [];
-    }
+    if (!statisticsData?.achievements) return [];
 
-    console.log(
-      "📊 Processing achievements data:",
-      achievementsData.data.length,
-      "achievements found"
-    );
-
-    return achievementsData.data.map((achievement: any) => ({
+    return statisticsData.achievements.map((achievement: any) => ({
       id: achievement.id,
       title: achievement.title || { en: "Achievement", he: "הישג" },
       description: achievement.description || {
@@ -1150,64 +806,48 @@ export default function StatisticsScreen() {
       icon: achievement.icon || "trophy",
       color: getRarityColor(achievement.rarity || "COMMON"),
       progress: achievement.progress || 0,
-      maxProgress: achievement.maxProgress || achievement.max_progress || 1,
+      maxProgress: achievement.max_progress || 1,
       unlocked: achievement.unlocked || false,
       category: achievement.category || "MILESTONE",
-      xpReward: achievement.xpReward || achievement.points_awarded || 0,
+      xpReward: achievement.xpReward || 0,
       rarity: achievement.rarity || "COMMON",
-      unlockedDate: achievement.unlockedDate || achievement.unlocked_date,
+      unlockedDate: achievement.unlockedDate,
     }));
   };
 
-  // Update metrics and achievements when data changes
+  const [metrics, setMetrics] = useState<NutritionMetric[]>([]);
+  const [weeklyData, setWeeklyData] = useState<ProgressData[]>([]);
+  const [achievements, setAchievements] = useState<Achievement[]>([]);
+
+  // Update metrics when data changes
   useEffect(() => {
-    if (nutritionData?.data && userQuestionnaire) {
+    if (statisticsData && userQuestionnaire) {
       setMetrics(generateNutritionMetrics());
       setWeeklyData(generateWeeklyData());
-    }
-    if (achievementsData?.data) {
       setAchievements(generateAchievements());
     }
-  }, [nutritionData, achievementsData, userQuestionnaire, selectedPeriod]);
+  }, [statisticsData, userQuestionnaire, selectedPeriod]);
 
-  // Real-time achievement checking
-  useEffect(() => {
-    if (nutritionData?.data && userQuestionnaire) {
-      checkForNewAchievements();
+  // Refresh handler
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await fetchStatistics(selectedPeriod);
+    } finally {
+      setRefreshing(false);
     }
-  }, [nutritionData?.data?.currentStreak, nutritionData?.data?.totalDays]);
-
-  const newlyUnlockedAchievements = useMemo(() => {
-    if (!achievements.length || !nutritionData?.data) return [];
-
-    return achievements.filter((achievement) => {
-      if (achievement.unlocked) return false;
-
-      // Check if achievement should be unlocked based on current progress
-      const progress = achievement.progress || 0;
-      const maxProgress = achievement.maxProgress || 1;
-
-      return progress >= maxProgress;
-    });
-  }, [achievements, nutritionData?.data]);
-
-  const checkForNewAchievements = useCallback(async () => {
-    if (newlyUnlockedAchievements.length > 0) {
-      // Show achievement notification for the first one
-      const newAchievement = newlyUnlockedAchievements[0];
-      setNewAchievementModal({ show: true, achievement: newAchievement });
-
-      // Refetch achievements to update the display
-      setTimeout(() => {
-        refetchAchievements();
-      }, 1000);
-    }
-  }, [newlyUnlockedAchievements, refetchAchievements]);
+  };
 
   const timeFilters: TimeFilter[] = [
     { key: "today", label: t("statistics.today") },
     { key: "week", label: t("statistics.week") },
     { key: "month", label: t("statistics.month") },
+  ];
+
+  const chartTypes = [
+    { key: "overview", label: "Overview", icon: BarChart3 },
+    { key: "macros", label: "Macros", icon: PieChartIcon },
+    { key: "trends", label: "Trends", icon: Activity },
   ];
 
   const getStatusColor = (status: string) => {
@@ -1273,221 +913,9 @@ export default function StatisticsScreen() {
       }));
   };
 
-  // Handle achievement press
-  const handleAchievementPress = (achievement: Achievement) => {
-    setSelectedAchievement(achievement);
-    setShowAchievementDetail(true);
-  };
-
-  // Enhanced Achievement Card Component
-  const EnhancedAchievementCard = React.memo(
-    ({
-      achievement,
-      onPress,
-      language,
-    }: {
-      achievement: Achievement;
-      onPress: (achievement: Achievement) => void;
-      language: string;
-    }) => {
-      const scaleValue = useRef(new Animated.Value(1)).current;
-      const glowValue = useRef(new Animated.Value(0)).current;
-
-      useEffect(() => {
-        if (achievement.unlocked) {
-          Animated.loop(
-            Animated.sequence([
-              Animated.timing(glowValue, {
-                toValue: 1,
-                duration: 2000,
-                useNativeDriver: true,
-              }),
-              Animated.timing(glowValue, {
-                toValue: 0,
-                duration: 2000,
-                useNativeDriver: true,
-              }),
-            ])
-          ).start();
-        }
-      }, [achievement.unlocked]);
-
-      const handlePressIn = () => {
-        Animated.spring(scaleValue, {
-          toValue: 0.95,
-          useNativeDriver: true,
-        }).start();
-      };
-
-      const handlePressOut = () => {
-        Animated.spring(scaleValue, {
-          toValue: 1,
-          useNativeDriver: true,
-        }).start();
-      };
-
-      const progressPercentage = Math.min(
-        (achievement.progress / (achievement.maxProgress || 1)) * 100,
-        100
-      );
-
-      return (
-        <Animated.View
-          style={[
-            styles.enhancedAchievementCard,
-            {
-              transform: [{ scale: scaleValue }],
-              backgroundColor: achievement.unlocked ? "#FFFFFF" : "#F9FAFB",
-              borderColor: achievement.unlocked
-                ? `${getRarityColor(achievement.rarity)}40`
-                : "#E5E7EB",
-              shadowColor: achievement.unlocked
-                ? getRarityColor(achievement.rarity)
-                : "#000",
-              shadowOpacity: achievement.unlocked ? 0.15 : 0.05,
-            },
-          ]}
-        >
-          <TouchableOpacity
-            onPress={() => onPress(achievement)}
-            onPressIn={handlePressIn}
-            onPressOut={handlePressOut}
-            style={styles.enhancedAchievementCardContent}
-            activeOpacity={0.8}
-          >
-            {/* Glow Effect for Unlocked Achievements */}
-            {achievement.unlocked && (
-              <Animated.View
-                style={[
-                  styles.achievementGlow,
-                  {
-                    opacity: glowValue,
-                    backgroundColor: `${getRarityColor(achievement.rarity)}10`,
-                  },
-                ]}
-              />
-            )}
-
-            {/* Status Badge */}
-            <View
-              style={[
-                styles.statusBadge,
-                {
-                  backgroundColor: achievement.unlocked ? "#10B981" : "#6B7280",
-                },
-              ]}
-            >
-              {achievement.unlocked ? (
-                <CheckCircle size={12} color="#FFFFFF" />
-              ) : (
-                <Lock size={12} color="#FFFFFF" />
-              )}
-            </View>
-
-            {/* Achievement Icon */}
-            <View
-              style={[
-                styles.enhancedAchievementIcon,
-                {
-                  backgroundColor: achievement.unlocked
-                    ? `${getRarityColor(achievement.rarity)}15`
-                    : "#F3F4F6",
-                },
-              ]}
-            >
-              {getAchievementIcon(
-                achievement.icon,
-                32,
-                achievement.unlocked
-                  ? getRarityColor(achievement.rarity)
-                  : "#9CA3AF"
-              )}
-            </View>
-
-            {/* Achievement Content */}
-            <View style={styles.enhancedAchievementContent}>
-              <Text
-                style={[
-                  styles.enhancedAchievementTitle,
-                  { color: achievement.unlocked ? "#111827" : "#6B7280" },
-                ]}
-                numberOfLines={2}
-              >
-                {typeof achievement.title === "object"
-                  ? achievement.title[language] || achievement.title.en
-                  : achievement.title}
-              </Text>
-
-              <Text
-                style={[
-                  styles.enhancedAchievementDescription,
-                  { color: achievement.unlocked ? "#374151" : "#9CA3AF" },
-                ]}
-                numberOfLines={2}
-              >
-                {typeof achievement.description === "object"
-                  ? achievement.description[language] ||
-                    achievement.description.en
-                  : achievement.description}
-              </Text>
-
-              {/* Progress Section */}
-              <View style={styles.enhancedProgressSection}>
-                <View style={styles.progressRow}>
-                  <Text style={styles.progressLabel}>
-                    {achievement.progress}/{achievement.maxProgress || 1}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.xpBadge,
-                      {
-                        color: achievement.unlocked
-                          ? getRarityColor(achievement.rarity)
-                          : "#6B7280",
-                      },
-                    ]}
-                  >
-                    +{achievement.xpReward} XP
-                  </Text>
-                </View>
-
-                <View style={styles.enhancedProgressBar}>
-                  <View
-                    style={[
-                      styles.enhancedProgressFill,
-                      {
-                        width: `${progressPercentage}%`,
-                        backgroundColor: achievement.unlocked
-                          ? getRarityColor(achievement.rarity)
-                          : "#D1D5DB",
-                      },
-                    ]}
-                  />
-                </View>
-
-                <Text
-                  style={[
-                    styles.rarityBadgeText,
-                    {
-                      color: achievement.unlocked
-                        ? getRarityColor(achievement.rarity)
-                        : "#6B7280",
-                    },
-                  ]}
-                >
-                  {achievement.rarity}
-                </Text>
-              </View>
-            </View>
-          </TouchableOpacity>
-        </Animated.View>
-      );
-    }
-  );
-
   // Calculate progress statistics
   const calculateProgressStats = () => {
-    if (!nutritionData?.data) {
+    if (!statisticsData) {
       return {
         totalDays: 0,
         successfulDays: 0,
@@ -1499,26 +927,26 @@ export default function StatisticsScreen() {
     }
 
     const averages = {
-      calories: Math.round(nutritionData.data.averageCalories || 0),
-      protein: Math.round(nutritionData.data.averageProtein || 0),
-      carbs: Math.round(nutritionData.data.averageCarbs || 0),
-      fats: Math.round(nutritionData.data.averageFats || 0),
-      water: Math.round(nutritionData.data.averageFluids || 0),
+      calories: Math.round(statisticsData.averageCalories || 0),
+      protein: Math.round(statisticsData.averageProtein || 0),
+      carbs: Math.round(statisticsData.averageCarbs || 0),
+      fats: Math.round(statisticsData.averageFats || 0),
+      water: Math.round(statisticsData.averageFluids || 0),
     };
 
     return {
-      totalDays: nutritionData.data.totalDays || 0,
-      successfulDays: nutritionData.data.successfulDays || 0,
-      averageCompletion: Math.round(nutritionData.data.averageCompletion || 0),
-      bestStreak: nutritionData.data.bestStreak || 0,
-      currentStreak: nutritionData.data.currentStreak || 0,
+      totalDays: statisticsData.totalDays || 0,
+      successfulDays: statisticsData.successfulDays || 0,
+      averageCompletion: Math.round(statisticsData.averageCompletion || 0),
+      bestStreak: statisticsData.bestStreak || 0,
+      currentStreak: statisticsData.currentStreak || 0,
       averages,
     };
   };
 
   // Calculate gamification stats from real data
   const calculateGamificationStats = () => {
-    if (!nutritionData?.data) {
+    if (!statisticsData) {
       return {
         level: 1,
         currentXP: 0,
@@ -1532,14 +960,13 @@ export default function StatisticsScreen() {
       };
     }
 
-    const totalPoints = nutritionData.data.totalPoints || 0;
-    // Use the same level calculation as the server: level starts at 1, every 1000 XP = 1 level
+    const totalPoints = statisticsData.totalPoints || 0;
     const level = Math.max(1, Math.floor(totalPoints / 1000) + 1);
     const currentXP = totalPoints % 1000;
     const nextLevelXP = 1000;
-    const dailyStreak = nutritionData.data.currentStreak || 0;
-    const weeklyStreak = nutritionData.data.weeklyStreak || 0;
-    const perfectDays = nutritionData.data.perfectDays || 0;
+    const dailyStreak = statisticsData.currentStreak || 0;
+    const weeklyStreak = statisticsData.weeklyStreak || 0;
+    const perfectDays = statisticsData.perfectDays || 0;
 
     return {
       level,
@@ -1554,151 +981,333 @@ export default function StatisticsScreen() {
     };
   };
 
-  const categorizedMetrics = useMemo(
-    () => ({
-      macros: metrics.filter((m) => m.category === "macros"),
-      micros: metrics.filter((m) => m.category === "micros"),
-      lifestyle: metrics.filter((m) => m.category === "lifestyle"),
-    }),
-    [metrics]
-  );
+  // Generate chart data for overview
+  const generateOverviewChartData = () => {
+    if (!weeklyData || weeklyData.length === 0) {
+      return {
+        labels: ["No Data"],
+        datasets: [{ data: [0] }],
+      };
+    }
 
-  const progressStats = useMemo(
-    () => calculateProgressStats(),
-    [nutritionData?.data]
-  );
-  const gamificationStats = useMemo(
-    () => calculateGamificationStats(),
-    [nutritionData?.data]
-  );
+    return generateChartData(weeklyData, "calories", selectedPeriod);
+  };
 
-  const MetricCard = React.memo(({ metric }: { metric: NutritionMetric }) => (
+  // Generate pie chart data for macros
+  const generateMacrosPieData = () => {
+    if (!statisticsData) return [];
+
+    const totalMacros =
+      (statisticsData.averageProtein || 0) * 4 +
+      (statisticsData.averageCarbs || 0) * 4 +
+      (statisticsData.averageFats || 0) * 9;
+
+    if (totalMacros === 0) return [];
+
+    return [
+      {
+        name: "Protein",
+        calories: (statisticsData.averageProtein || 0) * 4,
+        color: "#9B59B6",
+        legendFontColor: "#7F7F7F",
+        legendFontSize: 12,
+      },
+      {
+        name: "Carbs",
+        calories: (statisticsData.averageCarbs || 0) * 4,
+        color: "#F39C12",
+        legendFontColor: "#7F7F7F",
+        legendFontSize: 12,
+      },
+      {
+        name: "Fats",
+        calories: (statisticsData.averageFats || 0) * 9,
+        color: "#16A085",
+        legendFontColor: "#7F7F7F",
+        legendFontSize: 12,
+      },
+    ];
+  };
+
+  const categorizedMetrics = {
+    macros: metrics.filter((m) => m.category === "macros"),
+    micros: metrics.filter((m) => m.category === "micros"),
+    lifestyle: metrics.filter((m) => m.category === "lifestyle"),
+  };
+
+  const progressStats = calculateProgressStats();
+  const gamificationStats = calculateGamificationStats();
+
+  // Chart rendering functions
+  const renderChart = () => {
+    switch (selectedChart) {
+      case "overview":
+        const overviewData = generateOverviewChartData();
+        if (overviewData.datasets[0].data.every((value) => value === 0)) {
+          return (
+            <View style={styles.noChartData}>
+              <BarChart3 size={48} color="#BDC3C7" />
+              <Text style={styles.noChartDataText}>No data to display</Text>
+            </View>
+          );
+        }
+        return (
+          <LineChart
+            data={overviewData}
+            width={chartWidth}
+            height={220}
+            chartConfig={chartConfig}
+            bezier
+            style={styles.chart}
+          />
+        );
+
+      case "macros":
+        const pieData = generateMacrosPieData();
+        if (pieData.length === 0) {
+          return (
+            <View style={styles.noChartData}>
+              <PieChartIcon size={48} color="#BDC3C7" />
+              <Text style={styles.noChartDataText}>
+                No macro data available
+              </Text>
+            </View>
+          );
+        }
+        return (
+          <PieChart
+            data={pieData}
+            width={chartWidth}
+            height={220}
+            chartConfig={chartConfig}
+            accessor={"calories"}
+            backgroundColor={"transparent"}
+            paddingLeft={"15"}
+            style={styles.chart}
+          />
+        );
+
+      case "trends":
+        const trendMetrics = ["protein", "carbs", "fats", "water"];
+        return (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <View style={styles.trendChartsContainer}>
+              {trendMetrics
+                .map((metricKey) => {
+                  const metric = metrics.find((m) => m.id === metricKey);
+                  if (
+                    !metric ||
+                    !metric.chartData ||
+                    metric.chartData.every((v) => v === 0)
+                  ) {
+                    return null;
+                  }
+
+                  const chartData = {
+                    labels: metric.chartLabels || [],
+                    datasets: [
+                      {
+                        data: metric.chartData,
+                        color: (opacity = 1) =>
+                          `rgba(22, 160, 133, ${opacity})`,
+                        strokeWidth: 2,
+                      },
+                    ],
+                  };
+
+                  return (
+                    <View key={metricKey} style={styles.trendChart}>
+                      <Text style={styles.trendChartTitle}>{metric.name}</Text>
+                      <LineChart
+                        data={chartData}
+                        width={280}
+                        height={160}
+                        chartConfig={{
+                          ...chartConfig,
+                          color: (opacity = 1) =>
+                            metric.color
+                              .replace("rgb", "rgba")
+                              .replace(")", `, ${opacity})`),
+                        }}
+                        bezier
+                        style={styles.smallChart}
+                      />
+                    </View>
+                  );
+                })
+                .filter(Boolean)}
+            </View>
+          </ScrollView>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  const renderMetricCard = (metric: NutritionMetric) => (
     <TouchableOpacity
+      key={metric.id}
       style={styles.metricCard}
-      onPress={() => ToastService.info(metric.name, metric.description)}
+      onPress={() => Alert.alert(metric.name, metric.description)}
     >
-      <View style={styles.metricCardContent}>
-        <View style={styles.metricHeader}>
-          <View style={styles.metricIconContainer}>{metric.icon}</View>
-          <View style={styles.metricInfo}>
-            <Text style={styles.metricName} numberOfLines={1}>
-              {metric.name}
-            </Text>
-            <View style={styles.metricStatus}>
-              {getStatusIcon(metric.status)}
-              <Text
-                style={[
-                  styles.metricStatusText,
-                  { color: getStatusColor(metric.status) },
-                ]}
-              >
-                {metric.status}
+      <LinearGradient
+        colors={["rgba(255, 255, 255, 0.95)", "rgba(255, 255, 255, 0.85)"]}
+        style={styles.metricCardGradient}
+      >
+        <View style={styles.metricCardContent}>
+          <View style={styles.metricHeader}>
+            <View
+              style={[
+                styles.metricIconContainer,
+                { backgroundColor: `${metric.color}15` },
+              ]}
+            >
+              {metric.icon}
+            </View>
+            <View style={styles.metricInfo}>
+              <Text style={styles.metricName}>{metric.name}</Text>
+              <View style={styles.metricStatus}>
+                {getStatusIcon(metric.status)}
+                <Text
+                  style={[
+                    styles.metricStatusText,
+                    { color: getStatusColor(metric.status) },
+                  ]}
+                >
+                  {metric.status}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.metricTrend}>
+              {getTrendIcon(metric.trend)}
+              <Text style={styles.metricTrendText}>
+                {metric.lastWeekChange > 0 ? "+" : ""}
+                {metric.lastWeekChange.toFixed(1)}%
               </Text>
             </View>
           </View>
-          <View style={styles.metricTrend}>
-            {getTrendIcon(metric.trend)}
-            <Text style={styles.metricTrendText}>
-              {metric.lastWeekChange > 0 ? "+" : ""}
-              {metric.lastWeekChange.toFixed(1)}%
-            </Text>
-          </View>
-        </View>
 
-        <View style={styles.metricValues}>
-          <View style={styles.metricCurrentValue}>
-            <Text style={styles.metricValueText} numberOfLines={1}>
-              {metric.value.toLocaleString()} {metric.unit}
-            </Text>
-            <Text style={styles.metricTargetText} numberOfLines={1}>
-              {language === "he" ? "יעד" : "Target"}:{" "}
-              {metric.target.toLocaleString()} {metric.unit}
-            </Text>
-          </View>
-          <View style={styles.metricPercentage}>
-            <Text
-              style={[styles.metricPercentageText, { color: metric.color }]}
-            >
-              {metric.percentage}%
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.metricProgress}>
-          <View style={styles.metricProgressBg}>
+          <View style={styles.metricValues}>
+            <View style={styles.metricCurrentValue}>
+              <Text style={styles.metricValueText}>
+                {metric.value.toLocaleString()} {metric.unit}
+              </Text>
+              <Text style={styles.metricTargetText}>
+                {language === "he" ? "יעד" : "Target"}:{" "}
+                {metric.target.toLocaleString()} {metric.unit}
+              </Text>
+            </View>
             <View
               style={[
-                styles.metricProgressFill,
-                {
-                  width: `${Math.min(metric.percentage, 100)}%`,
-                  backgroundColor: metric.color,
-                },
+                styles.metricPercentage,
+                { backgroundColor: `${metric.color}10` },
               ]}
-            />
+            >
+              <Text
+                style={[styles.metricPercentageText, { color: metric.color }]}
+              >
+                {metric.percentage}%
+              </Text>
+            </View>
           </View>
-        </View>
 
-        {metric.recommendation && shouldShowWarnings() && (
-          <View style={styles.metricRecommendation}>
-            <Sparkles size={12} color={metric.color} />
-            <Text style={styles.metricRecommendationText} numberOfLines={2}>
-              {metric.recommendation}
-            </Text>
+          <View style={styles.metricProgress}>
+            <View style={styles.metricProgressBg}>
+              <LinearGradient
+                colors={[`${metric.color}80`, metric.color]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={[
+                  styles.metricProgressFill,
+                  { width: `${Math.min(metric.percentage, 100)}%` },
+                ]}
+              />
+            </View>
           </View>
-        )}
-      </View>
-    </TouchableOpacity>
-  ));
 
-  const renderMetricCard = useCallback(
-    (metric: NutritionMetric) => <MetricCard key={metric.id} metric={metric} />,
-    []
-  );
+          {/* Mini chart for each metric */}
+          {metric.chartData && metric.chartData.some((v) => v > 0) && (
+            <View style={styles.miniChart}>
+              <Text style={styles.miniChartTitle}>
+                {language === "he" ? "מגמה" : "Trend"}
+              </Text>
+              <View style={styles.miniChartContainer}>
+                {metric.chartData.slice(-7).map((value, index) => (
+                  <View
+                    key={index}
+                    style={[
+                      styles.miniChartBar,
+                      {
+                        height: Math.max(
+                          4,
+                          (value / Math.max(...metric.chartData.slice(-7))) * 20
+                        ),
+                        backgroundColor: metric.color,
+                        opacity: 0.4 + (index / 7) * 0.6,
+                      },
+                    ]}
+                  />
+                ))}
+              </View>
+            </View>
+          )}
 
-  const alerts = useMemo(() => getAlertsData(), [metrics, shouldShowWarnings]);
-
-  // Loading state with progressive feedback
-  if (isLoading || (isNutritionLoading && !nutritionData)) {
-    return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <LoadingScreen
-            text={
-              isRTL
-                ? "טוען סטיסטיקות..."
-                : isNutritionFetching
-                ? "Analyzing your nutrition data..."
-                : "Loading your statistics..."
-            }
-          />
-          {isNutritionFetching && (
-            <View style={styles.loadingDetails}>
-              <Text style={styles.loadingDetailText}>
-                {isRTL
-                  ? "זה עשוי לקחת מספר שניות..."
-                  : "This may take a few moments..."}
+          {metric.recommendation && shouldShowWarnings() && (
+            <View
+              style={[
+                styles.metricRecommendation,
+                { backgroundColor: `${metric.color}10` },
+              ]}
+            >
+              <Sparkles size={12} color={metric.color} />
+              <Text style={styles.metricRecommendationText}>
+                {metric.recommendation}
               </Text>
             </View>
           )}
         </View>
-      </SafeAreaView>
+      </LinearGradient>
+    </TouchableOpacity>
+  );
+
+  const alerts = getAlertsData();
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <LoadingScreen
+        text={isRTL ? "טוען סטיסטיקות..." : "Loading your statistics..."}
+      />
     );
   }
 
   // Error state
-  if (nutritionError && achievementsError) {
+  if (error) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.errorContainer}>
-          <AlertTriangle size={48} color="#E74C3C" />
-          <Text style={styles.errorText}>{t("statistics.error_message")}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={handleRefresh}>
-            <Text style={styles.retryButtonText}>
-              {t("statistics.retry_button")}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
+      <LinearGradient colors={["#f8fafc", "#e2e8f0"]} style={styles.container}>
+        <SafeAreaView style={styles.errorContainer}>
+          <View style={styles.errorCard}>
+            <View style={styles.errorIconContainer}>
+              <AlertTriangle size={56} color="#EF4444" />
+            </View>
+            <Text style={styles.errorText}>{t("statistics.errorMessage")}</Text>
+            <TouchableOpacity
+              style={styles.retryButton}
+              onPress={handleRefresh}
+            >
+              <LinearGradient
+                colors={["#EF4444", "#DC2626"]}
+                style={styles.retryButtonGradient}
+              >
+                <Text style={styles.retryButtonText}>
+                  {t("statistics.retryButton")}
+                </Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
+      </LinearGradient>
     );
   }
 
@@ -1716,811 +1325,574 @@ export default function StatisticsScreen() {
 
     return (
       <View style={styles.mealCompletionCard}>
-        <View style={styles.mealCompletionHeader}>
-          <View style={styles.mealCompletionIcon}>
-            {isCompleted ? (
-              <CheckCircle size={24} color="#2ECC71" />
-            ) : (
-              <Clock size={24} color="#E67E22" />
+        <LinearGradient
+          colors={isCompleted ? ["#10B981", "#059669"] : ["#F59E0B", "#D97706"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.mealCompletionGradient}
+        >
+          <View style={styles.mealCompletionContent}>
+            <View style={styles.mealCompletionHeader}>
+              <View style={styles.mealCompletionIconContainer}>
+                {isCompleted ? (
+                  <CheckCircle size={28} color="#FFFFFF" />
+                ) : (
+                  <Clock size={28} color="#FFFFFF" />
+                )}
+              </View>
+              <View style={styles.mealCompletionInfo}>
+                <Text style={styles.mealCompletionTitle}>
+                  {t("statistics.mealsCompleted")}
+                </Text>
+                <Text style={styles.mealCompletionSubtitle}>
+                  {todayData.mealsCount} {t("statistics.of")}{" "}
+                  {todayData.requiredMeals} meals
+                </Text>
+              </View>
+              <View style={styles.mealCompletionPercentage}>
+                <Text style={styles.mealCompletionPercentageText}>
+                  {Math.round(completionPercentage)}%
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.mealProgressBar}>
+              <View style={styles.mealProgressBg}>
+                <View
+                  style={[
+                    styles.mealProgressFill,
+                    { width: `${Math.min(completionPercentage, 100)}%` },
+                  ]}
+                />
+              </View>
+            </View>
+
+            {!isCompleted && (
+              <Text style={styles.mealCompletionMessage}>
+                {t("statistics.completeMealsFirst")}
+              </Text>
             )}
           </View>
-          <Text style={styles.mealCompletionTitle}>
-            {t("statistics.meals_completed")}
-          </Text>
-        </View>
-
-        <View style={styles.mealCompletionContent}>
-          <CircularProgress
-            percentage={Math.min(completionPercentage, 100)}
-            size={100}
-            strokeWidth={8}
-            color={isCompleted ? "#2ECC71" : "#E67E22"}
-          >
-            <Text style={styles.mealCompletionText}>
-              {todayData.mealsCount}
-            </Text>
-            <Text style={styles.mealCompletionSubtext}>
-              {t("statistics.of")} {todayData.requiredMeals}
-            </Text>
-          </CircularProgress>
-
-          {!isCompleted && (
-            <Text style={styles.mealCompletionMessage}>
-              {t("statistics.complete_meals_first")}
-            </Text>
-          )}
-        </View>
+        </LinearGradient>
       </View>
     );
   };
 
-  // PDF generation function
-  const generatePDFFilename = useCallback(() => {
-    const now = new Date();
-    const formatDate = (date: Date) => {
-      return date
-        .toLocaleDateString("en-US", {
-          year: "numeric",
-          month: "2-digit",
-          day: "2-digit",
-        })
-        .replace(/\//g, "-");
-    };
-
-    const formatDateRange = (period: string) => {
-      const today = new Date();
-      let startDate: Date;
-      let endDate = today;
-
-      switch (period) {
-        case "today":
-          return `daily_${formatDate(today)}`;
-        case "week":
-          startDate = new Date(today);
-          startDate.setDate(today.getDate() - 7);
-          return `weekly_${formatDate(startDate)}_to_${formatDate(endDate)}`;
-        case "month":
-          startDate = new Date(today);
-          startDate.setMonth(today.getMonth() - 1);
-          return `monthly_${formatDate(startDate)}_to_${formatDate(endDate)}`;
-        default:
-          return `statistics_${formatDate(today)}`;
-      }
-    };
-
-    const fileName = `CALO_Nutrition_Report_${formatDateRange(selectedPeriod)}`;
-    return fileName;
-  }, [selectedPeriod]);
-
-  const generatePDFContent = () => {
-    const filename = generatePDFFilename();
-
-    return `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Nutrition Statistics Report</title>
-          <meta charset="utf-8">
-          <style>
-            body { font-family: Arial, sans-serif; margin: 40px; color: #333; }
-            .header { text-align: center; margin-bottom: 40px; }
-            .title { color: #16A085; font-size: 28px; margin-bottom: 10px; }
-            .subtitle { color: #64748B; font-size: 16px; }
-            .section { margin: 30px 0; }
-            .section-title { color: #0F172A; font-size: 20px; margin-bottom: 20px; border-bottom: 2px solid #16A085; padding-bottom: 10px; }
-            .metric { display: flex; justify-content: space-between; margin: 15px 0; padding: 15px; background: #F8FAFC; border-radius: 8px; }
-            .metric-name { font-weight: bold; }
-            .metric-value { color: #16A085; font-weight: bold; }
-            .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
-            .stat-card { padding: 20px; background: #FFFFFF; border: 1px solid #E5E7EB; border-radius: 12px; text-align: center; }
-            .stat-value { font-size: 24px; font-weight: bold; color: #16A085; }
-            .stat-label { color: #64748B; margin-top: 8px; }
-            .footer { margin-top: 50px; text-align: center; color: #64748B; font-size: 12px; }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <h1 class="title">Nutrition Statistics Report</h1>
-            <p class="subtitle">${t(
-              "statistics.subtitle"
-            )} - ${selectedPeriod.toUpperCase()}</p>
-            <p>Generated on: ${new Date().toLocaleDateString()}</p>
-          </div>
-
-          <div class="section">
-            <h2 class="section-title">${t("statistics.gamification")}</h2>
-            <div class="stats-grid">
-              <div class="stat-card">
-                <div class="stat-value">${gamificationStats.level}</div>
-                <div class="stat-label">${t("statistics.level")}</div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-value">${gamificationStats.totalPoints}</div>
-                <div class="stat-label">${t("statistics.total_points")}</div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-value">${gamificationStats.dailyStreak}</div>
-                <div class="stat-label">${t("statistics.daily_streak")}</div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-value">${gamificationStats.perfectDays}</div>
-                <div class="stat-label">${t("statistics.perfect_days")}</div>
-              </div>
-            </div>
-          </div>
-
-          <div class="section">
-            <h2 class="section-title">${t("statistics.macronutrients")}</h2>
-            ${categorizedMetrics.macros
-              .map(
-                (metric) => `
-              <div class="metric">
-                <span class="metric-name">${metric.name}</span>
-                <span class="metric-value">${metric.value.toFixed(1)} ${
-                  metric.unit
-                } (${metric.percentage}%)</span>
-              </div>
-            `
-              )
-              .join("")}
-          </div>
-
-          <div class="section">
-            <h2 class="section-title">${t("statistics.micronutrients")}</h2>
-            ${categorizedMetrics.micros
-              .map(
-                (metric) => `
-              <div class="metric">
-                <span class="metric-name">${metric.name}</span>
-                <span class="metric-value">${metric.value.toFixed(1)} ${
-                  metric.unit
-                } (${metric.percentage}%)</span>
-              </div>
-            `
-              )
-              .join("")}
-          </div>
-
-          <div class="section">
-            <h2 class="section-title">${t("statistics.progress_overview")}</h2>
-            <div class="stats-grid">
-              <div class="stat-card">
-                <div class="stat-value">${progressStats.successfulDays}/${
-      progressStats.totalDays
-    }</div>
-                <div class="stat-label">${t("statistics.successful_days")}</div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-value">${
-                  progressStats.averageCompletion
-                }%</div>
-                <div class="stat-label">${t(
-                  "statistics.average_completion"
-                )}</div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-value">${progressStats.bestStreak}</div>
-                <div class="stat-label">${t("statistics.best_streak")}</div>
-              </div>
-              <div class="stat-card">
-                <div class="stat-value">${progressStats.currentStreak}</div>
-                <div class="stat-label">${t("statistics.current_streak")}</div>
-              </div>
-            </div>
-          </div>
-
-          <div class="footer">
-            <p>This report was generated from your nutrition tracking data.</p>
-            <p>Generated by CALO - Your Personal Nutrition Assistant</p>
-          </div>
-        </body>
-      </html>
-    `;
-  };
-
-  const downloadPDF = async () => {
-    if (!nutritionData?.data) {
-      ToastService.error(
-        t("statistics.error_message"),
-        "No statistics data available to generate PDF."
-      );
-      return;
-    }
-
-    setIsDownloading(true);
-    try {
-      const filename = generatePDFFilename();
-      const htmlContent = generatePDFContent();
-
-      const { uri } = await Print.printToFileAsync({
-        html: htmlContent,
-        base64: false,
-        width: 612,
-        height: 792,
-      });
-
-      if (!uri) {
-        throw new Error("Failed to create PDF file.");
-      }
-
-      const shareResult = await Sharing.shareAsync(uri, {
-        mimeType: "application/pdf",
-        dialogTitle: t("statistics.title"),
-        UTI: "com.adobe.pdf",
-      });
-
-      if (shareResult.action === Sharing.sharedAction) {
-        ToastService.success(
-          "PDF Downloaded",
-          `Your ${selectedPeriod} nutrition report has been downloaded successfully!`
-        );
-      }
-    } catch (error) {
-      console.error("PDF download error:", error);
-      ToastService.error(
-        "Download Failed",
-        "Failed to download PDF. Please check your connection and try again."
-      );
-    } finally {
-      setIsDownloading(false);
-    }
-  };
-
-  // Helper to get meal completion status content for PDF
-  const renderMealCompletionStatusContent = () => {
-    const weeklyData = generateWeeklyData();
-    const today = new Date().toISOString().split("T")[0];
-    const todayData = weeklyData.find((day) => day.date === today);
-
-    if (!todayData || !userQuestionnaire) return "No data available.";
-
-    const isCompleted = todayData.mealsCount >= todayData.requiredMeals;
-    const completionPercentage =
-      (todayData.mealsCount / todayData.requiredMeals) * 100;
-
-    return `
-      <div style="display: flex; flex-direction: column; align-items: center; gap: 10px;">
-        <div style="display: flex; align-items: center;">
-          <span style="margin-right: 10px;">
-            <svg width="24" height="24" fill="${
-              isCompleted ? "#2ECC71" : "#E67E22"
-            }">${isCompleted ? CheckCircle : Clock}</svg>
-          </span>
-          <p style="font-size: 18px; font-weight: 700; color: #0F172A;">${t(
-            "statistics.meals_completed"
-          )}</p>
-        </div>
-        <div style="position: relative; width: 100px; height: 100px;">
-          <svg width="100" height="100" viewBox="0 0 100 100" style="transform: rotate(-90deg);">
-            <circle cx="50" cy="50" r="45" fill="none" stroke="#F1F5F9" stroke-width="8"/>
-            <circle cx="50" cy="50" r="45" fill="none" stroke="${
-              isCompleted ? "#2ECC71" : "#E67E22"
-            }" stroke-width="8" stroke-dasharray="283" stroke-dashoffset="${
-      283 - (completionPercentage / 100) * 283
-    }" stroke-linecap="round"/>
-          </svg>
-          <div style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; justify-content: center; align-items: center; display: flex; flex-direction: column;">
-            <p style="font-size: 24px; font-weight: 800; color: #0F172A;">${
-              todayData.mealsCount
-            }</p>
-            <p style="font-size: 14px; color: #64748B;">${t("statistics.of")} ${
-      todayData.requiredMeals
-    }</p>
-          </div>
-        </div>
-        ${
-          !isCompleted
-            ? `<p style="font-size: 14px; color: #64748B; font-style: italic; text-align: center;">${t(
-                "statistics.complete_meals_first"
-              )}</p>`
-            : ""
-        }
-      </div>
-    `;
-  };
-
-  // Helper to get SVG content for icons
-  const getIconSvg = (iconComponent: any) => {
-    if (!iconComponent || !iconComponent.type || !iconComponent.props)
-      return "";
-    // Render the icon component directly into SVG string
-    return iconComponent.typeconComponent.props;
-  };
-
-  const getAchievementIconHtml = (iconName: string) => {
-    const iconProps = { size: 28, color: "#9CA3AF" }; // Default color for HTML rendering
-
-    switch (iconName) {
-      case "target":
-        return Target(iconProps);
-      case "sparkles":
-        return Sparkles(iconProps);
-      case "star":
-        return Star(iconProps);
-      case "medal":
-        return Medal(iconProps);
-      case "trophy":
-        return Trophy(iconProps);
-      case "crown":
-        return Crown(iconProps);
-      case "droplets":
-        return Droplets(iconProps);
-      case "waves":
-        return Waves(iconProps);
-      case "droplet":
-        return Droplets(iconProps);
-      case "mountain-snow":
-        return Mountain(iconProps);
-      case "flame":
-        return Flame(iconProps);
-      case "calendar":
-        return Calendar(iconProps);
-      case "muscle":
-        return DumbbellIcon(iconProps);
-      case "sunrise":
-        return Sunrise(iconProps);
-      case "moon":
-        return Moon(iconProps);
-      case "bar-chart-3":
-        return BarChart3(iconProps);
-      case "apple":
-        return Apple(iconProps);
-      case "dumbbell":
-        return Dumbbell(iconProps);
-      case "scale":
-        return Scale(iconProps);
-      case "wheat":
-        return Wheat(iconProps);
-      case "gem":
-        return Gem(iconProps);
-      case "zap":
-        return Zap(iconProps);
-      case "award":
-      default:
-        return Award(iconProps);
-    }
-  };
-
-  const getStatusIconSvg = (status: string) => {
-    switch (status) {
-      case "excellent":
-        return CheckCircle({ size: 16, color: "#2ECC71" });
-      case "good":
-        return CheckCircle({ size: 16, color: "#F39C12" });
-      case "warning":
-        return AlertTriangle({ size: 16, color: "#E67E22" });
-      case "danger":
-        return AlertTriangle({ size: 16, color: "#E74C3C" });
-      default:
-        return CheckCircle({ size: 16, color: "#95A5A6" });
-    }
-  };
-
-  const getTrendIconSvg = (trend: string) => {
-    switch (trend) {
-      case "up":
-        return TrendingUp({ size: 14, color: "#2ECC71" });
-      case "down":
-        return TrendingDown({ size: 14, color: "#E74C3C" });
-      default:
-        return Target({ size: 14, color: "#95A5A6" });
-    }
-  };
-
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView
-        showsVerticalScrollIndicator={false}
-        refreshControl={
-          <RefreshControl
-            refreshing={refreshing}
-            onRefresh={handleRefresh}
-            colors={["#16A085"]}
-            tintColor="#16A085"
-          />
-        }
-      >
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.headerContent}>
-            <View style={styles.titleContainer}>
+    <LinearGradient colors={["#f8fafc", "#e2e8f0"]} style={styles.container}>
+      <SafeAreaView style={styles.safeArea}>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={handleRefresh}
+              colors={["#16A085"]}
+              tintColor="#16A085"
+            />
+          }
+        >
+          {/* Header */}
+          <LinearGradient colors={["#FFFFFF", "#F8FAFC"]} style={styles.header}>
+            <View style={styles.headerContent}>
               <Text style={styles.title}>{t("statistics.title")}</Text>
               <Text style={styles.subtitle}>{t("statistics.subtitle")}</Text>
             </View>
-            <TouchableOpacity
-              style={[
-                styles.downloadButton,
-                {
-                  backgroundColor: isDownloading ? "#95A5A6" : "#16A085",
-                  opacity: isDownloading ? 0.7 : 1,
-                },
-              ]}
-              onPress={downloadPDF}
-              disabled={isDownloading}
-            >
-              {isDownloading ? (
-                <ButtonLoader size="small" color="#FFFFFF" />
-              ) : (
-                <Download size={24} color="#FFFFFF" />
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
+          </LinearGradient>
 
-        {/* Time Filter */}
-        <View style={styles.timeFilterContainer}>
-          <View style={styles.timeFilter}>
-            {timeFilters.map((filter) => (
-              <TouchableOpacity
-                key={filter.key}
-                style={[
-                  styles.timeFilterButton,
-                  selectedPeriod === filter.key &&
-                    styles.timeFilterButtonActive,
-                ]}
-                onPress={() => setSelectedPeriod(filter.key)}
-              >
-                {selectedPeriod === filter.key ? (
-                  <LinearGradient
-                    colors={["#16A085", "#1ABC9C"]}
-                    style={styles.timeFilterGradient}
-                  >
-                    <Text style={styles.timeFilterTextActive}>
-                      {filter.label}
-                    </Text>
-                  </LinearGradient>
-                ) : (
-                  <Text style={styles.timeFilterText}>{filter.label}</Text>
-                )}
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        {/* No Data Message */}
-        {!nutritionData?.data && !isLoading && !error && (
-          <View style={styles.noDataContainer}>
-            <BarChart3 size={64} color="#BDC3C7" />
-            <Text style={styles.noDataText}>
-              {t("statistics.noDataMessage")}
-            </Text>
-          </View>
-        )}
-
-        {/* Main Content */}
-        {nutritionData?.data && (
-          <>
-            {/* Meal Completion Status */}
-            {renderMealCompletionStatus()}
-
-            {/* Charts Section */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>
-                {t("statistics.data_visualization")}
-              </Text>
-
-              {/* Weekly Progress Chart */}
-              {weeklyData.length > 0 && (
-                <WeeklyProgressChart data={weeklyData} />
-              )}
-
-              {/* Macronutrient Distribution Chart */}
-              {categorizedMetrics.macros.length > 0 && (
-                <MacronutrientChart metrics={categorizedMetrics.macros} />
-              )}
-
-              {/* Progress Bar Chart */}
-              {metrics.length > 0 && <ProgressBarChart metrics={metrics} />}
-            </View>
-
-            {/* Gamification Dashboard */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>
-                {t("statistics.gamification")}
-              </Text>
-              <View style={styles.gamificationContainer}>
-                <View style={styles.levelContainer}>
-                  <View style={styles.levelInfo}>
-                    <View style={styles.levelIcon}>
-                      <Crown size={32} color="#F39C12" />
-                    </View>
-                    <View style={styles.levelDetails}>
-                      <Text style={styles.levelText}>
-                        {t("statistics.level")} {gamificationStats.level}
+          {/* Time Filter */}
+          <View style={styles.timeFilterContainer}>
+            <View style={styles.timeFilter}>
+              {timeFilters.map((filter) => (
+                <TouchableOpacity
+                  key={filter.key}
+                  style={[
+                    styles.timeFilterButton,
+                    selectedPeriod === filter.key &&
+                      styles.timeFilterButtonActive,
+                  ]}
+                  onPress={() => setSelectedPeriod(filter.key)}
+                >
+                  {selectedPeriod === filter.key ? (
+                    <LinearGradient
+                      colors={["#16A085", "#1ABC9C"]}
+                      style={styles.timeFilterGradient}
+                    >
+                      <Text style={styles.timeFilterTextActive}>
+                        {filter.label}
                       </Text>
-                      <Text style={styles.xpText}>
-                        {gamificationStats.currentXP} /{" "}
-                        {gamificationStats.nextLevelXP} {t("statistics.xp")}
+                    </LinearGradient>
+                  ) : (
+                    <Text style={styles.timeFilterText}>{filter.label}</Text>
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {/* No Data Message */}
+          {!statisticsData && !isLoading && (
+            <View style={styles.noDataContainer}>
+              <LinearGradient
+                colors={["#FFFFFF", "#F8FAFC"]}
+                style={styles.noDataCard}
+              >
+                <BarChart3 size={72} color="#BDC3C7" />
+                <Text style={styles.noDataText}>
+                  {t("statistics.noDataMessage")}
+                </Text>
+              </LinearGradient>
+            </View>
+          )}
+
+          {/* Main Content */}
+          {statisticsData && (
+            <>
+              {/* Meal Completion Status */}
+              {renderMealCompletionStatus()}
+
+              {/* Charts Section */}
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>
+                  {language === "he" ? "תרשימים ונתונים" : "Charts & Data"}
+                </Text>
+
+                {/* Chart Type Filter */}
+                <View style={styles.chartTypeContainer}>
+                  {chartTypes.map((type) => (
+                    <TouchableOpacity
+                      key={type.key}
+                      style={[
+                        styles.chartTypeButton,
+                        selectedChart === type.key &&
+                          styles.chartTypeButtonActive,
+                      ]}
+                      onPress={() => setSelectedChart(type.key)}
+                    >
+                      <type.icon
+                        size={20}
+                        color={
+                          selectedChart === type.key ? "#16A085" : "#64748B"
+                        }
+                      />
+                      <Text
+                        style={[
+                          styles.chartTypeText,
+                          selectedChart === type.key &&
+                            styles.chartTypeTextActive,
+                        ]}
+                      >
+                        {type.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+
+                {/* Chart Container */}
+                <LinearGradient
+                  colors={["#FFFFFF", "#F8FAFC"]}
+                  style={styles.chartContainer}
+                >
+                  {renderChart()}
+                </LinearGradient>
+              </View>
+
+              {/* Gamification Dashboard */}
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>
+                  {t("statistics.gamification")}
+                </Text>
+                <LinearGradient
+                  colors={["#FFFFFF", "#F8FAFC"]}
+                  style={styles.gamificationContainer}
+                >
+                  <View style={styles.levelContainer}>
+                    <View style={styles.levelInfo}>
+                      <LinearGradient
+                        colors={["#FEF3E2", "#FED7AA"]}
+                        style={styles.levelIcon}
+                      >
+                        <Crown size={40} color="#F59E0B" />
+                      </LinearGradient>
+                      <View style={styles.levelDetails}>
+                        <Text style={styles.levelText}>
+                          {t("statistics.level")} {gamificationStats.level}
+                        </Text>
+                        <Text style={styles.xpText}>
+                          {gamificationStats.currentXP} /{" "}
+                          {gamificationStats.nextLevelXP} {t("statistics.xp")}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={styles.xpProgress}>
+                      <View style={styles.xpProgressBg}>
+                        <LinearGradient
+                          colors={["#F59E0B", "#D97706"]}
+                          start={{ x: 0, y: 0 }}
+                          end={{ x: 1, y: 0 }}
+                          style={[
+                            styles.xpProgressFill,
+                            { width: `${gamificationStats.xpProgress}%` },
+                          ]}
+                        />
+                      </View>
+                      <Text style={styles.xpToNext}>
+                        {gamificationStats.xpToNext} {t("statistics.nextLevel")}
                       </Text>
                     </View>
                   </View>
-                  <View style={styles.xpProgress}>
-                    <View style={styles.xpProgressBg}>
+
+                  <View style={styles.gamificationStats}>
+                    <View style={styles.gamificationStatItem}>
                       <View
                         style={[
-                          styles.xpProgressFill,
-                          { width: `${gamificationStats.xpProgress}%` },
+                          styles.statIconContainer,
+                          { backgroundColor: "#FEF2F2" },
                         ]}
-                      />
+                      >
+                        <Flame size={24} color="#E74C3C" />
+                      </View>
+                      <Text style={styles.gamificationStatValue}>
+                        {gamificationStats.dailyStreak}
+                      </Text>
+                      <Text style={styles.gamificationStatLabel}>
+                        {t("statistics.dailyStreak")}
+                      </Text>
                     </View>
-                    <Text style={styles.xpToNext}>
-                      {gamificationStats.xpToNext} {t("statistics.next_level")}
-                    </Text>
+                    <View style={styles.gamificationStatItem}>
+                      <View
+                        style={[
+                          styles.statIconContainer,
+                          { backgroundColor: "#EFF6FF" },
+                        ]}
+                      >
+                        <Calendar size={24} color="#3498DB" />
+                      </View>
+                      <Text style={styles.gamificationStatValue}>
+                        {gamificationStats.weeklyStreak}
+                      </Text>
+                      <Text style={styles.gamificationStatLabel}>
+                        {t("statistics.weeklyStreak")}
+                      </Text>
+                    </View>
+                    <View style={styles.gamificationStatItem}>
+                      <View
+                        style={[
+                          styles.statIconContainer,
+                          { backgroundColor: "#FEF3E2" },
+                        ]}
+                      >
+                        <Star size={24} color="#F39C12" />
+                      </View>
+                      <Text style={styles.gamificationStatValue}>
+                        {gamificationStats.perfectDays}
+                      </Text>
+                      <Text style={styles.gamificationStatLabel}>
+                        {t("statistics.perfectDays")}
+                      </Text>
+                    </View>
+                    <View style={styles.gamificationStatItem}>
+                      <View
+                        style={[
+                          styles.statIconContainer,
+                          { backgroundColor: "#E0F2F1" },
+                        ]}
+                      >
+                        <Trophy size={24} color="#16A085" />
+                      </View>
+                      <Text style={styles.gamificationStatValue}>
+                        {gamificationStats.totalPoints.toLocaleString()}
+                      </Text>
+                      <Text style={styles.gamificationStatLabel}>
+                        {t("statistics.totalPoints")}
+                      </Text>
+                    </View>
                   </View>
-                </View>
-
-                <View style={styles.gamificationStats}>
-                  <View style={styles.gamificationStatItem}>
-                    <Flame size={20} color="#E74C3C" />
-                    <Text style={styles.gamificationStatValue}>
-                      {gamificationStats.dailyStreak}
-                    </Text>
-                    <Text
-                      style={styles.gamificationStatLabel}
-                      numberOfLines={2}
-                    >
-                      {t("statistics.daily_streak")}
-                    </Text>
-                  </View>
-                  <View style={styles.gamificationStatItem}>
-                    <Calendar size={20} color="#3498DB" />
-                    <Text style={styles.gamificationStatValue}>
-                      {gamificationStats.weeklyStreak}
-                    </Text>
-                    <Text
-                      style={styles.gamificationStatLabel}
-                      numberOfLines={2}
-                    >
-                      {t("statistics.weekly_streak")}
-                    </Text>
-                  </View>
-                  <View style={styles.gamificationStatItem}>
-                    <Star size={20} color="#F39C12" />
-                    <Text style={styles.gamificationStatValue}>
-                      {gamificationStats.perfectDays}
-                    </Text>
-                    <Text
-                      style={styles.gamificationStatLabel}
-                      numberOfLines={2}
-                    >
-                      {t("statistics.perfect_days")}
-                    </Text>
-                  </View>
-                  <View style={styles.gamificationStatItem}>
-                    <Trophy size={20} color="#16A085" />
-                    <Text style={styles.gamificationStatValue}>
-                      {gamificationStats.totalPoints.toLocaleString()}
-                    </Text>
-                    <Text
-                      style={styles.gamificationStatLabel}
-                      numberOfLines={2}
-                    >
-                      {t("statistics.total_points")}
-                    </Text>
-                  </View>
-                </View>
+                </LinearGradient>
               </View>
-            </View>
 
-            {/* Enhanced Achievements Section */}
-            <View style={styles.section}>
-              <View style={styles.sectionHeader}>
-                <View style={styles.sectionTitleContainer}>
-                  <Award size={24} color="#F39C12" strokeWidth={2.5} />
+              {/* Enhanced Achievements Section */}
+              <View style={styles.section}>
+                <View style={styles.achievementsHeader}>
                   <Text style={styles.sectionTitle}>
                     {t("statistics.achievements")}
                   </Text>
+                  <TouchableOpacity
+                    style={styles.viewAllButton}
+                    onPress={() => setShowAchievements(true)}
+                  >
+                    <LinearGradient
+                      colors={["#E0F2F1", "#B2DFDB"]}
+                      style={styles.viewAllButtonGradient}
+                    >
+                      <Text style={styles.viewAllText}>
+                        {t("statistics.viewAllAchievements")}
+                      </Text>
+                    </LinearGradient>
+                  </TouchableOpacity>
                 </View>
-                <TouchableOpacity
-                  style={styles.viewAllButton}
-                  onPress={() => setShowAchievements(true)}
-                >
-                  <Text style={styles.viewAllText}>
-                    {t("statistics.view_all_achievements")}
-                  </Text>
-                </TouchableOpacity>
-              </View>
 
-              {/* Achievement Categories */}
-              <View style={styles.achievementCategories}>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  <View style={styles.categoryTabs}>
-                    {[
-                      "All",
-                      "MILESTONE",
-                      "GOAL",
-                      "STREAK",
-                      "LEVEL",
-                      "SPECIAL",
-                    ].map((category) => (
-                      <TouchableOpacity
-                        key={category}
-                        style={[
-                          styles.categoryTab,
-                          selectedCategory === category &&
-                            styles.categoryTabActive,
-                        ]}
-                        onPress={() => setSelectedCategory(category)}
-                      >
-                        <Text
-                          style={[
-                            styles.categoryTabText,
-                            selectedCategory === category &&
-                              styles.categoryTabTextActive,
-                          ]}
+                <View style={styles.achievementsContainer}>
+                  {achievements.slice(0, 3).map((achievement) => (
+                    <LinearGradient
+                      key={achievement.id}
+                      colors={[
+                        getAchievementBackgroundColor(
+                          achievement.rarity,
+                          achievement.unlocked
+                        ),
+                        "#FFFFFF",
+                      ]}
+                      style={[
+                        styles.achievementCard,
+                        {
+                          borderWidth: 2,
+                          borderColor: achievement.unlocked
+                            ? `${achievement.color}30`
+                            : "#E5E7EB",
+                        },
+                      ]}
+                    >
+                      <View style={styles.achievementContent}>
+                        <LinearGradient
+                          colors={
+                            achievement.unlocked
+                              ? [
+                                  `${achievement.color}20`,
+                                  `${achievement.color}10`,
+                                ]
+                              : ["#F3F4F6", "#E5E7EB"]
+                          }
+                          style={styles.achievementIconContainer}
                         >
-                          {category === "All" ? t("statistics.all") : category}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </ScrollView>
+                          {getAchievementIcon(
+                            achievement.icon,
+                            32,
+                            achievement.unlocked ? achievement.color : "#9CA3AF"
+                          )}
+                        </LinearGradient>
+
+                        <View style={styles.achievementDetails}>
+                          <View style={styles.achievementHeader}>
+                            <Text
+                              style={[
+                                styles.achievementTitle,
+                                {
+                                  color: achievement.unlocked
+                                    ? "#111827"
+                                    : "#6B7280",
+                                },
+                              ]}
+                            >
+                              {typeof achievement.title === "object"
+                                ? achievement.title.en
+                                : achievement.title}
+                            </Text>
+                            <LinearGradient
+                              colors={
+                                achievement.unlocked
+                                  ? [
+                                      `${achievement.color}20`,
+                                      `${achievement.color}10`,
+                                    ]
+                                  : ["#F3F4F6", "#E5E7EB"]
+                              }
+                              style={styles.rarityBadge}
+                            >
+                              <Text
+                                style={[
+                                  styles.rarityText,
+                                  {
+                                    color: achievement.unlocked
+                                      ? achievement.color
+                                      : "#6B7280",
+                                  },
+                                ]}
+                              >
+                                {achievement.rarity}
+                              </Text>
+                            </LinearGradient>
+                          </View>
+
+                          <Text
+                            style={[
+                              styles.achievementDescription,
+                              {
+                                color: achievement.unlocked
+                                  ? "#374151"
+                                  : "#9CA3AF",
+                              },
+                            ]}
+                          >
+                            {typeof achievement.description === "object"
+                              ? achievement.description.en
+                              : achievement.description}
+                          </Text>
+
+                          <View style={styles.achievementProgress}>
+                            <View style={styles.progressBarContainer}>
+                              <View style={styles.progressBarBg}>
+                                <LinearGradient
+                                  colors={
+                                    achievement.unlocked
+                                      ? [
+                                          `${achievement.color}80`,
+                                          achievement.color,
+                                        ]
+                                      : ["#D1D5DB", "#9CA3AF"]
+                                  }
+                                  start={{ x: 0, y: 0 }}
+                                  end={{ x: 1, y: 0 }}
+                                  style={[
+                                    styles.progressBarFill,
+                                    {
+                                      width: `${
+                                        achievement.unlocked
+                                          ? 100
+                                          : (achievement.progress /
+                                              (achievement.maxProgress || 1)) *
+                                            100
+                                      }%`,
+                                    },
+                                  ]}
+                                />
+                              </View>
+                              <Text style={styles.progressText}>
+                                {achievement.progress}/
+                                {achievement.maxProgress || 1}
+                              </Text>
+                            </View>
+
+                            <View style={styles.xpRewardContainer}>
+                              <Sparkles
+                                size={16}
+                                color={
+                                  achievement.unlocked
+                                    ? achievement.color
+                                    : "#9CA3AF"
+                                }
+                              />
+                              <Text
+                                style={[
+                                  styles.xpRewardText,
+                                  {
+                                    color: achievement.unlocked
+                                      ? achievement.color
+                                      : "#9CA3AF",
+                                  },
+                                ]}
+                              >
+                                +{achievement.xpReward} XP
+                              </Text>
+                            </View>
+                          </View>
+                        </View>
+
+                        {achievement.unlocked && (
+                          <LinearGradient
+                            colors={[
+                              "rgba(255, 255, 255, 0.95)",
+                              "rgba(255, 255, 255, 0.85)",
+                            ]}
+                            style={styles.unlockedBadge}
+                          >
+                            <CheckCircle size={28} color={achievement.color} />
+                          </LinearGradient>
+                        )}
+                      </View>
+                    </LinearGradient>
+                  ))}
+                </View>
               </View>
 
-              {/* Achievement Stats Summary */}
-              <View style={styles.achievementStats}>
-                <View style={styles.achievementStatCard}>
-                  <CheckCircle size={20} color="#10B981" />
-                  <Text style={styles.achievementStatNumber}>
-                    {achievements.filter((a) => a.unlocked).length || 0}
-                  </Text>
-                  <Text style={styles.achievementStatLabel}>
-                    {t("statistics.unlocked")}
-                  </Text>
-                </View>
-                <View style={styles.achievementStatCard}>
-                  <Lock size={20} color="#6B7280" />
-                  <Text style={styles.achievementStatNumber}>
-                    {achievements.filter((a) => !a.unlocked).length || 0}
-                  </Text>
-                  <Text style={styles.achievementStatLabel}>
-                    {t("statistics.locked")}
-                  </Text>
-                </View>
-                <View style={styles.achievementStatCard}>
-                  <Sparkles size={20} color="#F59E0B" />
-                  <Text style={styles.achievementStatNumber}>
-                    {achievements.reduce(
-                      (sum, a) => sum + (a.unlocked ? a.xpReward || 0 : 0),
-                      0
-                    ) || 0}
-                  </Text>
-                  <Text style={styles.achievementStatLabel}>
-                    {t("statistics.total_xp")}
-                  </Text>
-                </View>
-              </View>
-
-              {/* Enhanced Achievement Grid */}
-              <View style={styles.achievementGrid}>
-                {achievements.length > 0 ? (
-                  (selectedCategory === "All"
-                    ? achievements
-                    : achievements.filter(
-                        (a) => a.category === selectedCategory
-                      )
-                  )
-                    .slice(0, 6)
-                    .map((achievement) => (
-                      <EnhancedAchievementCard
-                        key={achievement.id}
-                        achievement={achievement}
-                        onPress={() => handleAchievementPress(achievement)}
-                        language={language}
-                      />
-                    ))
-                ) : (
-                  <View style={styles.emptyAchievements}>
-                    <Trophy size={48} color="#BDC3C7" />
-                    <Text style={styles.emptyText}>
-                      {isAchievementsLoading
-                        ? isRTL
-                          ? "טוען הישגים..."
-                          : "Loading achievements..."
-                        : isRTL
-                        ? "לא נמצאו הישגים"
-                        : "No achievements found"}
-                    </Text>
-                    {achievementsError && (
-                      <TouchableOpacity
-                        style={styles.retryButton}
-                        onPress={() => refetchAchievements()}
-                      >
-                        <Text style={styles.retryButtonText}>
-                          {isRTL ? "נסה שוב" : "Retry"}
-                        </Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                )}
-              </View>
-
-              {/* Show More Button */}
-              {(selectedCategory === "All"
-                ? achievements
-                : achievements.filter((a) => a.category === selectedCategory)
-              ).length > 6 && (
-                <TouchableOpacity
-                  style={styles.showMoreButton}
-                  onPress={() => setShowAchievements(true)}
+              {/* Progress Overview with Real Data */}
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>
+                  {t("statistics.progressOverview")}
+                </Text>
+                <LinearGradient
+                  colors={["#FFFFFF", "#F8FAFC"]}
+                  style={styles.progressOverviewContainer}
                 >
-                  <Text style={styles.showMoreText}>
-                    {t("statistics.view_all_achievements")}
-                  </Text>
-                  <TrendingUp size={16} color="#16A085" />
-                </TouchableOpacity>
-              )}
-            </View>
-
-            {/* Progress Overview with Real Data */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>
-                {t("statistics.progress_overview")}
-              </Text>
-              <View style={styles.progressOverviewContainer}>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                   <View style={styles.progressStatsGrid}>
                     <View style={styles.progressStatItem}>
-                      <View style={styles.progressStatIcon}>
-                        <CheckCircle size={20} color="#2ECC71" />
-                      </View>
+                      <LinearGradient
+                        colors={["#ECFDF5", "#D1FAE5"]}
+                        style={styles.progressStatIcon}
+                      >
+                        <CheckCircle size={24} color="#059669" />
+                      </LinearGradient>
                       <Text style={styles.progressStatValue}>
                         {progressStats.successfulDays}/{progressStats.totalDays}
                       </Text>
-                      <Text style={styles.progressStatLabel} numberOfLines={2}>
-                        {t("statistics.successful_days")}
+                      <Text style={styles.progressStatLabel}>
+                        {t("statistics.successfulDays")}
                       </Text>
                     </View>
 
                     <View style={styles.progressStatItem}>
-                      <View style={styles.progressStatIcon}>
-                        <Target size={20} color="#3498DB" />
-                      </View>
+                      <LinearGradient
+                        colors={["#EFF6FF", "#DBEAFE"]}
+                        style={styles.progressStatIcon}
+                      >
+                        <Target size={24} color="#2563EB" />
+                      </LinearGradient>
                       <Text style={styles.progressStatValue}>
                         {progressStats.averageCompletion}%
                       </Text>
-                      <Text style={styles.progressStatLabel} numberOfLines={2}>
-                        {t("statistics.average_completion")}
+                      <Text style={styles.progressStatLabel}>
+                        {t("statistics.averageCompletion")}
                       </Text>
                     </View>
 
                     <View style={styles.progressStatItem}>
-                      <View style={styles.progressStatIcon}>
-                        <Award size={20} color="#F39C12" />
-                      </View>
+                      <LinearGradient
+                        colors={["#FEF3E2", "#FED7AA"]}
+                        style={styles.progressStatIcon}
+                      >
+                        <Award size={24} color="#D97706" />
+                      </LinearGradient>
                       <Text style={styles.progressStatValue}>
                         {progressStats.bestStreak}
                       </Text>
-                      <Text style={styles.progressStatLabel} numberOfLines={2}>
-                        {t("statistics.best_streak")}
+                      <Text style={styles.progressStatLabel}>
+                        {t("statistics.bestStreak")}
                       </Text>
                     </View>
 
                     <View style={styles.progressStatItem}>
-                      <View style={styles.progressStatIcon}>
-                        <Trophy size={20} color="#E74C3C" />
-                      </View>
+                      <LinearGradient
+                        colors={["#FEF2F2", "#FECACA"]}
+                        style={styles.progressStatIcon}
+                      >
+                        <Trophy size={24} color="#DC2626" />
+                      </LinearGradient>
                       <Text style={styles.progressStatValue}>
                         {progressStats.currentStreak}
                       </Text>
-                      <Text style={styles.progressStatLabel} numberOfLines={2}>
-                        {t("statistics.current_streak")}
+                      <Text style={styles.progressStatLabel}>
+                        {t("statistics.currentStreak")}
                       </Text>
                     </View>
                   </View>
-                </ScrollView>
 
-                {/* Real nutrition averages */}
-                <View style={styles.nutritionAverages}>
-                  <Text style={styles.nutritionAveragesTitle}>
-                    {language === "he"
-                      ? "ממוצעים תזונתיים"
-                      : "Nutrition Averages"}
-                  </Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+                  {/* Real nutrition averages */}
+                  <View style={styles.nutritionAverages}>
+                    <Text style={styles.nutritionAveragesTitle}>
+                      {language === "he"
+                        ? "ממוצעים תזונתיים"
+                        : "Nutrition Averages"}
+                    </Text>
                     <View style={styles.nutritionAveragesGrid}>
                       <View style={styles.nutritionAverage}>
-                        <Flame size={16} color="#E74C3C" />
+                        <View
+                          style={[
+                            styles.nutritionAverageIcon,
+                            { backgroundColor: "#FEF2F2" },
+                          ]}
+                        >
+                          <Flame size={18} color="#E74C3C" />
+                        </View>
                         <Text style={styles.nutritionAverageValue}>
                           {progressStats.averages.calories}
                         </Text>
@@ -2529,7 +1901,14 @@ export default function StatisticsScreen() {
                         </Text>
                       </View>
                       <View style={styles.nutritionAverage}>
-                        <Zap size={16} color="#9B59B6" />
+                        <View
+                          style={[
+                            styles.nutritionAverageIcon,
+                            { backgroundColor: "#F3F4F6" },
+                          ]}
+                        >
+                          <Zap size={18} color="#9B59B6" />
+                        </View>
                         <Text style={styles.nutritionAverageValue}>
                           {progressStats.averages.protein}
                         </Text>
@@ -2538,7 +1917,14 @@ export default function StatisticsScreen() {
                         </Text>
                       </View>
                       <View style={styles.nutritionAverage}>
-                        <Wheat size={16} color="#F39C12" />
+                        <View
+                          style={[
+                            styles.nutritionAverageIcon,
+                            { backgroundColor: "#FEF3E2" },
+                          ]}
+                        >
+                          <Wheat size={18} color="#F39C12" />
+                        </View>
                         <Text style={styles.nutritionAverageValue}>
                           {progressStats.averages.carbs}
                         </Text>
@@ -2547,7 +1933,14 @@ export default function StatisticsScreen() {
                         </Text>
                       </View>
                       <View style={styles.nutritionAverage}>
-                        <Fish size={16} color="#16A085" />
+                        <View
+                          style={[
+                            styles.nutritionAverageIcon,
+                            { backgroundColor: "#E0F2F1" },
+                          ]}
+                        >
+                          <Fish size={18} color="#16A085" />
+                        </View>
                         <Text style={styles.nutritionAverageValue}>
                           {progressStats.averages.fats}
                         </Text>
@@ -2556,7 +1949,14 @@ export default function StatisticsScreen() {
                         </Text>
                       </View>
                       <View style={styles.nutritionAverage}>
-                        <Droplets size={16} color="#3498DB" />
+                        <View
+                          style={[
+                            styles.nutritionAverageIcon,
+                            { backgroundColor: "#EFF6FF" },
+                          ]}
+                        >
+                          <Droplets size={18} color="#3498DB" />
+                        </View>
                         <Text style={styles.nutritionAverageValue}>
                           {progressStats.averages.water}
                         </Text>
@@ -2565,430 +1965,335 @@ export default function StatisticsScreen() {
                         </Text>
                       </View>
                     </View>
-                  </ScrollView>
-                </View>
+                  </View>
+                </LinearGradient>
               </View>
-            </View>
 
-            {/* Alerts Section - Only show when meals are completed */}
-            {shouldShowWarnings() && alerts.length > 0 && (
-              <View style={styles.section}>
-                <View style={styles.alertsHeader}>
-                  <Text style={styles.sectionTitle}>
-                    {t("statistics.alertsTitle")}
-                  </Text>
-                  <TouchableOpacity
-                    style={styles.hideAlertsButton}
-                    onPress={() => setShowAlerts(false)}
-                  >
-                    <Text style={styles.hideAlertsText}>
-                      {t("statistics.hideAlerts")}
+              {/* Alerts Section - Only show when meals are completed */}
+              {shouldShowWarnings() && alerts.length > 0 && (
+                <View style={styles.section}>
+                  <View style={styles.alertsHeader}>
+                    <Text style={styles.sectionTitle}>
+                      {t("statistics.alertsTitle")}
                     </Text>
-                  </TouchableOpacity>
-                </View>
-                <View style={styles.alertsContainer}>
-                  {alerts.map((alert) => (
-                    <View key={alert.id} style={styles.alertCard}>
-                      <View style={styles.alertContent}>
-                        <View style={styles.alertIcon}>
-                          <AlertTriangle
-                            size={20}
-                            color={
-                              alert.severity === "danger"
-                                ? "#E74C3C"
-                                : "#E67E22"
-                            }
-                          />
-                        </View>
-                        <View style={styles.alertText}>
-                          <Text style={styles.alertTitle} numberOfLines={1}>
-                            {alert.title}
-                          </Text>
-                          <Text style={styles.alertMessage} numberOfLines={2}>
-                            {alert.message}
-                          </Text>
-                        </View>
-                      </View>
-                    </View>
-                  ))}
-                </View>
-              </View>
-            )}
-
-            {/* Macronutrients */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>
-                {t("statistics.macronutrients")}
-              </Text>
-              <View style={styles.metricsGrid}>
-                {categorizedMetrics.macros.map(renderMetricCard)}
-              </View>
-            </View>
-
-            {/* Micronutrients */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>
-                {t("statistics.micronutrients")}
-              </Text>
-              <View style={styles.metricsGrid}>
-                {categorizedMetrics.micros.map(renderMetricCard)}
-              </View>
-            </View>
-
-            {/* Lifestyle Metrics */}
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>
-                {t("statistics.lifestyle")}
-              </Text>
-              <View style={styles.metricsGrid}>
-                {categorizedMetrics.lifestyle.map(renderMetricCard)}
-              </View>
-            </View>
-          </>
-        )}
-
-        {/* All Achievements Modal */}
-        <Modal
-          visible={showAchievements}
-          animationType="slide"
-          presentationStyle="pageSheet"
-        >
-          <SafeAreaView style={styles.modalContainer}>
-            <View style={styles.modalHeader}>
-              <TouchableOpacity onPress={() => setShowAchievements(false)}>
-                <X size={24} color="#2C3E50" />
-              </TouchableOpacity>
-              <Text style={styles.modalTitle}>
-                {t("statistics.achievements")}
-              </Text>
-              <View style={{ width: 24 }} />
-            </View>
-
-            <ScrollView style={styles.modalContent}>
-              {achievements.map((achievement) => (
-                <EnhancedAchievementCard
-                  key={achievement.id}
-                  achievement={achievement}
-                  onPress={handleAchievementPress}
-                  language={language}
-                />
-              ))}
-            </ScrollView>
-          </SafeAreaView>
-        </Modal>
-
-        {/* Achievement Detail Modal */}
-        <Modal
-          visible={showAchievementDetail}
-          animationType="fade"
-          transparent={true}
-          onRequestClose={() => setShowAchievementDetail(false)}
-        >
-          <View style={styles.achievementDetailOverlay}>
-            <TouchableOpacity
-              style={StyleSheet.absoluteFillObject}
-              onPress={() => setShowAchievementDetail(false)}
-              activeOpacity={1}
-            />
-            {selectedAchievement && (
-              <View style={styles.achievementDetailModal}>
-                <View
-                  style={[
-                    styles.achievementDetailContent,
-                    {
-                      borderTopColor: getRarityColor(
-                        selectedAchievement.rarity
-                      ),
-                      borderTopWidth: 4,
-                    },
-                  ]}
-                >
-                  {/* Header */}
-                  <View style={styles.achievementDetailHeader}>
-                    <View style={styles.achievementDetailIconContainer}>
-                      {getAchievementIcon(
-                        selectedAchievement.icon,
-                        40,
-                        getRarityColor(selectedAchievement.rarity)
-                      )}
-                    </View>
                     <TouchableOpacity
-                      onPress={() => setShowAchievementDetail(false)}
-                      style={styles.achievementDetailClose}
+                      style={styles.hideAlertsButton}
+                      onPress={() => setShowAlerts(false)}
                     >
-                      <X size={20} color="#6B7280" />
+                      <Text style={styles.hideAlertsText}>
+                        {t("statistics.hideAlerts")}
+                      </Text>
                     </TouchableOpacity>
                   </View>
-
-                  {/* Title and Status */}
-                  <View style={styles.achievementDetailTitleSection}>
-                    <Text style={styles.achievementDetailTitle}>
-                      {typeof selectedAchievement.title === "object"
-                        ? selectedAchievement.title[language] ||
-                          selectedAchievement.title.en
-                        : selectedAchievement.title}
-                    </Text>
-                    <View
-                      style={[
-                        styles.achievementDetailStatusBadge,
-                        {
-                          backgroundColor: selectedAchievement.unlocked
-                            ? "#10B98120"
-                            : "#6B728020",
-                        },
-                      ]}
-                    >
-                      {selectedAchievement.unlocked ? (
-                        <CheckCircle size={16} color="#10B981" />
-                      ) : (
-                        <Lock size={16} color="#6B7280" />
-                      )}
-                      <Text
-                        style={[
-                          styles.achievementDetailStatusText,
-                          {
-                            color: selectedAchievement.unlocked
-                              ? "#10B981"
-                              : "#6B7280",
-                          },
-                        ]}
+                  <View style={styles.alertsContainer}>
+                    {alerts.map((alert) => (
+                      <LinearGradient
+                        key={alert.id}
+                        colors={["#FFFFFF", "#FEF7F7"]}
+                        style={styles.alertCard}
                       >
-                        {selectedAchievement.unlocked
-                          ? t("statistics.unlocked")
-                          : t("statistics.locked")}
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* Description */}
-                  <Text style={styles.achievementDetailDescription}>
-                    {typeof selectedAchievement.description === "object"
-                      ? selectedAchievement.description[language] ||
-                        selectedAchievement.description.en
-                      : selectedAchievement.description}
-                  </Text>
-
-                  {/* Stats */}
-                  <View style={styles.achievementDetailStats}>
-                    <View style={styles.achievementDetailStat}>
-                      <Sparkles size={20} color="#F59E0B" />
-                      <Text style={styles.achievementDetailStatValue}>
-                        +{selectedAchievement.xpReward}
-                      </Text>
-                      <Text style={styles.achievementDetailStatLabel}>
-                        {t("statistics.xp_reward")}
-                      </Text>
-                    </View>
-                    <View style={styles.achievementDetailStat}>
-                      <Target size={20} color="#3B82F6" />
-                      <Text style={styles.achievementDetailStatValue}>
-                        {Math.round(
-                          (selectedAchievement.progress /
-                            (selectedAchievement.maxProgress || 1)) *
-                            100
-                        )}
-                        %
-                      </Text>
-                      <Text style={styles.achievementDetailStatLabel}>
-                        {t("statistics.progress")}
-                      </Text>
-                    </View>
-                    <View style={styles.achievementDetailStat}>
-                      <Crown
-                        size={20}
-                        color={getRarityColor(selectedAchievement.rarity)}
-                      />
-                      <Text
-                        style={[
-                          styles.achievementDetailStatValue,
-                          { color: getRarityColor(selectedAchievement.rarity) },
-                        ]}
-                      >
-                        {selectedAchievement.rarity}
-                      </Text>
-                      <Text style={styles.achievementDetailStatLabel}>
-                        {t("statistics.rarity")}
-                      </Text>
-                    </View>
-                  </View>
-
-                  {/* Progress Bar */}
-                  <View style={styles.achievementDetailProgressSection}>
-                    <View style={styles.achievementDetailProgressHeader}>
-                      <Text style={styles.achievementDetailProgressText}>
-                        {t("statistics.progress")}:{" "}
-                        {selectedAchievement.progress}/
-                        {selectedAchievement.maxProgress || 1}
-                      </Text>
-                      <Text style={styles.achievementDetailProgressPercent}>
-                        {Math.round(
-                          (selectedAchievement.progress /
-                            (selectedAchievement.maxProgress || 1)) *
-                            100
-                        )}
-                        %
-                      </Text>
-                    </View>
-                    <View style={styles.achievementDetailProgressBar}>
-                      <View
-                        style={[
-                          styles.achievementDetailProgressFill,
-                          {
-                            width: `${Math.min(
-                              (selectedAchievement.progress /
-                                (selectedAchievement.maxProgress || 1)) *
-                                100,
-                              100
-                            )}%`,
-                            backgroundColor: getRarityColor(
-                              selectedAchievement.rarity
-                            ),
-                          },
-                        ]}
-                      />
-                    </View>
+                        <View style={styles.alertContent}>
+                          <LinearGradient
+                            colors={["#FEF2F2", "#FECACA"]}
+                            style={styles.alertIcon}
+                          >
+                            <AlertTriangle
+                              size={24}
+                              color={
+                                alert.severity === "danger"
+                                  ? "#E74C3C"
+                                  : "#E67E22"
+                              }
+                            />
+                          </LinearGradient>
+                          <View style={styles.alertText}>
+                            <Text style={styles.alertTitle}>{alert.title}</Text>
+                            <Text style={styles.alertMessage}>
+                              {alert.message}
+                            </Text>
+                          </View>
+                        </View>
+                      </LinearGradient>
+                    ))}
                   </View>
                 </View>
+              )}
+
+              {/* Macronutrients */}
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>
+                  {t("statistics.macronutrients")}
+                </Text>
+                <View style={styles.metricsGrid}>
+                  {categorizedMetrics.macros.map(renderMetricCard)}
+                </View>
               </View>
-            )}
-          </View>
-        </Modal>
 
-        {/* New Achievement Notification Modal */}
-        <Modal
-          visible={newAchievementModal.show}
-          animationType="fade"
-          transparent={true}
-          onRequestClose={() =>
-            setNewAchievementModal({ show: false, achievement: null })
-          }
-        >
-          <View style={styles.newAchievementOverlay}>
-            {newAchievementModal.achievement && (
-              <Animated.View style={styles.newAchievementModal}>
+              {/* Micronutrients */}
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>
+                  {t("statistics.micronutrients")}
+                </Text>
+                <View style={styles.metricsGrid}>
+                  {categorizedMetrics.micros.map(renderMetricCard)}
+                </View>
+              </View>
+
+              {/* Lifestyle Metrics */}
+              <View style={styles.section}>
+                <Text style={styles.sectionTitle}>
+                  {t("statistics.lifestyle")}
+                </Text>
+                <View style={styles.metricsGrid}>
+                  {categorizedMetrics.lifestyle.map(renderMetricCard)}
+                </View>
+              </View>
+            </>
+          )}
+
+          {/* Achievements Modal */}
+          <Modal
+            visible={showAchievements}
+            animationType="slide"
+            presentationStyle="pageSheet"
+          >
+            <LinearGradient
+              colors={["#f8fafc", "#e2e8f0"]}
+              style={styles.modalContainer}
+            >
+              <SafeAreaView>
                 <LinearGradient
-                  colors={[
-                    getRarityColor(newAchievementModal.achievement.rarity) +
-                      "20",
-                    getRarityColor(newAchievementModal.achievement.rarity) +
-                      "05",
-                  ]}
-                  style={styles.newAchievementContent}
+                  colors={["#FFFFFF", "#F8FAFC"]}
+                  style={styles.modalHeader}
                 >
-                  <View style={styles.newAchievementHeader}>
-                    <Trophy size={32} color="#F59E0B" />
-                    <Text style={styles.newAchievementTitle}>
-                      {t("statistics.achievement_unlocked")}
-                    </Text>
-                  </View>
+                  <TouchableOpacity
+                    style={styles.modalCloseButton}
+                    onPress={() => setShowAchievements(false)}
+                  >
+                    <X size={28} color="#2C3E50" />
+                  </TouchableOpacity>
+                  <Text style={styles.modalTitle}>
+                    {t("statistics.achievements")}
+                  </Text>
+                  <View style={{ width: 28 }} />
+                </LinearGradient>
 
-                  <View style={styles.newAchievementBody}>
-                    <View
+                <ScrollView style={styles.modalContent}>
+                  {achievements.map((achievement) => (
+                    <LinearGradient
+                      key={achievement.id}
+                      colors={[
+                        getAchievementBackgroundColor(
+                          achievement.rarity,
+                          achievement.unlocked
+                        ),
+                        "#FFFFFF",
+                      ]}
                       style={[
-                        styles.newAchievementIcon,
+                        styles.achievementCard,
                         {
-                          backgroundColor:
-                            getRarityColor(
-                              newAchievementModal.achievement.rarity
-                            ) + "20",
+                          borderWidth: 2,
+                          borderColor: achievement.unlocked
+                            ? `${achievement.color}30`
+                            : "#E5E7EB",
                         },
                       ]}
                     >
-                      {getAchievementIcon(
-                        newAchievementModal.achievement.icon,
-                        48,
-                        getRarityColor(newAchievementModal.achievement.rarity)
-                      )}
-                    </View>
+                      <View style={styles.achievementContent}>
+                        <LinearGradient
+                          colors={
+                            achievement.unlocked
+                              ? [
+                                  `${achievement.color}20`,
+                                  `${achievement.color}10`,
+                                ]
+                              : ["#F3F4F6", "#E5E7EB"]
+                          }
+                          style={styles.achievementIconContainer}
+                        >
+                          {getAchievementIcon(
+                            achievement.icon,
+                            32,
+                            achievement.unlocked ? achievement.color : "#9CA3AF"
+                          )}
+                        </LinearGradient>
 
-                    <Text style={styles.newAchievementName}>
-                      {typeof newAchievementModal.achievement.title === "object"
-                        ? newAchievementModal.achievement.title[language] ||
-                          newAchievementModal.achievement.title.en
-                        : newAchievementModal.achievement.title}
-                    </Text>
+                        <View style={styles.achievementDetails}>
+                          <View style={styles.achievementHeader}>
+                            <Text
+                              style={[
+                                styles.achievementTitle,
+                                {
+                                  color: achievement.unlocked
+                                    ? "#111827"
+                                    : "#6B7280",
+                                },
+                              ]}
+                            >
+                              {typeof achievement.title === "object"
+                                ? achievement.title.en
+                                : achievement.title}
+                            </Text>
+                            <LinearGradient
+                              colors={
+                                achievement.unlocked
+                                  ? [
+                                      `${achievement.color}20`,
+                                      `${achievement.color}10`,
+                                    ]
+                                  : ["#F3F4F6", "#E5E7EB"]
+                              }
+                              style={styles.rarityBadge}
+                            >
+                              <Text
+                                style={[
+                                  styles.rarityText,
+                                  {
+                                    color: achievement.unlocked
+                                      ? achievement.color
+                                      : "#6B7280",
+                                  },
+                                ]}
+                              >
+                                {achievement.rarity}
+                              </Text>
+                            </LinearGradient>
+                          </View>
 
-                    <Text style={styles.newAchievementDescription}>
-                      {typeof newAchievementModal.achievement.description ===
-                      "object"
-                        ? newAchievementModal.achievement.description[
-                            language
-                          ] || newAchievementModal.achievement.description.en
-                        : newAchievementModal.achievement.description}
-                    </Text>
+                          <Text
+                            style={[
+                              styles.achievementDescription,
+                              {
+                                color: achievement.unlocked
+                                  ? "#374151"
+                                  : "#9CA3AF",
+                              },
+                            ]}
+                          >
+                            {typeof achievement.description === "object"
+                              ? achievement.description.en
+                              : achievement.description}
+                          </Text>
 
-                    <View style={styles.newAchievementReward}>
-                      <Sparkles size={20} color="#F59E0B" />
-                      <Text style={styles.newAchievementRewardText}>
-                        +{newAchievementModal.achievement.xpReward} XP
-                      </Text>
-                    </View>
-                  </View>
+                          <View style={styles.achievementProgress}>
+                            <View style={styles.progressBarContainer}>
+                              <View style={styles.progressBarBg}>
+                                <LinearGradient
+                                  colors={
+                                    achievement.unlocked
+                                      ? [
+                                          `${achievement.color}80`,
+                                          achievement.color,
+                                        ]
+                                      : ["#D1D5DB", "#9CA3AF"]
+                                  }
+                                  start={{ x: 0, y: 0 }}
+                                  end={{ x: 1, y: 0 }}
+                                  style={[
+                                    styles.progressBarFill,
+                                    {
+                                      width: `${
+                                        (achievement.progress /
+                                          (achievement.maxProgress || 1)) *
+                                        100
+                                      }%`,
+                                    },
+                                  ]}
+                                />
+                              </View>
+                              <Text style={styles.progressText}>
+                                {achievement.progress}/
+                                {achievement.maxProgress || 1}
+                              </Text>
+                            </View>
 
-                  <TouchableOpacity
-                    style={styles.newAchievementCloseButton}
-                    onPress={() =>
-                      setNewAchievementModal({ show: false, achievement: null })
-                    }
-                  >
-                    <Text style={styles.newAchievementCloseText}>
-                      {t("statistics.awesome")}
-                    </Text>
-                  </TouchableOpacity>
-                </LinearGradient>
-              </Animated.View>
-            )}
-          </View>
-        </Modal>
-      </ScrollView>
-    </SafeAreaView>
+                            <View style={styles.xpRewardContainer}>
+                              <Sparkles
+                                size={16}
+                                color={
+                                  achievement.unlocked
+                                    ? achievement.color
+                                    : "#9CA3AF"
+                                }
+                              />
+                              <Text
+                                style={[
+                                  styles.xpRewardText,
+                                  {
+                                    color: achievement.unlocked
+                                      ? achievement.color
+                                      : "#9CA3AF",
+                                  },
+                                ]}
+                              >
+                                +{achievement.xpReward} XP
+                              </Text>
+                            </View>
+                          </View>
+                        </View>
+
+                        {achievement.unlocked && (
+                          <LinearGradient
+                            colors={[
+                              "rgba(255, 255, 255, 0.95)",
+                              "rgba(255, 255, 255, 0.85)",
+                            ]}
+                            style={styles.unlockedBadge}
+                          >
+                            <CheckCircle size={28} color={achievement.color} />
+                          </LinearGradient>
+                        )}
+                      </View>
+                    </LinearGradient>
+                  ))}
+                </ScrollView>
+              </SafeAreaView>
+            </LinearGradient>
+          </Modal>
+        </ScrollView>
+      </SafeAreaView>
+    </LinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F8FAFC",
   },
-
-  // Header Styles
-  header: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-  },
-  headerContent: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  titleContainer: {
+  safeArea: {
     flex: 1,
   },
+
+  // Enhanced Header Styles
+  header: {
+    marginHorizontal: 20,
+    marginTop: 10,
+    borderRadius: 28,
+    shadowColor: "#1E293B",
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.15,
+    shadowRadius: 32,
+    elevation: 8,
+  },
+  headerContent: {
+    padding: 32,
+  },
   title: {
-    fontSize: Math.min(32, width * 0.08),
-    fontWeight: "800",
+    fontSize: 36,
+    fontWeight: "900",
     color: "#0F172A",
-    letterSpacing: -0.5,
-    marginBottom: 8,
+    letterSpacing: -1.2,
+    marginBottom: 12,
+    textShadowColor: "rgba(0, 0, 0, 0.1)",
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 18,
     color: "#64748B",
-    fontWeight: "500",
-    lineHeight: 24,
-    letterSpacing: 0.1,
-  },
-  downloadButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
+    fontWeight: "600",
+    lineHeight: 28,
+    letterSpacing: 0.3,
   },
 
   // Enhanced Error & Loading States
@@ -2996,764 +2301,488 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
-    padding: 32,
+    padding: 20,
+  },
+  errorCard: {
     backgroundColor: "#FFFFFF",
-    margin: 20,
-    borderRadius: 24,
+    borderRadius: 32,
+    padding: 40,
+    alignItems: "center",
     shadowColor: "#EF4444",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.2,
+    shadowRadius: 32,
+    elevation: 16,
+    maxWidth: 350,
+    width: "100%",
+  },
+  errorIconContainer: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: "#FEF2F2",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 24,
   },
   errorText: {
-    fontSize: 18,
+    fontSize: 20,
     color: "#1E293B",
     textAlign: "center",
-    marginVertical: 20,
-    fontWeight: "600",
-    lineHeight: 26,
+    marginBottom: 32,
+    fontWeight: "700",
+    lineHeight: 30,
   },
   retryButton: {
-    paddingHorizontal: 32,
-    paddingVertical: 16,
-    borderRadius: 16,
-    backgroundColor: "#EF4444",
+    borderRadius: 20,
+    overflow: "hidden",
     shadowColor: "#EF4444",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  retryButtonGradient: {
+    paddingHorizontal: 40,
+    paddingVertical: 18,
   },
   retryButtonText: {
     color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "700",
-    letterSpacing: 0.5,
+    fontSize: 18,
+    fontWeight: "800",
+    letterSpacing: 0.8,
+    textTransform: "uppercase",
   },
 
   noDataContainer: {
-    flex: 1,
-    justifyContent: "center",
+    padding: 20,
     alignItems: "center",
+  },
+  noDataCard: {
     paddingVertical: 80,
-    backgroundColor: "#FFFFFF",
-    margin: 20,
-    borderRadius: 24,
+    paddingHorizontal: 40,
+    borderRadius: 32,
+    alignItems: "center",
+    width: "100%",
     shadowColor: "#1E293B",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.08,
+    shadowRadius: 24,
+    elevation: 8,
   },
   noDataText: {
-    marginTop: 24,
-    fontSize: 18,
+    marginTop: 32,
+    fontSize: 20,
     color: "#64748B",
     textAlign: "center",
-    fontWeight: "600",
-    lineHeight: 26,
+    fontWeight: "700",
+    lineHeight: 30,
   },
 
   // Enhanced Time Filter
   timeFilterContainer: {
     paddingHorizontal: 20,
-    marginBottom: 24,
+    marginVertical: 24,
   },
   timeFilter: {
     flexDirection: "row",
     backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    padding: 6,
+    borderRadius: 24,
+    padding: 8,
     shadowColor: "#1E293B",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 24,
+    elevation: 8,
   },
   timeFilterButton: {
     flex: 1,
-    borderRadius: 16,
+    borderRadius: 18,
     overflow: "hidden",
   },
   timeFilterButtonActive: {},
   timeFilterGradient: {
-    paddingVertical: 14,
+    paddingVertical: 16,
     alignItems: "center",
     shadowColor: "#16A085",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
   },
   timeFilterText: {
-    fontSize: 16,
-    fontWeight: "600",
+    fontSize: 17,
+    fontWeight: "700",
     color: "#64748B",
     textAlign: "center",
-    paddingVertical: 14,
-    letterSpacing: 0.2,
+    paddingVertical: 16,
+    letterSpacing: 0.4,
   },
   timeFilterTextActive: {
-    fontSize: 16,
-    fontWeight: "700",
+    fontSize: 17,
+    fontWeight: "800",
     color: "#FFFFFF",
-    letterSpacing: 0.3,
+    letterSpacing: 0.6,
+    textTransform: "uppercase",
   },
 
-  // Meal Completion Status
-  mealCompletionCard: {
-    marginHorizontal: 20,
-    marginBottom: 24,
+  // Enhanced Chart Styles
+  chartTypeContainer: {
+    flexDirection: "row",
+    backgroundColor: "#F8FAFC",
     borderRadius: 20,
-    backgroundColor: "#FFFFFF",
+    padding: 6,
+    marginBottom: 24,
     shadowColor: "#1E293B",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 16,
-    padding: 20,
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  chartTypeButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    borderRadius: 16,
+    gap: 10,
+  },
+  chartTypeButtonActive: {
+    backgroundColor: "#FFFFFF",
+    shadowColor: "#16A085",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  chartTypeText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#64748B",
+  },
+  chartTypeTextActive: {
+    color: "#16A085",
+  },
+  chartContainer: {
+    borderRadius: 28,
+    padding: 24,
+    alignItems: "center",
+    shadowColor: "#1E293B",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 24,
+    elevation: 8,
+  },
+  chart: {
+    marginVertical: 12,
+    borderRadius: 20,
+  },
+  noChartData: {
+    paddingVertical: 80,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  noChartDataText: {
+    marginTop: 24,
+    fontSize: 18,
+    color: "#64748B",
+    fontWeight: "600",
+  },
+  trendChartsContainer: {
+    flexDirection: "row",
+    gap: 20,
+    paddingHorizontal: 8,
+  },
+  trendChart: {
+    alignItems: "center",
+  },
+  trendChartTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#0F172A",
+    marginBottom: 16,
+  },
+  smallChart: {
+    borderRadius: 16,
+  },
+
+  // Enhanced Meal Completion Status
+  mealCompletionCard: {
+    marginHorizontal: 20,
+    marginBottom: 28,
+    borderRadius: 28,
+    overflow: "hidden",
+    shadowColor: "#1E293B",
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.2,
+    shadowRadius: 32,
+    elevation: 16,
+  },
+  mealCompletionGradient: {
+    padding: 28,
+  },
+  mealCompletionContent: {
+    alignItems: "stretch",
   },
   mealCompletionHeader: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 16,
+    marginBottom: 20,
   },
-  mealCompletionIcon: {
-    marginRight: 12,
+  mealCompletionIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    justifyContent: "center",
+    alignItems: "center",
+    marginRight: 20,
+  },
+  mealCompletionInfo: {
+    flex: 1,
   },
   mealCompletionTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#0F172A",
-  },
-  mealCompletionContent: {
-    alignItems: "center",
-    gap: 16,
-  },
-  mealCompletionText: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: "800",
-    color: "#0F172A",
+    color: "#FFFFFF",
+    marginBottom: 4,
+    textShadowColor: "rgba(0, 0, 0, 0.3)",
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
-  mealCompletionSubtext: {
-    fontSize: 14,
-    color: "#64748B",
+  mealCompletionSubtitle: {
+    fontSize: 16,
+    color: "rgba(255, 255, 255, 0.9)",
+    fontWeight: "600",
+  },
+  mealCompletionPercentage: {
+    alignItems: "center",
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 16,
+  },
+  mealCompletionPercentageText: {
+    fontSize: 24,
+    fontWeight: "900",
+    color: "#FFFFFF",
+    textShadowColor: "rgba(0, 0, 0, 0.3)",
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
+  },
+  mealProgressBar: {
+    marginBottom: 16,
+  },
+  mealProgressBg: {
+    height: 12,
+    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    borderRadius: 6,
+    overflow: "hidden",
+  },
+  mealProgressFill: {
+    height: "100%",
+    backgroundColor: "rgba(255, 255, 255, 0.9)",
+    borderRadius: 6,
   },
   mealCompletionMessage: {
-    fontSize: 14,
-    color: "#64748B",
+    fontSize: 15,
+    color: "rgba(255, 255, 255, 0.8)",
     fontStyle: "italic",
-    textAlign: "center",
-  },
-
-  // Chart Styles
-  chartContainer: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 20,
-    shadowColor: "#1E293B",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 16,
-  },
-  chartTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#0F172A",
-    marginBottom: 16,
-    textAlign: "center",
-  },
-  chartXLabels: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    paddingHorizontal: 40,
-    marginTop: 8,
-  },
-  chartXLabel: {
-    fontSize: 12,
-    color: "#64748B",
     fontWeight: "600",
     textAlign: "center",
-  },
-  macroLegend: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "center",
-    marginTop: 16,
-    gap: 12,
-  },
-  macroLegendItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: "#F8FAFC",
-    borderRadius: 12,
-  },
-  macroLegendColor: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginRight: 8,
-  },
-  macroLegendText: {
-    fontSize: 12,
-    color: "#64748B",
-    fontWeight: "600",
   },
 
   // Enhanced Section Styling
   section: {
     paddingHorizontal: 20,
-    marginBottom: 32,
+    marginBottom: 36,
   },
   sectionTitle: {
-    fontSize: Math.min(24, width * 0.06),
-    fontWeight: "700",
+    fontSize: 28,
+    fontWeight: "900",
     color: "#0F172A",
-    marginBottom: 20,
-    letterSpacing: -0.3,
+    marginBottom: 24,
+    letterSpacing: -0.8,
+    textShadowColor: "rgba(0, 0, 0, 0.1)",
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
 
   // Enhanced Gamification
   gamificationContainer: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 24,
-    padding: 24,
+    borderRadius: 32,
+    padding: 32,
     shadowColor: "#1E293B",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.08,
-    shadowRadius: 20,
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.15,
+    shadowRadius: 32,
+    elevation: 16,
   },
   levelContainer: {
-    marginBottom: 24,
+    marginBottom: 32,
   },
   levelInfo: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 20,
+    marginBottom: 24,
   },
   levelIcon: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: "#FEF3E2",
+    width: 88,
+    height: 88,
+    borderRadius: 44,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 20,
+    marginRight: 24,
+    shadowColor: "#F59E0B",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.3,
+    shadowRadius: 16,
+    elevation: 8,
   },
   levelDetails: {
     flex: 1,
   },
   levelText: {
-    fontSize: Math.min(28, width * 0.07),
-    fontWeight: "800",
+    fontSize: 32,
+    fontWeight: "900",
     color: "#0F172A",
-    marginBottom: 4,
-    letterSpacing: -0.5,
+    marginBottom: 8,
+    letterSpacing: -1,
+    textShadowColor: "rgba(0, 0, 0, 0.1)",
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
   xpText: {
-    fontSize: 16,
-    fontWeight: "600",
+    fontSize: 18,
+    fontWeight: "700",
     color: "#64748B",
-    letterSpacing: 0.1,
+    letterSpacing: 0.3,
   },
   xpProgress: {
-    gap: 12,
+    gap: 16,
   },
   xpProgressBg: {
-    height: 12,
-    backgroundColor: "#F1F5F9",
-    borderRadius: 6,
+    height: 16,
+    backgroundColor: "#E2E8F0",
+    borderRadius: 8,
     overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   xpProgressFill: {
     height: "100%",
-    borderRadius: 6,
-    backgroundColor: "#F39C12",
+    borderRadius: 8,
   },
   xpToNext: {
-    fontSize: 14,
+    fontSize: 16,
     color: "#64748B",
-    fontWeight: "600",
+    fontWeight: "700",
     textAlign: "center",
-    letterSpacing: 0.1,
+    letterSpacing: 0.3,
   },
 
   gamificationStats: {
     flexDirection: "row",
     justifyContent: "space-around",
-    paddingTop: 20,
-    borderTopWidth: 1,
-    borderTopColor: "#F1F5F9",
+    paddingTop: 28,
+    borderTopWidth: 2,
+    borderTopColor: "#E2E8F0",
   },
   gamificationStatItem: {
     alignItems: "center",
-    paddingHorizontal: Math.max(8, width * 0.02),
-    flex: 1,
-  },
-  gamificationStatValue: {
-    fontSize: Math.min(24, width * 0.06),
-    fontWeight: "800",
-    color: "#0F172A",
-    marginTop: 12,
-    marginBottom: 6,
-  },
-  gamificationStatLabel: {
-    fontSize: Math.min(13, width * 0.03),
-    color: "#64748B",
-    fontWeight: "600",
-    textAlign: "center",
-    letterSpacing: 0.2,
-  },
-
-  // Enhanced Achievements
-  sectionHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 20,
-  },
-  sectionTitleContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-  },
-  viewAllButton: {
     paddingHorizontal: 16,
-    paddingVertical: 10,
-    backgroundColor: "#E0F2F1",
-    borderRadius: 12,
-    flexDirection: "row",
+  },
+  statIconContainer: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: "center",
     alignItems: "center",
-    gap: 4,
-  },
-  viewAllText: {
-    fontSize: 14,
-    fontWeight: "700",
-    letterSpacing: 0.3,
-  },
-
-  // Achievement Categories
-  achievementCategories: {
-    marginBottom: 20,
-  },
-  categoryTabs: {
-    flexDirection: "row",
-    gap: 12,
-    paddingHorizontal: 4,
-  },
-  categoryTab: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: "#F3F4F6",
-    minWidth: 80,
-    alignItems: "center",
-  },
-  categoryTabActive: {
-    backgroundColor: "#16A085",
-  },
-  categoryTabText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#6B7280",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  categoryTabTextActive: {
-    color: "#FFFFFF",
-  },
-
-  // Achievement Stats Summary
-  achievementStats: {
-    flexDirection: "row",
-    gap: 12,
-    marginBottom: 24,
-  },
-  achievementStatCard: {
-    flex: 1,
-    alignItems: "center",
-    padding: 16,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  achievementStatNumber: {
-    fontSize: 20,
-    fontWeight: "800",
-    color: "#0F172A",
-    marginTop: 8,
-    marginBottom: 4,
-  },
-  achievementStatLabel: {
-    fontSize: 11,
-    fontWeight: "600",
-    color: "#64748B",
-    textAlign: "center",
-  },
-
-  // Enhanced Achievement Grid
-  achievementGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 16,
-    marginBottom: 20,
-  },
-  enhancedAchievementCard: {
-    width: (width - 52) / 2,
-    borderRadius: 16,
-    borderWidth: 1,
+    marginBottom: 12,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 6,
-    overflow: "hidden",
+    shadowRadius: 8,
+    elevation: 4,
   },
-  enhancedAchievementCardContent: {
-    padding: 16,
-    position: "relative",
-  },
-  achievementGlow: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderRadius: 16,
-  },
-  statusBadge: {
-    position: "absolute",
-    top: 12,
-    right: 12,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
-    zIndex: 1,
-  },
-  enhancedAchievementIcon: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    justifyContent: "center",
-    alignItems: "center",
-    alignSelf: "center",
-    marginBottom: 12,
-  },
-  enhancedAchievementContent: {
-    alignItems: "center",
-  },
-  enhancedAchievementTitle: {
-    fontSize: 14,
-    fontWeight: "700",
-    textAlign: "center",
-    marginBottom: 6,
-    lineHeight: 18,
-  },
-  enhancedAchievementDescription: {
-    fontSize: 11,
-    textAlign: "center",
-    lineHeight: 14,
-    marginBottom: 12,
-  },
-  enhancedProgressSection: {
-    width: "100%",
-    gap: 8,
-  },
-  progressRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  progressLabel: {
-    fontSize: 10,
-    fontWeight: "600",
-    color: "#6B7280",
-  },
-  xpBadge: {
-    fontSize: 10,
-    fontWeight: "700",
-    letterSpacing: 0.3,
-  },
-  enhancedProgressBar: {
-    height: 6,
-    backgroundColor: "#F1F5F9",
-    borderRadius: 3,
-    overflow: "hidden",
-  },
-  enhancedProgressFill: {
-    height: "100%",
-    borderRadius: 3,
-  },
-  rarityBadgeText: {
-    fontSize: 9,
-    fontWeight: "800",
-    textAlign: "center",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-
-  // Show More Button
-  showMoreButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 8,
-    padding: 16,
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    borderWidth: 2,
-    borderColor: "#16A085",
-    borderStyle: "dashed",
-  },
-  showMoreText: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#16A085",
-  },
-
-  // Achievement Detail Modal
-  achievementDetailOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.6)",
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-  },
-  achievementDetailModal: {
-    width: "100%",
-    maxWidth: 400,
-    maxHeight: "80%",
-  },
-  achievementDetailContent: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 24,
-    padding: 24,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-    elevation: 20,
-  },
-  achievementDetailHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 20,
-  },
-  achievementDetailIconContainer: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: "#F8FAFC",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  achievementDetailClose: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "#F3F4F6",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  achievementDetailTitleSection: {
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  achievementDetailTitle: {
-    fontSize: 20,
-    fontWeight: "800",
+  gamificationStatValue: {
+    fontSize: 28,
+    fontWeight: "900",
     color: "#0F172A",
-    textAlign: "center",
-    marginBottom: 12,
-  },
-  achievementDetailStatusBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-  },
-  achievementDetailStatusText: {
-    fontSize: 12,
-    fontWeight: "700",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  achievementDetailDescription: {
-    fontSize: 14,
-    lineHeight: 20,
-    color: "#374151",
-    textAlign: "center",
-    marginBottom: 24,
-  },
-  achievementDetailStats: {
-    flexDirection: "row",
-    gap: 16,
-    marginBottom: 24,
-  },
-  achievementDetailStat: {
-    flex: 1,
-    alignItems: "center",
-    padding: 12,
-    backgroundColor: "#F8FAFC",
-    borderRadius: 12,
-  },
-  achievementDetailStatValue: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: "#0F172A",
-    marginTop: 8,
-    marginBottom: 4,
-  },
-  achievementDetailStatLabel: {
-    fontSize: 10,
-    fontWeight: "600",
-    color: "#64748B",
-    textAlign: "center",
-  },
-  achievementDetailProgressSection: {
-    gap: 8,
-  },
-  achievementDetailProgressHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  achievementDetailProgressText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#374151",
-  },
-  achievementDetailProgressPercent: {
-    fontSize: 14,
-    fontWeight: "800",
-    color: "#16A085",
-  },
-  achievementDetailProgressBar: {
-    height: 10,
-    backgroundColor: "#F1F5F9",
-    borderRadius: 5,
-    overflow: "hidden",
-  },
-  achievementDetailProgressFill: {
-    height: "100%",
-    borderRadius: 5,
-  },
-
-  // New Achievement Notification Modal
-  newAchievementOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.7)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  newAchievementModal: {
-    width: width - 40,
-    maxWidth: 350,
-  },
-  newAchievementContent: {
-    borderRadius: 24,
-    padding: 24,
-    alignItems: "center",
-  },
-  newAchievementHeader: {
-    alignItems: "center",
-    marginBottom: 20,
-  },
-  newAchievementTitle: {
-    fontSize: 18,
-    fontWeight: "800",
-    color: "#0F172A",
-    marginTop: 12,
-    textAlign: "center",
-  },
-  newAchievementBody: {
-    alignItems: "center",
-    marginBottom: 24,
-  },
-  newAchievementIcon: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  newAchievementName: {
-    fontSize: 20,
-    fontWeight: "800",
-    color: "#0F172A",
-    textAlign: "center",
     marginBottom: 8,
+    textShadowColor: "rgba(0, 0, 0, 0.1)",
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
-  newAchievementDescription: {
+  gamificationStatLabel: {
     fontSize: 14,
-    color: "#374151",
-    textAlign: "center",
-    lineHeight: 20,
-    marginBottom: 16,
-  },
-  newAchievementReward: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    backgroundColor: "#FEF3E2",
-    borderRadius: 16,
-  },
-  newAchievementRewardText: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: "#F59E0B",
-  },
-  newAchievementCloseButton: {
-    backgroundColor: "#16A085",
-    paddingHorizontal: 32,
-    paddingVertical: 12,
-    borderRadius: 16,
-  },
-  newAchievementCloseText: {
-    fontSize: 16,
+    color: "#64748B",
     fontWeight: "700",
-    color: "#FFFFFF",
+    textAlign: "center",
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
+  },
+
+  // Enhanced Achievements
+  achievementsHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 24,
+  },
+  viewAllButton: {
+    borderRadius: 16,
+    overflow: "hidden",
+    shadowColor: "#16A085",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  viewAllButtonGradient: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+  },
+  viewAllText: {
+    fontSize: 15,
+    fontWeight: "800",
+    color: "#16A085",
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
   },
 
   achievementsContainer: {
-    flexDirection: "row",
-    gap: 16,
+    gap: 20,
+    marginBottom: 28,
   },
   achievementCard: {
-    borderRadius: 20,
-    padding: 20,
+    borderRadius: 28,
+    padding: 28,
     shadowColor: "#1E293B",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 16,
-    width: width * 0.8,
-    minWidth: 300,
-    maxWidth: 400,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.15,
+    shadowRadius: 24,
+    elevation: 12,
   },
   achievementContent: {
     flexDirection: "row",
     alignItems: "flex-start",
   },
-  achievementIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
+  achievementIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 20,
-  },
-  achievementEmoji: {
-    fontSize: 32,
+    marginRight: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
   },
   achievementDetails: {
     flex: 1,
@@ -3762,42 +2791,37 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
-    marginBottom: 8,
+    marginBottom: 12,
   },
   achievementTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    letterSpacing: -0.2,
+    fontSize: 20,
+    fontWeight: "800",
+    letterSpacing: -0.4,
     flex: 1,
-    marginRight: 12,
+    marginRight: 16,
+    lineHeight: 26,
   },
   rarityBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   rarityText: {
-    fontSize: 10,
-    fontWeight: "800",
+    fontSize: 11,
+    fontWeight: "900",
     textTransform: "uppercase",
-    letterSpacing: 1,
+    letterSpacing: 1.2,
   },
   achievementDescription: {
-    fontSize: 14,
-    lineHeight: 20,
-    marginBottom: 16,
-    fontWeight: "500",
-  },
-  achievementPoints: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    marginBottom: 8,
-  },
-  pointsText: {
-    fontSize: 14,
-    fontWeight: "700",
-    letterSpacing: 0.2,
+    fontSize: 16,
+    lineHeight: 24,
+    marginBottom: 20,
+    fontWeight: "600",
   },
   achievementProgress: {
     flexDirection: "row",
@@ -3806,136 +2830,151 @@ const styles = StyleSheet.create({
   },
   progressBarContainer: {
     flex: 1,
-    marginRight: 16,
+    marginRight: 20,
   },
   progressBarBg: {
-    height: 8,
-    backgroundColor: "#F1F5F9",
-    borderRadius: 4,
+    height: 10,
+    backgroundColor: "#E2E8F0",
+    borderRadius: 5,
     overflow: "hidden",
-    marginBottom: 8,
-  },
-  progressBarFill: {
-    height: "100%",
-    borderRadius: 4,
-  },
-  progressText: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: "#64748B",
-  },
-  xpRewardContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  xpRewardText: {
-    fontSize: 14,
-    fontWeight: "700",
-    letterSpacing: 0.2,
-  },
-  achievementStatus: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 16,
-    alignItems: "center",
-    marginTop: 12,
-  },
-  statusText: {
-    fontSize: 10,
-    fontWeight: "800",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  unlockedBadge: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "rgba(255, 255, 255, 0.9)",
-    justifyContent: "center",
-    alignItems: "center",
+    marginBottom: 10,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
   },
-
-  // Enhanced Progress Overview
-  progressOverviewContainer: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 24,
-    padding: 24,
-    shadowColor: "#1E293B",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.06,
-    shadowRadius: 20,
+  progressBarFill: {
+    height: "100%",
+    borderRadius: 5,
   },
-  progressStatsGrid: {
+  progressText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#64748B",
+  },
+  xpRewardContainer: {
     flexDirection: "row",
-    gap: 20,
-    marginBottom: 24,
-  },
-  progressStatItem: {
     alignItems: "center",
-    paddingHorizontal: 12,
-    minWidth: 100,
+    gap: 6,
   },
-  progressStatIcon: {
+  xpRewardText: {
+    fontSize: 16,
+    fontWeight: "800",
+    letterSpacing: 0.4,
+  },
+  unlockedBadge: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: "#F8FAFC",
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 12,
-  },
-  progressStatValue: {
-    fontSize: Math.min(20, width * 0.05),
-    fontWeight: "800",
-    color: "#0F172A",
-    marginBottom: 4,
-  },
-  progressStatLabel: {
-    fontSize: Math.min(13, width * 0.03),
-    color: "#64748B",
-    textAlign: "center",
-    fontWeight: "600",
-    letterSpacing: 0.1,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 8,
   },
 
-  // Nutrition Averages
+  // Enhanced Progress Overview
+  progressOverviewContainer: {
+    borderRadius: 32,
+    padding: 32,
+    shadowColor: "#1E293B",
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.15,
+    shadowRadius: 32,
+    elevation: 16,
+  },
+  progressStatsGrid: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    marginBottom: 32,
+  },
+  progressStatItem: {
+    alignItems: "center",
+    paddingHorizontal: 16,
+  },
+  progressStatIcon: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  progressStatValue: {
+    fontSize: 24,
+    fontWeight: "900",
+    color: "#0F172A",
+    marginBottom: 6,
+    textShadowColor: "rgba(0, 0, 0, 0.1)",
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
+  },
+  progressStatLabel: {
+    fontSize: 14,
+    color: "#64748B",
+    textAlign: "center",
+    fontWeight: "700",
+    letterSpacing: 0.3,
+    textTransform: "uppercase",
+  },
+
+  // Enhanced Nutrition Averages
   nutritionAverages: {
-    borderTopWidth: 1,
-    borderTopColor: "#F1F5F9",
-    paddingTop: 24,
+    borderTopWidth: 2,
+    borderTopColor: "#E2E8F0",
+    paddingTop: 32,
   },
   nutritionAveragesTitle: {
-    fontSize: 18,
-    fontWeight: "700",
+    fontSize: 22,
+    fontWeight: "800",
     color: "#0F172A",
-    marginBottom: 16,
+    marginBottom: 20,
     textAlign: "center",
+    letterSpacing: -0.4,
   },
   nutritionAveragesGrid: {
     flexDirection: "row",
-    gap: 16,
+    justifyContent: "space-around",
   },
   nutritionAverage: {
     alignItems: "center",
     paddingHorizontal: 12,
-    minWidth: 80,
+  },
+  nutritionAverageIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
   },
   nutritionAverageValue: {
-    fontSize: Math.min(18, width * 0.045),
-    fontWeight: "800",
+    fontSize: 20,
+    fontWeight: "900",
     color: "#0F172A",
-    marginTop: 8,
-    marginBottom: 4,
+    marginBottom: 6,
+    textShadowColor: "rgba(0, 0, 0, 0.1)",
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
   nutritionAverageLabel: {
-    fontSize: 12,
+    fontSize: 13,
     color: "#64748B",
-    fontWeight: "600",
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
   },
 
   // Enhanced Alerts
@@ -3943,254 +2982,298 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 20,
+    marginBottom: 24,
   },
   hideAlertsButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
     backgroundColor: "#F1F5F9",
-    borderRadius: 12,
+    borderRadius: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
   },
   hideAlertsText: {
-    fontSize: 14,
+    fontSize: 15,
     color: "#64748B",
-    fontWeight: "600",
+    fontWeight: "700",
   },
   alertsContainer: {
-    gap: 16,
+    gap: 20,
   },
   alertCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    padding: 20,
+    borderRadius: 24,
+    padding: 24,
     shadowColor: "#EF4444",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.2,
+    shadowRadius: 24,
+    elevation: 12,
   },
   alertContent: {
     flexDirection: "row",
     alignItems: "center",
   },
   alertIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: "#FEF2F2",
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 16,
+    marginRight: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 8,
   },
   alertText: {
     flex: 1,
   },
   alertTitle: {
-    fontSize: 18,
-    fontWeight: "700",
+    fontSize: 20,
+    fontWeight: "800",
     color: "#0F172A",
-    marginBottom: 6,
-    letterSpacing: -0.2,
+    marginBottom: 8,
+    letterSpacing: -0.4,
   },
   alertMessage: {
-    fontSize: 15,
+    fontSize: 16,
     color: "#64748B",
-    fontWeight: "500",
-    lineHeight: 22,
+    fontWeight: "600",
+    lineHeight: 24,
   },
 
   // Enhanced Metrics
   metricsGrid: {
-    gap: 20,
+    gap: 24,
   },
   metricCard: {
-    borderRadius: 20,
-    backgroundColor: "#FFFFFF",
+    borderRadius: 28,
     shadowColor: "#1E293B",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.15,
+    shadowRadius: 24,
+    elevation: 12,
+    overflow: "hidden",
+  },
+  metricCardGradient: {
+    borderRadius: 28,
   },
   metricCardContent: {
-    padding: 24,
+    padding: 32,
   },
   metricHeader: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 20,
+    marginBottom: 24,
   },
   metricIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: "#F8FAFC",
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 16,
+    marginRight: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
   },
   metricInfo: {
     flex: 1,
   },
   metricName: {
-    fontSize: Math.min(18, width * 0.045),
-    fontWeight: "700",
+    fontSize: 20,
+    fontWeight: "800",
     color: "#0F172A",
-    marginBottom: 6,
-    letterSpacing: -0.2,
+    marginBottom: 8,
+    letterSpacing: -0.4,
   },
   metricStatus: {
     flexDirection: "row",
     alignItems: "center",
   },
   metricStatusText: {
-    fontSize: 13,
-    fontWeight: "600",
-    marginLeft: 8,
-    letterSpacing: 0.2,
+    fontSize: 14,
+    fontWeight: "700",
+    marginLeft: 10,
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
   },
   metricTrend: {
     alignItems: "center",
-    backgroundColor: "#F8FAFC",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 12,
-    minWidth: 60,
+    backgroundColor: "rgba(248, 250, 252, 0.8)",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   metricTrendText: {
-    fontSize: 12,
-    fontWeight: "600",
+    fontSize: 13,
+    fontWeight: "700",
     color: "#64748B",
-    marginTop: 4,
-    letterSpacing: 0.1,
+    marginTop: 6,
+    letterSpacing: 0.3,
   },
   metricValues: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 20,
+    marginBottom: 24,
   },
   metricCurrentValue: {
     flex: 1,
   },
   metricValueText: {
-    fontSize: Math.min(24, width * 0.06),
-    fontWeight: "800",
+    fontSize: 28,
+    fontWeight: "900",
     color: "#0F172A",
-    marginBottom: 6,
-    letterSpacing: -0.5,
+    marginBottom: 8,
+    letterSpacing: -1,
+    textShadowColor: "rgba(0, 0, 0, 0.1)",
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
   metricTargetText: {
-    fontSize: 15,
+    fontSize: 16,
     color: "#64748B",
-    fontWeight: "600",
+    fontWeight: "700",
   },
   metricPercentage: {
     alignItems: "center",
-    backgroundColor: "#F8FAFC",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 16,
-    minWidth: 80,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderRadius: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
   },
   metricPercentageText: {
-    fontSize: Math.min(28, width * 0.07),
-    fontWeight: "800",
-    letterSpacing: -0.5,
+    fontSize: 32,
+    fontWeight: "900",
+    letterSpacing: -1,
+    textShadowColor: "rgba(0, 0, 0, 0.1)",
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
   metricProgress: {
-    marginBottom: 16,
+    marginBottom: 20,
   },
   metricProgressBg: {
-    height: 10,
-    backgroundColor: "#F1F5F9",
-    borderRadius: 5,
+    height: 12,
+    backgroundColor: "#E2E8F0",
+    borderRadius: 6,
     overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
   },
   metricProgressFill: {
     height: "100%",
-    borderRadius: 5,
+    borderRadius: 6,
   },
+
+  // Enhanced Mini Chart Styles
+  miniChart: {
+    marginTop: 20,
+    marginBottom: 12,
+  },
+  miniChartTitle: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#64748B",
+    marginBottom: 12,
+    textTransform: "uppercase",
+    letterSpacing: 0.4,
+  },
+  miniChartContainer: {
+    flexDirection: "row",
+    alignItems: "end",
+    height: 28,
+    gap: 3,
+  },
+  miniChartBar: {
+    flex: 1,
+    minHeight: 6,
+    borderRadius: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+
   metricRecommendation: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F8FAFC",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderRadius: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
   },
   metricRecommendationText: {
-    fontSize: 13,
-    fontWeight: "600",
+    fontSize: 14,
+    fontWeight: "700",
     color: "#0F172A",
-    marginLeft: 12,
+    marginLeft: 16,
     flex: 1,
-    letterSpacing: 0.1,
+    letterSpacing: 0.3,
   },
 
   // Enhanced Modal
   modalContainer: {
     flex: 1,
-    backgroundColor: "#F8FAFC",
   },
   modalHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 24,
-    paddingVertical: 20,
-    backgroundColor: "#FFFFFF",
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+    paddingHorizontal: 32,
+    paddingVertical: 24,
     shadowColor: "#1E293B",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 24,
+    elevation: 8,
+  },
+  modalCloseButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "rgba(44, 62, 80, 0.1)",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
   },
   modalTitle: {
-    fontSize: 20,
-    fontWeight: "700",
+    fontSize: 24,
+    fontWeight: "900",
     color: "#0F172A",
-    letterSpacing: -0.3,
+    letterSpacing: -0.6,
+    textShadowColor: "rgba(0, 0, 0, 0.1)",
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
   modalContent: {
     flex: 1,
-    padding: 24,
-  },
-
-  // Added styles for achievements loading and error states
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 20,
-  },
-  loadingDetails: {
-    marginTop: 20,
-    alignItems: "center",
-  },
-  loadingDetailText: {
-    fontSize: 14,
-    color: "#64748B",
-    fontWeight: "500",
-    textAlign: "center",
-    opacity: 0.8,
-  },
-  loadingText: {
-    fontSize: 14,
-  },
-  emptyAchievements: {
-    padding: 20,
-    alignItems: "center",
-  },
-  emptyText: {
-    fontSize: 16,
-    textAlign: "center",
-    opacity: 0.6,
-    lineHeight: 24,
-  },
-
-  // Styles for achievements section in the main screen
-  achievementsScrollContainer: {
-    paddingVertical: 12,
-    paddingHorizontal: 4,
+    padding: 32,
   },
 });
