@@ -5,84 +5,76 @@ import { useLanguage } from "@/src/i18n/context/LanguageContext";
 
 interface StepContainerProps {
   title: string;
-  subtitle: string;
-  icon?: string;
+  description: string;
   children: React.ReactNode;
 }
 
-export default function StepContainer({
+const StepContainer: React.FC<StepContainerProps> = ({
   title,
-  subtitle,
-  icon,
+  description,
   children,
-}: StepContainerProps) {
+}) => {
   const { colors } = useTheme();
-  const { isRTL } = useLanguage();
+  const { currentLanguage } = useLanguage();
+  const isRTL = currentLanguage === "he";
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, isRTL && styles.headerRTL]}>
-        {icon && <Text style={styles.icon}>{icon}</Text>}
+    <View style={styles.container}>
+      <View style={styles.header}>
         <Text
           style={[
             styles.title,
             { color: colors.text },
-            isRTL && styles.titleRTL,
+            isRTL && styles.textRTL,
           ]}
         >
           {title}
         </Text>
         <Text
           style={[
-            styles.subtitle,
+            styles.description,
             { color: colors.textSecondary },
-            isRTL && styles.subtitleRTL,
+            isRTL && styles.textRTL,
           ]}
         >
-          {subtitle}
+          {description}
         </Text>
       </View>
-
       <View style={styles.content}>{children}</View>
     </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {
-    padding: 20,
-    minHeight: "100%",
+    flex: 1,
+    paddingHorizontal: 24,
   },
   header: {
     alignItems: "center",
-    marginBottom: 32,
-  },
-  headerRTL: {
-    alignItems: "center",
-  },
-  icon: {
-    fontSize: 48,
-    marginBottom: 12,
+    marginBottom: 40,
+    paddingTop: 20,
   },
   title: {
     fontSize: 28,
-    fontWeight: "bold",
-    marginBottom: 8,
+    fontWeight: "700",
+    marginBottom: 12,
     textAlign: "center",
+    lineHeight: 34,
   },
-  titleRTL: {
-    textAlign: "center",
-  },
-  subtitle: {
+  description: {
     fontSize: 16,
     textAlign: "center",
-    lineHeight: 24,
-    paddingHorizontal: 16,
-  },
-  subtitleRTL: {
-    textAlign: "center",
+    lineHeight: 22,
+    opacity: 0.8,
+    paddingHorizontal: 20,
   },
   content: {
-    gap: 24,
+    flex: 1,
+  },
+  textRTL: {
+    textAlign: "right",
   },
 });
+
+export default StepContainer;

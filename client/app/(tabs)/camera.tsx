@@ -616,30 +616,36 @@ export default function CameraScreen() {
 
     // If analysisData exists, use its overall totals first, then sum ingredients if needed for detail
     const totalCalories = analysisData?.calories || 0;
-    const totalProtein =
-      getNutritionValue(analysisData, "protein_g") ||
-      getNutritionValue(analysisData, "protein") ||
-      0;
-    const totalCarbs =
-      getNutritionValue(analysisData, "carbs_g") ||
-      getNutritionValue(analysisData, "carbs") ||
-      0;
-    const totalFat =
-      getNutritionValue(analysisData, "fats_g") ||
-      getNutritionValue(analysisData, "fat") ||
-      0;
-    const totalFiber =
-      getNutritionValue(analysisData, "fiber_g") ||
-      getNutritionValue(analysisData, "fiber") ||
-      0;
-    const totalSugar =
-      getNutritionValue(analysisData, "sugar_g") ||
-      getNutritionValue(analysisData, "sugar") ||
-      0;
-    const totalSodium =
-      getNutritionValue(analysisData, "sodium_mg") ||
-      getNutritionValue(analysisData, "sodium") ||
-      0;
+    const totalProtein = analysisData
+      ? getNutritionValue(analysisData, "protein_g") ||
+        getNutritionValue(analysisData, "protein") ||
+        0
+      : 0;
+    const totalCarbs = analysisData
+      ? getNutritionValue(analysisData, "carbs_g") ||
+        getNutritionValue(analysisData, "carbs") ||
+        0
+      : 0;
+    const totalFat = analysisData
+      ? getNutritionValue(analysisData, "fats_g") ||
+        getNutritionValue(analysisData, "fat") ||
+        0
+      : 0;
+    const totalFiber = analysisData
+      ? getNutritionValue(analysisData, "fiber_g") ||
+        getNutritionValue(analysisData, "fiber") ||
+        0
+      : 0;
+    const totalSugar = analysisData
+      ? getNutritionValue(analysisData, "sugar_g") ||
+        getNutritionValue(analysisData, "sugar") ||
+        0
+      : 0;
+    const totalSodium = analysisData
+      ? getNutritionValue(analysisData, "sodium_mg") ||
+        getNutritionValue(analysisData, "sodium") ||
+        0
+      : 0;
 
     // If ingredients are available, calculate their sum as a fallback or for finer detail
     if (currentIngredients.length > 0) {
@@ -773,7 +779,7 @@ export default function CameraScreen() {
             onPress={handleTakePhoto}
           >
             <LinearGradient
-              colors={[colors.primary, colors.primaryDark]}
+              colors={[colors.primary, colors.primary]}
               style={styles.imageButtonGradient}
             >
               <Camera size={24} color="#ffffff" />
@@ -796,10 +802,7 @@ export default function CameraScreen() {
         </View>
 
         <View
-          style={[
-            styles.tipContainer,
-            { backgroundColor: colors.cardBackground },
-          ]}
+          style={[styles.tipContainer, { backgroundColor: colors.background }]}
         >
           <Info size={20} color={colors.primary} />
           <View style={styles.tipTextContainer}>
@@ -916,7 +919,7 @@ export default function CameraScreen() {
         ]}
       >
         <LinearGradient
-          colors={[colors.cardBackground, colors.surface]}
+          colors={[colors.background, colors.surface]}
           style={styles.nutritionGradient}
         >
           <View style={styles.nutritionHeader}>
@@ -928,7 +931,7 @@ export default function CameraScreen() {
             </Text>
           </View>
 
-          <View style={styles.nutritionGrid}>
+          <View style={styles.nutritionCard}>
             <View style={styles.nutritionCard}>
               <View
                 style={[
@@ -1144,7 +1147,7 @@ export default function CameraScreen() {
                 styles.commentInput,
                 isRTL && styles.rtlTextInput,
                 {
-                  backgroundColor: colors.cardBackground,
+                  backgroundColor: colors.background,
                   borderColor: colors.border,
                   color: colors.text,
                 },
@@ -1496,10 +1499,7 @@ export default function CameraScreen() {
         style={styles.modalOverlay}
       >
         <View
-          style={[
-            styles.modalContent,
-            { backgroundColor: colors.cardBackground },
-          ]}
+          style={[styles.modalContent, { backgroundColor: colors.background }]}
         >
           <View
             style={[styles.modalHeader, { borderBottomColor: colors.border }]}
@@ -1748,7 +1748,7 @@ export default function CameraScreen() {
               onPress={handleSaveIngredient}
             >
               <LinearGradient
-                colors={[colors.primary, colors.primaryDark]}
+                colors={[colors.primary, colors.primary]}
                 style={styles.modalSaveButtonGradient}
               >
                 <Text style={styles.modalSaveText}>Save</Text>
@@ -1771,7 +1771,7 @@ export default function CameraScreen() {
         <View
           style={[
             styles.confirmModalContent,
-            { backgroundColor: colors.cardBackground },
+            { backgroundColor: colors.background },
           ]}
         >
           <View style={styles.warningIconContainer}>

@@ -28,7 +28,7 @@ import {
   Flame,
   Droplets,
   Zap,
-  ChevronLeft,
+  ChevronRight,
   TrendingUp,
   Clock,
   Award,
@@ -39,6 +39,14 @@ import {
   Trophy,
   Star,
   Calendar,
+  Menu,
+  Minus,
+  Sunrise,
+  Sun,
+  Sunset,
+  Moon,
+  Coffee,
+  Utensils,
 } from "lucide-react-native";
 import { api, APIError } from "@/src/services/api";
 import { fetchMeals } from "../../src/store/mealSlice";
@@ -49,10 +57,11 @@ import ErrorBoundary from "@/components/ErrorBoundary";
 import XPNotification from "@/components/XPNotification";
 import { Colors, EmeraldSpectrum } from "@/constants/Colors";
 import { getStatistics } from "@/src/store/calendarSlice";
-import { setUser } from "@/src/store/authSlice"; // Assuming setUser is in authSlice
-import { useOptimizedSelector } from "../../src/utils/useOptimizedSelector"; // Import the optimized selector
+import { setUser } from "@/src/store/authSlice";
+import { useOptimizedSelector } from "../../src/utils/useOptimizedSelector";
 import { useDispatch } from "react-redux";
 import { AppDispatch, RootState } from "@/src/store";
+import CircularCaloriesProgress from "@/components/index/CircularCaloriesProgress";
 
 // Enable RTL support
 I18nManager.allowRTL(true);
@@ -109,9 +118,10 @@ const HomeScreen = React.memo(() => {
     []
   );
 
-  const { meals, isLoading } = useOptimizedSelector(selectMealState); // Use optimized selector
-  const { user } = useOptimizedSelector(selectAuthState); // Use optimized selector
+  const { meals, isLoading } = useOptimizedSelector(selectMealState);
+  const { user } = useOptimizedSelector(selectAuthState);
   const { colors } = useTheme();
+
   // ALL HOOKS MUST BE DECLARED FIRST - BEFORE ANY CONDITIONAL LOGIC
   const [userStats, setUserStats] = useState<UserStats>({
     totalMeals: 0,
@@ -127,7 +137,7 @@ const HomeScreen = React.memo(() => {
     protein: 0,
     carbs: 0,
     fat: 0,
-    targetCalories: 1800,
+    targetCalories: 2205,
     targetProtein: 120,
     targetCarbs: 200,
     targetFat: 60,
@@ -193,12 +203,15 @@ const HomeScreen = React.memo(() => {
     );
 
     const today = new Date().toISOString().split("T")[0];
-    const todayMeals = meals.filter((meal: { created_at: string; }) =>
+    const todayMeals = meals.filter((meal: { created_at: string }) =>
       meal.created_at.startsWith(today)
     );
 
     const dailyTotals = todayMeals.reduce(
-      (acc: { calories: any; protein: any; carbs: any; fat: any; }, meal: { calories: any; protein: any; carbs: any; fat: any; }) => ({
+      (
+        acc: { calories: any; protein: any; carbs: any; fat: any },
+        meal: { calories: any; protein: any; carbs: any; fat: any }
+      ) => ({
         calories: acc.calories + (meal.calories || 0),
         protein: acc.protein + (meal.protein || 0),
         carbs: acc.carbs + (meal.carbs || 0),
@@ -471,8 +484,8 @@ const HomeScreen = React.memo(() => {
         current: dailyGoals.calories,
         target: dailyGoals.targetCalories,
         unit: t("meals.kcal") || "kcal",
-        color: EmeraldSpectrum.emerald600,
-        icon: <Flame size={24} color={EmeraldSpectrum.emerald600} />,
+        color: "#10B981",
+        icon: <Flame size={24} color="#10B981" />,
         label: t("meals.calories") || "Calories",
       },
       {
@@ -480,8 +493,8 @@ const HomeScreen = React.memo(() => {
         current: dailyGoals.protein,
         target: dailyGoals.targetProtein,
         unit: "g",
-        color: EmeraldSpectrum.emerald700,
-        icon: <Zap size={24} color={EmeraldSpectrum.emerald700} />,
+        color: "#059669",
+        icon: <Zap size={24} color="#059669" />,
         label: t("meals.protein") || "Protein",
       },
       {
@@ -489,8 +502,8 @@ const HomeScreen = React.memo(() => {
         current: optimisticWaterCups * 250,
         target: 2500,
         unit: "ml",
-        color: EmeraldSpectrum.emerald500,
-        icon: <Droplets size={24} color={EmeraldSpectrum.emerald500} />,
+        color: "#06B6D4",
+        icon: <Droplets size={24} color="#06B6D4" />,
         label: t("home.water") || "Water",
       },
     ],
@@ -499,6 +512,67 @@ const HomeScreen = React.memo(() => {
 
   // Calculate time-based progress
   const currentHour = new Date().getHours();
+  // Time-based greeting function with icons
+  const getTimeBasedGreeting = () => {
+    const currentHour = new Date().getHours();
+
+    if (currentHour >= 5 && currentHour < 12) {
+      // Morning: 5:00 AM - 11:59 AM
+      return {
+        text: t("greetings.morning"),
+        icon: currentHour <= 7 ? Sunrise : Coffee,
+        color: "#F59E0B", // Warm orange/yellow
+        bgColor: "#FEF3C7", // Light yellow background
+      };
+    } else if (currentHour >= 12 && currentHour < 17) {
+      // Afternoon: 12:00 PM - 4:59 PM
+      return {
+        text: t("greetings.afternoon"),
+        icon: currentHour <= 13 ? Utensils : Sun,
+        color: "#EAB308", // Bright yellow
+        bgColor: "#FEF9C3", // Light yellow background
+      };
+    } else if (currentHour >= 17 && currentHour < 22) {
+      // Evening: 5:00 PM - 9:59 PM
+      return {
+        text: t("greetings.evening"),
+        icon: Sunset,
+        color: "#F97316", // Orange
+        bgColor: "#FED7AA", // Light orange background
+      };
+    } else {
+      // Night: 10:00 PM - 4:59 AM
+      return {
+        text: t("greetings.night"),
+        icon: Moon,
+        color: "#6366F1", // Indigo/purple
+        bgColor: "#E0E7FF", // Light indigo background
+      };
+    }
+  };
+  const GreetingWithIcon = () => {
+    const greeting = getTimeBasedGreeting();
+    const IconComponent = greeting.icon;
+
+    return (
+      <View style={styles.textColumn}>
+        <View style={styles.welcomeContainer}>
+          <View
+            style={[styles.greetingRow, { backgroundColor: greeting.bgColor }]}
+          >
+            <IconComponent
+              size={20}
+              color={greeting.color}
+              style={styles.greetingIcon}
+            />
+            <Text style={[styles.welcomeText, { color: greeting.color }]}>
+              {greeting.text} {user?.name}
+            </Text>
+          </View>
+        </View>
+      </View>
+    );
+  };
   const hoursLeft = 24 - currentHour;
   const expectedCaloriesByNow = (goalProgress[0].target * currentHour) / 24;
   const calorieStatus =
@@ -554,12 +628,16 @@ const HomeScreen = React.memo(() => {
 
     return (
       <View style={styles.gaugeContainer}>
-        <LinearGradient
-          colors={[`${goal.color}15`, `${goal.color}05`]}
-          style={styles.gaugeGradient}
-        >
+        <View style={styles.gaugeCard}>
           <View style={styles.gaugeHeader}>
-            <View style={styles.gaugeIconContainer}>{goal.icon}</View>
+            <View
+              style={[
+                styles.gaugeIconContainer,
+                { backgroundColor: goal.color + "15" },
+              ]}
+            >
+              {goal.icon}
+            </View>
             <View style={styles.gaugeInfo}>
               <Text style={styles.gaugeLabel}>{goal.label}</Text>
               <Text style={styles.gaugeCurrent}>
@@ -576,36 +654,33 @@ const HomeScreen = React.memo(() => {
 
           <View style={styles.gaugeProgressContainer}>
             <View style={styles.gaugeProgressBg}>
-              <LinearGradient
-                colors={[goal.color, `${goal.color}80`]}
-                style={[styles.gaugeProgressFill, { width: `${percentage}%` }]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
+              <View
+                style={[
+                  styles.gaugeProgressFill,
+                  { width: `${percentage}%`, backgroundColor: goal.color },
+                ]}
               />
             </View>
           </View>
 
           <View style={styles.gaugeFooter}>
             <Text style={styles.gaugeTarget}>
-              {t("home.target") || "Target"}: {goal.target.toLocaleString()}
+              Target: {goal.target.toLocaleString()}
               {goal.unit}
             </Text>
             {remaining > 0 ? (
               <Text style={[styles.gaugeRemaining, { color: goal.color }]}>
-                {`${remaining.toLocaleString()}${goal.unit} ${
-                  t("home.remaining") || "remaining"
-                }`}
+                {remaining.toLocaleString()}
+                {goal.unit} remaining
               </Text>
             ) : (
               <View style={styles.completedContainer}>
-                <Check size={18} color="green" strokeWidth={2} />
-                <Text style={styles.completedText}>
-                  {t("home.completed") || "Completed"}
-                </Text>
+                <Check size={16} color="#10B981" strokeWidth={2} />
+                <Text style={styles.completedText}>Completed</Text>
               </View>
             )}
           </View>
-        </LinearGradient>
+        </View>
       </View>
     );
   };
@@ -613,9 +688,7 @@ const HomeScreen = React.memo(() => {
   // User Stats Render Function
   const renderUserStats = () => (
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>
-        {t("home.user_stats") || "Your Progress"}
-      </Text>
+      <Text style={styles.sectionTitle}>Your Progress</Text>
 
       {userStatsError && (
         <View style={styles.statsErrorBanner}>
@@ -624,13 +697,10 @@ const HomeScreen = React.memo(() => {
       )}
 
       <View style={styles.statsMainContainer}>
-        <LinearGradient
-          colors={[EmeraldSpectrum.emerald600, EmeraldSpectrum.emerald500]}
-          style={styles.statsGradient}
-        >
+        <View style={styles.statsCard}>
           {userStatsLoading ? (
             <View style={styles.statsLoadingContainer}>
-              <ActivityIndicator size="large" color="#FFFFFF" />
+              <ActivityIndicator size="large" color="#10B981" />
               <Text style={styles.statsLoadingText}>Loading stats...</Text>
             </View>
           ) : (
@@ -639,23 +709,21 @@ const HomeScreen = React.memo(() => {
               <View style={styles.statsTopRow}>
                 <View style={styles.statsXPContainer}>
                   <View style={styles.statsIconWrapper}>
-                    <Star size={24} color="#FFD700" fill="#FFD700" />
+                    <Star size={20} color="#FFD700" fill="#FFD700" />
                   </View>
                   <View style={styles.statsTextContainer}>
-                    <Text style={styles.statsLabel}>
-                      {t("home.total_xp") || "Total XP"}
+                    <Text style={styles.statsLabel}>Total XP</Text>
+                    <Text style={styles.statsValue}>
+                      {user?.total_points || 0}
                     </Text>
-                    <Text style={styles.statsValue}>{user?.total_points}</Text>
                   </View>
                 </View>
                 <View style={styles.statsLevelContainer}>
                   <View style={styles.statsIconWrapper}>
-                    <Trophy size={24} color="#FFD700" fill="#FFD700" />
+                    <Trophy size={20} color="#FFD700" fill="#FFD700" />
                   </View>
                   <View style={styles.statsTextContainer}>
-                    <Text style={styles.statsLabel}>
-                      {t("home.level") || "Level"}
-                    </Text>
+                    <Text style={styles.statsLabel}>Level</Text>
                     <Text style={styles.statsValue}>{user?.level || 1}</Text>
                   </View>
                 </View>
@@ -668,12 +736,10 @@ const HomeScreen = React.memo(() => {
               <View style={styles.statsBottomRow}>
                 <View style={styles.statsItem}>
                   <View style={styles.statsIconWrapper}>
-                    <Flame size={20} color="#FF6B35" />
+                    <Flame size={18} color="#FF6B35" />
                   </View>
                   <View style={styles.statsTextContainer}>
-                    <Text style={styles.statsSmallLabel}>
-                      {t("home.streak") || "Streak"}
-                    </Text>
+                    <Text style={styles.statsSmallLabel}>Streak</Text>
                     <Text style={styles.statsSmallValue}>
                       {user?.current_streak || 0} days
                     </Text>
@@ -682,12 +748,10 @@ const HomeScreen = React.memo(() => {
 
                 <View style={styles.statsItem}>
                   <View style={styles.statsIconWrapper}>
-                    <Calendar size={20} color="#9B59B6" />
+                    <Calendar size={18} color="#9B59B6" />
                   </View>
                   <View style={styles.statsTextContainer}>
-                    <Text style={styles.statsSmallLabel}>
-                      {t("home.best_streak") || "Best"}
-                    </Text>
+                    <Text style={styles.statsSmallLabel}>Best</Text>
                     <Text style={styles.statsSmallValue}>
                       {user?.best_streak || 0} days
                     </Text>
@@ -696,7 +760,7 @@ const HomeScreen = React.memo(() => {
               </View>
             </>
           )}
-        </LinearGradient>
+        </View>
       </View>
     </View>
   );
@@ -723,13 +787,21 @@ const HomeScreen = React.memo(() => {
     );
   }
 
+  // Get current date formatted
+  const getCurrentDate = () => {
+    const now = new Date();
+    const options: Intl.DateTimeFormatOptions = {
+      month: "long",
+      day: "numeric",
+      year: "numeric",
+    };
+    return now.toLocaleDateString("en-US", options);
+  };
+
   return (
     <ErrorBoundary>
       <SafeAreaView style={styles.container}>
-        <StatusBar
-          barStyle="light-content"
-          backgroundColor={EmeraldSpectrum.emerald600}
-        />
+        <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
         <XPNotification
           visible={showXPNotification}
@@ -747,103 +819,54 @@ const HomeScreen = React.memo(() => {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={onRefresh}
-              colors={[EmeraldSpectrum.emerald500]}
-              tintColor={EmeraldSpectrum.emerald500}
+              colors={["#10B981"]}
+              tintColor="#10B981"
             />
           }
+          contentContainerStyle={styles.scrollContent}
         >
           {/* Header */}
           <View style={styles.header}>
-            <View>
-              <Text style={styles.greeting}>
-                {t("home.welcome")}
-                {user?.name ? `, ${user.name}` : ""}!
-              </Text>
-              <Text style={styles.subtitle}>
-                {t("home.track_goals") || "Let's track your goals today"}
-              </Text>
+            <View style={styles.headerLeft}>
+              <View style={styles.profileContainer}>
+                <Image
+                  source={{
+                    uri:
+                      user?.avatar_url ||
+                      "https://images.pexels.com/photos/415829/pexels-photo-415829.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&dpr=1",
+                  }}
+                  style={styles.profileImage}
+                  onError={(error) => {
+                    console.warn("Avatar image failed to load:", error);
+                  }}
+                />
+                <View style={styles.onlineIndicator} />
+              </View>
+            </View>
+            <View style={styles.headerCenter}>
+              <View style={styles.dateContainer}>
+                <Text style={styles.dateText}>{getCurrentDate()}</Text>
+              </View>
             </View>
           </View>
+          {/* Greeting */}
+          <View style={styles.greetingSection}>
+            <GreetingWithIcon />
+          </View>
 
+          {/* Main Circular Progress - Calories */}
+          <CircularCaloriesProgress
+            calories={dailyGoals.calories}
+            targetCalories={dailyGoals.targetCalories}
+            dailyGoals={dailyGoals}
+            size={200}
+          />
           {/* User Stats */}
           {renderUserStats()}
 
-          {/* Main Goal Progress - Calories */}
+          {/* Goal Progress Cards */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
-              {t("home.goal_progress") || "Goal Progress"}
-            </Text>
-            <View style={styles.mainGoalContainer}>
-              <LinearGradient
-                colors={[
-                  EmeraldSpectrum.emerald600,
-                  EmeraldSpectrum.emerald500,
-                ]}
-                style={styles.mainGoalGradient}
-              >
-                <View style={styles.mainGoalContent}>
-                  <View style={styles.mainGoalHeader}>
-                    <Flame size={32} color="#FFFFFF" />
-                    <Text style={styles.mainGoalTitle}>
-                      {t("meals.calories") || "Calories"}
-                    </Text>
-                  </View>
-                  <View style={styles.mainGoalValues}>
-                    <Text style={styles.mainGoalCurrent}>
-                      {dailyGoals.calories.toLocaleString()}
-                    </Text>
-                    <Text style={styles.mainGoalTarget}>
-                      / {dailyGoals.targetCalories.toLocaleString()}{" "}
-                      {t("meals.kcal") || "kcal"}
-                    </Text>
-                  </View>
-                  <View style={styles.mainGoalProgress}>
-                    <View style={styles.mainGoalProgressBg}>
-                      <View
-                        style={[
-                          styles.mainGoalProgressFill,
-                          {
-                            width: `${Math.min(
-                              (dailyGoals.calories /
-                                dailyGoals.targetCalories) *
-                                100,
-                              100
-                            )}%`,
-                          },
-                        ]}
-                      />
-                    </View>
-                    <Text style={styles.mainGoalPercentage}>
-                      {Math.min(
-                        (dailyGoals.calories / dailyGoals.targetCalories) * 100,
-                        100
-                      ).toFixed(0)}
-                      %
-                    </Text>
-                  </View>
-                  <View style={styles.mainGoalRemaining}>
-                    <Text style={styles.mainGoalRemainingText}>
-                      {Math.max(
-                        dailyGoals.targetCalories - dailyGoals.calories,
-                        0
-                      )}{" "}
-                      {t("meals.kcal") || "kcal"}{" "}
-                      {t("home.remaining") || "remaining"}
-                    </Text>
-                    <View style={styles.mainGoalStatus}>
-                      <Clock size={16} color="rgba(255,255,255,0.8)" />
-                      <Text style={styles.mainGoalStatusText}>
-                        {hoursLeft} {t("home.hours_left") || "hours left"}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-              </LinearGradient>
-            </View>
-          </View>
-
-          {/* Goal Gauges */}
-          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Nutrition Goals</Text>
             <View style={styles.goalGaugesContainer}>
               {goalProgress.slice(1).map((goal, index) => (
                 <View key={index} style={styles.goalGaugeWrapper}>
@@ -855,19 +878,23 @@ const HomeScreen = React.memo(() => {
 
           {/* Water Tracking Section */}
           <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Daily Water Intake</Text>
             <View style={styles.waterTrackingContainer}>
-              <LinearGradient
-                colors={[
-                  EmeraldSpectrum.emerald500,
-                  EmeraldSpectrum.emerald600,
-                ]}
-                style={styles.waterTrackingGradient}
-              >
+              <View style={styles.waterCard}>
                 <View style={styles.waterTrackingHeader}>
-                  <Droplets size={24} color="#FFFFFF" />
-                  <Text style={styles.waterTrackingTitle}>
-                    {t("home.daily_water") || "Daily Water Intake"}
-                  </Text>
+                  <View style={styles.waterIconContainer}>
+                    <Droplets size={24} color="#06B6D4" />
+                  </View>
+                  <View style={styles.waterInfo}>
+                    <Text style={styles.waterTrackingTitle}>Water Goal</Text>
+                    <Text style={styles.waterTrackingValue}>
+                      {optimisticWaterCups} / 10 cups
+                    </Text>
+                    <Text style={styles.waterTrackingTarget}>
+                      {(optimisticWaterCups * 250).toLocaleString()} ml / 2,500
+                      ml
+                    </Text>
+                  </View>
                   <View style={styles.waterBadge}>
                     <Text style={styles.waterBadgeText}>
                       {optimisticWaterCups >= 10 ? "🏆" : "💧"}
@@ -875,14 +902,23 @@ const HomeScreen = React.memo(() => {
                   </View>
                 </View>
 
-                <View style={styles.waterTrackingContent}>
-                  <View style={styles.waterValueContainer}>
-                    <Text style={styles.waterTrackingValue}>
-                      {optimisticWaterCups} / 10 {t("home.cups") || "cups"}
-                    </Text>
+                <View style={styles.waterProgress}>
+                  <View style={styles.waterProgressBg}>
+                    <View
+                      style={[
+                        styles.waterProgressFill,
+                        {
+                          width: `${Math.min(
+                            (optimisticWaterCups / 10) * 100,
+                            100
+                          )}%`,
+                        },
+                      ]}
+                    />
                   </View>
-                  <Text style={styles.waterTrackingTarget}>
-                    {(optimisticWaterCups * 250).toLocaleString()} ml / 2,500 ml
+                  <Text style={styles.waterProgressText}>
+                    {Math.min((optimisticWaterCups / 10) * 100, 100).toFixed(0)}
+                    %
                   </Text>
                 </View>
 
@@ -890,216 +926,96 @@ const HomeScreen = React.memo(() => {
                   <TouchableOpacity
                     style={[
                       styles.waterButton,
-                      styles.waterButtonMinus,
                       { opacity: optimisticWaterCups <= 0 ? 0.4 : 1 },
                     ]}
                     onPress={decrementWater}
                     disabled={optimisticWaterCups <= 0}
                     activeOpacity={0.7}
                   >
-                    <Plus
-                      size={24}
-                      color="#FFFFFF"
-                      style={{ transform: [{ rotate: "45deg" }] }}
-                    />
+                    <Minus size={20} color="#06B6D4" />
                   </TouchableOpacity>
 
-                  <View style={styles.waterProgress}>
-                    <View style={styles.waterProgressBg}>
-                      <View
-                        style={[
-                          styles.waterProgressFill,
-                          {
-                            width: `${Math.min(
-                              (optimisticWaterCups / 10) * 100,
-                              100
-                            )}%`,
-                            backgroundColor: "#FFFFFF",
-                          },
-                        ]}
-                      />
-                    </View>
-                    <Text style={styles.waterProgressText}>
-                      {Math.min((optimisticWaterCups / 10) * 100, 100).toFixed(
-                        0
-                      )}
-                      %
+                  <View style={styles.waterCupsDisplay}>
+                    <Text style={styles.waterCupsText}>
+                      {optimisticWaterCups} cups
                     </Text>
                   </View>
 
                   <TouchableOpacity
                     style={[
                       styles.waterButton,
-                      styles.waterButtonPlus,
                       { opacity: optimisticWaterCups >= 10 ? 0.4 : 1 },
                     ]}
                     onPress={incrementWater}
                     disabled={optimisticWaterCups >= 10}
                     activeOpacity={0.7}
                   >
-                    <Plus size={24} color="#FFFFFF" />
+                    <Plus size={20} color="#06B6D4" />
                   </TouchableOpacity>
                 </View>
-
-                <View style={styles.waterTrackingFooter}>
-                  <Text style={styles.waterTrackingRemaining}>
-                    {Math.max(10 - optimisticWaterCups, 0)}{" "}
-                    {t("home.cups") || "cups"}{" "}
-                    {t("home.remaining") || "remaining"}
-                  </Text>
-                  <Text style={styles.waterXP}>
-                    {optimisticWaterCups >= 8
-                      ? "🎉 +50 XP"
-                      : optimisticWaterCups >= 4
-                      ? "⭐ +25 XP"
-                      : optimisticWaterCups > 0
-                      ? "💧 +10 XP"
-                      : ""}
-                  </Text>
-                </View>
-              </LinearGradient>
-            </View>
-          </View>
-
-          {/* Status Indicator */}
-          <View style={styles.section}>
-            <View style={styles.statusContainer}>
-              <LinearGradient
-                colors={
-                  calorieStatus === "ahead"
-                    ? [
-                        EmeraldSpectrum.emerald500 + "15",
-                        EmeraldSpectrum.emerald500 + "05",
-                      ]
-                    : calorieStatus === "behind"
-                    ? ["#E74C3C15", "#E74C3C05"]
-                    : ["#F39C1215", "#F39C1205"]
-                }
-                style={styles.statusGradient}
-              >
-                <View style={styles.statusContent}>
-                  <View style={styles.statusIcon}>
-                    {calorieStatus === "ahead" ? (
-                      <TrendingUp
-                        size={24}
-                        color={EmeraldSpectrum.emerald500}
-                      />
-                    ) : calorieStatus === "behind" ? (
-                      <Target size={24} color="#E74C3C" />
-                    ) : (
-                      <Award size={24} color="#F39C12" />
-                    )}
-                  </View>
-                  <View style={styles.statusInfo}>
-                    <Text style={styles.statusTitle}>
-                      {calorieStatus === "ahead"
-                        ? t("home.ahead_schedule") || "Ahead of Schedule"
-                        : calorieStatus === "behind"
-                        ? t("home.behind_schedule") || "Behind Schedule"
-                        : t("home.on_track") || "On Track"}
-                    </Text>
-                    <Text style={styles.statusDescription}>
-                      {calorieStatus === "ahead"
-                        ? t("home.ahead_description") ||
-                          "You're ahead of schedule - excellent!"
-                        : calorieStatus === "behind"
-                        ? t("home.behind_description") ||
-                          "Time to add a meal or snack"
-                        : t("home.track_description") ||
-                          "You're on track to reach your goal"}
-                    </Text>
-                  </View>
-                  <View style={styles.statusStreak}>
-                    <Text style={styles.statusStreakNumber}>
-                      {user?.current_streak || 0}
-                    </Text>
-                    <Text style={styles.statusStreakLabel}>
-                      {t("home.days") || "days"}
-                    </Text>
-                  </View>
-                </View>
-              </LinearGradient>
+              </View>
             </View>
           </View>
 
           {/* Quick Actions */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
-              {t("home.quick_actions") || "Quick Actions"}
-            </Text>
+            <Text style={styles.sectionTitle}>Quick Actions</Text>
             <View style={styles.quickActionsContainer}>
               <TouchableOpacity
                 style={styles.quickActionButton}
                 onPress={() => router.push("/(tabs)/camera")}
               >
-                <LinearGradient
-                  colors={[
-                    EmeraldSpectrum.emerald600,
-                    EmeraldSpectrum.emerald600 + "E6",
-                  ]}
-                  style={styles.quickActionGradient}
-                >
+                <View style={styles.quickActionContent}>
                   <View style={styles.quickActionIconContainer}>
-                    <Camera size={22} color="#FFFFFF" />
+                    <Camera size={24} color="#10B981" />
                   </View>
-                  <Text style={styles.quickActionText}>
-                    {t("home.add_meal") || "Add Meal"}
-                  </Text>
-                </LinearGradient>
+                  <Text style={styles.quickActionText}>Add Meal</Text>
+                </View>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={styles.quickActionButton}
                 onPress={() => router.push("/(tabs)/food-scanner")}
               >
-                <LinearGradient
-                  colors={[
-                    EmeraldSpectrum.emerald500,
-                    EmeraldSpectrum.emerald500 + "E6",
-                  ]}
-                  style={styles.quickActionGradient}
-                >
+                <View style={styles.quickActionContent}>
                   <View style={styles.quickActionIconContainer}>
-                    <Target size={22} color="#FFFFFF" />
+                    <Target size={24} color="#10B981" />
                   </View>
-                  <Text style={styles.quickActionText}>
-                    {t("home.scan_meal") || "Scan Food"}
-                  </Text>
-                </LinearGradient>
+                  <Text style={styles.quickActionText}>Scan Food</Text>
+                </View>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={styles.quickActionButton}
                 onPress={() => router.push("/(tabs)/statistics")}
               >
-                <LinearGradient
-                  colors={[
-                    EmeraldSpectrum.emerald700,
-                    EmeraldSpectrum.emerald700 + "E6",
-                  ]}
-                  style={styles.quickActionGradient}
-                >
+                <View style={styles.quickActionContent}>
                   <View style={styles.quickActionIconContainer}>
-                    <BarChart3 size={22} color="#FFFFFF" />
+                    <BarChart3 size={24} color="#10B981" />
                   </View>
-                  <Text style={styles.quickActionText}>
-                    {t("home.statistics") || "Statistics"}
-                  </Text>
-                </LinearGradient>
+                  <Text style={styles.quickActionText}>Statistics</Text>
+                </View>
               </TouchableOpacity>
             </View>
           </View>
 
-          {/* Today's Summary */}
+          {/* Today's Meal Section */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>
-              {t("home.todays_summary") || "Today's Summary"}
-            </Text>
+            <View style={styles.mealSectionHeader}>
+              <Text style={styles.sectionTitle}>Today's Meals</Text>
+              <TouchableOpacity
+                style={styles.viewButton}
+                onPress={() => router.push("/(tabs)/history")}
+              >
+                <Text style={styles.viewButtonText}>View</Text>
+              </TouchableOpacity>
+            </View>
+
             <View style={styles.mealsContainer}>
               {isLoading ? (
                 <ActivityIndicator
                   size="large"
-                  color={EmeraldSpectrum.emerald500}
+                  color="#10B981"
                   style={styles.loader}
                 />
               ) : processedMealsData.recentMeals.length > 0 ? (
@@ -1118,14 +1034,14 @@ const HomeScreen = React.memo(() => {
                         />
                       ) : (
                         <View style={styles.mealPlaceholder}>
-                          <Target size={32} color="rgba(255,255,255,0.6)" />
+                          <Target size={24} color="#10B981" />
                         </View>
                       )}
                     </View>
                     <View style={styles.mealInfo}>
                       <View style={styles.mealDetails}>
-                        <Text style={styles.mealName} numberOfLines={2}>
-                          {meal.name || t("meals.unknown_meal")}
+                        <Text style={styles.mealName} numberOfLines={1}>
+                          {meal.name || "Unknown Meal"}
                         </Text>
                         {meal.created_at && (
                           <Text style={styles.mealTime}>
@@ -1135,29 +1051,38 @@ const HomeScreen = React.memo(() => {
                       </View>
                       <View style={styles.mealCaloriesContainer}>
                         <Text style={styles.mealCalories}>
-                          {meal.calories || 0} {t("meals.kcal") || "kcal"}
+                          {meal.calories || 0} kcal
                         </Text>
                       </View>
                     </View>
                     <View style={styles.chevronContainer}>
-                      <ChevronLeft size={16} color="#BDC3C7" />
+                      <ChevronRight size={16} color="#9CA3AF" />
                     </View>
                   </TouchableOpacity>
                 ))
               ) : (
                 <View style={styles.emptyState}>
-                  <Target size={48} color="#ccc" />
-                  <Text style={styles.emptyText}>
-                    {t("meals.no_meals") || "No meals today"}
-                  </Text>
+                  <View style={styles.emptyIconContainer}>
+                    <Target size={48} color="#D1D5DB" />
+                  </View>
+                  <Text style={styles.emptyText}>No meals today</Text>
                   <Text style={styles.emptySubtext}>
-                    {t("home.add_meal_hint") ||
-                      "Add your first meal to get started"}
+                    Add your first meal to get started
                   </Text>
+                  <TouchableOpacity
+                    style={styles.emptyActionButton}
+                    onPress={() => router.push("/(tabs)/camera")}
+                  >
+                    <Plus size={20} color="#FFFFFF" />
+                    <Text style={styles.emptyActionText}>Add Meal</Text>
+                  </TouchableOpacity>
                 </View>
               )}
             </View>
           </View>
+
+          {/* Bottom Spacing for Navigation */}
+          <View style={styles.bottomSpacing} />
         </ScrollView>
       </SafeAreaView>
     </ErrorBoundary>
@@ -1169,100 +1094,346 @@ export default HomeScreen;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#FAFBFC",
+    backgroundColor: "#FFFFFF",
   },
+  scrollContent: {
+    paddingBottom: 100,
+  },
+
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 24,
-    paddingVertical: 24,
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+    marginTop: 10,
   },
-  greeting: {
-    fontSize: 28,
-    fontWeight: "bold",
-    color: "#1A202C",
-    letterSpacing: -0.5,
-  },
-  subtitle: {
-    fontSize: 15,
-    color: "#718096",
-    marginTop: 4,
-    lineHeight: 20,
-  },
-  headerIcons: {
+  headerLeft: {
     flexDirection: "row",
-    gap: 8,
-  },
-  iconButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#FFFFFF",
-    justifyContent: "center",
     alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
+    flex: 1,
   },
+  headerCenter: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  profileContainer: {
+    position: "relative",
+    marginRight: 12,
+  },
+  profileImage: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "#F3F4F6",
+    borderWidth: 3,
+    borderColor: "#FFFFFF",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  }, // Text column container
+  textColumn: {
+    flex: 1,
+    paddingLeft: 20,
+    justifyContent: "center",
+    alignItems: "center", // Centers the entire content
+  },
+
+  // Welcome container
+  welcomeContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    width: "100%",
+  },
+
+  // Greeting row with icon and text
+  greetingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 25,
+    marginBottom: 8,
+    alignSelf: "center",
+    minWidth: 180,
+    maxWidth: "90%",
+    shadowColor: "#000",
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+
+  // Icon styling
+  greetingIcon: {
+    marginRight: 10,
+    marginLeft: 2,
+  },
+
+  // Welcome text styling
+  welcomeText: {
+    fontSize: 16,
+    fontWeight: "700",
+    letterSpacing: 0.5,
+    textAlign: "center",
+    textTransform: "capitalize", // Better than uppercase for readability
+  },
+
+  // User name styling (if you want to add it)
+  userName: {
+    fontSize: 24,
+    fontWeight: "800",
+    color: "#1F2937",
+    lineHeight: 28,
+    letterSpacing: -0.5,
+    textAlign: "center",
+    writingDirection: "auto", // Supports RTL for Hebrew
+    marginTop: 4,
+  },
+  onlineIndicator: {
+    position: "absolute",
+    bottom: 2,
+    right: 2,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: "#10B981",
+    borderWidth: 3,
+    borderColor: "#FFFFFF",
+  },
+  welcomeTextContainer: {
+    flex: 1,
+  },
+  compactGreetingContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 4,
+    alignSelf: "center",
+  },
+
+  compactIcon: {
+    marginRight: 6,
+  },
+
+  compactGreetingText: {
+    fontSize: 15,
+    fontWeight: "600",
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
+    opacity: 0.9,
+    textAlign: "center",
+  },
+  dateContainer: {
+    backgroundColor: "#F8FAFC",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  dateText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#374151",
+    textAlign: "center",
+    letterSpacing: 0.2,
+  },
+  menuButton: {
+    width: 40,
+    height: 40,
+    backgroundColor: "#10B981",
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#10B981",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+  },
+
+  // Greeting Section
+  greetingSection: {
+    paddingHorizontal: 20,
+    marginBottom: 30,
+  },
+  greetingText: {
+    fontSize: 28,
+    fontWeight: "700",
+    color: "#111827",
+    marginBottom: 8,
+  },
+  greetingSubtext: {
+    fontSize: 16,
+    color: "#6B7280",
+    lineHeight: 22,
+  },
+
+  // Main Progress Section
+  mainProgressSection: {
+    paddingHorizontal: 20,
+    marginBottom: 30,
+    alignItems: "center",
+  },
+  circularProgressContainer: {
+    alignItems: "center",
+  },
+  circularProgressBackground: {
+    width: 280,
+    height: 280,
+    backgroundColor: "#F0FDF4",
+    borderRadius: 140,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: "#10B981",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+  },
+  circularProgress: {
+    width: 240,
+    height: 240,
+    borderRadius: 120,
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+  },
+  progressRing: {
+    width: 240,
+    height: 240,
+    borderRadius: 120,
+    borderWidth: 16,
+    borderColor: "#E5E7EB",
+    borderTopColor: "#10B981",
+    borderRightColor: "#10B981",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  progressContent: {
+    position: "absolute",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  progressLabel: {
+    fontSize: 16,
+    color: "#6B7280",
+    marginBottom: 4,
+    fontWeight: "500",
+  },
+  progressValue: {
+    fontSize: 48,
+    fontWeight: "700",
+    color: "#111827",
+    lineHeight: 52,
+  },
+  progressUnit: {
+    fontSize: 16,
+    color: "#6B7280",
+    marginBottom: 8,
+    fontWeight: "500",
+  },
+  progressTarget: {
+    fontSize: 14,
+    color: "#9CA3AF",
+    fontWeight: "400",
+  },
+
+  // Statistics Row
+  statsRow: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    paddingHorizontal: 40,
+    marginBottom: 30,
+  },
+  statItem: {
+    alignItems: "center",
+    flex: 1,
+  },
+  statValue: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#111827",
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 14,
+    color: "#6B7280",
+    marginBottom: 4,
+    fontWeight: "500",
+  },
+  statPercentage: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#10B981",
+  },
+
+  // Section Styles
   section: {
-    paddingHorizontal: 24,
-    marginBottom: 32,
+    paddingHorizontal: 20,
+    marginBottom: 24,
   },
   sectionTitle: {
     fontSize: 20,
     fontWeight: "600",
-    color: "#1A202C",
-    marginBottom: 20,
-    letterSpacing: -0.3,
+    color: "#111827",
+    marginBottom: 16,
   },
 
-  // Enhanced User Stats Styles
+  // User Stats Card
   statsMainContainer: {
-    borderRadius: 24,
-    overflow: "hidden",
-    shadowColor: EmeraldSpectrum.emerald600,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.25,
-    shadowRadius: 16,
+    marginBottom: 8,
   },
-  statsGradient: {
-    padding: 24,
+  statsCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    borderWidth: 1,
+    borderColor: "#F3F4F6",
   },
   statsLoadingContainer: {
     alignItems: "center",
     paddingVertical: 20,
   },
   statsLoadingText: {
-    color: "#FFFFFF",
-    fontSize: 16,
     marginTop: 12,
-    fontWeight: "500",
+    fontSize: 16,
+    color: "#6B7280",
   },
   statsTopRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 20,
+    marginBottom: 16,
   },
   statsXPContainer: {
-    flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    marginRight: 16,
+    flex: 1,
   },
   statsLevelContainer: {
-    flex: 1,
     flexDirection: "row",
     alignItems: "center",
+    flex: 1,
+    justifyContent: "flex-end",
   },
   statsIconWrapper: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: "rgba(255,255,255,0.2)",
-    justifyContent: "center",
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#FEF3C7",
     alignItems: "center",
+    justifyContent: "center",
     marginRight: 12,
   },
   statsTextContainer: {
@@ -1270,18 +1441,18 @@ const styles = StyleSheet.create({
   },
   statsLabel: {
     fontSize: 14,
-    color: "rgba(255,255,255,0.9)",
+    color: "#6B7280",
     fontWeight: "500",
     marginBottom: 2,
   },
   statsValue: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: "#FFFFFF",
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#111827",
   },
   statsDivider: {
     height: 1,
-    backgroundColor: "rgba(255,255,255,0.3)",
+    backgroundColor: "#E5E7EB",
     marginVertical: 16,
   },
   statsBottomRow: {
@@ -1289,119 +1460,31 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   statsItem: {
-    flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    marginHorizontal: 4,
+    flex: 1,
   },
   statsSmallLabel: {
     fontSize: 12,
-    color: "rgba(255,255,255,0.8)",
+    color: "#6B7280",
     fontWeight: "500",
     marginBottom: 2,
   },
   statsSmallValue: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#FFFFFF",
+    color: "#111827",
   },
   statsErrorBanner: {
-    backgroundColor: "rgba(231, 76, 60, 0.1)",
-    borderLeftWidth: 4,
-    borderLeftColor: "#E74C3C",
+    backgroundColor: "#FEE2E2",
     padding: 12,
     borderRadius: 8,
     marginBottom: 16,
   },
   statsErrorText: {
-    color: "#E74C3C",
-    fontSize: 13,
-    fontWeight: "500",
-  },
-
-  // Main Goal Progress
-  mainGoalContainer: {
-    borderRadius: 24,
-    overflow: "hidden",
-    shadowColor: EmeraldSpectrum.emerald600,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-  },
-  mainGoalGradient: {
-    padding: 24,
-  },
-  mainGoalContent: {
-    alignItems: "center",
-  },
-  mainGoalHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  mainGoalTitle: {
-    fontSize: 20,
-    fontWeight: "600",
-    color: "#FFFFFF",
-    marginLeft: 12,
-  },
-  mainGoalValues: {
-    flexDirection: "row",
-    alignItems: "baseline",
-    marginBottom: 16,
-  },
-  mainGoalCurrent: {
-    fontSize: 48,
-    fontWeight: "bold",
-    color: "#FFFFFF",
-  },
-  mainGoalTarget: {
-    fontSize: 18,
-    color: "rgba(255,255,255,0.8)",
-    marginLeft: 8,
-  },
-  mainGoalProgress: {
-    flexDirection: "row",
-    alignItems: "center",
-    width: "100%",
-    marginBottom: 16,
-  },
-  mainGoalProgressBg: {
-    flex: 1,
-    height: 8,
-    backgroundColor: "rgba(255,255,255,0.3)",
-    borderRadius: 4,
-    overflow: "hidden",
-    marginRight: 12,
-  },
-  mainGoalProgressFill: {
-    height: "100%",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 4,
-  },
-  mainGoalPercentage: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: "#FFFFFF",
-    minWidth: 40,
-  },
-  mainGoalRemaining: {
-    alignItems: "center",
-  },
-  mainGoalRemainingText: {
-    fontSize: 16,
-    fontWeight: "500",
-    color: "rgba(255,255,255,0.9)",
-    marginBottom: 8,
-  },
-  mainGoalStatus: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  mainGoalStatusText: {
+    color: "#DC2626",
     fontSize: 14,
-    color: "rgba(255,255,255,0.8)",
-    marginLeft: 6,
+    textAlign: "center",
   },
 
   // Goal Gauges
@@ -1409,18 +1492,21 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   goalGaugeWrapper: {
-    width: "100%",
+    marginBottom: 8,
   },
   gaugeContainer: {
-    borderRadius: 16,
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
+    width: "100%",
   },
-  gaugeGradient: {
+  gaugeCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
     padding: 20,
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    borderWidth: 1,
+    borderColor: "#F3F4F6",
   },
   gaugeHeader: {
     flexDirection: "row",
@@ -1431,9 +1517,8 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: "rgba(255,255,255,0.8)",
-    justifyContent: "center",
     alignItems: "center",
+    justifyContent: "center",
     marginRight: 16,
   },
   gaugeInfo: {
@@ -1441,28 +1526,28 @@ const styles = StyleSheet.create({
   },
   gaugeLabel: {
     fontSize: 16,
-    fontWeight: "500",
-    color: "#2C3E50",
+    fontWeight: "600",
+    color: "#111827",
     marginBottom: 4,
   },
   gaugeCurrent: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#2C3E50",
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#111827",
   },
   gaugePercentage: {
-    alignItems: "center",
+    alignItems: "flex-end",
   },
   gaugePercentageText: {
-    fontSize: 24,
-    fontWeight: "bold",
+    fontSize: 18,
+    fontWeight: "700",
   },
   gaugeProgressContainer: {
     marginBottom: 12,
   },
   gaugeProgressBg: {
     height: 8,
-    backgroundColor: "rgba(0,0,0,0.1)",
+    backgroundColor: "#F3F4F6",
     borderRadius: 4,
     overflow: "hidden",
   },
@@ -1477,7 +1562,8 @@ const styles = StyleSheet.create({
   },
   gaugeTarget: {
     fontSize: 14,
-    color: "#7F8C8D",
+    color: "#6B7280",
+    fontWeight: "500",
   },
   gaugeRemaining: {
     fontSize: 14,
@@ -1486,219 +1572,198 @@ const styles = StyleSheet.create({
   completedContainer: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 6,
-    marginTop: 2,
   },
   completedText: {
     fontSize: 14,
+    color: "#10B981",
     fontWeight: "600",
-    color: "green",
+    marginLeft: 4,
   },
 
   // Water Tracking
   waterTrackingContainer: {
-    borderRadius: 24,
-    overflow: "hidden",
-    shadowColor: EmeraldSpectrum.emerald500,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
+    marginBottom: 8,
   },
-  waterTrackingGradient: {
-    padding: 24,
+  waterCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    borderWidth: 1,
+    borderColor: "#F3F4F6",
   },
   waterTrackingHeader: {
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 16,
   },
-  waterTrackingTitle: {
-    fontSize: 20,
-    fontWeight: "600",
-    color: "#FFFFFF",
-    marginLeft: 12,
+  waterIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "#E0F7FA",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 16,
+  },
+  waterInfo: {
     flex: 1,
   },
+  waterTrackingTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#111827",
+    marginBottom: 4,
+  },
+  waterTrackingValue: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#111827",
+    marginBottom: 2,
+  },
+  waterTrackingTarget: {
+    fontSize: 14,
+    color: "#6B7280",
+    fontWeight: "500",
+  },
   waterBadge: {
-    backgroundColor: "rgba(255,255,255,0.2)",
-    borderRadius: 12,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#F0FDF4",
+    alignItems: "center",
+    justifyContent: "center",
   },
   waterBadgeText: {
     fontSize: 16,
   },
-  waterTrackingContent: {
-    alignItems: "center",
-    marginBottom: 20,
-  },
-  waterTrackingValue: {
-    fontSize: 36,
-    fontWeight: "bold",
-    color: "#FFFFFF",
-  },
-  waterTrackingTarget: {
-    fontSize: 16,
-    color: "rgba(255,255,255,0.8)",
-    marginTop: 4,
-  },
-  waterControls: {
-    flexDirection: "row",
-    alignItems: "center",
+  waterProgress: {
     marginBottom: 16,
   },
-  waterButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "rgba(255,255,255,0.2)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  waterProgress: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    marginHorizontal: 16,
-  },
   waterProgressBg: {
-    flex: 1,
     height: 8,
-    backgroundColor: "rgba(255,255,255,0.3)",
+    backgroundColor: "#F3F4F6",
     borderRadius: 4,
     overflow: "hidden",
-    marginRight: 12,
+    marginBottom: 8,
   },
   waterProgressFill: {
     height: "100%",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: "#06B6D4",
     borderRadius: 4,
   },
   waterProgressText: {
     fontSize: 14,
-    fontWeight: "bold",
-    color: "#FFFFFF",
-    minWidth: 35,
+    color: "#06B6D4",
+    fontWeight: "600",
+    textAlign: "center",
   },
-  waterTrackingFooter: {
+  waterControls: {
     flexDirection: "row",
+    alignItems: "center",
     justifyContent: "space-between",
+  },
+  waterButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#F0F9FF",
     alignItems: "center",
-  },
-  waterTrackingRemaining: {
-    fontSize: 14,
-    color: "rgba(255,255,255,0.9)",
-  },
-  waterXP: {
-    fontSize: 14,
-    fontWeight: "bold",
-    color: "#FFFFFF",
-  },
-
-  // Status Container
-  statusContainer: {
-    borderRadius: 16,
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-  },
-  statusGradient: {
-    padding: 20,
-  },
-  statusContent: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  statusIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: "rgba(255,255,255,0.8)",
     justifyContent: "center",
-    alignItems: "center",
-    marginRight: 16,
+    borderWidth: 2,
+    borderColor: "#06B6D4",
   },
-  statusInfo: {
+  waterCupsDisplay: {
     flex: 1,
+    alignItems: "center",
+    marginHorizontal: 20,
   },
-  statusTitle: {
+  waterCupsText: {
     fontSize: 18,
     fontWeight: "600",
-    color: "#2C3E50",
-    marginBottom: 4,
-  },
-  statusDescription: {
-    fontSize: 14,
-    color: "#7F8C8D",
-    lineHeight: 20,
-  },
-  statusStreak: {
-    alignItems: "center",
-  },
-  statusStreakNumber: {
-    fontSize: 24,
-    fontWeight: "bold",
-    color: EmeraldSpectrum.emerald600,
-  },
-  statusStreakLabel: {
-    fontSize: 12,
-    color: "#7F8C8D",
+    color: "#111827",
   },
 
   // Quick Actions
   quickActionsContainer: {
     flexDirection: "row",
+    justifyContent: "space-between",
     gap: 12,
   },
   quickActionButton: {
     flex: 1,
+    backgroundColor: "#FFFFFF",
     borderRadius: 16,
-    overflow: "hidden",
-    shadowColor: "#000",
+    shadowColor: "#000000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    borderWidth: 1,
+    borderColor: "#F3F4F6",
   },
-  quickActionGradient: {
+  quickActionContent: {
     padding: 20,
     alignItems: "center",
-    minHeight: 88,
-    justifyContent: "center",
   },
   quickActionIconContainer: {
-    marginBottom: 8,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: "#F0FDF4",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
   },
   quickActionText: {
-    fontSize: 13,
-    fontWeight: "500",
-    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#111827",
     textAlign: "center",
-    lineHeight: 16,
   },
 
-  // Meals
+  // Meal Section
+  mealSectionHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  viewButton: {
+    backgroundColor: "#064E3B",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  viewButtonText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "600",
+  },
   mealsContainer: {
     gap: 12,
   },
   mealCard: {
-    flexDirection: "row",
-    alignItems: "center",
     backgroundColor: "#FFFFFF",
     borderRadius: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    overflow: "hidden",
+    padding: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    borderWidth: 1,
+    borderColor: "#F3F4F6",
   },
   mealImageContainer: {
-    width: 72,
-    height: 72,
+    width: 60,
+    height: 60,
     borderRadius: 12,
+    marginRight: 16,
     overflow: "hidden",
-    margin: 12,
   },
   mealImage: {
     width: "100%",
@@ -1707,205 +1772,151 @@ const styles = StyleSheet.create({
   mealPlaceholder: {
     width: "100%",
     height: "100%",
-    backgroundColor: "#F7FAFC",
-    justifyContent: "center",
+    backgroundColor: "#F3F4F6",
     alignItems: "center",
+    justifyContent: "center",
   },
   mealInfo: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingRight: 16,
   },
   mealDetails: {
     flex: 1,
   },
   mealName: {
     fontSize: 16,
-    fontWeight: "500",
-    color: "#1A202C",
-    lineHeight: 20,
+    fontWeight: "600",
+    color: "#111827",
+    marginBottom: 4,
   },
   mealTime: {
-    fontSize: 13,
-    color: "#718096",
-    marginTop: 2,
-    lineHeight: 16,
+    fontSize: 14,
+    color: "#6B7280",
+    fontWeight: "500",
   },
   mealCaloriesContainer: {
-    marginRight: 8,
+    marginRight: 12,
   },
   mealCalories: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "600",
-    color: EmeraldSpectrum.emerald600,
+    color: "#10B981",
   },
   chevronContainer: {
-    paddingRight: 16,
+    width: 24,
+    height: 24,
+    alignItems: "center",
+    justifyContent: "center",
   },
 
-  // States
+  // Empty State
   emptyState: {
     alignItems: "center",
-    padding: 30,
+    paddingVertical: 40,
+    paddingHorizontal: 20,
+  },
+  emptyIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "#F9FAFB",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
   },
   emptyText: {
-    fontSize: 16,
-    color: "#666",
-    marginTop: 10,
-    marginBottom: 4,
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#374151",
+    marginBottom: 8,
     textAlign: "center",
   },
   emptySubtext: {
     fontSize: 14,
-    color: "#999",
+    color: "#6B7280",
     textAlign: "center",
+    marginBottom: 24,
+    lineHeight: 20,
   },
-  loader: {
-    marginTop: 20,
-  },
-  centered: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#FAFBFC",
-  },
-  loadingText: {
-    marginTop: 10,
-    fontSize: 16,
-    color: "#666",
-  },
-  waterDisplay: {
-    alignItems: "center",
-    justifyContent: "center",
-    minWidth: 60,
-    position: "relative",
-  },
-  syncIndicator: {
-    position: "absolute",
-    bottom: -4,
-    right: -4,
-  },
-  syncingText: {
-    fontSize: 10,
-    fontStyle: "italic",
-  },
-  errorNotification: {
-    marginTop: 8,
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#fecaca",
-  },
-  errorContent: {
+  emptyActionButton: {
     flexDirection: "row",
     alignItems: "center",
+    backgroundColor: "#10B981",
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 24,
     gap: 8,
-    marginBottom: 8,
   },
-  errorText: {
-    fontSize: 12,
-    flex: 1,
-    lineHeight: 16,
-  },
-  errorActions: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  errorButton: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-  },
-  errorButtonText: {
-    color: "#ffffff",
-    fontSize: 12,
+  emptyActionText: {
+    color: "#FFFFFF",
+    fontSize: 16,
     fontWeight: "600",
-  },
-  errorDismissButton: {
-    padding: 4,
   },
 
-  // Enhanced Water Tracking Styles
-  waterValueContainer: {
+  // Bottom Navigation
+  bottomNavigation: {
     flexDirection: "row",
+    backgroundColor: "#064E3B",
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+  },
+  navItem: {
+    flex: 1,
     alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 8,
+    paddingVertical: 8,
   },
-  syncText: {
-    color: "rgba(255,255,255,0.9)",
-    fontSize: 12,
-    marginLeft: 4,
-    fontWeight: "500",
+  navIcon: {
+    width: 24,
+    height: 24,
+    backgroundColor: "rgba(255, 255, 255, 0.3)",
+    borderRadius: 12,
   },
-  waterButtonPlus: {
-    backgroundColor: "rgba(255,255,255,0.25)",
-    borderWidth: 2,
-    borderColor: "rgba(255,255,255,0.3)",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+  navIconActive: {
+    backgroundColor: "#FFFFFF",
   },
-  waterButtonMinus: {
-    backgroundColor: "rgba(255,255,255,0.15)",
-    borderWidth: 2,
-    borderColor: "rgba(255,255,255,0.2)",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+  bottomSpacing: {
+    height: 20,
   },
-  waterErrorContainer: {
-    marginTop: 12,
-    padding: 12,
-    backgroundColor: "rgba(231, 76, 60, 0.1)",
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "rgba(231, 76, 60, 0.3)",
-  },
-  waterErrorText: {
-    color: "rgba(255,255,255,0.9)",
-    fontSize: 13,
-    textAlign: "center",
-    marginBottom: 8,
-    fontWeight: "500",
-  },
-  waterErrorActions: {
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: 12,
-  },
-  retryButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    backgroundColor: EmeraldSpectrum.emerald600,
-    borderRadius: 6,
-  },
-  retryButtonText: {
-    color: "#FFFFFF",
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  dismissButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    backgroundColor: "rgba(255,255,255,0.2)",
-    borderRadius: 6,
-  },
-  dismissButtonText: {
-    color: "#FFFFFF",
-    fontSize: 12,
-    fontWeight: "500",
+
+  // Loading and Error States
+  loader: {
+    paddingVertical: 40,
   },
   errorContainer: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     padding: 20,
-    backgroundColor: "#FAFBFC",
+    backgroundColor: "#FFFFFF",
+  },
+  errorText: {
+    fontSize: 16,
+    color: "#DC2626",
+    textAlign: "center",
+    marginBottom: 20,
+    fontWeight: "500",
+  },
+  retryButton: {
+    backgroundColor: "#10B981",
+    paddingHorizontal: 24,
+    paddingVertical: 12,
+    borderRadius: 24,
+  },
+  retryButtonText: {
+    color: "#FFFFFF",
+    fontWeight: "600",
+    fontSize: 16,
   },
 });

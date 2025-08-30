@@ -30,25 +30,25 @@ export default function ResetPasswordScreen() {
 
   const validatePassword = (password: string) => {
     if (password.length < 6) {
-      return "Password must be at least 6 characters long";
+      return t("auth.errors.invalid_password");
     }
     return null;
   };
 
   const handleResetPassword = async () => {
     if (!password.trim() || !confirmPassword.trim()) {
-      Alert.alert("Error", "Please fill in all fields");
+      Alert.alert(t("common.error"), t("auth.errors.required_field"));
       return;
     }
 
     const passwordError = validatePassword(password);
     if (passwordError) {
-      Alert.alert("Error", passwordError);
+      Alert.alert(t("common.error"), passwordError);
       return;
     }
 
     if (password !== confirmPassword) {
-      Alert.alert("Error", "Passwords do not match");
+      Alert.alert(t("common.error"), t("auth.errors.passwords_dont_match"));
       return;
     }
 
@@ -63,11 +63,11 @@ export default function ResetPasswordScreen() {
 
       if (response.success) {
         Alert.alert(
-          "Success",
-          "Your password has been reset successfully. Please sign in with your new password.",
+          t("common.success"),
+          t("auth.reset_password.reset_successful"),
           [
             {
-              text: "OK",
+              text: t("common.ok"),
               onPress: () => {
                 router.replace("/(auth)/signin");
               },
@@ -79,7 +79,10 @@ export default function ResetPasswordScreen() {
       }
     } catch (error: any) {
       console.error("💥 Reset password error:", error);
-      Alert.alert("Error", error.message || "Failed to reset password");
+      Alert.alert(
+        t("common.error"),
+        error.message || t("auth.reset_password.reset_failed")
+      );
     } finally {
       setIsLoading(false);
     }
@@ -100,7 +103,7 @@ export default function ResetPasswordScreen() {
       backgroundColor: colors.background,
     },
     containerRTL: {
-      writingDirection: "rtl",
+      flexDirection: "row-reverse",
     },
     backgroundAccent: {
       position: "absolute",
@@ -296,11 +299,11 @@ export default function ResetPasswordScreen() {
           </View>
 
           <Text style={[styles.title, isRTL && styles.titleRTL]}>
-            Create New Password
+            {t("auth.reset_password.reset_password_title")}
           </Text>
 
           <Text style={[styles.subtitle, isRTL && styles.subtitleRTL]}>
-            Enter your new password below
+            {t("auth.reset_password.enter_new_password")}
           </Text>
         </View>
 
@@ -309,7 +312,7 @@ export default function ResetPasswordScreen() {
             <View style={styles.passwordInputContainer}>
               <TextInput
                 style={[styles.input, isRTL && styles.inputRTL]}
-                placeholder="New Password"
+                placeholder={t("auth.reset_password.new_password")}
                 placeholderTextColor={colors.textSecondary}
                 value={password}
                 onChangeText={setPassword}
@@ -336,7 +339,7 @@ export default function ResetPasswordScreen() {
             <View style={styles.passwordInputContainer}>
               <TextInput
                 style={[styles.input, isRTL && styles.inputRTL]}
-                placeholder="Confirm New Password"
+                placeholder={t("auth.reset_password.confirm_new_password")}
                 placeholderTextColor={colors.textSecondary}
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
@@ -373,16 +376,20 @@ export default function ResetPasswordScreen() {
               ) : (
                 <>
                   <Lock size={20} color="#ffffff" />
-                  <Text style={styles.resetButtonText}>Reset Password</Text>
+                  <Text style={styles.resetButtonText}>
+                    {t("auth.reset_password.title")}
+                  </Text>
                 </>
               )}
             </View>
           </TouchableOpacity>
 
           <View style={styles.passwordRequirements}>
-            <Text style={styles.requirementsTitle}>Password Requirements:</Text>
+            <Text style={styles.requirementsTitle}>
+              {t("auth.reset_password.password_requirements")}:
+            </Text>
             <Text style={styles.requirementText}>
-              • At least 6 characters long
+              • {t("auth.reset_password.password_requirement_length")}
             </Text>
           </View>
         </View>

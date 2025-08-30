@@ -661,7 +661,86 @@
     "welcome_back": "Welcome Back",
     "email_validation_error": "Please enter a valid email address",
     "birth_date": "Birth Date",
-    "language_preference": "Language of choice"
+    "language_preference": "Language of choice",
+    "email_verification": {
+      "title": "Verify Your Email",
+      "subtitle": "We've sent a verification code to your email address",
+      "enter_code": "Enter verification code",
+      "verification_code": "Verification Code",
+      "verify": "Verify",
+      "resend_code": "Resend Code",
+      "code_sent": "Code sent successfully",
+      "invalid_code": "Invalid verification code",
+      "verification_successful": "Email verified successfully",
+      "verification_failed": "Email verification failed",
+      "resend_successful": "Verification code resent successfully",
+      "resend_failed": "Failed to resend verification code"
+    },
+    "reset_password": {
+      "title": "Reset Password",
+      "subtitle": "Enter your email to receive a password reset link",
+      "send_reset_link": "Send Reset Link",
+      "reset_link_sent": "Password reset link sent to your email",
+      "reset_failed": "Failed to send reset link",
+      "new_password": "New Password",
+      "confirm_new_password": "Confirm New Password",
+      "reset_successful": "Password reset successfully",
+      "passwords_dont_match": "Passwords don't match",
+      "password_too_short": "Password must be at least 6 characters",
+      "invalid_token": "Invalid or expired reset token",
+      "enter_new_password": "Enter your new password",
+      "reset_password_title": "Reset Your Password",
+      "password_requirements": "Password Requirements",
+      "password_requirement_length": "At least 6 characters long"
+    },
+    "forgot_password_page": {
+      "title": "Forgot Password?",
+      "subtitle": "Enter your email address and we'll send you a code to reset your password.",
+      "email_placeholder": "Enter your email",
+      "send_reset_code": "Send Reset Code",
+      "back_to_signin": "Back to Sign In",
+      "email_sent": "Email Sent",
+      "reset_code_sent": "A password reset code has been sent to your email address"
+    },
+    "reset_password_verify": {
+      "title": "Verify Reset Code",
+      "subtitle": "We've sent a 6-digit code to",
+      "enter_code": "Enter the code below to verify your identity and reset your password",
+      "verification_code": "Verification Code",
+      "verify_and_continue": "Verify & Continue",
+      "resend_code": "Resend Code",
+      "code_expires_in": "Code expires in",
+      "minutes": "minutes",
+      "seconds": "seconds",
+      "invalid_code": "Invalid verification code",
+      "code_verified": "Code verified successfully"
+    },
+    "errors": {
+      "invalid_email": "Please enter a valid email address",
+      "invalid_password": "Password must be at least 6 characters",
+      "passwords_dont_match": "Passwords don't match",
+      "email_already_exists": "Email already exists",
+      "invalid_credentials": "Invalid email or password",
+      "network_error": "Network error. Please try again",
+      "unknown_error": "An unknown error occurred",
+      "signup_failed": "Sign up failed. Please try again",
+      "signin_failed": "Sign in failed. Please try again",
+      "required_field": "This field is required",
+      "email_not_verified": "Please verify your email before signing in"
+    },
+    "loading": {
+      "signing_in": "Signing in...",
+      "signing_up": "Creating account...",
+      "verifying": "Verifying...",
+      "sending_reset": "Sending reset link...",
+      "resetting_password": "Resetting password..."
+    },
+    "success": {
+      "account_created": "Account created successfully",
+      "signed_in": "Signed in successfully",
+      "email_verified": "Email verified successfully",
+      "password_reset": "Password reset successfully"
+    }
   },
   "meal_plans": {
     "title": "Meal Plans",
@@ -1132,5 +1211,11 @@
     "levelUp": "Level Up!",
     "newLevel": "Level",
     "newAchievement": "New Achievement!"
+  },
+  "greetings": {
+    "morning": "Good Morning",
+    "afternoon": "Good Afternoon",
+    "evening": "Good Evening",
+    "night": "Good Night"
   }
 }

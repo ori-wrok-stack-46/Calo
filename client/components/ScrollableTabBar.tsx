@@ -1,5 +1,11 @@
-import React, { useRef, useEffect, useMemo, useCallback } from "react";
-import { ViewStyle, TextStyle } from "react-native";
+import React, {
+  useRef,
+  useEffect,
+  useMemo,
+  useCallback,
+  useState,
+} from "react";
+import { ViewStyle, TextStyle, AppState, AppStateStatus } from "react-native";
 import { Tabs } from "expo-router";
 import {
   View,
@@ -291,11 +297,30 @@ export function ScrollableTabBar({
   descriptors,
   navigation,
 }: CustomTabBarProps) {
-  const insets = useSafeAreaInsets();
   const scrollViewRef = useRef<ScrollView>(null);
-  const { colors, isDark } = useTheme();
+  const insets = useSafeAreaInsets();
+  const { colors } = useTheme();
   const { isRTL } = useLanguage();
   const { t } = useTranslation();
+  const [layoutKey, setLayoutKey] = useState(0);
+
+  // Handle app state changes to fix layout issues
+  useEffect(() => {
+    const handleAppStateChange = (nextAppState: AppStateStatus) => {
+      if (nextAppState === "active") {
+        // Force layout recalculation when app becomes active
+        setTimeout(() => {
+          setLayoutKey((prev) => prev + 1);
+        }, 100);
+      }
+    };
+
+    const subscription = AppState.addEventListener(
+      "change",
+      handleAppStateChange
+    );
+    return () => subscription?.remove();
+  }, []);
 
   // Separate tabs
   const { regularTabs, cameraTab } = useMemo(() => {
@@ -358,6 +383,7 @@ export function ScrollableTabBar({
             borderTopColor: colors.border,
           },
         ]}
+        key={layoutKey} // Use layoutKey to force re-render
       >
         {/* Regular tabs */}
         <ScrollView

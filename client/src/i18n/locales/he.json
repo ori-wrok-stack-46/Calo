@@ -847,7 +847,86 @@
     "welcome_back": "ברוכים השבים",
     "email_validation_error": "נא להזין כתובת אימייל תקינה",
     "language_preference": "שפה מועדפת",
-    "birth_date": "תאריך לידה"
+    "birth_date": "תאריך לידה",
+    "email_verification": {
+      "title": "אימות כתובת אימייל",
+      "subtitle": "שלחנו קוד אימות לכתובת האימייל שלך",
+      "enter_code": "הזן קוד אימות",
+      "verification_code": "קוד אימות",
+      "verify": "אמת",
+      "resend_code": "שלח קוד מחדש",
+      "code_sent": "הקוד נשלח בהצלחה",
+      "invalid_code": "קוד אימות שגוי",
+      "verification_successful": "האימייל אומת בהצלחה",
+      "verification_failed": "אימות האימייל נכשל",
+      "resend_successful": "קוד האימות נשלח מחדש בהצלחה",
+      "resend_failed": "נכשל בשליחת קוד האימות מחדש"
+    },
+    "reset_password": {
+      "title": "איפוס סיסמה",
+      "subtitle": "הזן את כתובת האימייל שלך כדי לקבל קישור לאיפוס סיסמה",
+      "send_reset_link": "שלח קישור איפוס",
+      "reset_link_sent": "קישור איפוס הסיסמה נשלח לאימייל שלך",
+      "reset_failed": "נכשל בשליחת קישור האיפוס",
+      "new_password": "סיסמה חדשה",
+      "confirm_new_password": "אישור סיסמה חדשה",
+      "reset_successful": "הסיסמה אופסה בהצלחה",
+      "passwords_dont_match": "הסיסמאות אינן תואמות",
+      "password_too_short": "הסיסמה חייבת להכיל לפחות 6 תווים",
+      "invalid_token": "טוקן איפוס לא תקין או פג תוקף",
+      "enter_new_password": "הזן את הסיסמה החדשה שלך",
+      "reset_password_title": "איפוס הסיסמה שלך",
+      "password_requirements": "דרישות סיסמה",
+      "password_requirement_length": "לפחות 6 תווים"
+    },
+    "forgot_password_page": {
+      "title": "שכחת סיסמה?",
+      "subtitle": "הזן את כתובת האימייל שלך ונשלח לך קוד לאיפוס הסיסמה.",
+      "email_placeholder": "הזן את האימייל שלך",
+      "send_reset_code": "שלח קוד איפוס",
+      "back_to_signin": "חזרה להתחברות",
+      "email_sent": "אימייל נשלח",
+      "reset_code_sent": "קוד איפוס סיסמה נשלח לכתובת האימייל שלך"
+    },
+    "reset_password_verify": {
+      "title": "אמת קוד איפוס",
+      "subtitle": "שלחנו קוד בן 6 ספרות ל",
+      "enter_code": "הזן את הקוד למטה כדי לאמת את זהותך ולאפס את הסיסמה",
+      "verification_code": "קוד אימות",
+      "verify_and_continue": "אמת והמשך",
+      "resend_code": "שלח קוד מחדש",
+      "code_expires_in": "הקוד יפוג בעוד",
+      "minutes": "דקות",
+      "seconds": "שניות",
+      "invalid_code": "קוד אימות שגוי",
+      "code_verified": "הקוד אומת בהצלחה"
+    },
+    "errors": {
+      "invalid_email": "נא להזין כתובת אימייל תקינה",
+      "invalid_password": "הסיסמה חייבת להכיל לפחות 6 תווים",
+      "passwords_dont_match": "הסיסמאות אינן תואמות",
+      "email_already_exists": "כתובת האימייל כבר קיימת",
+      "invalid_credentials": "אימייל או סיסמה שגויים",
+      "network_error": "שגיאת רשת. אנא נסה שוב",
+      "unknown_error": "אירעה שגיאה לא ידועה",
+      "signup_failed": "ההרשמה נכשלה. אנא נסה שוב",
+      "signin_failed": "ההתחברות נכשלה. אנא נסה שוב",
+      "required_field": "שדה זה נדרש",
+      "email_not_verified": "אנא אמת את האימייל שלך לפני ההתחברות"
+    },
+    "loading": {
+      "signing_in": "מתחבר...",
+      "signing_up": "יוצר חשבון...",
+      "verifying": "מאמת...",
+      "sending_reset": "שולח קישור איפוס...",
+      "resetting_password": "מאפס סיסמה..."
+    },
+    "success": {
+      "account_created": "החשבון נוצר בהצלחה",
+      "signed_in": "התחברת בהצלחה",
+      "email_verified": "האימייל אומת בהצלחה",
+      "password_reset": "הסיסמה אופסה בהצלחה"
+    }
   },
   "meal_plans": {
     "title": "תוכניות ארוחות",
@@ -1095,5 +1174,11 @@
         ]
       }
     }
+  },
+  "greetings": {
+    "morning": "בוקר טוב",
+    "afternoon": "צהריים טובים",
+    "evening": "ערב טוב",
+    "night": "לילה טוב"
   }
 }

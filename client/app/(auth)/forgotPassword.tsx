@@ -26,13 +26,13 @@ export default function ForgotPasswordScreen() {
 
   const handleSendResetCode = async () => {
     if (!email.trim()) {
-      Alert.alert("Error", "Please enter your email address");
+      Alert.alert(t("common.error"), t("auth.errors.required_field"));
       return;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      Alert.alert("Error", "Please enter a valid email address");
+      Alert.alert(t("common.error"), t("auth.errors.invalid_email"));
       return;
     }
 
@@ -44,11 +44,11 @@ export default function ForgotPasswordScreen() {
 
       if (response.success) {
         Alert.alert(
-          "Email Sent",
-          "A password reset code has been sent to your email address",
+          t("auth.forgot_password_page.email_sent"),
+          t("auth.forgot_password_page.reset_code_sent"),
           [
             {
-              text: "OK",
+              text: t("common.ok"),
               onPress: () => {
                 router.push({
                   pathname: "/(auth)/reset-password-verify",
@@ -64,8 +64,8 @@ export default function ForgotPasswordScreen() {
     } catch (error: any) {
       console.error("💥 Forgot password error:", error);
       Alert.alert(
-        "Error",
-        error.message || "Failed to send password reset email"
+        t("common.error"),
+        error.message || t("auth.reset_password.reset_failed")
       );
     } finally {
       setIsLoading(false);
@@ -78,7 +78,7 @@ export default function ForgotPasswordScreen() {
       backgroundColor: colors.background,
     },
     containerRTL: {
-      writingDirection: "rtl",
+      flexDirection: "row-reverse",
     },
     backgroundAccent: {
       position: "absolute",
@@ -86,7 +86,7 @@ export default function ForgotPasswordScreen() {
       left: 0,
       right: 0,
       height: "35%",
-      backgroundColor:  "#f0fdf4",
+      backgroundColor: "#f0fdf4",
       borderBottomLeftRadius: 30,
       borderBottomRightRadius: 30,
     },
@@ -234,12 +234,11 @@ export default function ForgotPasswordScreen() {
           </View>
 
           <Text style={[styles.title, isRTL && styles.titleRTL]}>
-            Forgot Password?
+            {t("auth.forgot_password_page.title")}
           </Text>
 
           <Text style={[styles.subtitle, isRTL && styles.subtitleRTL]}>
-            Enter your email address and we'll send you a code to reset your
-            password.
+            {t("auth.forgot_password_page.subtitle")}
           </Text>
         </View>
 
@@ -247,7 +246,7 @@ export default function ForgotPasswordScreen() {
           <View style={styles.inputContainer}>
             <TextInput
               style={[styles.input, isRTL && styles.inputRTL]}
-              placeholder="Enter your email"
+              placeholder={t("auth.forgot_password_page.email_placeholder")}
               placeholderTextColor={colors.textSecondary}
               value={email}
               onChangeText={setEmail}
@@ -273,7 +272,9 @@ export default function ForgotPasswordScreen() {
               ) : (
                 <>
                   <Mail size={20} color="#ffffff" />
-                  <Text style={styles.sendButtonText}>Send Reset Code</Text>
+                  <Text style={styles.sendButtonText}>
+                    {t("auth.forgot_password_page.send_reset_code")}
+                  </Text>
                 </>
               )}
             </View>
@@ -283,7 +284,9 @@ export default function ForgotPasswordScreen() {
             style={styles.backToSigninButton}
             onPress={() => router.replace("/(auth)/signin")}
           >
-            <Text style={styles.backToSigninText}>Back to Sign In</Text>
+            <Text style={styles.backToSigninText}>
+              {t("auth.forgot_password_page.back_to_signin")}
+            </Text>
           </TouchableOpacity>
         </View>
       </View>

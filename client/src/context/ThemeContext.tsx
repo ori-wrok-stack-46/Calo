@@ -8,7 +8,7 @@ const tintColorDark = "#34d399"; // emerald-400 (softer for dark mode)
 
 export const Colors = {
   light: {
-    detructive: '#ef4444',
+    detructive: "#ef4444",
     // Core text and backgrounds
     text: "#1f2937", // gray-800 (warmer black for readability)
     background: "#ffffff", // pure white for cleanliness
@@ -31,7 +31,7 @@ export const Colors = {
     primary: tintColorLight, // emerald-500
     primaryLight: "#a7f3d0", // emerald-200 (soft accent)
     success: "#10b981", // emerald-500 (success states)
-
+    disabled: "#d1d5db",
     // Emerald variations
     emerald: "#10b981", // emerald-500 (main brand)
     emerald50: "#ecfdf5", // very light emerald
@@ -81,7 +81,7 @@ export const Colors = {
     primary: tintColorDark, // emerald-400
     primaryLight: "#065f46", // emerald-800 (dark mode accent)
     success: "#34d399", // emerald-400 (success states)
-
+    isabled: "#d1d5db",
     // Emerald variations
     emerald: "#34d399", // emerald-400 (adjusted for dark)
     emerald50: "#064e3b", // emerald-900 (darkest)

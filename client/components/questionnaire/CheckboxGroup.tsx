@@ -1,112 +1,157 @@
 import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from "react-native-reanimated";
 import { Check } from "lucide-react-native";
-import { COLORS } from "./PreferencesStep";
+import { useTheme } from "@/src/context/ThemeContext";
+import { useLanguage } from "@/src/i18n/context/LanguageContext";
 
 interface CheckboxGroupProps {
   label: string;
   options: string[];
   selectedValues: string[];
-  onSelectionChange: (values: string[]) => void;
-  required?: boolean;
+  onToggle: (value: string) => void;
 }
 
-export default function CheckboxGroup({
+const AnimatedTouchableOpacity =
+  Animated.createAnimatedComponent(TouchableOpacity);
+
+const CheckboxGroup: React.FC<CheckboxGroupProps> = ({
   label,
   options,
   selectedValues,
-  onSelectionChange,
-  required = false,
-}: CheckboxGroupProps) {
-  const toggleSelection = (option: string) => {
-    const newSelection = selectedValues.includes(option)
-      ? selectedValues.filter((value) => value !== option)
-      : [...selectedValues, option];
+  onToggle,
+}) => {
+  const { colors } = useTheme();
+  const { currentLanguage } = useLanguage();
+  const isRTL = currentLanguage === "he";
 
-    onSelectionChange(newSelection);
+  const CheckboxItem: React.FC<{ option: string; isSelected: boolean }> = ({
+    option,
+    isSelected,
+  }) => {
+    const scale = useSharedValue(1);
+
+    const animatedStyle = useAnimatedStyle(() => {
+      return {
+        transform: [{ scale: scale.value }],
+      };
+    });
+
+    const handlePress = () => {
+      scale.value = withSpring(0.95, {}, () => {
+        scale.value = withSpring(1);
+      });
+      onToggle(option);
+    };
+
+    return (
+      <AnimatedTouchableOpacity
+        style={[
+          styles.checkboxItem,
+          {
+            backgroundColor: colors.card,
+            borderColor: isSelected ? colors.primary : colors.border,
+            shadowColor: colors.shadow,
+          },
+          animatedStyle,
+          isRTL && styles.checkboxItemRTL,
+        ]}
+        onPress={handlePress}
+        activeOpacity={1}
+      >
+        <View
+          style={[
+            styles.checkbox,
+            {
+              borderColor: isSelected ? colors.primary : colors.border,
+              backgroundColor: isSelected ? colors.primary : "transparent",
+            },
+          ]}
+        >
+          {isSelected && <Check size={16} color="white" strokeWidth={3} />}
+        </View>
+
+        <Text
+          style={[
+            styles.checkboxLabel,
+            { color: colors.text },
+            isRTL && styles.textRTL,
+          ]}
+        >
+          {option}
+        </Text>
+      </AnimatedTouchableOpacity>
+    );
   };
 
   return (
-    <View style={checkboxStyles.container}>
-      <Text style={checkboxStyles.label}>
+    <View style={styles.container}>
+      <Text
+        style={[styles.label, { color: colors.text }, isRTL && styles.textRTL]}
+      >
         {label}
-        {required && " *"}
       </Text>
 
-      <View style={checkboxStyles.optionsContainer}>
-        {options.map((option) => {
-          const isSelected = selectedValues.includes(option);
-
-          return (
-            <TouchableOpacity
-              key={option}
-              style={checkboxStyles.option}
-              onPress={() => toggleSelection(option)}
-            >
-              <View
-                style={[
-                  checkboxStyles.checkbox,
-                  isSelected && checkboxStyles.checkboxSelected,
-                ]}
-              >
-                {isSelected && <Check size={16} color={COLORS.white} />}
-              </View>
-              <Text
-                style={[
-                  checkboxStyles.optionText,
-                  isSelected && checkboxStyles.optionTextSelected,
-                ]}
-              >
-                {option}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
+      <View style={styles.checkboxGroup}>
+        {options.map((option) => (
+          <CheckboxItem
+            key={option}
+            option={option}
+            isSelected={selectedValues.includes(option)}
+          />
+        ))}
       </View>
     </View>
   );
-}
+};
 
-const checkboxStyles = StyleSheet.create({
+const styles = StyleSheet.create({
   container: {
-    marginBottom: 4,
+    marginBottom: 32,
   },
   label: {
     fontSize: 16,
     fontWeight: "600",
-    color: COLORS.gray[800],
-    marginBottom: 12,
+    marginBottom: 16,
   },
-  optionsContainer: {
+  checkboxGroup: {
     gap: 12,
   },
-  option: {
+  checkboxItem: {
     flexDirection: "row",
     alignItems: "center",
-    paddingVertical: 8,
+    padding: 18,
+    borderRadius: 16,
+    borderWidth: 2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  checkboxItemRTL: {
+    flexDirection: "row-reverse",
   },
   checkbox: {
     width: 24,
     height: 24,
     borderWidth: 2,
-    borderColor: COLORS.emerald[200],
     borderRadius: 8,
-    marginRight: 12,
+    marginRight: 16,
     justifyContent: "center",
     alignItems: "center",
-    backgroundColor: COLORS.white,
   },
-  checkboxSelected: {
-    backgroundColor: COLORS.emerald[500],
-    borderColor: COLORS.emerald[500],
-  },
-  optionText: {
-    fontSize: 14,
-    color: COLORS.gray[600],
+  checkboxLabel: {
+    fontSize: 15,
+    fontWeight: "500",
     flex: 1,
   },
-  optionTextSelected: {
-    color: COLORS.gray[800],
-    fontWeight: "500",
+  textRTL: {
+    textAlign: "right",
   },
 });
+
+export default CheckboxGroup;

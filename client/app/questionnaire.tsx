@@ -5,11 +5,9 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  TextInput,
   Alert,
   ActivityIndicator,
   Modal,
-  Switch,
   Dimensions,
   StatusBar,
 } from "react-native";
@@ -21,440 +19,34 @@ import {
   fetchQuestionnaire,
   clearError,
 } from "@/src/store/questionnaireSlice";
-import { Ionicons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import {
+  ChevronLeft,
+  Target,
+  Activity,
+  Heart,
+  Utensils,
+  Leaf,
+  Moon,
+  Settings,
+} from "lucide-react-native";
 import { useTranslation } from "react-i18next";
 import { useTheme } from "@/src/context/ThemeContext";
 import { useLanguage } from "@/src/i18n/context/LanguageContext";
-
-const { width: screenWidth } = Dimensions.get("window");
-interface ThemeContextType {
-  isDark: boolean;
-  colors: typeof lightColors | typeof darkColors;
-  toggleTheme: () => void;
-}
-
-const lightColors = {
-  background: "#ffffff",
-  surface: "#f8f9fa",
-  card: "#ffffff",
-  text: "#1a1a1a",
-  textSecondary: "#6b7280",
-  primary: "#3b82f6",
-  primaryLight: "#dbeafe",
-  success: "#10b981",
-  error: "#ef4444",
-  border: "#e5e7eb",
-  shadow: "rgba(0, 0, 0, 0.1)",
-  gradient: ["#3b82f6", "#1d4ed8"],
-};
-
-const darkColors = {
-  background: "#0f172a",
-  surface: "#1e293b",
-  card: "#334155",
-  text: "#f1f5f9",
-  textSecondary: "#94a3b8",
-  primary: "#60a5fa",
-  primaryLight: "#1e3a8a",
-  success: "#34d399",
-  error: "#f87171",
-  border: "#475569",
-  shadow: "rgba(0, 0, 0, 0.3)",
-  gradient: ["#60a5fa", "#3b82f6"],
-};
-
-// Language Context
-interface LanguageContextType {
-  currentLanguage: string;
-  isRTL: boolean;
-  changeLanguage: (lang: string) => void;
-}
+import { LinearGradient } from "expo-linear-gradient";
 
 // Components
-const ProgressIndicator: React.FC<{
-  currentStep: number;
-  totalSteps: number;
-}> = ({ currentStep, totalSteps }) => {
-  const { colors } = useTheme();
-  const { t } = useTranslation();
-  const { currentLanguage } = useLanguage();
-  const isRTL = currentLanguage === "he";
-  const progressPercentage = (currentStep / totalSteps) * 100;
+import ProgressIndicator from "@/components/questionnaire/ProgressIndicator";
+import StepContainer from "@/components/questionnaire/StepContainer";
+import OptionGroup from "@/components/questionnaire/OptionGroup";
+import CustomTextInput from "@/components/questionnaire/CustomTextInput";
+import WeightScale from "@/components/questionnaire/WeightScale";
+import DynamicListInput from "@/components/questionnaire/DynamicListInput";
+import CheckboxGroup from "@/components/questionnaire/CheckBoxGroup";
+import CustomSwitch from "@/components/questionnaire/CustomSwitch";
+import LoadingScreen from "@/components/LoadingScreen";
 
-  return (
-    <View style={[styles.progressContainer, { backgroundColor: colors.card }]}>
-      <View style={[styles.progressBar, { backgroundColor: colors.border }]}>
-        <View
-          style={[
-            styles.progressFill,
-            {
-              width: `${progressPercentage}%`,
-              backgroundColor: colors.primary,
-            },
-          ]}
-        />
-      </View>
-      <Text
-        style={[
-          styles.progressText,
-          { color: colors.textSecondary },
-          isRTL && styles.textRTL,
-        ]}
-      >
-        {t("questionnaire.step")} {currentStep} {t("common.of")} {totalSteps} (
-        {Math.round(progressPercentage)}%)
-      </Text>
-    </View>
-  );
-};
+const { width: screenWidth } = Dimensions.get("window");
 
-const StepContainer: React.FC<{
-  title: string;
-  description: string;
-  children: React.ReactNode;
-}> = ({ title, description, children }) => {
-  const { colors } = useTheme();
-  const { currentLanguage } = useLanguage();
-  const isRTL = currentLanguage === "he";
-
-  return (
-    <View style={styles.stepContainer}>
-      <View style={styles.stepHeader}>
-        <Text
-          style={[
-            styles.stepTitle,
-            { color: colors.text },
-            isRTL && styles.textRTL,
-          ]}
-        >
-          {title}
-        </Text>
-        <Text
-          style={[
-            styles.stepDescription,
-            { color: colors.textSecondary },
-            isRTL && styles.textRTL,
-          ]}
-        >
-          {description}
-        </Text>
-      </View>
-      {children}
-    </View>
-  );
-};
-
-const CustomTextInput: React.FC<{
-  label: string;
-  value: string;
-  onChangeText: (text: string) => void;
-  placeholder?: string;
-  keyboardType?: "default" | "numeric";
-  required?: boolean;
-}> = ({
-  label,
-  value,
-  onChangeText,
-  placeholder,
-  keyboardType = "default",
-  required = false,
-}) => {
-  const { colors } = useTheme();
-  const { currentLanguage } = useLanguage();
-  const isRTL = currentLanguage === "he";
-
-  return (
-    <View style={styles.inputGroup}>
-      <Text
-        style={[
-          styles.inputLabel,
-          { color: colors.text },
-          isRTL && styles.textRTL,
-        ]}
-      >
-        {label} {required && <Text style={{ color: colors.error }}>*</Text>}
-      </Text>
-      <View style={[styles.inputWrapper, { backgroundColor: colors.surface }]}>
-        <TextInput
-          style={[
-            styles.textInput,
-            {
-              borderColor: colors.border,
-              color: colors.text,
-              backgroundColor: colors.card,
-            },
-            isRTL && styles.textInputRTL,
-          ]}
-          value={value}
-          onChangeText={onChangeText}
-          placeholder={placeholder}
-          placeholderTextColor={colors.textSecondary}
-          keyboardType={keyboardType}
-        />
-      </View>
-    </View>
-  );
-};
-
-const OptionGroup: React.FC<{
-  label: string;
-  options: { key: string; label: string }[];
-  selectedValue: string;
-  onSelect: (value: string) => void;
-  required?: boolean;
-}> = ({ label, options, selectedValue, onSelect, required = false }) => {
-  const { colors } = useTheme();
-  const { currentLanguage } = useLanguage();
-  const isRTL = currentLanguage === "he";
-
-  return (
-    <View style={styles.inputGroup}>
-      <Text
-        style={[
-          styles.inputLabel,
-          { color: colors.text },
-          isRTL && styles.textRTL,
-        ]}
-      >
-        {label} {required && <Text style={{ color: colors.error }}>*</Text>}
-      </Text>
-      <View style={styles.optionGroup}>
-        {options.map((option) => {
-          const isSelected = selectedValue === option.key;
-          return (
-            <TouchableOpacity
-              key={option.key}
-              style={[
-                styles.optionButton,
-                {
-                  borderColor: isSelected ? colors.primary : colors.border,
-                  backgroundColor: isSelected ? colors.primary : colors.card,
-                  shadowColor: colors.shadow,
-                },
-              ]}
-              onPress={() => onSelect(option.key)}
-            >
-              <Text
-                style={[
-                  styles.optionText,
-                  {
-                    color: isSelected ? "#ffffff" : colors.text,
-                  },
-                  isRTL && styles.textRTL,
-                ]}
-              >
-                {option.label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-    </View>
-  );
-};
-
-const CheckboxGroup: React.FC<{
-  label: string;
-  options: string[];
-  selectedValues: string[];
-  onToggle: (value: string) => void;
-}> = ({ label, options, selectedValues, onToggle }) => {
-  const { colors } = useTheme();
-  const { currentLanguage } = useLanguage();
-  const isRTL = currentLanguage === "he";
-
-  return (
-    <View style={styles.inputGroup}>
-      <Text
-        style={[
-          styles.inputLabel,
-          { color: colors.text },
-          isRTL && styles.textRTL,
-        ]}
-      >
-        {label}
-      </Text>
-      <View style={styles.checkboxGroup}>
-        {options.map((option) => {
-          const isSelected = selectedValues.includes(option);
-          return (
-            <TouchableOpacity
-              key={option}
-              style={[
-                styles.checkboxItem,
-                { backgroundColor: colors.surface },
-                isRTL && styles.checkboxItemRTL,
-              ]}
-              onPress={() => onToggle(option)}
-            >
-              <View
-                style={[
-                  styles.checkbox,
-                  {
-                    borderColor: isSelected ? colors.primary : colors.border,
-                    backgroundColor: isSelected ? colors.primary : colors.card,
-                  },
-                ]}
-              >
-                {isSelected && (
-                  <Ionicons name="checkmark" size={16} color="white" />
-                )}
-              </View>
-              <Text
-                style={[
-                  styles.checkboxLabel,
-                  { color: colors.text },
-                  isRTL && styles.textRTL,
-                ]}
-              >
-                {option}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-    </View>
-  );
-};
-
-const CustomSwitch: React.FC<{
-  label: string;
-  value: boolean;
-  onValueChange: (value: boolean) => void;
-}> = ({ label, value, onValueChange }) => {
-  const { colors } = useTheme();
-  const { currentLanguage } = useLanguage();
-  const isRTL = currentLanguage === "he";
-
-  return (
-    <View style={styles.inputGroup}>
-      <View
-        style={[
-          styles.switchRow,
-          { backgroundColor: colors.surface },
-          isRTL && styles.switchRowRTL,
-        ]}
-      >
-        <Text
-          style={[
-            styles.switchLabel,
-            { color: colors.text },
-            isRTL && styles.textRTL,
-          ]}
-        >
-          {label}
-        </Text>
-        <Switch
-          value={value}
-          onValueChange={onValueChange}
-          trackColor={{ false: colors.border, true: colors.primary }}
-          thumbColor={value ? "#ffffff" : colors.textSecondary}
-        />
-      </View>
-    </View>
-  );
-};
-
-const DynamicListInput: React.FC<{
-  label: string;
-  placeholder: string;
-  items: string[];
-  onItemsChange: (items: string[]) => void;
-  maxItems?: number;
-}> = ({ label, placeholder, items, onItemsChange, maxItems = 10 }) => {
-  const { colors } = useTheme();
-  const { currentLanguage } = useLanguage();
-  const isRTL = currentLanguage === "he";
-  const [inputValue, setInputValue] = useState("");
-
-  const addItem = () => {
-    if (inputValue.trim() && items.length < maxItems) {
-      onItemsChange([...items, inputValue.trim()]);
-      setInputValue("");
-    }
-  };
-
-  const removeItem = (index: number) => {
-    onItemsChange(items.filter((_, i) => i !== index));
-  };
-
-  return (
-    <View style={styles.inputGroup}>
-      <Text
-        style={[
-          styles.inputLabel,
-          { color: colors.text },
-          isRTL && styles.textRTL,
-        ]}
-      >
-        {label}
-      </Text>
-
-      <View
-        style={[
-          styles.dynamicInputContainer,
-          isRTL && styles.dynamicInputContainerRTL,
-        ]}
-      >
-        <TextInput
-          style={[
-            styles.dynamicTextInput,
-            {
-              backgroundColor: colors.card,
-              borderColor: colors.border,
-              color: colors.text,
-            },
-            isRTL && styles.textInputRTL,
-          ]}
-          value={inputValue}
-          onChangeText={setInputValue}
-          placeholder={placeholder}
-          placeholderTextColor={colors.textSecondary}
-        />
-        <TouchableOpacity
-          style={[
-            styles.addButton,
-            {
-              backgroundColor: colors.primary,
-              opacity: !inputValue.trim() || items.length >= maxItems ? 0.5 : 1,
-            },
-          ]}
-          onPress={addItem}
-          disabled={!inputValue.trim() || items.length >= maxItems}
-        >
-          <Ionicons name="add" size={20} color="white" />
-        </TouchableOpacity>
-      </View>
-
-      {items.map((item, index) => (
-        <View
-          key={index}
-          style={[
-            styles.dynamicItem,
-            { backgroundColor: colors.surface },
-            isRTL && styles.dynamicItemRTL,
-          ]}
-        >
-          <Text
-            style={[
-              styles.dynamicItemText,
-              { color: colors.text },
-              isRTL && styles.textRTL,
-            ]}
-          >
-            {item}
-          </Text>
-          <TouchableOpacity onPress={() => removeItem(index)}>
-            <Ionicons name="close-circle" size={20} color={colors.error} />
-          </TouchableOpacity>
-        </View>
-      ))}
-    </View>
-  );
-};
-
-// Interface
 interface QuestionnaireData {
   age: string;
   gender: string;
@@ -485,7 +77,6 @@ interface QuestionnaireData {
   notifications_preference: "DAILY" | "WEEKLY" | "NONE" | null;
 }
 
-// Main Component
 const QuestionnaireScreen: React.FC = () => {
   const { colors, isDark } = useTheme();
   const { t } = useTranslation();
@@ -744,39 +335,145 @@ const QuestionnaireScreen: React.FC = () => {
       }
     }
   };
+
+  const getStepIcon = (step: number) => {
+    const iconProps = { size: 24, color: colors.primary };
+    switch (step) {
+      case 1:
+        return <Target {...iconProps} />;
+      case 2:
+        return <Target {...iconProps} />;
+      case 3:
+        return <Activity {...iconProps} />;
+      case 4:
+        return <Heart {...iconProps} />;
+      case 5:
+        return <Utensils {...iconProps} />;
+      case 6:
+        return <Leaf {...iconProps} />;
+      case 7:
+        return <Moon {...iconProps} />;
+      case 8:
+        return <Settings {...iconProps} />;
+      default:
+        return <Target {...iconProps} />;
+    }
+  };
+
   const renderStep = () => {
     const mainGoalOptions = [
-      { key: "WEIGHT_LOSS", label: t("questionnaire.loseWeight") },
-      { key: "WEIGHT_GAIN", label: t("questionnaire.gainWeight") },
-      { key: "WEIGHT_MAINTENANCE", label: t("questionnaire.maintainWeight") },
-      { key: "MEDICAL_CONDITION", label: t("questionnaire.improveHealth") },
-      { key: "ALERTNESS", label: t("questionnaire.improveHealth") },
-      { key: "ENERGY", label: t("questionnaire.improveHealth") },
-      { key: "SLEEP_QUALITY", label: t("questionnaire.improveHealth") },
-      { key: "SPORTS_PERFORMANCE", label: t("questionnaire.buildMuscle") },
-      { key: "OTHER", label: t("questionnaire.other") },
+      {
+        key: "WEIGHT_LOSS",
+        label: t("questionnaire.loseWeight"),
+        description: "Reduce body weight safely",
+        icon: <Text style={styles.emoji}>🏃‍♀️</Text>,
+      },
+      {
+        key: "WEIGHT_GAIN",
+        label: t("questionnaire.gainWeight"),
+        description: "Build healthy mass",
+        icon: <Text style={styles.emoji}>💪</Text>,
+      },
+      {
+        key: "WEIGHT_MAINTENANCE",
+        label: t("questionnaire.maintainWeight"),
+        description: "Keep current weight",
+        icon: <Text style={styles.emoji}>⚖️</Text>,
+      },
+      {
+        key: "MEDICAL_CONDITION",
+        label: t("questionnaire.improveHealth"),
+        description: "Address health concerns",
+        icon: <Text style={styles.emoji}>🏥</Text>,
+      },
+      {
+        key: "SPORTS_PERFORMANCE",
+        label: t("questionnaire.buildMuscle"),
+        description: "Enhance athletic performance",
+        icon: <Text style={styles.emoji}>🏆</Text>,
+      },
     ];
 
     const activityLevels = [
-      { key: "NONE", label: t("questionnaire.sedentary") },
-      { key: "LIGHT", label: t("questionnaire.lightlyActive") },
-      { key: "MODERATE", label: t("questionnaire.moderatelyActive") },
-      { key: "HIGH", label: t("questionnaire.veryActive") },
+      {
+        key: "NONE",
+        label: t("questionnaire.sedentary"),
+        description: "Desk job, minimal exercise",
+        icon: <Text style={styles.emoji}>🪑</Text>,
+      },
+      {
+        key: "LIGHT",
+        label: t("questionnaire.lightlyActive"),
+        description: "Light exercise 1-3 days/week",
+        icon: <Text style={styles.emoji}>🚶‍♀️</Text>,
+      },
+      {
+        key: "MODERATE",
+        label: t("questionnaire.moderatelyActive"),
+        description: "Moderate exercise 3-5 days/week",
+        icon: <Text style={styles.emoji}>🏃‍♀️</Text>,
+      },
+      {
+        key: "HIGH",
+        label: t("questionnaire.veryActive"),
+        description: "Heavy exercise 6-7 days/week",
+        icon: <Text style={styles.emoji}>🏋️‍♀️</Text>,
+      },
     ];
 
     const sportFrequencies = [
-      { key: "NONE", label: t("questionnaire.sedentary") },
-      { key: "ONCE_A_WEEK", label: "1x " + t("common.weekly") },
-      { key: "TWO_TO_THREE", label: "2-3x " + t("common.weekly") },
-      { key: "FOUR_TO_FIVE", label: "4-5x " + t("common.weekly") },
-      { key: "MORE_THAN_FIVE", label: "5+x " + t("common.weekly") },
+      {
+        key: "NONE",
+        label: t("questionnaire.sedentary"),
+        icon: <Text style={styles.emoji}>😴</Text>,
+      },
+      {
+        key: "ONCE_A_WEEK",
+        label: "1x " + t("common.weekly"),
+        icon: <Text style={styles.emoji}>🚶</Text>,
+      },
+      {
+        key: "TWO_TO_THREE",
+        label: "2-3x " + t("common.weekly"),
+        icon: <Text style={styles.emoji}>🏃</Text>,
+      },
+      {
+        key: "FOUR_TO_FIVE",
+        label: "4-5x " + t("common.weekly"),
+        icon: <Text style={styles.emoji}>💪</Text>,
+      },
+      {
+        key: "MORE_THAN_FIVE",
+        label: "5+x " + t("common.weekly"),
+        icon: <Text style={styles.emoji}>🏆</Text>,
+      },
     ];
 
     const cookingPrefs = [
-      { key: "cooked", label: t("questionnaire.cooked") },
-      { key: "easy_prep", label: t("questionnaire.easyPrep") },
-      { key: "ready_made", label: t("questionnaire.readyMade") },
-      { key: "no_cooking", label: t("questionnaire.noCooking") },
+      {
+        key: "cooked",
+        label: t("questionnaire.cooked"),
+        description: "Fresh home-cooked meals",
+        icon: <Text style={styles.emoji}>👨‍🍳</Text>,
+      },
+      {
+        key: "easy_prep",
+        label: t("questionnaire.easyPrep"),
+        description: "Quick and simple preparation",
+        icon: <Text style={styles.emoji}>⚡</Text>,
+      },
+      {
+        key: "ready_made",
+        label: t("questionnaire.readyMade"),
+        description: "Pre-prepared healthy options",
+        icon: <Text style={styles.emoji}>📦</Text>,
+      },
+      {
+        key: "no_cooking",
+        label: t("questionnaire.noCooking"),
+        description: "No cooking required",
+        icon: <Text style={styles.emoji}>🥗</Text>,
+      },
     ];
 
     const cookingMethods = [
@@ -800,60 +497,81 @@ const QuestionnaireScreen: React.FC = () => {
     ];
 
     const dietaryStyles = [
-      { key: "regular", label: t("questionnaire.omnivore") },
-      { key: "low_carb", label: t("questionnaire.lowCarb") },
-      { key: "keto", label: t("questionnaire.keto") },
-      { key: "vegetarian", label: t("questionnaire.vegetarian") },
-      { key: "vegan", label: t("questionnaire.vegan") },
-      { key: "mediterranean", label: t("questionnaire.mediterranean") },
-      { key: "low_fat", label: t("questionnaire.lowFat") },
-      { key: "low_sodium", label: t("questionnaire.lowSodium") },
+      {
+        key: "regular",
+        label: t("questionnaire.omnivore"),
+        description: "Balanced diet with all food groups",
+        icon: <Text style={styles.emoji}>🍽️</Text>,
+      },
+      {
+        key: "low_carb",
+        label: t("questionnaire.lowCarb"),
+        description: "Reduced carbohydrate intake",
+        icon: <Text style={styles.emoji}>🥩</Text>,
+      },
+      {
+        key: "keto",
+        label: t("questionnaire.keto"),
+        description: "High fat, very low carb",
+        icon: <Text style={styles.emoji}>🥑</Text>,
+      },
+      {
+        key: "vegetarian",
+        label: t("questionnaire.vegetarian"),
+        description: "Plant-based with dairy/eggs",
+        icon: <Text style={styles.emoji}>🌱</Text>,
+      },
+      {
+        key: "vegan",
+        label: t("questionnaire.vegan"),
+        description: "Completely plant-based",
+        icon: <Text style={styles.emoji}>🌿</Text>,
+      },
+      {
+        key: "mediterranean",
+        label: t("questionnaire.mediterranean"),
+        description: "Mediterranean-style eating",
+        icon: <Text style={styles.emoji}>🫒</Text>,
+      },
     ];
 
     const commitmentLevels = [
-      { key: "easy", label: t("questionnaire.easy") },
-      { key: "moderate", label: t("questionnaire.moderate") },
-      { key: "strict", label: t("questionnaire.strict") },
+      {
+        key: "easy",
+        label: t("questionnaire.easy"),
+        description: "Flexible approach",
+        icon: <Text style={styles.emoji}>😌</Text>,
+      },
+      {
+        key: "moderate",
+        label: t("questionnaire.moderate"),
+        description: "Balanced commitment",
+        icon: <Text style={styles.emoji}>💪</Text>,
+      },
+      {
+        key: "strict",
+        label: t("questionnaire.strict"),
+        description: "Dedicated approach",
+        icon: <Text style={styles.emoji}>🎯</Text>,
+      },
     ];
 
     const genderOptions = [
-      { key: "male", label: t("questionnaire.male") },
-      { key: "female", label: t("questionnaire.female") },
-      { key: "other", label: t("questionnaire.other") },
-    ];
-
-    const mealCounts = [
-      { key: "2", label: "2" },
-      { key: "3", label: "3" },
-      { key: "4", label: "4" },
-      { key: "5", label: "5" },
-      { key: "6", label: "6" },
-    ];
-
-    const smokingStatuses = [
-      { key: "NO", label: t("questionnaire.nonSmoker") },
-      { key: "YES", label: t("questionnaire.smoker") },
-    ];
-
-    const programDurations = [
-      { key: "month", label: t("questionnaire.month") },
-      { key: "three_months", label: t("questionnaire.threeMonths") },
-      { key: "six_months", label: t("questionnaire.sixMonths") },
-      { key: "year", label: t("questionnaire.year") },
-      { key: "unlimited", label: t("questionnaire.unlimited") },
-    ];
-
-    const uploadFreqs = [
-      { key: "every_meal", label: t("questionnaire.everyMeal") },
-      { key: "daily", label: t("questionnaire.daily") },
-      { key: "several_weekly", label: t("questionnaire.severalWeekly") },
-      { key: "weekly", label: t("questionnaire.weekly") },
-    ];
-
-    const notificationPrefs = [
-      { key: "DAILY", label: t("questionnaire.daily") },
-      { key: "WEEKLY", label: t("questionnaire.weekly") },
-      { key: "NONE", label: t("common.no") },
+      {
+        key: "male",
+        label: t("questionnaire.male"),
+        icon: <Text style={styles.emoji}>👨</Text>,
+      },
+      {
+        key: "female",
+        label: t("questionnaire.female"),
+        icon: <Text style={styles.emoji}>👩</Text>,
+      },
+      {
+        key: "other",
+        label: t("questionnaire.other"),
+        icon: <Text style={styles.emoji}>👤</Text>,
+      },
     ];
 
     switch (currentStep) {
@@ -866,11 +584,14 @@ const QuestionnaireScreen: React.FC = () => {
             <CustomTextInput
               label={t("questionnaire.age")}
               value={formData.age}
-              onChangeText={(text) => setFormData({ ...formData, age: text })}
+              onChangeText={(text: any) =>
+                setFormData({ ...formData, age: text })
+              }
               placeholder={t("questionnaire.enterAge")}
               keyboardType="numeric"
               required
             />
+
             <OptionGroup
               label={t("questionnaire.gender")}
               options={genderOptions}
@@ -878,43 +599,38 @@ const QuestionnaireScreen: React.FC = () => {
               onSelect={(value) => setFormData({ ...formData, gender: value })}
               required
             />
-            <CustomTextInput
+
+            <WeightScale
               label={t("questionnaire.height")}
-              value={formData.height_cm}
-              onChangeText={(text) =>
-                setFormData({ ...formData, height_cm: text })
+              value={parseInt(formData.height_cm) || 170}
+              onValueChange={(value: { toString: () => any }) =>
+                setFormData({ ...formData, height_cm: value.toString() })
               }
-              placeholder={t("questionnaire.enterHeight")}
-              keyboardType="numeric"
-              required
+              min={120}
+              max={220}
+              unit="cm"
             />
-            <CustomTextInput
+
+            <WeightScale
               label={t("questionnaire.weight")}
-              value={formData.weight_kg}
-              onChangeText={(text) =>
-                setFormData({ ...formData, weight_kg: text })
+              value={parseInt(formData.weight_kg) || 70}
+              onValueChange={(value: { toString: () => any }) =>
+                setFormData({ ...formData, weight_kg: value.toString() })
               }
-              placeholder={t("questionnaire.enterWeight")}
-              keyboardType="numeric"
-              required
+              min={30}
+              max={200}
+              unit="kg"
             />
-            <CustomTextInput
+
+            <WeightScale
               label={t("questionnaire.targetWeight")}
-              value={formData.target_weight_kg || ""}
-              onChangeText={(text) =>
-                setFormData({ ...formData, target_weight_kg: text || null })
+              value={parseInt(formData.target_weight_kg || "70") || 70}
+              onValueChange={(value: { toString: () => any }) =>
+                setFormData({ ...formData, target_weight_kg: value.toString() })
               }
-              placeholder={t("questionnaire.enterTargetWeight")}
-              keyboardType="numeric"
-            />
-            <DynamicListInput
-              label={t("questionnaire.additionalPersonalInfo")}
-              placeholder={t("questionnaire.addItem")}
-              items={formData.additional_personal_info}
-              onItemsChange={(items) =>
-                setFormData({ ...formData, additional_personal_info: items })
-              }
-              maxItems={5}
+              min={30}
+              max={200}
+              unit="kg"
             />
           </StepContainer>
         );
@@ -934,15 +650,17 @@ const QuestionnaireScreen: React.FC = () => {
               }
               required
             />
+
             <CustomTextInput
               label={t("questionnaire.goalTimeframe")}
               value={formData.goal_timeframe_days || ""}
-              onChangeText={(text) =>
+              onChangeText={(text: any) =>
                 setFormData({ ...formData, goal_timeframe_days: text || null })
               }
               placeholder={t("questionnaire.example90Days")}
               keyboardType="numeric"
             />
+
             <OptionGroup
               label={t("questionnaire.commitmentLevel")}
               options={commitmentLevels}
@@ -970,6 +688,7 @@ const QuestionnaireScreen: React.FC = () => {
               }
               required
             />
+
             <OptionGroup
               label={t("questionnaire.sportFrequency")}
               options={sportFrequencies}
@@ -997,6 +716,7 @@ const QuestionnaireScreen: React.FC = () => {
               }
               maxItems={10}
             />
+
             <DynamicListInput
               label={t("questionnaire.medications")}
               placeholder={t("questionnaire.addItem")}
@@ -1016,14 +736,6 @@ const QuestionnaireScreen: React.FC = () => {
             description={t("questionnaire.steps.means.subtitle")}
           >
             <OptionGroup
-              label={t("questionnaire.mealsPerDay")}
-              options={mealCounts}
-              selectedValue={formData.meals_per_day}
-              onSelect={(value) =>
-                setFormData({ ...formData, meals_per_day: value })
-              }
-            />
-            <OptionGroup
               label={t("questionnaire.cookingPreference")}
               options={cookingPrefs}
               selectedValue={formData.cooking_preference}
@@ -1032,11 +744,12 @@ const QuestionnaireScreen: React.FC = () => {
               }
               required
             />
+
             <CheckboxGroup
               label={t("questionnaire.availableCookingMethods")}
               options={cookingMethods}
               selectedValues={formData.available_cooking_methods}
-              onToggle={(value) =>
+              onToggle={(value: string) =>
                 handleArrayToggle(
                   formData.available_cooking_methods,
                   value,
@@ -1044,10 +757,11 @@ const QuestionnaireScreen: React.FC = () => {
                 )
               }
             />
+
             <CustomTextInput
               label={t("questionnaire.dailyFoodBudget")}
               value={formData.daily_food_budget || ""}
-              onChangeText={(text) =>
+              onChangeText={(text: any) =>
                 setFormData({ ...formData, daily_food_budget: text || null })
               }
               placeholder={t("questionnaire.example50Budget")}
@@ -1064,19 +778,22 @@ const QuestionnaireScreen: React.FC = () => {
           >
             <CustomSwitch
               label={t("questionnaire.kosher")}
+              description="Follow kosher dietary laws"
               value={formData.kosher}
-              onValueChange={(value) =>
+              onValueChange={(value: any) =>
                 setFormData({ ...formData, kosher: value })
               }
             />
+
             <CheckboxGroup
               label={t("questionnaire.allergies")}
               options={allergens}
               selectedValues={formData.allergies}
-              onToggle={(value) =>
+              onToggle={(value: string) =>
                 handleArrayToggle(formData.allergies, value, "allergies")
               }
             />
+
             <OptionGroup
               label={t("questionnaire.dietaryStyle")}
               options={dietaryStyles}
@@ -1095,21 +812,34 @@ const QuestionnaireScreen: React.FC = () => {
             title={t("questionnaire.steps.lifestyle.title")}
             description={t("questionnaire.steps.lifestyle.subtitle")}
           >
-            <CustomTextInput
+            <WeightScale
               label={t("questionnaire.sleepHours")}
-              value={formData.sleep_hours_per_night || ""}
-              onChangeText={(text) =>
+              value={parseInt(formData.sleep_hours_per_night || "8") || 8}
+              onValueChange={(value: { toString: () => any }) =>
                 setFormData({
                   ...formData,
-                  sleep_hours_per_night: text || null,
+                  sleep_hours_per_night: value.toString(),
                 })
               }
-              placeholder={t("questionnaire.example7Hours")}
-              keyboardType="numeric"
+              min={4}
+              max={12}
+              unit="hours"
             />
+
             <OptionGroup
               label={t("questionnaire.smokingStatus")}
-              options={smokingStatuses}
+              options={[
+                {
+                  key: "NO",
+                  label: t("questionnaire.nonSmoker"),
+                  icon: <Text style={styles.emoji}>🚭</Text>,
+                },
+                {
+                  key: "YES",
+                  label: t("questionnaire.smoker"),
+                  icon: <Text style={styles.emoji}>🚬</Text>,
+                },
+              ]}
               selectedValue={formData.smoking_status || ""}
               onSelect={(value) =>
                 setFormData({
@@ -1128,38 +858,47 @@ const QuestionnaireScreen: React.FC = () => {
             description={t("questionnaire.steps.preferences.subtitle")}
           >
             <OptionGroup
-              label={t("questionnaire.programDuration")}
-              options={programDurations}
-              selectedValue={formData.program_duration}
-              onSelect={(value) =>
-                setFormData({ ...formData, program_duration: value })
-              }
-            />
-            <OptionGroup
               label={t("questionnaire.uploadFrequency")}
-              options={uploadFreqs}
+              options={[
+                { key: "every_meal", label: t("questionnaire.everyMeal") },
+                { key: "daily", label: t("questionnaire.daily") },
+                {
+                  key: "several_weekly",
+                  label: t("questionnaire.severalWeekly"),
+                },
+                { key: "weekly", label: t("questionnaire.weekly") },
+              ]}
               selectedValue={formData.upload_frequency}
               onSelect={(value) =>
                 setFormData({ ...formData, upload_frequency: value })
               }
             />
+
             <CustomSwitch
               label={t("questionnaire.willingnessToFollow")}
+              description="Commit to following the nutrition plan"
               value={formData.willingness_to_follow}
-              onValueChange={(value) =>
+              onValueChange={(value: any) =>
                 setFormData({ ...formData, willingness_to_follow: value })
               }
             />
+
             <CustomSwitch
               label={t("questionnaire.personalizedTips")}
+              description="Receive personalized nutrition tips"
               value={formData.personalized_tips}
-              onValueChange={(value) =>
+              onValueChange={(value: any) =>
                 setFormData({ ...formData, personalized_tips: value })
               }
             />
+
             <OptionGroup
               label={t("questionnaire.notificationsPreference")}
-              options={notificationPrefs}
+              options={[
+                { key: "DAILY", label: t("questionnaire.daily") },
+                { key: "WEEKLY", label: t("questionnaire.weekly") },
+                { key: "NONE", label: t("common.no") },
+              ]}
               selectedValue={formData.notifications_preference || ""}
               onSelect={(value) =>
                 setFormData({
@@ -1185,18 +924,9 @@ const QuestionnaireScreen: React.FC = () => {
     !dataLoaded
   ) {
     return (
-      <View
-        style={[
-          styles.container,
-          styles.loadingContainer,
-          { backgroundColor: colors.background },
-        ]}
-      >
-        <ActivityIndicator size="large" color={colors.primary} />
-        <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-          {t("questionnaire.loading")}
-        </Text>
-      </View>
+      <LoadingScreen
+        text={isRTL ? "טוען שאלון" : "Loading Questionnaire"}
+      />
     );
   }
 
@@ -1207,31 +937,28 @@ const QuestionnaireScreen: React.FC = () => {
         barStyle={isDark ? "light-content" : "dark-content"}
       />
 
-      <View
-        style={[
-          styles.header,
-          {
-            backgroundColor: colors.card,
-            borderBottomColor: colors.border,
-          },
-        ]}
-      >
+      {/* Header */}
+      <View style={[styles.header, { backgroundColor: colors.background }]}>
         <TouchableOpacity style={styles.backButton} onPress={handleBack}>
-          <Ionicons
-            name={isRTL ? "arrow-forward" : "arrow-back"}
-            size={24}
-            color={colors.primary}
-          />
+          <ChevronLeft size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text
-          style={[
-            styles.headerTitle,
-            { color: colors.text },
-            isRTL && styles.textRTL,
-          ]}
-        >
-          {t("questionnaire.title")}
-        </Text>
+
+        <View style={styles.headerCenter}>
+          <View
+            style={[
+              styles.stepIcon,
+              { backgroundColor: colors.primary + "15" },
+            ]}
+          >
+            {getStepIcon(currentStep)}
+          </View>
+        </View>
+
+        <TouchableOpacity style={styles.skipButton}>
+          <Text style={[styles.skipText, { color: colors.textSecondary }]}>
+            Skip
+          </Text>
+        </TouchableOpacity>
       </View>
 
       <ProgressIndicator currentStep={currentStep} totalSteps={totalSteps} />
@@ -1242,84 +969,66 @@ const QuestionnaireScreen: React.FC = () => {
         contentContainerStyle={styles.scrollContent}
       >
         {renderStep()}
-
-        <View
-          style={[
-            styles.tipContainer,
-            {
-              backgroundColor: colors.primaryLight,
-              borderLeftColor: colors.primary,
-            },
-          ]}
-        >
-          <Ionicons name="bulb-outline" size={20} color={colors.primary} />
-          <Text
-            style={[
-              styles.tipText,
-              { color: colors.primary },
-              isRTL && styles.textRTL,
-            ]}
-          >
-            {t("questionnaire.tip")}
-          </Text>
-        </View>
       </ScrollView>
 
-      <View
-        style={[
-          styles.navigation,
-          { backgroundColor: colors.card, borderTopColor: colors.border },
-        ]}
-      >
+      {/* Navigation */}
+      <View style={[styles.navigation, { backgroundColor: "transperent" }]}>
         {currentStep < totalSteps ? (
           <TouchableOpacity
             style={[
               styles.actionButton,
-              styles.nextButton,
               {
                 backgroundColor: canProceed() ? colors.primary : colors.border,
-                opacity: canProceed() ? 1 : 0.6,
               },
             ]}
             onPress={() => setCurrentStep(currentStep + 1)}
             disabled={!canProceed()}
+            activeOpacity={0.8}
           >
-            <Text style={[styles.buttonText, isRTL && styles.textRTL]}>
-              {t("common.next")}
-            </Text>
-            <Ionicons
-              name={isRTL ? "arrow-back" : "arrow-forward"}
-              size={20}
-              color="white"
-            />
+            <LinearGradient
+              colors={
+                canProceed()
+                  ? [colors.primary, colors.primary + "CC"]
+                  : [colors.border, colors.border]
+              }
+              style={styles.buttonGradient}
+            >
+              <Text style={styles.buttonText}>{t("common.next")}</Text>
+            </LinearGradient>
           </TouchableOpacity>
         ) : (
           <TouchableOpacity
             style={[
               styles.actionButton,
-              styles.finishButton,
               {
                 backgroundColor: isSaving ? colors.border : colors.success,
-                opacity: isSaving ? 0.6 : 1,
               },
             ]}
             onPress={handleSubmit}
             disabled={isSaving}
+            activeOpacity={0.8}
           >
-            {isSaving ? (
-              <ActivityIndicator color="white" size="small" />
-            ) : (
-              <>
-                <Text style={[styles.buttonText, isRTL && styles.textRTL]}>
+            <LinearGradient
+              colors={
+                isSaving
+                  ? [colors.border, colors.border]
+                  : [colors.success, colors.success + "CC"]
+              }
+              style={styles.buttonGradient}
+            >
+              {isSaving ? (
+                <ActivityIndicator color="white" size="small" />
+              ) : (
+                <Text style={styles.buttonText}>
                   {isEditMode ? t("common.save") : t("questionnaire.finish")}
                 </Text>
-                <Ionicons name="checkmark" size={20} color="white" />
-              </>
-            )}
+              )}
+            </LinearGradient>
           </TouchableOpacity>
         )}
       </View>
 
+      {/* Tip Modal */}
       <Modal
         visible={!!showTip}
         transparent
@@ -1341,9 +1050,7 @@ const QuestionnaireScreen: React.FC = () => {
               style={[styles.modalButton, { backgroundColor: colors.primary }]}
               onPress={() => setShowTip("")}
             >
-              <Text style={[styles.modalButtonText, isRTL && styles.textRTL]}>
-                {t("common.ok")}
-              </Text>
+              <Text style={styles.modalButtonText}>{t("common.ok")}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1369,270 +1076,68 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 20,
-    borderBottomWidth: 1,
-    elevation: 3,
-    shadowColor: "rgba(0,0,0,0.1)",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
+    paddingHorizontal: 24,
+    paddingTop: 16,
+    paddingBottom: 8,
   },
   backButton: {
-    padding: 12,
-    borderRadius: 25,
-    backgroundColor: "rgba(59, 130, 246, 0.1)",
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: "bold",
-    textAlign: "center",
+  headerCenter: {
+    flex: 1,
+    alignItems: "center",
   },
-  progressContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 20,
-    elevation: 2,
-    shadowColor: "rgba(0,0,0,0.05)",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+  stepIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  progressBar: {
-    height: 6,
-    borderRadius: 3,
-    marginBottom: 12,
-    overflow: "hidden",
+  skipButton: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
   },
-  progressFill: {
-    height: "100%",
-    borderRadius: 3,
-  },
-  progressText: {
-    fontSize: 14,
-    textAlign: "center",
-    fontWeight: "600",
+  skipText: {
+    fontSize: 16,
+    fontWeight: "500",
   },
   content: {
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 20,
-  },
-  stepContainer: {
-    paddingHorizontal: 24,
-    paddingVertical: 20,
-  },
-  stepHeader: {
-    marginBottom: 32,
-    alignItems: "center",
-  },
-  stepTitle: {
-    fontSize: 28,
-    fontWeight: "bold",
-    marginBottom: 8,
-    textAlign: "center",
-  },
-  stepDescription: {
-    fontSize: 16,
-    textAlign: "center",
-    lineHeight: 24,
-    opacity: 0.8,
-  },
-  inputGroup: {
-    marginBottom: 28,
-  },
-  inputLabel: {
-    fontSize: 16,
-    fontWeight: "600",
-    marginBottom: 12,
-  },
-  inputWrapper: {
-    borderRadius: 12,
-    elevation: 1,
-    shadowColor: "rgba(0,0,0,0.05)",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-  },
-  textInput: {
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 16,
-    minHeight: 52,
-  },
-  textInputRTL: {
-    textAlign: "right",
-  },
-  textRTL: {
-    textAlign: "right",
-  },
-  optionGroup: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 12,
-  },
-  optionButton: {
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderRadius: 25,
-    borderWidth: 2,
-    elevation: 2,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    minWidth: 80,
-    alignItems: "center",
-  },
-  optionText: {
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  checkboxGroup: {
-    gap: 12,
-  },
-  checkboxItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    padding: 16,
-    borderRadius: 12,
-    elevation: 1,
-    shadowColor: "rgba(0,0,0,0.05)",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-  },
-  checkboxItemRTL: {
-    flexDirection: "row-reverse",
-  },
-  checkbox: {
-    width: 24,
-    height: 24,
-    borderWidth: 2,
-    borderRadius: 6,
-    marginRight: 12,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  checkboxLabel: {
-    fontSize: 16,
-    flex: 1,
-  },
-  switchRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 16,
-    borderRadius: 12,
-    elevation: 1,
-    shadowColor: "rgba(0,0,0,0.05)",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-  },
-  switchRowRTL: {
-    flexDirection: "row-reverse",
-  },
-  switchLabel: {
-    fontSize: 16,
-    fontWeight: "500",
-    flex: 1,
-  },
-  dynamicInputContainer: {
-    flexDirection: "row",
-    gap: 12,
-    marginBottom: 16,
-  },
-  dynamicInputContainerRTL: {
-    flexDirection: "row-reverse",
-  },
-  dynamicTextInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 14,
-    fontSize: 16,
-    minHeight: 48,
-  },
-  addButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: "center",
-    alignItems: "center",
-    elevation: 2,
-    shadowColor: "rgba(0,0,0,0.1)",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-  },
-  dynamicItem: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 14,
-    borderRadius: 10,
-    marginBottom: 8,
-    elevation: 1,
-    shadowColor: "rgba(0,0,0,0.05)",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-  },
-  dynamicItemRTL: {
-    flexDirection: "row-reverse",
-  },
-  dynamicItemText: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: "500",
-  },
-  tipContainer: {
-    margin: 20,
-    padding: 16,
-    borderRadius: 12,
-    borderLeftWidth: 4,
-    flexDirection: "row",
-    alignItems: "flex-start",
-    gap: 12,
-  },
-  tipText: {
-    fontSize: 14,
-    lineHeight: 20,
-    fontWeight: "500",
-    flex: 1,
+    paddingBottom: 120,
   },
   navigation: {
-    padding: 20,
-    borderTopWidth: 1,
-    elevation: 3,
-    shadowColor: "rgba(0,0,0,0.1)",
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
+    position: "absolute",
+    bottom: -30,
+    left: 0,
+    right: 0,
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+    paddingBottom: 40,
   },
   actionButton: {
-    flexDirection: "row",
+    borderRadius: 16,
+    overflow: "hidden",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  buttonGradient: {
+    paddingVertical: 18,
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    gap: 8,
-    elevation: 3,
-    shadowColor: "rgba(0,0,0,0.15)",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    minHeight: 56,
   },
-  nextButton: {},
-  finishButton: {},
   buttonText: {
     color: "white",
     fontSize: 18,
-    fontWeight: "bold",
+    fontWeight: "700",
   },
   modalOverlay: {
     flex: 1,
@@ -1642,15 +1147,14 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   modalContent: {
-    borderRadius: 16,
+    borderRadius: 20,
     padding: 24,
     maxWidth: 320,
     width: "100%",
-    elevation: 8,
-    shadowColor: "rgba(0,0,0,0.25)",
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.25,
-    shadowRadius: 8,
+    shadowRadius: 16,
+    elevation: 12,
   },
   modalText: {
     fontSize: 16,
@@ -1659,9 +1163,9 @@ const styles = StyleSheet.create({
     lineHeight: 24,
   },
   modalButton: {
-    paddingVertical: 12,
+    paddingVertical: 14,
     paddingHorizontal: 24,
-    borderRadius: 8,
+    borderRadius: 12,
     alignItems: "center",
   },
   modalButtonText: {
@@ -1669,196 +1173,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
+  emoji: {
+    fontSize: 24,
+  },
+  textRTL: {
+    textAlign: "right",
+  },
 });
-
-const createThemedStyles = (colors: any, isRTL: boolean) =>
-  StyleSheet.create({
-    container: {
-      flex: 1,
-      backgroundColor: colors.background,
-    },
-    loadingContainer: {
-      justifyContent: "center",
-      alignItems: "center",
-    },
-    loadingText: {
-      marginTop: 16,
-      fontSize: 16,
-      color: colors.textSecondary,
-    },
-    header: {
-      flexDirection: "row",
-      alignItems: "center",
-      paddingHorizontal: 16,
-      paddingVertical: 12,
-      backgroundColor: colors.card,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-      elevation: 2,
-      shadowColor: colors.shadow,
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-    },
-    backButton: {
-      padding: 8,
-      marginRight: isRTL ? 0 : 8,
-      marginLeft: isRTL ? 8 : 0,
-    },
-    headerTitle: {
-      flex: 1,
-      fontSize: 20,
-      fontWeight: "600",
-      color: colors.text,
-      textAlign: isRTL ? "right" : "left",
-    },
-    textRTL: {
-      textAlign: "right",
-    },
-    progressContainer: {
-      backgroundColor: colors.card,
-      paddingHorizontal: 20,
-      paddingVertical: 16,
-      borderBottomWidth: 1,
-      borderBottomColor: colors.border,
-    },
-    progressHeader: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      alignItems: "center",
-      marginBottom: 12,
-    },
-    progressText: {
-      fontSize: 14,
-      fontWeight: "600",
-      color: colors.text,
-    },
-    progressStepText: {
-      fontSize: 12,
-      color: colors.textSecondary,
-    },
-    progressBarContainer: {
-      height: 6,
-      backgroundColor: colors.border,
-      borderRadius: 3,
-      overflow: "hidden",
-    },
-    progressBar: {
-      height: "100%",
-      backgroundColor: colors.primary,
-      borderRadius: 3,
-    },
-    content: {
-      flex: 1,
-    },
-    stepContent: {
-      flex: 1,
-      padding: 20,
-    },
-    stepTitle: {
-      fontSize: 24,
-      fontWeight: "bold",
-      color: colors.text,
-      marginBottom: 8,
-      textAlign: isRTL ? "right" : "left",
-    },
-    stepSubtitle: {
-      fontSize: 16,
-      color: colors.textSecondary,
-      marginBottom: 32,
-      lineHeight: 24,
-      textAlign: isRTL ? "right" : "left",
-    },
-    navigation: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      padding: 20,
-      backgroundColor: colors.card,
-      borderTopWidth: 1,
-      borderTopColor: colors.border,
-    },
-    navButton: {
-      paddingHorizontal: 24,
-      paddingVertical: 12,
-      borderRadius: 8,
-      minWidth: 100,
-      alignItems: "center",
-    },
-    navButtonPrimary: {
-      backgroundColor: colors.primary,
-    },
-    navButtonSecondary: {
-      backgroundColor: colors.border,
-    },
-    navButtonDisabled: {
-      backgroundColor: colors.border,
-      opacity: 0.5,
-    },
-    navButtonText: {
-      fontSize: 16,
-      fontWeight: "600",
-    },
-    navButtonTextPrimary: {
-      color: colors.background,
-    },
-    navButtonTextSecondary: {
-      color: colors.text,
-    },
-    modalOverlay: {
-      flex: 1,
-      backgroundColor: "rgba(0, 0, 0, 0.5)",
-      justifyContent: "center",
-      alignItems: "center",
-    },
-    modalContent: {
-      backgroundColor: colors.card,
-      borderRadius: 12,
-      padding: 24,
-      margin: 20,
-      maxWidth: 300,
-      width: "100%",
-    },
-    modalTitle: {
-      fontSize: 18,
-      fontWeight: "bold",
-      color: colors.text,
-      marginBottom: 16,
-      textAlign: "center",
-    },
-    modalText: {
-      fontSize: 16,
-      color: colors.textSecondary,
-      marginBottom: 24,
-      textAlign: "center",
-      lineHeight: 24,
-    },
-    modalButtons: {
-      flexDirection: "row",
-      justifyContent: "space-around",
-    },
-    modalButton: {
-      paddingHorizontal: 20,
-      paddingVertical: 10,
-      borderRadius: 8,
-      minWidth: 80,
-      alignItems: "center",
-    },
-    modalButtonPrimary: {
-      backgroundColor: colors.primary,
-    },
-    modalButtonSecondary: {
-      backgroundColor: colors.border,
-    },
-    modalButtonText: {
-      fontSize: 16,
-      fontWeight: "600",
-    },
-    modalButtonTextPrimary: {
-      color: colors.background,
-    },
-    modalButtonTextSecondary: {
-      color: colors.text,
-    },
-  });
 
 export default QuestionnaireScreen;

@@ -7,51 +7,40 @@ import { useTranslation } from "react-i18next";
 interface ProgressIndicatorProps {
   currentStep: number;
   totalSteps: number;
-  progress: number;
 }
 
 const ProgressIndicator: React.FC<ProgressIndicatorProps> = ({
   currentStep,
   totalSteps,
-  progress,
 }) => {
   const { colors } = useTheme();
-  const { isRTL } = useLanguage();
   const { t } = useTranslation();
+  const { currentLanguage } = useLanguage();
+  const isRTL = currentLanguage === "he";
+  const progressPercentage = (currentStep / totalSteps) * 100;
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.surface }]}>
-      <View style={[styles.content, isRTL && styles.contentRTL]}>
-        <Text style={[styles.stepText, { color: colors.text }]}>
-          {t("questionnaire.step")} {currentStep} {t("common.of")} {totalSteps}
+    <View style={styles.container}>
+      <View style={styles.stepIndicator}>
+        <Text style={[styles.stepText, { color: colors.textSecondary }]}>
+          {currentStep}
         </Text>
+        <Text style={[styles.divider, { color: colors.textSecondary }]}>/</Text>
+        <Text style={[styles.totalText, { color: colors.textSecondary }]}>
+          {totalSteps}
+        </Text>
+      </View>
 
+      <View style={[styles.progressBar, { backgroundColor: colors.border }]}>
         <View
           style={[
-            styles.progressContainer,
-            isRTL && styles.progressContainerRTL,
+            styles.progressFill,
+            {
+              width: `${progressPercentage}%`,
+              backgroundColor: colors.primary,
+            },
           ]}
-        >
-          <View
-            style={[styles.progressTrack, { backgroundColor: colors.border }]}
-          >
-            <View
-              style={[
-                styles.progressFill,
-                {
-                  backgroundColor: colors.primary,
-                  width: `${progress}%`,
-                  transform: isRTL ? [{ scaleX: -1 }] : undefined,
-                },
-              ]}
-            />
-          </View>
-          <Text
-            style={[styles.percentageText, { color: colors.textSecondary }]}
-          >
-            {Math.round(progress)}%
-          </Text>
-        </View>
+        />
       </View>
     </View>
   );
@@ -59,45 +48,37 @@ const ProgressIndicator: React.FC<ProgressIndicatorProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     paddingVertical: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(0, 0, 0, 0.1)",
+    alignItems: "center",
   },
-  content: {
-    flexDirection: "column",
-    gap: 8,
-  },
-  contentRTL: {
-    alignItems: "flex-end",
-  },
-  stepText: {
-    fontSize: 14,
-    fontWeight: "500",
-  },
-  progressContainer: {
+  stepIndicator: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    marginBottom: 12,
   },
-  progressContainerRTL: {
-    flexDirection: "row-reverse",
+  stepText: {
+    fontSize: 16,
+    fontWeight: "600",
   },
-  progressTrack: {
-    flex: 1,
-    height: 6,
-    borderRadius: 3,
+  divider: {
+    fontSize: 16,
+    fontWeight: "400",
+    marginHorizontal: 4,
+  },
+  totalText: {
+    fontSize: 16,
+    fontWeight: "400",
+  },
+  progressBar: {
+    height: 4,
+    width: 60,
+    borderRadius: 2,
     overflow: "hidden",
   },
   progressFill: {
     height: "100%",
-    borderRadius: 3,
-  },
-  percentageText: {
-    fontSize: 12,
-    fontWeight: "500",
-    minWidth: 35,
-    textAlign: "center",
+    borderRadius: 2,
   },
 });
 

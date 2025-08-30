@@ -1,17 +1,17 @@
 import React from "react";
-import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
-import { Check } from "lucide-react-native";
-import { COLORS } from "./PreferencesStep";
-
-interface Option {
-  key: string;
-  label: string;
-  color?: string;
-}
+import { View, Text, StyleSheet } from "react-native";
+import { useTheme } from "@/src/context/ThemeContext";
+import { useLanguage } from "@/src/i18n/context/LanguageContext";
+import OptionCard from "./OptionCard";
 
 interface OptionGroupProps {
   label: string;
-  options: Option[];
+  options: {
+    key: string;
+    label: string;
+    description?: string;
+    icon?: React.ReactNode;
+  }[];
   selectedValue: string;
   onSelect: (value: string) => void;
   required?: boolean;
@@ -19,7 +19,7 @@ interface OptionGroupProps {
   selectedValues?: string[];
 }
 
-export default function OptionGroup({
+const OptionGroup: React.FC<OptionGroupProps> = ({
   label,
   options,
   selectedValue,
@@ -27,20 +27,18 @@ export default function OptionGroup({
   required = false,
   multiSelect = false,
   selectedValues = [],
-}: OptionGroupProps) {
-  const handleSelect = (value: string) => {
-    if (multiSelect) {
-      // Handle multi-select logic if needed
-      return;
-    }
-    onSelect(value);
-  };
+}) => {
+  const { colors } = useTheme();
+  const { currentLanguage } = useLanguage();
+  const isRTL = currentLanguage === "he";
 
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>
+      <Text
+        style={[styles.label, { color: colors.text }, isRTL && styles.textRTL]}
+      >
         {label}
-        {required && " *"}
+        {required && <Text style={{ color: colors.error }}> *</Text>}
       </Text>
 
       <View style={styles.optionsContainer}>
@@ -50,100 +48,37 @@ export default function OptionGroup({
             : selectedValue === option.key;
 
           return (
-            <TouchableOpacity
+            <OptionCard
               key={option.key}
-              style={[
-                styles.option,
-                isSelected && styles.optionSelected,
-                isSelected &&
-                  option.color && {
-                    borderColor: option.color,
-                    backgroundColor: option.color + "10",
-                  },
-              ]}
-              onPress={() => handleSelect(option.key)}
-            >
-              <Text
-                style={[
-                  styles.optionText,
-                  isSelected && styles.optionTextSelected,
-                  isSelected && option.color && { color: option.color },
-                ]}
-              >
-                {option.label}
-              </Text>
-
-              {isSelected && (
-                <View
-                  style={[
-                    styles.checkContainer,
-                    option.color && { backgroundColor: option.color },
-                  ]}
-                >
-                  <Check size={16} color="white" />
-                </View>
-              )}
-            </TouchableOpacity>
+              label={option.label}
+              description={option.description}
+              icon={option.icon}
+              isSelected={isSelected}
+              onPress={() => onSelect(option.key)}
+            />
           );
         })}
       </View>
     </View>
   );
-}
+};
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 4,
+    marginBottom: 32,
   },
   label: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "600",
-    color: "#1e293b",
-    marginBottom: 12,
+    marginBottom: 20,
+    textAlign: "center",
   },
   optionsContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 12,
+    gap: 8,
   },
-  option: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: COLORS.emerald[700],
-    backgroundColor: "white",
-    minWidth: 100,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 1,
-  },
-  optionSelected: {
-    borderColor: COLORS.emerald[700],
-    backgroundColor: "#f8faff",
-  },
-  optionText: {
-    fontSize: 14,
-    fontWeight: "500",
-    color: "#64748b",
-    flex: 1,
-  },
-  optionTextSelected: {
-    color: COLORS.emerald[700],
-    fontWeight: "600",
-  },
-  checkContainer: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: COLORS.emerald[700],
-    justifyContent: "center",
-    alignItems: "center",
-    marginLeft: 8,
+  textRTL: {
+    textAlign: "right",
   },
 });
+
+export default OptionGroup;

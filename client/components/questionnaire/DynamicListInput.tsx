@@ -1,165 +1,245 @@
 import React, { useState } from "react";
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from "react-native";
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+} from "react-native";
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  FadeIn,
+  FadeOut,
+} from "react-native-reanimated";
 import { Plus, X } from "lucide-react-native";
-import ModernTextInput from "./ModernTextInput";
-import { COLORS } from "./PreferencesStep";
+import { useTheme } from "@/src/context/ThemeContext";
+import { useLanguage } from "@/src/i18n/context/LanguageContext";
 
 interface DynamicListInputProps {
   label: string;
   placeholder: string;
-  initialItems: string[];
+  items: string[];
   onItemsChange: (items: string[]) => void;
   maxItems?: number;
 }
 
-export default function DynamicListInput({
+const AnimatedTouchableOpacity =
+  Animated.createAnimatedComponent(TouchableOpacity);
+
+const DynamicListInput: React.FC<DynamicListInputProps> = ({
   label,
   placeholder,
-  initialItems,
+  items,
   onItemsChange,
   maxItems = 10,
-}: DynamicListInputProps) {
-  const [items, setItems] = useState<string[]>(initialItems || []);
-  const [newItem, setNewItem] = useState("");
+}) => {
+  const { colors } = useTheme();
+  const { currentLanguage } = useLanguage();
+  const isRTL = currentLanguage === "he";
+  const [inputValue, setInputValue] = useState("");
+  const [isFocused, setIsFocused] = useState(false);
 
   const addItem = () => {
-    if (!newItem.trim()) return;
-
-    if (items.length >= maxItems) {
-      Alert.alert("הגבלה", `ניתן להוסיף עד ${maxItems} פריטים`);
-      return;
+    if (inputValue.trim() && items.length < maxItems) {
+      onItemsChange([...items, inputValue.trim()]);
+      setInputValue("");
     }
-
-    const updatedItems = [...items, newItem.trim()];
-    setItems(updatedItems);
-    onItemsChange(updatedItems);
-    setNewItem("");
   };
 
   const removeItem = (index: number) => {
-    const updatedItems = items.filter((_, i) => i !== index);
-    setItems(updatedItems);
-    onItemsChange(updatedItems);
+    onItemsChange(items.filter((_, i) => i !== index));
   };
 
-  return (
-    <View style={dynamicListStyles.container}>
-      <Text style={dynamicListStyles.label}>{label}</Text>
+  const canAdd = inputValue.trim() && items.length < maxItems;
 
-      <View style={dynamicListStyles.inputRow}>
-        <ModernTextInput
-          label=""
-          value={newItem}
-          onChangeText={setNewItem}
-          placeholder={placeholder}
-          style={dynamicListStyles.input}
-          onSubmitEditing={addItem}
-          returnKeyType="done"
-        />
+  return (
+    <View style={styles.container}>
+      <Text
+        style={[styles.label, { color: colors.text }, isRTL && styles.textRTL]}
+      >
+        {label}
+      </Text>
+
+      <View style={[styles.inputContainer, isRTL && styles.inputContainerRTL]}>
+        <View
+          style={[
+            styles.inputWrapper,
+            {
+              backgroundColor: colors.card,
+              borderColor: isFocused ? colors.primary : colors.border,
+              shadowColor: colors.shadow,
+            },
+          ]}
+        >
+          <TextInput
+            style={[
+              styles.textInput,
+              {
+                color: colors.text,
+                textAlign: isRTL ? "right" : "left",
+              },
+            ]}
+            value={inputValue}
+            onChangeText={setInputValue}
+            placeholder={placeholder}
+            placeholderTextColor={colors.textSecondary}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
+            onSubmitEditing={addItem}
+            returnKeyType="done"
+          />
+        </View>
 
         <TouchableOpacity
           style={[
-            dynamicListStyles.addButton,
-            !newItem.trim() && dynamicListStyles.addButtonDisabled,
+            styles.addButton,
+            {
+              backgroundColor: canAdd ? colors.primary : colors.border,
+            },
           ]}
           onPress={addItem}
-          disabled={!newItem.trim()}
+          disabled={!canAdd}
+          activeOpacity={0.8}
         >
-          <Plus size={20} color={COLORS.white} />
+          <Plus size={20} color="white" />
         </TouchableOpacity>
       </View>
 
-      {items.length > 0 && (
-        <View style={dynamicListStyles.itemsList}>
-          {items.map((item, index) => (
-            <View key={index} style={dynamicListStyles.item}>
-              <Text style={dynamicListStyles.itemText}>{item}</Text>
-              <TouchableOpacity
-                style={dynamicListStyles.removeButton}
-                onPress={() => removeItem(index)}
+      <View style={styles.itemsList}>
+        {items.map((item, index) => (
+          <Animated.View
+            key={`${item}-${index}`}
+            entering={FadeIn.springify()}
+            exiting={FadeOut.springify()}
+          >
+            <View
+              style={[
+                styles.itemCard,
+                {
+                  backgroundColor: colors.card,
+                  borderColor: colors.border,
+                  shadowColor: colors.shadow,
+                },
+                isRTL && styles.itemCardRTL,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.itemText,
+                  { color: colors.text },
+                  isRTL && styles.textRTL,
+                ]}
               >
-                <X size={16} color={COLORS.error} />
+                {item}
+              </Text>
+              <TouchableOpacity
+                style={[
+                  styles.removeButton,
+                  { backgroundColor: colors.error + "15" },
+                ]}
+                onPress={() => removeItem(index)}
+                activeOpacity={0.7}
+              >
+                <X size={16} color={colors.error} />
               </TouchableOpacity>
             </View>
-          ))}
-        </View>
-      )}
+          </Animated.View>
+        ))}
+      </View>
 
-      <Text style={dynamicListStyles.counter}>
-        {items.length}/{maxItems} פריטים
-      </Text>
+      {items.length >= maxItems && (
+        <Text style={[styles.maxItemsText, { color: colors.textSecondary }]}>
+          Maximum {maxItems} items allowed
+        </Text>
+      )}
     </View>
   );
-}
+};
 
-const dynamicListStyles = StyleSheet.create({
+const styles = StyleSheet.create({
   container: {
-    marginBottom: 4,
+    marginBottom: 32,
   },
   label: {
     fontSize: 16,
     fontWeight: "600",
-    color: COLORS.gray[800],
-    marginBottom: 12,
+    marginBottom: 16,
   },
-  inputRow: {
+  inputContainer: {
     flexDirection: "row",
     gap: 12,
-    alignItems: "flex-end",
+    marginBottom: 16,
   },
-  input: {
+  inputContainerRTL: {
+    flexDirection: "row-reverse",
+  },
+  inputWrapper: {
     flex: 1,
-    marginBottom: 0,
+    borderWidth: 2,
+    borderRadius: 16,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  textInput: {
+    padding: 16,
+    fontSize: 16,
+    fontWeight: "500",
   },
   addButton: {
-    width: 56,
-    height: 56,
-    borderRadius: 16,
-    backgroundColor: COLORS.emerald[500],
+    width: 52,
+    height: 52,
+    borderRadius: 26,
     justifyContent: "center",
     alignItems: "center",
-    shadowColor: COLORS.emerald[500],
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.2,
-    shadowRadius: 4,
+    shadowRadius: 8,
     elevation: 4,
   },
-  addButtonDisabled: {
-    backgroundColor: COLORS.gray[400],
-    shadowOpacity: 0.1,
-  },
   itemsList: {
-    marginTop: 16,
     gap: 8,
   },
-  item: {
+  itemCard: {
     flexDirection: "row",
-    alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: COLORS.emerald[50],
+    alignItems: "center",
+    padding: 16,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: COLORS.emerald[200],
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  itemCardRTL: {
+    flexDirection: "row-reverse",
   },
   itemText: {
-    fontSize: 14,
-    color: COLORS.gray[800],
     flex: 1,
+    fontSize: 15,
+    fontWeight: "500",
   },
   removeButton: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: "#fee2e2",
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     justifyContent: "center",
     alignItems: "center",
+    marginLeft: 12,
   },
-  counter: {
+  maxItemsText: {
     fontSize: 12,
-    color: COLORS.gray[500],
-    textAlign: "right",
+    textAlign: "center",
     marginTop: 8,
+    fontStyle: "italic",
+  },
+  textRTL: {
+    textAlign: "right",
   },
 });
+
+export default DynamicListInput;

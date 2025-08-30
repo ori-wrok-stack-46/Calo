@@ -130,7 +130,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#ffffff",
   },
   containerRTL: {
-    writingDirection: "rtl",
+    flexDirection: "row-reverse",
   },
   backgroundAccent: {
     position: "absolute",

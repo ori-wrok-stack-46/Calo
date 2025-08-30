@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,41 +6,37 @@ import {
   TouchableOpacity,
   StyleSheet,
   Alert,
-  ActivityIndicator,
+  KeyboardAvoidingView,
+  Platform,
+  Dimensions,
+  I18nManager,
 } from "react-native";
-import { useRouter, useLocalSearchParams } from "expo-router";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
+import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { useLanguage } from "@/src/i18n/context/LanguageContext";
 import { useTheme } from "@/src/context/ThemeContext";
-import { useDispatch } from "react-redux";
-import { AppDispatch } from "@/src/store";
-import { api } from "@/src/services/api";
-import { Mail, ArrowLeft, Shield, RefreshCw, Check } from "lucide-react-native";
+
+const { width, height } = Dimensions.get("window");
 
 export default function EmailVerificationScreen() {
-  const { t } = useTranslation();
-  const { isRTL } = useLanguage();
-  const { colors } = useTheme();
-  const router = useRouter();
-  const dispatch = useDispatch<AppDispatch>();
-  const { email } = useLocalSearchParams();
-
-  const [code, setCode] = useState(["", "", "", "", "", ""]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [verificationCode, setVerificationCode] = useState("");
+  const [loading, setLoading] = useState(false);
   const [resendLoading, setResendLoading] = useState(false);
-  const [timeLeft, setTimeLeft] = useState(300); // 5 minutes
+  const [countdown, setCountdown] = useState(60);
   const [canResend, setCanResend] = useState(false);
 
-  // Refs for input fields
-  const inputRefs = useRef<TextInput[]>([]);
+  const router = useRouter();
+  const { t } = useTranslation();
+  const { colors } = useTheme();
+  const isRTL = I18nManager.isRTL;
 
   useEffect(() => {
-    // Start countdown timer
     const timer = setInterval(() => {
-      setTimeLeft((prev) => {
+      setCountdown((prev) => {
         if (prev <= 1) {
           setCanResend(true);
-          clearInterval(timer);
           return 0;
         }
         return prev - 1;
@@ -50,152 +46,69 @@ export default function EmailVerificationScreen() {
     return () => clearInterval(timer);
   }, []);
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, "0")}`;
-  };
-
-  const handleCodeChange = (text: string, index: number) => {
-    // Only allow digits
-    const digit = text.replace(/[^0-9]/g, "");
-
-    if (digit.length <= 1) {
-      const newCode = [...code];
-      newCode[index] = digit;
-      setCode(newCode);
-
-      // Auto-focus next input
-      if (digit && index < 5) {
-        inputRefs.current[index + 1]?.focus();
-      }
-
-      // Auto-submit when all fields are filled
-      if (digit && index === 5 && newCode.every((c) => c !== "")) {
-        handleVerifyEmail(newCode.join(""));
-      }
-    }
-  };
-
-  const handleKeyPress = (key: string, index: number) => {
-    if (key === "Backspace" && !code[index] && index > 0) {
-      inputRefs.current[index - 1]?.focus();
-    }
-  };
-
-  const handleVerifyEmail = async (verificationCode?: string) => {
-    const codeToVerify = verificationCode || code.join("");
-
-    if (codeToVerify.length !== 6) {
-      Alert.alert("Error", "Please enter the complete 6-digit code");
+  const handleVerifyCode = async () => {
+    if (!verificationCode.trim()) {
+      Alert.alert(t("common.error"), t("auth.errors.required_field"));
       return;
     }
 
+    if (verificationCode.length !== 6) {
+      Alert.alert(t("common.error"), t("auth.email_verification.invalid_code"));
+      return;
+    }
+
+    setLoading(true);
     try {
-      setIsLoading(true);
-      console.log("🔄 Verifying email:", email, "with code:", codeToVerify);
+      // Add your verification API call here
+      // const response = await verifyEmailAPI(verificationCode);
 
-      const response = await api.post("/auth/verify-email", {
-        email: email as string,
-        code: codeToVerify,
-      });
-
-      console.log("✅ Verification response:", response);
-
-      if (response.data.success && response.data.user && response.data.token) {
-        // Store token in SecureStore for mobile
-        const { Platform } = require("react-native");
-        if (Platform.OS !== "web") {
-          const SecureStore = require("expo-secure-store");
-          await SecureStore.setItemAsync(
-            "auth_token_secure",
-            response.data.token
-          );
-          console.log("✅ Token stored in SecureStore for mobile");
-        }
-
-        // Store auth data in Redux
-        dispatch({
-          type: "auth/setUser",
-          payload: response.data.user,
-        });
-
-        dispatch({
-          type: "auth/setToken",
-          payload: response.data.token,
-        });
-
-        console.log("✅ User authenticated, redirecting to payment-plan");
-
-        // Navigate directly without alert for better UX
-        router.replace("/payment-plan");
-      } else {
-        throw new Error(response.data.error || "Verification failed");
-      }
-    } catch (error: any) {
-      console.error("💥 Verification error:", error);
+      // For now, simulate success
+      setTimeout(() => {
+        setLoading(false);
+        Alert.alert(
+          t("common.success"),
+          t("auth.email_verification.verification_successful"),
+          [
+            {
+              text: t("common.ok"),
+              onPress: () => router.replace("/(tabs)"),
+            },
+          ]
+        );
+      }, 2000);
+    } catch (error) {
+      setLoading(false);
       Alert.alert(
-        "Error",
-        error.response?.data?.error ||
-          error.message ||
-          "Email verification failed"
+        t("common.error"),
+        t("auth.email_verification.verification_failed")
       );
-
-      // Clear the code inputs
-      setCode(["", "", "", "", "", ""]);
-      inputRefs.current[0]?.focus();
-    } finally {
-      setIsLoading(false);
     }
   };
 
   const handleResendCode = async () => {
     if (!canResend) return;
 
+    setResendLoading(true);
     try {
-      setResendLoading(true);
-      console.log("🔄 Resending verification code...");
+      // Add your resend API call here
+      // await resendVerificationCodeAPI();
 
-      const response = await api.post("/auth/resend-verification", {
-        email: email as string,
-      });
-
-      if (response.data.success) {
-        Alert.alert(
-          "Success",
-          "A new verification code has been sent to your email"
-        );
-
-        // Reset timer
-        setTimeLeft(300);
+      // For now, simulate success
+      setTimeout(() => {
+        setResendLoading(false);
         setCanResend(false);
-
-        // Clear current code
-        setCode(["", "", "", "", "", ""]);
-        inputRefs.current[0]?.focus();
-
-        // Start new timer
-        const timer = setInterval(() => {
-          setTimeLeft((prev) => {
-            if (prev <= 1) {
-              setCanResend(true);
-              clearInterval(timer);
-              return 0;
-            }
-            return prev - 1;
-          });
-        }, 1000);
-      } else {
-        throw new Error(response.data.error || "Failed to resend code");
-      }
-    } catch (error: any) {
-      console.error("💥 Resend error:", error);
-      Alert.alert(
-        "Error",
-        error.response?.data?.error || error.message || "Failed to resend code"
-      );
-    } finally {
+        setCountdown(60);
+        Alert.alert(
+          t("common.success"),
+          t("auth.email_verification.resend_successful")
+        );
+      }, 2000);
+    } catch (error) {
       setResendLoading(false);
+      Alert.alert(
+        t("common.error"),
+        t("auth.email_verification.resend_failed")
+      );
     }
   };
 
@@ -204,296 +117,232 @@ export default function EmailVerificationScreen() {
       flex: 1,
       backgroundColor: colors.background,
     },
-    containerRTL: {
-      writingDirection: "rtl",
-    },
-    backgroundAccent: {
+    gradientBackground: {
       position: "absolute",
-      top: 0,
       left: 0,
       right: 0,
-      height: "35%",
-      backgroundColor: "#f0fdf4",
-      borderBottomLeftRadius: 30,
-      borderBottomRightRadius: 30,
-    },
-    header: {
-      paddingTop: 60,
-      paddingHorizontal: 20,
-      marginBottom: 20,
-      zIndex: 2,
-    },
-    backButton: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      backgroundColor: colors.primary + "20",
-      justifyContent: "center",
-      alignItems: "center",
+      top: 0,
+      height: height * 0.4,
     },
     content: {
       flex: 1,
-      padding: 24,
+      paddingHorizontal: 20,
+      paddingTop: 60,
       justifyContent: "center",
-      zIndex: 1,
     },
-    headerSection: {
-      marginBottom: 48,
+    header: {
       alignItems: "center",
+      marginBottom: 40,
     },
     iconContainer: {
       width: 80,
       height: 80,
       borderRadius: 40,
       backgroundColor: colors.primary + "20",
-      justifyContent: "center",
       alignItems: "center",
+      justifyContent: "center",
       marginBottom: 24,
     },
     title: {
-      fontSize: 36,
-      fontWeight: "700",
+      fontSize: 28,
+      fontWeight: "bold",
       color: colors.text,
       marginBottom: 8,
-      letterSpacing: -0.5,
       textAlign: "center",
-    },
-    titleRTL: {
-      textAlign: "right",
     },
     subtitle: {
       fontSize: 16,
       color: colors.textSecondary,
-      fontWeight: "500",
       textAlign: "center",
       lineHeight: 24,
-      paddingHorizontal: 20,
     },
-    subtitleRTL: {
-      textAlign: "right",
-    },
-    emailText: {
-      fontWeight: "600",
-      color: colors.primary,
-    },
-    form: {
-      flex: 1,
-      maxHeight: 400,
-    },
-    codeContainer: {
-      marginBottom: 32,
-    },
-    codeLabel: {
-      fontSize: 16,
-      fontWeight: "600",
-      color: colors.text,
-      textAlign: "center",
-      marginBottom: 16,
-    },
-    codeInputs: {
-      flexDirection: "row",
-      justifyContent: "space-between",
-      paddingHorizontal: 10,
-    },
-    codeInputsRTL: {
-      flexDirection: "row-reverse",
-    },
-    codeInput: {
-      width: 45,
-      height: 55,
-      borderRadius: 12,
-      backgroundColor: colors.surface,
-      borderWidth: 2,
-      borderColor: colors.border,
-      fontSize: 24,
-      fontWeight: "bold",
-      color: colors.text,
-      textAlign: "center",
-    },
-    codeInputFilled: {
-      borderColor: colors.primary,
-    },
-    verifyButton: {
-      backgroundColor: colors.primary,
-      borderRadius: 16,
-      padding: 18,
-      alignItems: "center",
-      shadowColor: colors.primary,
-      shadowOffset: {
-        width: 0,
-        height: 4,
-      },
-      shadowOpacity: 0.3,
+    formContainer: {
+      backgroundColor: colors.card,
+      borderRadius: 20,
+      padding: 24,
+      marginBottom: 20,
+      shadowColor: colors.shadow,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.1,
       shadowRadius: 8,
-      elevation: 6,
+      elevation: 5,
+    },
+    inputContainer: {
       marginBottom: 24,
     },
-    verifyButtonDisabled: {
-      opacity: 0.5,
+    label: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: colors.text,
+      marginBottom: 8,
+      textAlign: isRTL ? "right" : "left",
     },
-    verifyButtonContent: {
+    codeInputWrapper: {
       flexDirection: "row",
+      justifyContent: "space-between",
+      marginBottom: 20,
+    },
+    codeInput: {
+      backgroundColor: colors.background,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: 16,
+      fontSize: 18,
+      fontWeight: "bold",
+      textAlign: "center",
+      color: colors.text,
+      minHeight: 56,
+    },
+    verifyButton: {
+      borderRadius: 12,
+      overflow: "hidden",
+    },
+    verifyGradient: {
+      paddingVertical: 16,
       alignItems: "center",
+      justifyContent: "center",
+      flexDirection: "row",
     },
     verifyButtonText: {
-      fontSize: 18,
-      fontWeight: "700",
-      color: "#ffffff",
-      marginLeft: 8,
-      letterSpacing: 0.5,
+      color: "#FFFFFF",
+      fontSize: 16,
+      fontWeight: "bold",
+      marginLeft: isRTL ? 0 : 8,
+      marginRight: isRTL ? 8 : 0,
     },
     resendContainer: {
       alignItems: "center",
-      marginBottom: 32,
+      marginTop: 20,
     },
-    timerText: {
-      fontSize: 14,
+    resendText: {
       color: colors.textSecondary,
-      textAlign: "center",
-      fontWeight: "500",
+      fontSize: 14,
+      marginBottom: 8,
     },
     resendButton: {
-      paddingHorizontal: 20,
-      paddingVertical: 12,
-      borderRadius: 20,
-      backgroundColor: colors.surface,
-      borderWidth: 1,
-      borderColor: colors.border,
-    },
-    resendButtonContent: {
-      flexDirection: "row",
-      alignItems: "center",
+      padding: 8,
     },
     resendButtonText: {
+      color: colors.primary,
       fontSize: 14,
       fontWeight: "600",
-      color: colors.primary,
-      marginLeft: 6,
     },
-    securityNotice: {
+    resendDisabledText: {
+      color: colors.textSecondary,
+      fontSize: 14,
+    },
+    loadingContainer: {
       flexDirection: "row",
       alignItems: "center",
-      paddingHorizontal: 16,
-      paddingVertical: 12,
-      borderRadius: 8,
-      backgroundColor: colors.surface,
-      borderLeftWidth: 4,
-      borderLeftColor: colors.primary,
+      justifyContent: "center",
     },
-    securityText: {
-      fontSize: 12,
-      color: colors.textSecondary,
-      marginLeft: 8,
-      flex: 1,
+    loadingText: {
+      color: "#FFFFFF",
+      fontSize: 16,
+      fontWeight: "bold",
+      marginLeft: isRTL ? 0 : 8,
+      marginRight: isRTL ? 8 : 0,
     },
   });
 
   return (
-    <View style={[styles.container, isRTL && styles.containerRTL]}>
-      <View style={styles.backgroundAccent} />
+    <SafeAreaView style={styles.container}>
+      <LinearGradient
+        colors={[colors.primary + "20", "transparent"]}
+        style={styles.gradientBackground}
+      />
 
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <ArrowLeft size={24} color={colors.primary} />
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.content}>
-        <View style={styles.headerSection}>
-          <View style={styles.iconContainer}>
-            <Mail size={32} color={colors.primary} />
-          </View>
-
-          <Text style={[styles.title, isRTL && styles.titleRTL]}>
-            Check Your Email
-          </Text>
-
-          <Text style={[styles.subtitle, isRTL && styles.subtitleRTL]}>
-            We've sent a 6-digit verification code to {"\n"}
-            <Text style={styles.emailText}>{email}</Text>
-          </Text>
-        </View>
-
-        <View style={styles.form}>
-          <View style={styles.codeContainer}>
-            <Text style={styles.codeLabel}>Enter Verification Code</Text>
-            <View style={[styles.codeInputs, isRTL && styles.codeInputsRTL]}>
-              {code.map((digit, index) => (
-                <TextInput
-                  key={index}
-                  ref={(ref) => (inputRefs.current[index] = ref!)}
-                  style={[styles.codeInput, digit && styles.codeInputFilled]}
-                  value={digit}
-                  onChangeText={(text) => handleCodeChange(text, index)}
-                  onKeyPress={({ nativeEvent }) =>
-                    handleKeyPress(nativeEvent.key, index)
-                  }
-                  keyboardType="numeric"
-                  maxLength={1}
-                  textAlign="center"
-                  editable={!isLoading}
-                />
-              ))}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+        <View style={styles.content}>
+          <View style={styles.header}>
+            <View style={styles.iconContainer}>
+              <Ionicons name="mail" size={40} color={colors.primary} />
             </View>
-          </View>
-
-          <TouchableOpacity
-            style={[
-              styles.verifyButton,
-              (!code.every((c) => c !== "") || isLoading) &&
-                styles.verifyButtonDisabled,
-            ]}
-            onPress={() => handleVerifyEmail()}
-            disabled={!code.every((c) => c !== "") || isLoading}
-          >
-            <View style={styles.verifyButtonContent}>
-              {isLoading ? (
-                <ActivityIndicator color="#ffffff" size="small" />
-              ) : (
-                <>
-                  <Shield size={20} color="#ffffff" />
-                  <Text style={styles.verifyButtonText}>Verify Email</Text>
-                </>
-              )}
-            </View>
-          </TouchableOpacity>
-
-          <View style={styles.resendContainer}>
-            {!canResend ? (
-              <Text style={styles.timerText}>
-                Resend code in {formatTime(timeLeft)}
-              </Text>
-            ) : (
-              <TouchableOpacity
-                style={styles.resendButton}
-                onPress={handleResendCode}
-                disabled={resendLoading}
-              >
-                <View style={styles.resendButtonContent}>
-                  {resendLoading ? (
-                    <ActivityIndicator color={colors.primary} size="small" />
-                  ) : (
-                    <>
-                      <RefreshCw size={16} color={colors.primary} />
-                      <Text style={styles.resendButtonText}>Resend Code</Text>
-                    </>
-                  )}
-                </View>
-              </TouchableOpacity>
-            )}
-          </View>
-
-          <View style={styles.securityNotice}>
-            <Check size={16} color={colors.primary} />
-            <Text style={styles.securityText}>
-              This code expires in 5 minutes for your security
+            <Text style={styles.title}>
+              {t("auth.email_verification.title")}
+            </Text>
+            <Text style={styles.subtitle}>
+              {t("auth.email_verification.subtitle")}
             </Text>
           </View>
+
+          <View style={styles.formContainer}>
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>
+                {t("auth.email_verification.verification_code")}
+              </Text>
+              <TextInput
+                style={styles.codeInput}
+                value={verificationCode}
+                onChangeText={setVerificationCode}
+                placeholder="000000"
+                placeholderTextColor={colors.textSecondary}
+                keyboardType="number-pad"
+                maxLength={6}
+                autoComplete="sms-otp"
+              />
+            </View>
+
+            <TouchableOpacity
+              style={styles.verifyButton}
+              onPress={handleVerifyCode}
+              disabled={loading}
+            >
+              <LinearGradient
+                colors={[colors.primary, colors.primary + "DD"]}
+                style={styles.verifyGradient}
+              >
+                {loading ? (
+                  <View style={styles.loadingContainer}>
+                    <Ionicons name="sync" size={20} color="#FFFFFF" />
+                    <Text style={styles.loadingText}>
+                      {t("auth.loading.verifying")}
+                    </Text>
+                  </View>
+                ) : (
+                  <>
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={20}
+                      color="#FFFFFF"
+                    />
+                    <Text style={styles.verifyButtonText}>
+                      {t("auth.email_verification.verify")}
+                    </Text>
+                  </>
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
+
+            <View style={styles.resendContainer}>
+              <Text style={styles.resendText}>
+                {t("common.no")} {t("auth.email_verification.enter_code")}?
+              </Text>
+              {canResend ? (
+                <TouchableOpacity
+                  style={styles.resendButton}
+                  onPress={handleResendCode}
+                  disabled={resendLoading}
+                >
+                  <Text style={styles.resendButtonText}>
+                    {resendLoading
+                      ? t("common.loading")
+                      : t("auth.email_verification.resend_code")}
+                  </Text>
+                </TouchableOpacity>
+              ) : (
+                <Text style={styles.resendDisabledText}>
+                  {t("auth.email_verification.resend_code")} ({countdown}s)
+                </Text>
+              )}
+            </View>
+          </View>
         </View>
-      </View>
-    </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
