@@ -282,67 +282,50 @@
     "remove": "Delete"
   },
   "camera": {
-    "title": "Food Scanner",
-    "take_photo": "Take Photo",
-    "analyze_photo": "Analyze Photo",
+    "permission": "Camera Permission",
+    "analysis_failed": "Analysis Failed",
+    "save_success": "Save Success",
+    "save_failed": "Save Failed",
+    "saveMeal": "Save Meal",
+    "reanalyze": "Re-analyze",
+    "title": "Meal Scanner",
+    "subtitle": "Take a photo or select from gallery to analyze your meal",
+    "takePhoto": "Take Photo",
+    "chooseFromGallery": "Choose from Gallery",
+    "addDetails": "Add details (optional)",
+    "detailsPlaceholder": "Describe ingredients, cooking method, or any special details...",
     "analyzing": "Analyzing...",
-    "updating_analysis": "Updating analysis...",
-    "analysis_complete": "Analysis Complete",
-    "retake_photo": "Retake Photo",
-    "save_meal": "Save Meal",
-    "meal_name": "Meal Name",
-    "meal_description": "Meal Description",
-    "choose_from_gallery": "Choose From Gallery",
-    "permission": "We need your permission",
-    "description": "Take a photo or choose from gallery to get the meal nutritions",
-    "smart_analysis": "Smart Nutritional Analysis",
-    "analysis_subtitle": "Photograph your meal and get professional, accurate nutritional analysis",
-    "analyzing_title": "Analyzing your meal...",
-    "analyzing_subtitle": "We're identifying ingredients and calculating nutritional values",
-    "take_picture": "Take Picture",
-    "open_camera": "Open Camera",
-    "choose_gallery": "Choose from Gallery",
-    "upload_existing": "Upload existing photo",
-    "optimal_results": "Tip for optimal results",
-    "tip_description": "Make sure food is clearly visible, well-lit, and without surrounding objects",
-    "analysis_results": "Analysis Results",
-    "meal_saved": "Saved",
-    "meal_analyzed": "Analyzed",
-    "estimated_values": "Estimated values",
-    "nutritional_info": "Nutritional Information",
-    "identified_ingredients": "Identified Ingredients",
-    "additional_info": "Additional Info",
-    "fiber": "Fiber",
-    "sugar": "Sugar",
-    "sodium": "Sodium",
-    "discard": "Discard",
-    "clear": "Clear",
-    "edit_analysis": "Edit Analysis",
-    "re_analyze": "Re-analyze",
-    "update_analysis": "Update Analysis",
-    "add_correction": "Add correction or additional information about the meal",
-    "enter_correction": "Enter correction or additional meal information...",
-    "enter_update": "Enter additional meal information...",
-    "add_additional_info": "Add additional information about",
-    "save_success": "Meal saved successfully!",
-    "update_success": "Meal updated successfully!",
-    "save_failed": "Failed to save meal",
-    "update_failed": "Failed to update meal",
-    "analysis_failed": "Image analysis failed",
-    "re_analysis_failed": "Re-analysis failed",
-    "quota_exceeded_title": "Service limit reached",
-    "quota_exceeded_message": "You've reached the AI usage limit. Analysis will be performed with estimated values. Please try again later.",
-    "connection_error_title": "Connection issue",
-    "connection_error_message": "Check your internet connection and try again.",
-    "save_before_update": "Please save the meal before updating",
-    "correction_required": "Please enter correction text",
-    "update_required": "Please enter update text",
-    "ingredients_required": "Please enter ingredients list",
-    "delete_analysis": "Delete Analysis",
-    "delete_confirmation": "Are you sure you want to delete this analysis?",
-    "edit_ingredients": "Edit Ingredients",
-    "edit_ingredients_description": "Edit the ingredients list. Separate ingredients with commas.",
-    "enter_ingredients_list": "Enter ingredients list (comma separated)..."
+    "analysisTime": "This may take a few seconds",
+    "analyzeMeal": "Analyze Meal",
+    "getNutritionInfo": "Get detailed nutrition info",
+    "scanningSteps": {
+      "initializing": "Initializing AI Scanner...",
+      "processing": "Processing your image...",
+      "identifying": "Identifying ingredients...",
+      "calculating": "Calculating nutrition facts...",
+      "analyzing": "Analyzing meal composition...",
+      "finalizing": "Finalizing results..."
+    },
+    "scanAnimation": {
+      "title": "🔍 Analyzing Your Meal",
+      "subtitle": "Our AI is working its magic...",
+      "progress": "Progress",
+      "complete": "Analysis Complete!",
+      "almostDone": "Almost done..."
+    },
+    "imagePreview": {
+      "title": "Selected Image",
+      "retake": "Retake Photo",
+      "remove": "Remove Image",
+      "analyze": "Analyze This Meal",
+      "analyzing": "Analyzing..."
+    },
+    "results": {
+      "title": "Analysis Results",
+      "confidence": "Confidence Level",
+      "nutrition": "Nutrition Facts",
+      "ingredients": "Ingredients Found"
+    }
   },
   "food_scanner": {
     "title": "Food Scanner",
@@ -1217,5 +1200,39 @@
     "afternoon": "Good Afternoon",
     "evening": "Good Evening",
     "night": "Good Night"
+  },
+  "nutrition": {
+    "overview": "Nutrition Overview",
+    "calories": "kcal",
+    "protein": "Protein",
+    "carbs": "Carbs",
+    "fat": "Fat",
+    "fiber": "Fiber",
+    "sugar": "Sugar",
+    "sodium": "Sodium",
+    "detailedBreakdown": "Detailed Nutrition"
+  },
+  "ingredients": {
+    "title": "Ingredients",
+    "addAllToShopping": "Add All",
+    "tapToAdd": "Tap to add to shopping list"
+  },
+  "shoppingList": {
+    "addSingle": {
+      "title": "Add to Shopping List",
+      "message": "Add \"{0}\" to your shopping list?",
+      "success": "{0} added to shopping list!",
+      "error": "Failed to add item to shopping list."
+    },
+    "addAll": {
+      "title": "Add to Shopping List",
+      "message": "Add all ingredients to your shopping list?",
+      "action": "Add All",
+      "success": "All ingredients added to shopping list!",
+      "error": "Failed to add items to shopping list."
+    }
+  },
+  "health": {
+    "insights": "Health Insights"
   }
 }

@@ -17,6 +17,7 @@ import {
   ScrollView,
   I18nManager,
 } from "react-native";
+import * as Haptics from "expo-haptics";
 import {
   Home,
   History,
@@ -40,8 +41,12 @@ import Animated, {
   useAnimatedStyle,
   withSpring,
   withTiming,
+  withSequence,
+  withDelay,
   interpolateColor,
   interpolate,
+  runOnJS,
+  Easing,
 } from "react-native-reanimated";
 import { useLanguage } from "../src/i18n/context/LanguageContext";
 import { useTranslation } from "react-i18next";
@@ -49,25 +54,43 @@ import { useTheme } from "@/src/context/ThemeContext";
 
 const SCREEN_WIDTH = Dimensions.get("window").width;
 
-// Clean, modern design constants
+// Enhanced design constants
 const TAB_CONFIG = {
-  labelFontSize: 10,
-  iconSize: 22,
-  cameraIconSize: 28,
-  tabHeight: 80,
-  cameraSize: 60,
-  barHeight: 80,
-  spacing: 4,
-  tabPadding: 12,
-  borderRadius: 25,
-  cameraBorderRadius: 30,
+  labelFontSize: 9,
+  iconSize: 23,
+  cameraIconSize: 30,
+  tabHeight: 68,
+  cameraSize: 58,
+  barHeight: 68,
+  spacing: 2,
+  tabPadding: 14,
+  borderRadius: 34,
+  cameraBorderRadius: 29,
+  floatingMargin: 16,
+  floatingBorderRadius: 22,
+  indicatorHeight: 3,
+  blurRadius: 25,
 } as const;
 
-// Simple, smooth animations
+// Advanced animation configs
 const SPRING_CONFIG = {
-  damping: 20,
-  stiffness: 300,
+  damping: 18,
+  stiffness: 320,
+  mass: 0.8,
 } as const;
+
+const MICRO_SPRING = {
+  damping: 35,
+  stiffness: 600,
+  mass: 0.5,
+} as const;
+
+// Enhanced haptic feedback
+const triggerHaptic = () => {
+  if (Platform.OS === "ios") {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }
+};
 
 // Icon mapping
 const getIconComponent = (routeName: string) => {
@@ -121,7 +144,7 @@ interface CustomTabBarProps {
   navigation: any;
 }
 
-// Beautiful emerald camera tab
+// Premium camera tab with advanced animations
 const CameraTab = React.memo(
   ({
     route,
@@ -137,57 +160,116 @@ const CameraTab = React.memo(
   }) => {
     const scale = useSharedValue(1);
     const shadowOpacity = useSharedValue(0);
+    const rotation = useSharedValue(0);
+    const glowOpacity = useSharedValue(0);
     const { colors } = useTheme();
+
     useEffect(() => {
-      scale.value = withSpring(isFocused ? 1.1 : 1, SPRING_CONFIG);
-      shadowOpacity.value = withTiming(isFocused ? 1 : 0, { duration: 200 });
+      scale.value = withSpring(isFocused ? 1.12 : 1, SPRING_CONFIG);
+      shadowOpacity.value = withTiming(isFocused ? 1 : 0.6, { duration: 300 });
+      glowOpacity.value = withTiming(isFocused ? 1 : 0, { duration: 400 });
+
+      if (isFocused) {
+        rotation.value = withSequence(
+          withTiming(5, { duration: 200, easing: Easing.out(Easing.quad) }),
+          withTiming(0, { duration: 300, easing: Easing.out(Easing.quad) })
+        );
+      }
     }, [isFocused]);
 
     const handlePress = () => {
-      scale.value = withSpring(0.9, { damping: 50, stiffness: 500 });
-      setTimeout(() => {
-        scale.value = withSpring(isFocused ? 1.1 : 1, SPRING_CONFIG);
-        onPress();
-      }, 100);
+      runOnJS(triggerHaptic)();
+      scale.value = withSequence(
+        withTiming(0.85, { duration: 120, easing: Easing.out(Easing.quad) }),
+        withSpring(isFocused ? 1.12 : 1, MICRO_SPRING)
+      );
+      rotation.value = withSequence(
+        withTiming(-10, { duration: 100 }),
+        withTiming(0, { duration: 200 })
+      );
+      setTimeout(onPress, 140);
     };
 
     const animatedStyle = useAnimatedStyle(() => ({
-      transform: [{ scale: scale.value }],
+      transform: [{ scale: scale.value }, { rotate: `${rotation.value}deg` }],
     }));
 
     const shadowStyle = useAnimatedStyle(() => ({
-      shadowOpacity: shadowOpacity.value * 0.3,
-      elevation: shadowOpacity.value * 8,
+      shadowOpacity: shadowOpacity.value * 0.5,
+      elevation: shadowOpacity.value * 15,
+    }));
+
+    const glowStyle = useAnimatedStyle(() => ({
+      opacity: glowOpacity.value * 0.8,
     }));
 
     return (
-      <Animated.View style={[animatedStyle, shadowStyle]}>
-        <TouchableOpacity
-          onPress={handlePress}
-          onLongPress={onLongPress}
+      <View style={styles.cameraContainer}>
+        {/* Outer glow effect */}
+        <Animated.View
           style={[
-            styles.cameraTab,
+            styles.cameraGlow,
             {
-              backgroundColor: isFocused ? colors.primary : colors.surface,
-              shadowColor: colors.primary,
+              backgroundColor: colors.primary + "30",
             },
+            glowStyle,
           ]}
-          activeOpacity={0.8}
-        >
-          <Camera
-            size={TAB_CONFIG.cameraIconSize}
-            color={isFocused ? colors.background : colors.text}
-            strokeWidth={2}
-          />
-        </TouchableOpacity>
-      </Animated.View>
+        />
+
+        <Animated.View style={[animatedStyle, shadowStyle]}>
+          <LinearGradient
+            colors={
+              isFocused
+                ? [colors.primary, colors.primary + "E6", colors.primary + "CC"]
+                : [
+                    colors.surface + "F0",
+                    colors.surface + "E0",
+                    colors.surface + "D0",
+                  ]
+            }
+            style={[
+              styles.cameraTab,
+              {
+                shadowColor: colors.primary,
+              },
+            ]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+          >
+            <TouchableOpacity
+              onPress={handlePress}
+              onLongPress={onLongPress}
+              style={styles.cameraButton}
+              activeOpacity={0.85}
+            >
+              <Camera
+                size={TAB_CONFIG.cameraIconSize}
+                color="#f5f5f5"
+                strokeWidth={2.8}
+              />
+
+              {/* Inner highlight */}
+              <View
+                style={[
+                  styles.cameraHighlight,
+                  {
+                    backgroundColor: isFocused
+                      ? colors.background + "30"
+                      : "transparent",
+                  },
+                ]}
+              />
+            </TouchableOpacity>
+          </LinearGradient>
+        </Animated.View>
+      </View>
     );
   }
 );
 
 CameraTab.displayName = "CameraTab";
 
-// Beautiful regular tab with emerald theme and active circle
+// Premium regular tab with micro-interactions
 const RegularTab = React.memo(
   ({
     route,
@@ -205,41 +287,74 @@ const RegularTab = React.memo(
     t: (key: string) => string;
   }) => {
     const scale = useSharedValue(1);
-    const circleScale = useSharedValue(isFocused ? 1 : 0);
+    const backgroundOpacity = useSharedValue(isFocused ? 1 : 0);
     const iconScale = useSharedValue(1);
+    const labelOpacity = useSharedValue(isFocused ? 1 : 0);
+    const indicatorWidth = useSharedValue(isFocused ? 24 : 0);
+    const translateY = useSharedValue(0);
 
     const IconComponent = getIconComponent(route.name);
     const label = getTabLabel(route.name, t);
 
     useEffect(() => {
-      scale.value = withSpring(isFocused ? 1.02 : 1, SPRING_CONFIG);
-      circleScale.value = withSpring(isFocused ? 1 : 0, SPRING_CONFIG);
+      scale.value = withSpring(isFocused ? 1.08 : 1, SPRING_CONFIG);
+      backgroundOpacity.value = withSpring(isFocused ? 1 : 0, SPRING_CONFIG);
+      labelOpacity.value = withTiming(isFocused ? 1 : 0, {
+        duration: isFocused ? 300 : 200,
+        easing: Easing.out(Easing.quad),
+      });
+      indicatorWidth.value = withSpring(isFocused ? 24 : 0, SPRING_CONFIG);
+
       if (isFocused) {
-        iconScale.value = withSpring(1.1, { damping: 25, stiffness: 400 });
+        iconScale.value = withSequence(
+          withSpring(1.25, { damping: 20, stiffness: 500 }),
+          withSpring(1.15, SPRING_CONFIG)
+        );
+        translateY.value = withSequence(
+          withTiming(-2, { duration: 150 }),
+          withSpring(0, SPRING_CONFIG)
+        );
       } else {
         iconScale.value = withSpring(1, SPRING_CONFIG);
+        translateY.value = withSpring(0, SPRING_CONFIG);
       }
     }, [isFocused]);
 
     const handlePress = () => {
-      scale.value = withSpring(0.95, { damping: 50, stiffness: 500 });
-      setTimeout(() => {
-        scale.value = withSpring(isFocused ? 1.02 : 1, SPRING_CONFIG);
-        onPress();
-      }, 100);
+      runOnJS(triggerHaptic)();
+      scale.value = withSequence(
+        withTiming(0.92, { duration: 100, easing: Easing.out(Easing.quad) }),
+        withSpring(isFocused ? 1.08 : 1, MICRO_SPRING)
+      );
+      iconScale.value = withSequence(
+        withTiming(0.8, { duration: 100 }),
+        withSpring(isFocused ? 1.15 : 1, MICRO_SPRING)
+      );
+      setTimeout(onPress, 120);
     };
 
     const animatedStyle = useAnimatedStyle(() => ({
-      transform: [{ scale: scale.value }],
+      transform: [{ scale: scale.value }, { translateY: translateY.value }],
     }));
 
-    const circleStyle = useAnimatedStyle(() => ({
-      transform: [{ scale: circleScale.value }],
-      opacity: circleScale.value,
+    const backgroundStyle = useAnimatedStyle(() => ({
+      opacity: backgroundOpacity.value,
     }));
 
     const iconAnimatedStyle = useAnimatedStyle(() => ({
       transform: [{ scale: iconScale.value }],
+    }));
+
+    const labelAnimatedStyle = useAnimatedStyle(() => ({
+      opacity: labelOpacity.value,
+      transform: [
+        { translateY: interpolate(labelOpacity.value, [0, 1], [5, 0]) },
+      ],
+    }));
+
+    const indicatorStyle = useAnimatedStyle(() => ({
+      width: indicatorWidth.value,
+      opacity: interpolate(indicatorWidth.value, [0, 24], [0, 1]),
     }));
 
     return (
@@ -248,41 +363,73 @@ const RegularTab = React.memo(
           onPress={handlePress}
           onLongPress={onLongPress}
           style={styles.tabButton}
-          activeOpacity={0.7}
+          activeOpacity={0.75}
         >
           <View style={styles.tabContent}>
+            {/* Active indicator line */}
+            <Animated.View
+              style={[
+                styles.activeIndicator,
+                {
+                  backgroundColor: colors.primary,
+                },
+                indicatorStyle,
+              ]}
+            />
+
             <View style={styles.iconContainer}>
-              {/* Active circle background */}
-              <Animated.View
-                style={[
-                  styles.activeCircle,
-                  {
-                    backgroundColor: colors.primary + "20", // 20% opacity
-                    borderColor: colors.primary + "40", // 40% opacity
-                  },
-                  circleStyle,
-                ]}
-              />
+              {/* Enhanced active background */}
+              <Animated.View style={[styles.activeBackground, backgroundStyle]}>
+                <LinearGradient
+                  colors={[
+                    colors.primary + "25",
+                    colors.primary + "20",
+                    colors.primary + "15",
+                  ]}
+                  style={styles.activeGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                />
+              </Animated.View>
+
+              {/* Icon with enhanced animations - smoke white color */}
               <Animated.View style={iconAnimatedStyle}>
                 <IconComponent
                   size={TAB_CONFIG.iconSize}
-                  color={isFocused ? colors.primary : colors.text}
-                  strokeWidth={isFocused ? 2.5 : 2}
+                  color={isFocused ? "#14b8a6" : "#f5f5f5"}
+                  strokeWidth={isFocused ? 2.8 : 2.2}
                 />
               </Animated.View>
+
+              {/* Subtle pulse effect for active tab */}
+              {isFocused && (
+                <Animated.View
+                  style={[
+                    styles.pulseEffect,
+                    {
+                      borderColor: colors.primary + "40",
+                    },
+                  ]}
+                />
+              )}
             </View>
-            <Text
-              style={[
-                styles.tabLabel,
-                {
-                  color: isFocused ? colors.primary : colors.text,
-                  fontWeight: isFocused ? "600" : "400",
-                },
-              ]}
-              numberOfLines={1}
-            >
-              {label}
-            </Text>
+
+            {/* Enhanced label with better typography */}
+            <Animated.View style={labelAnimatedStyle}>
+              <Text
+                style={[
+                  styles.tabLabel,
+                  {
+                    color: "#f5f5f5",
+                    fontWeight: "700",
+                    letterSpacing: 0.2,
+                  },
+                ]}
+                numberOfLines={1}
+              >
+                {label}
+              </Text>
+            </Animated.View>
           </View>
         </TouchableOpacity>
       </Animated.View>
@@ -304,11 +451,26 @@ export function ScrollableTabBar({
   const { t } = useTranslation();
   const [layoutKey, setLayoutKey] = useState(0);
 
-  // Handle app state changes to fix layout issues
+  // Enhanced entrance animation
+  const containerOpacity = useSharedValue(0);
+  const containerTranslateY = useSharedValue(20);
+
+  useEffect(() => {
+    // Smooth entrance animation
+    containerOpacity.value = withDelay(
+      100,
+      withTiming(1, { duration: 600, easing: Easing.out(Easing.quad) })
+    );
+    containerTranslateY.value = withDelay(
+      100,
+      withSpring(0, { damping: 25, stiffness: 300 })
+    );
+  }, []);
+
+  // Handle app state changes
   useEffect(() => {
     const handleAppStateChange = (nextAppState: AppStateStatus) => {
       if (nextAppState === "active") {
-        // Force layout recalculation when app becomes active
         setTimeout(() => {
           setLayoutKey((prev) => prev + 1);
         }, 100);
@@ -337,7 +499,7 @@ export function ScrollableTabBar({
     return { regularTabs: regular, cameraTab: camera };
   }, [state?.routes]);
 
-  // Navigation handlers
+  // Enhanced navigation handlers
   const createTabPressHandler = useCallback(
     (route: RouteInfo) => () => {
       try {
@@ -352,6 +514,9 @@ export function ScrollableTabBar({
   const createTabLongPressHandler = useCallback(
     (route: RouteInfo) => () => {
       try {
+        if (Platform.OS === "ios") {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        }
         navigation.emit({ type: "tabLongPress", target: route.key });
       } catch (error) {
         console.warn("Long press error:", error);
@@ -370,21 +535,42 @@ export function ScrollableTabBar({
     : -1;
   const isCameraFocused = cameraIndex !== -1 && state.index === cameraIndex;
 
-  const bottomPadding = Math.max(insets.bottom || 0, 20);
+  const bottomPadding = Math.max(insets.bottom || 0, 12);
+
+  const containerAnimatedStyle = useAnimatedStyle(() => ({
+    opacity: containerOpacity.value,
+    transform: [{ translateY: containerTranslateY.value }],
+  }));
 
   return (
-    <SafeAreaView edges={["bottom"]} style={{ backgroundColor: "transparent" }}>
+    <Animated.View style={[styles.floatingContainer, containerAnimatedStyle]}>
+      {/* Enhanced backdrop blur effect */}
+      <View style={styles.backdrop} />
+
       <View
         style={[
           styles.container,
           {
-            backgroundColor: colors.background + "F5", // 96% opacity
-            paddingBottom: bottomPadding,
-            borderTopColor: colors.border,
+            backgroundColor: "#012019",
           },
         ]}
-        key={layoutKey} // Use layoutKey to force re-render
+        key={layoutKey}
       >
+        {/* Premium glass morphism background */}
+        <LinearGradient
+          colors={[
+            "rgba(255, 255, 255, 0.08)",
+            "rgba(255, 255, 255, 0.04)",
+            "rgba(255, 255, 255, 0.02)",
+          ]}
+          style={StyleSheet.absoluteFillObject}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+        />
+
+        {/* Subtle inner border */}
+        <View style={[styles.innerBorder]} />
+
         {/* Regular tabs */}
         <ScrollView
           ref={scrollViewRef}
@@ -394,8 +580,9 @@ export function ScrollableTabBar({
           style={styles.scrollView}
           bounces={false}
           keyboardShouldPersistTaps="handled"
+          decelerationRate="fast"
         >
-          {regularTabs.map((route) => {
+          {regularTabs.map((route, index) => {
             if (!descriptors[route.key]) return null;
 
             const routeIndex = state.routes.findIndex(
@@ -417,7 +604,7 @@ export function ScrollableTabBar({
           })}
         </ScrollView>
 
-        {/* Camera Tab */}
+        {/* Enhanced Camera Tab */}
         {cameraTab && (
           <View style={styles.cameraWrapper}>
             <CameraTab
@@ -430,29 +617,50 @@ export function ScrollableTabBar({
           </View>
         )}
       </View>
-    </SafeAreaView>
+
+      {/* Bottom safe area */}
+      <View style={{ height: bottomPadding }} />
+    </Animated.View>
   );
 }
 
-// Clean, modern styles
+// Premium floating styles with glassmorphism
 const styles = StyleSheet.create({
+  floatingContainer: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: TAB_CONFIG.floatingMargin,
+  },
+
+  backdrop: {
+    position: "absolute",
+    top: -50,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "",
+  },
+
   container: {
     flexDirection: "row",
     alignItems: "center",
-    paddingHorizontal: 12,
+    paddingHorizontal: 18,
     height: TAB_CONFIG.barHeight,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    ...Platform.select({
-      ios: {
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: -3 },
-        shadowOpacity: 0.1,
-        shadowRadius: 5,
-      },
-      android: {
-        elevation: 8,
-      },
-    }),
+    borderRadius: TAB_CONFIG.floatingBorderRadius,
+    borderWidth: 1,
+    overflow: "hidden",
+  },
+
+  innerBorder: {
+    position: "absolute",
+    top: 1,
+    left: 1,
+    right: 1,
+    bottom: 1,
+    borderRadius: TAB_CONFIG.floatingBorderRadius - 1,
+    pointerEvents: "none",
   },
 
   scrollView: {
@@ -461,18 +669,18 @@ const styles = StyleSheet.create({
 
   scrollContent: {
     alignItems: "center",
-    paddingHorizontal: 8,
-    gap: 8,
+    paddingHorizontal: 6,
+    gap: 4,
   },
 
   regularTab: {
-    minWidth: 60,
+    minWidth: 52,
   },
 
   tabButton: {
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 6,
+    paddingVertical: 10,
     paddingHorizontal: TAB_CONFIG.tabPadding,
   },
 
@@ -481,29 +689,64 @@ const styles = StyleSheet.create({
     gap: 4,
   },
 
+  activeIndicator: {
+    height: TAB_CONFIG.indicatorHeight,
+    borderRadius: TAB_CONFIG.indicatorHeight / 2,
+    marginBottom: 2,
+  },
+
   iconContainer: {
     position: "relative",
     alignItems: "center",
     justifyContent: "center",
-    width: 36,
-    height: 36,
+    width: 42,
+    height: 42,
   },
 
-  activeCircle: {
+  activeBackground: {
     position: "absolute",
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    borderWidth: 1,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    overflow: "hidden",
+  },
+
+  activeGradient: {
+    flex: 1,
+    borderRadius: 21,
+  },
+
+  pulseEffect: {
+    position: "absolute",
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    borderWidth: 2,
+    opacity: 0.6,
   },
 
   tabLabel: {
     fontSize: TAB_CONFIG.labelFontSize,
     textAlign: "center",
+    marginTop: 1,
+  },
+
+  cameraContainer: {
+    position: "relative",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  cameraGlow: {
+    position: "absolute",
+    width: TAB_CONFIG.cameraSize + 16,
+    height: TAB_CONFIG.cameraSize + 16,
+    borderRadius: (TAB_CONFIG.cameraSize + 16) / 2,
+    opacity: 0.6,
   },
 
   cameraWrapper: {
-    marginLeft: 16,
+    marginLeft: 14,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -512,18 +755,37 @@ const styles = StyleSheet.create({
     width: TAB_CONFIG.cameraSize,
     height: TAB_CONFIG.cameraSize,
     borderRadius: TAB_CONFIG.cameraBorderRadius,
-    alignItems: "center",
-    justifyContent: "center",
+    overflow: "hidden",
+    borderWidth: 2,
+    borderColor: "rgba(255, 255, 255, 0.15)",
     ...Platform.select({
       ios: {
         shadowColor: "black",
-        shadowOffset: { width: 0, height: 4 },
-        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 8 },
+        shadowRadius: 16,
       },
       android: {
-        elevation: 6,
+        elevation: 12,
       },
     }),
+  },
+
+  cameraButton: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    position: "relative",
+    backgroundColor: "#064E3B",
+  },
+
+  cameraHighlight: {
+    position: "absolute",
+    top: 8,
+    left: 8,
+    right: 8,
+    height: 12,
+    borderRadius: 6,
+    opacity: 0.8,
   },
 });
 
