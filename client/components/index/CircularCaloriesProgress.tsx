@@ -3,7 +3,23 @@ import { View, Text, StyleSheet, Animated } from "react-native";
 import Svg, { Path, Defs, LinearGradient, Stop } from "react-native-svg";
 import { Flame } from "lucide-react-native";
 
-const CircularCaloriesProgress = ({
+interface DailyGoals {
+  calories: number;
+  targetCalories: number;
+  carbs: number;
+  targetCarbs: number;
+  fat: number;
+  targetFat: number;
+}
+
+interface CircularCaloriesProgressProps {
+  calories?: number;
+  targetCalories?: number;
+  dailyGoals: DailyGoals;
+  size?: number;
+}
+
+const CircularCaloriesProgress: React.FC<CircularCaloriesProgressProps> = ({
   calories = 1739,
   targetCalories = 2205,
   dailyGoals,
@@ -32,7 +48,7 @@ const CircularCaloriesProgress = ({
     radius: number,
     centerX: number,
     centerY: number
-  ) => {
+  ): string => {
     const start = polarToCartesian(centerX, centerY, radius, endAngle);
     const end = polarToCartesian(centerX, centerY, radius, startAngle);
     const largeArcFlag = endAngle - startAngle <= 180 ? "0" : "1";
@@ -57,7 +73,7 @@ const CircularCaloriesProgress = ({
     centerY: number,
     radius: number,
     angleInDegrees: number
-  ) => {
+  ): { x: number; y: number } => {
     const angleInRadians = ((angleInDegrees - 45) * Math.PI) / 180.0;
     return {
       x: centerX + radius * Math.cos(angleInRadians),
@@ -262,10 +278,14 @@ const styles = StyleSheet.create({
 });
 
 // Usage Example:
-const App = () => {
-  const dailyGoals = {
+const App: React.FC = () => {
+  const dailyGoals: DailyGoals = {
     calories: 1739,
     targetCalories: 2205,
+    carbs: 45,
+    targetCarbs: 275,
+    fat: 58,
+    targetFat: 73,
   };
 
   return (

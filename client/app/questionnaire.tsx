@@ -924,9 +924,7 @@ const QuestionnaireScreen: React.FC = () => {
     !dataLoaded
   ) {
     return (
-      <LoadingScreen
-        text={isRTL ? "טוען שאלון" : "Loading Questionnaire"}
-      />
+      <LoadingScreen text={isRTL ? "טוען שאלון" : "Loading Questionnaire"} />
     );
   }
 
@@ -969,64 +967,65 @@ const QuestionnaireScreen: React.FC = () => {
         contentContainerStyle={styles.scrollContent}
       >
         {renderStep()}
+        {/* Navigation */}
+        <View style={[styles.navigation, { backgroundColor: "transperent" }]}>
+          {currentStep < totalSteps ? (
+            <TouchableOpacity
+              style={[
+                styles.actionButton,
+                {
+                  backgroundColor: canProceed()
+                    ? colors.primary
+                    : colors.border,
+                },
+              ]}
+              onPress={() => setCurrentStep(currentStep + 1)}
+              disabled={!canProceed()}
+              activeOpacity={0.8}
+            >
+              <LinearGradient
+                colors={
+                  canProceed()
+                    ? [colors.primary, colors.primary + "CC"]
+                    : [colors.border, colors.border]
+                }
+                style={styles.buttonGradient}
+              >
+                <Text style={styles.buttonText}>{t("common.next")}</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity
+              style={[
+                styles.actionButton,
+                {
+                  backgroundColor: isSaving ? colors.border : colors.success,
+                },
+              ]}
+              onPress={handleSubmit}
+              disabled={isSaving}
+              activeOpacity={0.8}
+            >
+              <LinearGradient
+                colors={
+                  isSaving
+                    ? [colors.border, colors.border]
+                    : [colors.success, colors.success + "CC"]
+                }
+                style={styles.buttonGradient}
+              >
+                {isSaving ? (
+                  <ActivityIndicator color="white" size="small" />
+                ) : (
+                  <Text style={styles.buttonText}>
+                    {isEditMode ? t("common.save") : t("questionnaire.finish")}
+                  </Text>
+                )}
+              </LinearGradient>
+            </TouchableOpacity>
+          )}
+        </View>
       </ScrollView>
-
-      {/* Navigation */}
-      <View style={[styles.navigation, { backgroundColor: "transperent" }]}>
-        {currentStep < totalSteps ? (
-          <TouchableOpacity
-            style={[
-              styles.actionButton,
-              {
-                backgroundColor: canProceed() ? colors.primary : colors.border,
-              },
-            ]}
-            onPress={() => setCurrentStep(currentStep + 1)}
-            disabled={!canProceed()}
-            activeOpacity={0.8}
-          >
-            <LinearGradient
-              colors={
-                canProceed()
-                  ? [colors.primary, colors.primary + "CC"]
-                  : [colors.border, colors.border]
-              }
-              style={styles.buttonGradient}
-            >
-              <Text style={styles.buttonText}>{t("common.next")}</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity
-            style={[
-              styles.actionButton,
-              {
-                backgroundColor: isSaving ? colors.border : colors.success,
-              },
-            ]}
-            onPress={handleSubmit}
-            disabled={isSaving}
-            activeOpacity={0.8}
-          >
-            <LinearGradient
-              colors={
-                isSaving
-                  ? [colors.border, colors.border]
-                  : [colors.success, colors.success + "CC"]
-              }
-              style={styles.buttonGradient}
-            >
-              {isSaving ? (
-                <ActivityIndicator color="white" size="small" />
-              ) : (
-                <Text style={styles.buttonText}>
-                  {isEditMode ? t("common.save") : t("questionnaire.finish")}
-                </Text>
-              )}
-            </LinearGradient>
-          </TouchableOpacity>
-        )}
-      </View>
 
       {/* Tip Modal */}
       <Modal
@@ -1114,7 +1113,7 @@ const styles = StyleSheet.create({
   },
   navigation: {
     position: "absolute",
-    bottom: -30,
+    bottom: 0,
     left: 0,
     right: 0,
     paddingHorizontal: 24,

@@ -36,11 +36,11 @@ import {
   Camera,
   Image as ImageIcon,
   Send,
-  Edit3,
+  CreditCard as Edit3,
   Trash2,
   Plus,
   RotateCcw,
-  AlertTriangle,
+  TriangleAlert as AlertTriangle,
   Info,
   X,
   Save,
@@ -56,6 +56,9 @@ import {
   TrendingUp,
   Eye,
   ChevronDown,
+  ChevronLeft,
+  Search,
+  ShoppingCart,
 } from "lucide-react-native";
 import { useMealDataRefresh } from "@/hooks/useMealDataRefresh";
 import { useColorScheme } from "@/hooks/useColorScheme";
@@ -123,7 +126,7 @@ export default function CameraScreen() {
   const { isRTL } = useLanguage();
   const dispatch = useDispatch<AppDispatch>();
   const { refreshAllMealData } = useMealDataRefresh();
-  const colorScheme = useColorScheme(); // For fallback if ThemeContext is not available
+  const colorScheme = useColorScheme();
   const { colors, isDark } = useTheme();
 
   const { pendingMeal, isAnalyzing, isPosting, isUpdating, error } =
@@ -144,7 +147,7 @@ export default function CameraScreen() {
   const [showNutritionDetails, setShowNutritionDetails] = useState(true);
   const [showAdvancedNutrition, setShowAdvancedNutrition] = useState(false);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
-  const [showResults, setShowResults] = useState(false); // Added for modal visibility
+  const [showResults, setShowResults] = useState(false);
 
   // Animation refs
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -170,17 +173,12 @@ export default function CameraScreen() {
 
   // Update local state when pendingMeal changes
   useEffect(() => {
-    console.log("🔄 Pending meal changed:", pendingMeal);
-
     if (pendingMeal?.analysis) {
-      console.log("📊 Setting analysis data:", pendingMeal.analysis);
       setAnalysisData(pendingMeal.analysis);
-
       const ingredients = pendingMeal.analysis.ingredients || [];
-      console.log("🥗 Setting ingredients:", ingredients);
       setEditedIngredients(ingredients);
       setHasBeenAnalyzed(true);
-      setShowResults(true); // Show the results/modal
+      setShowResults(true);
 
       if (pendingMeal.image_base_64) {
         const imageUri = pendingMeal.image_base_64.startsWith("data:")
@@ -291,14 +289,14 @@ export default function CameraScreen() {
         allowsEditing: true,
         aspect: [4, 3],
         quality: 0.8,
-        base64: false, // Base64 is handled by processImage later
+        base64: false,
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const imageUri = result.assets[0].uri;
         setSelectedImage(imageUri);
         resetAnalysisState();
-        setShowResults(false); // Close the results modal if it was open
+        setShowResults(false);
       }
     } catch (error) {
       console.error("Camera error:", error);
@@ -323,14 +321,14 @@ export default function CameraScreen() {
         allowsEditing: true,
         aspect: [4, 3],
         quality: 0.8,
-        base64: false, // Base64 is handled by processImage later
+        base64: false,
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
         const imageUri = result.assets[0].uri;
         setSelectedImage(imageUri);
         resetAnalysisState();
-        setShowResults(false); // Close the results modal if it was open
+        setShowResults(false);
       }
     } catch (error) {
       console.error("Gallery error:", error);
@@ -363,8 +361,6 @@ export default function CameraScreen() {
     }
 
     try {
-      console.log("🔍 Starting initial meal analysis...");
-
       const base64Image = await processImage(selectedImage);
       if (!base64Image) {
         Alert.alert(t("common.error"), "Could not process image.");
@@ -373,7 +369,7 @@ export default function CameraScreen() {
 
       const analysisParams = {
         imageBase64: base64Image,
-        language: isRTL ? "hebrew" : "english", // Use language from context
+        language: isRTL ? "hebrew" : "english",
         includeDetailedIngredients: true,
         includeNutritionBreakdown: true,
       };
@@ -389,7 +385,6 @@ export default function CameraScreen() {
       const result = await dispatch(analyzeMeal(analysisParams));
 
       if (analyzeMeal.fulfilled.match(result)) {
-        console.log("✅ Initial analysis completed successfully");
         if (result.payload?.analysis?.ingredients) {
           console.log(
             "🥗 Ingredients found:",
@@ -398,7 +393,6 @@ export default function CameraScreen() {
         }
         scrollViewRef.current?.scrollTo({ y: 0, animated: true });
       } else {
-        console.error("❌ Analysis failed:", result.payload);
         Alert.alert(
           t("camera.analysis_failed"),
           typeof result.payload === "string"
@@ -407,7 +401,6 @@ export default function CameraScreen() {
         );
       }
     } catch (error) {
-      console.error("💥 Analysis error:", error);
       Alert.alert(
         t("camera.analysis_failed"),
         error instanceof Error ? error.message : "Analysis failed"
@@ -423,8 +416,6 @@ export default function CameraScreen() {
     }
 
     try {
-      console.log("🔄 Starting re-analysis with edits...");
-
       const base64Image = await processImage(selectedImage);
       if (!base64Image) {
         Alert.alert(
@@ -434,7 +425,6 @@ export default function CameraScreen() {
         return;
       }
 
-      // Create update text based on user comment and edited ingredients
       let updateText = userComment.trim();
       if (editedIngredients.length > 0) {
         const ingredientsList = editedIngredients
@@ -460,15 +450,12 @@ export default function CameraScreen() {
       const result = await dispatch(analyzeMeal(reAnalysisParams));
 
       if (analyzeMeal.fulfilled.match(result)) {
-        console.log("✅ Re-analysis completed successfully");
         Alert.alert(
           t("common.success") || "Success",
           "Meal re-analyzed successfully with your edits!"
         );
-        // Scroll to top to see updated results
         scrollViewRef.current?.scrollTo({ y: 0, animated: true });
       } else {
-        console.error("❌ Re-analysis failed:", result.payload);
         Alert.alert(
           "Re-analysis Failed",
           typeof result.payload === "string"
@@ -477,7 +464,6 @@ export default function CameraScreen() {
         );
       }
     } catch (error) {
-      console.error("💥 Re-analysis error:", error);
       Alert.alert(
         "Re-analysis Failed",
         error instanceof Error ? error.message : "Re-analysis failed"
@@ -493,14 +479,10 @@ export default function CameraScreen() {
     }
 
     try {
-      console.log("💾 Saving meal to database...");
-
       const result = await dispatch(postMeal());
 
       if (postMeal.fulfilled.match(result)) {
-        console.log("✅ Meal saved successfully");
-
-        await refreshAllMealData(); // Refresh the global list of meals
+        await refreshAllMealData();
 
         Alert.alert(t("camera.save_success"), "Meal saved successfully!", [
           {
@@ -513,7 +495,6 @@ export default function CameraScreen() {
           },
         ]);
       } else {
-        console.error("❌ Save failed:", result.payload);
         Alert.alert(
           t("camera.save_failed"),
           typeof result.payload === "string"
@@ -522,7 +503,6 @@ export default function CameraScreen() {
         );
       }
     } catch (error) {
-      console.error("💥 Save error:", error);
       Alert.alert(
         t("camera.save_failed"),
         error instanceof Error ? error.message : "Save failed"
@@ -536,7 +516,6 @@ export default function CameraScreen() {
   };
 
   const confirmDeleteMeal = () => {
-    console.log("🗑️ Discarding meal analysis...");
     resetAnalysisState();
     setSelectedImage(null);
     setShowDeleteConfirm(false);
@@ -563,7 +542,7 @@ export default function CameraScreen() {
       sodium_mg: 0,
     };
     setEditingIngredient(newIngredient);
-    setEditingIndex(-1); // -1 indicates adding a new ingredient
+    setEditingIndex(-1);
     setShowEditModal(true);
   };
 
@@ -581,10 +560,8 @@ export default function CameraScreen() {
     const updatedIngredients = [...editedIngredients];
 
     if (editingIndex >= 0) {
-      // Update existing ingredient
       updatedIngredients[editingIndex] = editingIngredient;
     } else {
-      // Add new ingredient
       updatedIngredients.push(editingIngredient);
     }
 
@@ -596,7 +573,6 @@ export default function CameraScreen() {
 
   // Calculate total nutrition from current data
   const calculateTotalNutrition = () => {
-    // Use editedIngredients if available, otherwise fallback to analysisData.ingredients
     const currentIngredients =
       editedIngredients.length > 0
         ? editedIngredients
@@ -614,7 +590,6 @@ export default function CameraScreen() {
       };
     }
 
-    // If analysisData exists, use its overall totals first, then sum ingredients if needed for detail
     const totalCalories = analysisData?.calories || 0;
     const totalProtein = analysisData
       ? getNutritionValue(analysisData, "protein_g") ||
@@ -647,7 +622,6 @@ export default function CameraScreen() {
         0
       : 0;
 
-    // If ingredients are available, calculate their sum as a fallback or for finer detail
     if (currentIngredients.length > 0) {
       let ingredientSumCalories = 0;
       let ingredientSumProtein = 0;
@@ -682,7 +656,6 @@ export default function CameraScreen() {
           getNutritionValueForIngredient(ingredient, "sodium");
       });
 
-      // Prioritize sums from ingredients if they are more representative or if main analysis is missing
       return {
         calories: ingredientSumCalories || totalCalories,
         protein: ingredientSumProtein || totalProtein,
@@ -705,403 +678,419 @@ export default function CameraScreen() {
     };
   };
 
-  // Get nutrition quality score
-  const getNutritionQuality = () => {
-    if (!analysisData)
-      return { score: 0, label: "Unknown", color: colors.textSecondary };
-
-    const totalNutrition = calculateTotalNutrition();
-
-    let score = 50; // Base score
-
-    // Protein bonus
-    if (totalNutrition.protein > 20) score += 20;
-    else if (totalNutrition.protein > 10) score += 10;
-
-    // Fiber bonus
-    if (totalNutrition.fiber > 10) score += 15;
-    else if (totalNutrition.fiber > 5) score += 8;
-
-    // Sugar penalty
-    if (totalNutrition.sugar > 25) score -= 15;
-    else if (totalNutrition.sugar > 15) score -= 8;
-
-    // Calorie balance (example: moderate calories are good)
-    if (totalNutrition.calories > 100 && totalNutrition.calories < 600)
-      score += 10;
-    else if (totalNutrition.calories >= 600) score -= 10; // Penalize very high calories
-
-    score = Math.max(0, Math.min(100, score));
-
-    if (score >= 80)
-      return { score, label: "Excellent", color: colors.success };
-    if (score >= 60) return { score, label: "Good", color: colors.warning };
-    if (score >= 40)
-      return { score, label: "Fair", color: colors.textSecondary };
-    return { score, label: "Poor", color: colors.error };
-  };
-
   // Render functions
   const renderImageSelection = () => (
     <View style={styles.imageSelectionContainer}>
-      <LinearGradient
-        colors={[colors.surface, colors.surfaceVariant]}
-        style={styles.imageSelectionGradient}
-      >
-        <View style={styles.imageSelectionHeader}>
-          <View style={styles.cameraIconContainer}>
-            <Camera size={60} color={colors.primary} />
-          </View>
-          <Text
-            style={[
-              styles.imageSelectionTitle,
-              isRTL && styles.rtlText,
-              { color: colors.primaryDark },
-            ]}
-          >
-            Smart Meal Analysis
-          </Text>
-          <Text
-            style={[
-              styles.imageSelectionSubtitle,
-              isRTL && styles.rtlText,
-              { color: colors.primary },
-            ]}
-          >
-            Take a photo or select from gallery to get detailed nutritional
-            information
-          </Text>
-        </View>
+      <View style={styles.cameraIconContainer}>
+        <Camera size={48} color="#10B981" />
+      </View>
+      <Text style={styles.imageSelectionTitle}>Meal Scanner</Text>
+      <Text style={styles.imageSelectionSubtitle}>
+        Take a photo or select from gallery to analyze your meal
+      </Text>
 
-        <View style={styles.imageSelectionButtons}>
-          <TouchableOpacity
-            style={styles.imageSelectionButton}
-            onPress={handleTakePhoto}
-          >
-            <LinearGradient
-              colors={[colors.primary, colors.primary]}
-              style={styles.imageButtonGradient}
-            >
-              <Camera size={24} color="#ffffff" />
-              <Text style={styles.imageButtonText}>Take Photo</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.imageSelectionButton}
-            onPress={handleSelectFromGallery}
-          >
-            <LinearGradient
-              colors={[colors.secondary, colors.secondaryDark]}
-              style={styles.imageButtonGradient}
-            >
-              <ImageIcon size={24} color="#ffffff" />
-              <Text style={styles.imageButtonText}>Choose from Gallery</Text>
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
-
-        <View
-          style={[styles.tipContainer, { backgroundColor: colors.background }]}
+      <View style={styles.imageSelectionButtons}>
+        <TouchableOpacity
+          style={styles.primaryActionButton}
+          onPress={handleTakePhoto}
         >
-          <Info size={20} color={colors.primary} />
-          <View style={styles.tipTextContainer}>
-            <Text
-              style={[
-                styles.tipTitle,
-                isRTL && styles.rtlText,
-                { color: colors.primaryDark },
-              ]}
-            >
-              Pro Tips for Better Results
-            </Text>
-            <Text
-              style={[
-                styles.tipDescription,
-                isRTL && styles.rtlText,
-                { color: colors.primary },
-              ]}
-            >
-              • Ensure good lighting and clear view of the food{"\n"}• Include
-              all components of your meal{"\n"}• Avoid shadows and reflections
-            </Text>
-          </View>
-        </View>
-      </LinearGradient>
+          <Camera size={20} color="#FFFFFF" />
+          <Text style={styles.primaryActionText}>Take Photo</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.secondaryActionButton}
+          onPress={handleSelectFromGallery}
+        >
+          <ImageIcon size={20} color="#10B981" />
+          <Text style={styles.secondaryActionText}>Choose from Gallery</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 
-  const renderMealHeader = () => {
-    if (!analysisData) return null;
-
-    const quality = getNutritionQuality();
-
-    return (
-      <Animated.View
-        style={[
-          styles.mealHeaderContainer,
-          {
-            opacity: fadeAnim,
-            transform: [{ translateY: slideAnim }],
-          },
-        ]}
-      >
-        <LinearGradient
-          colors={[colors.primary, colors.primaryDark]}
-          style={styles.mealHeaderGradient}
-        >
-          <View style={styles.mealHeaderContent}>
-            <View style={styles.mealTitleRow}>
-              <View style={styles.mealTitleContainer}>
-                <Text style={[styles.mealTitle, isRTL && styles.rtlText]}>
-                  {getMealName(analysisData)}
-                </Text>
-                <View style={styles.confidenceContainer}>
-                  <Eye size={14} color="rgba(255,255,255,0.8)" />
-                  <Text style={styles.confidenceText}>
-                    {Math.round(analysisData.confidence || 85)}% confidence
-                  </Text>
-                </View>
-              </View>
-              <View
-                style={[
-                  styles.qualityBadge,
-                  { backgroundColor: quality.color },
-                ]}
-              >
-                <Star size={12} color="#ffffff" />
-                <Text style={styles.qualityText}>{quality.label}</Text>
-              </View>
-            </View>
-
-            <View style={styles.mealMetaRow}>
-              <View style={styles.metaItem}>
-                <Clock size={16} color="rgba(255,255,255,0.9)" />
-                <Text style={styles.metaText}>
-                  {new Date().toLocaleTimeString([], {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </Text>
-              </View>
-
-              {(analysisData.cooking_method || analysisData.cookingMethod) && (
-                <View style={styles.metaItem}>
-                  <Apple size={16} color="rgba(255,255,255,0.9)" />
-                  <Text style={styles.metaText}>
-                    {analysisData.cooking_method || analysisData.cookingMethod}
-                  </Text>
-                </View>
-              )}
-            </View>
-          </View>
-        </LinearGradient>
-      </Animated.View>
-    );
-  };
-
-  const renderNutritionSummary = () => {
+  const renderAnalysisResults = () => {
     if (!analysisData) return null;
 
     const totalNutrition = calculateTotalNutrition();
+    const currentDate = new Date();
+    const formattedDate = currentDate.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    });
 
-    console.log("🍎 Rendering nutrition summary:", totalNutrition);
-    console.log("🥗 Current ingredients:", editedIngredients);
+    // Generate chart data points for visualization
+    const generateChartData = () => {
+      const baseCalories = totalNutrition.calories;
+      const points = [];
+
+      for (let i = 0; i < 7; i++) {
+        const variation = (Math.random() - 0.5) * 0.3;
+        const value = Math.max(0, baseCalories * (1 + variation));
+        points.push({
+          calories: Math.round(value),
+          protein: Math.round(totalNutrition.protein * (1 + variation * 0.5)),
+          carbs: Math.round(totalNutrition.carbs * (1 + variation * 0.7)),
+          fat: Math.round(totalNutrition.fat * (1 + variation * 0.4)),
+        });
+      }
+      return points;
+    };
+
+    const chartData = generateChartData();
 
     return (
-      <Animated.View
-        style={[
-          styles.nutritionContainer,
-          {
-            opacity: nutritionCardAnim,
-            transform: [{ scale: nutritionCardAnim }],
-          },
-        ]}
-      >
-        <LinearGradient
-          colors={[colors.background, colors.surface]}
-          style={styles.nutritionGradient}
-        >
-          <View style={styles.nutritionHeader}>
-            <Text style={[styles.nutritionTitle, isRTL && styles.rtlText]}>
-              Nutritional Information
-            </Text>
-            <Text style={styles.nutritionSubtitle}>
-              Complete breakdown of your meal
-            </Text>
+      <View style={styles.resultsContainer}>
+        {/* Header */}
+        <View style={styles.resultsHeader}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
+            <ChevronLeft size={24} color="#111827" />
+          </TouchableOpacity>
+          <Text style={styles.resultsTitle}>{getMealName(analysisData)}</Text>
+          <TouchableOpacity style={styles.menuButton}>
+            <View style={styles.menuDot} />
+            <View style={styles.menuDot} />
+            <View style={styles.menuDot} />
+          </TouchableOpacity>
+        </View>
+        {/* Main Calorie Card */}
+        <View style={styles.calorieCard}>
+          <View style={styles.calorieHeader}>
+            <Text style={styles.calorieValue}>{totalNutrition.calories}</Text>
+            <Text style={styles.calorieUnit}>kcal</Text>
           </View>
 
-          <View style={styles.nutritionCard}>
-            <View style={styles.nutritionCard}>
-              <View
-                style={[
-                  styles.nutritionIconContainer,
-                  { backgroundColor: "#fee2e2" },
-                ]}
-              >
-                <Flame size={24} color="#ef4444" />
+          <View style={styles.calorieMetadata}>
+            <Text style={styles.calorieDate}>{formattedDate}</Text>
+            <View style={styles.calorieStats}>
+              <Text style={styles.calorieStatItem}>3 meals</Text>
+              <Text style={styles.calorieStatItem}>49 kcal remaining</Text>
+            </View>
+          </View>
+
+          {/* Chart Visualization */}
+          <View style={styles.chartContainer}>
+            <View style={styles.chartArea}>
+              {/* Chart lines */}
+              <View style={styles.chartLines}>
+                <View style={[styles.chartLine, styles.caloriesLine]} />
+                <View style={[styles.chartLine, styles.carbsLine]} />
+                <View style={[styles.chartLine, styles.fatLine]} />
+                <View style={[styles.chartLine, styles.proteinLine]} />
               </View>
-              <Text style={styles.nutritionValue}>
+
+              {/* Data points */}
+              <View style={styles.chartPoints}>
+                {chartData.map((point, index) => (
+                  <View
+                    key={index}
+                    style={[
+                      styles.chartPoint,
+                      { left: `${(index / 6) * 100}%` },
+                    ]}
+                  >
+                    <View style={[styles.dataPoint, styles.caloriesPoint]} />
+                    <View style={[styles.dataPoint, styles.carbsPoint]} />
+                    <View style={[styles.dataPoint, styles.fatPoint]} />
+                    <View style={[styles.dataPoint, styles.proteinPoint]} />
+                  </View>
+                ))}
+              </View>
+            </View>
+
+            {/* Chart Legend */}
+            <View style={styles.chartLegend}>
+              <View style={styles.legendItem}>
+                <View
+                  style={[styles.legendDot, { backgroundColor: "#10B981" }]}
+                />
+                <Text style={styles.legendText}>Calory</Text>
+              </View>
+              <View style={styles.legendItem}>
+                <View
+                  style={[styles.legendDot, { backgroundColor: "#F59E0B" }]}
+                />
+                <Text style={styles.legendText}>Carbs</Text>
+              </View>
+              <View style={styles.legendItem}>
+                <View
+                  style={[styles.legendDot, { backgroundColor: "#EF4444" }]}
+                />
+                <Text style={styles.legendText}>Fat</Text>
+              </View>
+              <View style={styles.legendItem}>
+                <View
+                  style={[styles.legendDot, { backgroundColor: "#8B5CF6" }]}
+                />
+                <Text style={styles.legendText}>Protein</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+
+        {/* Nutrition Stats */}
+        <View style={styles.nutritionStatsContainer}>
+          <View style={styles.nutritionStatCard}>
+            <Text style={styles.nutritionStatValue}>
+              {totalNutrition.calories}
+            </Text>
+            <Text style={styles.nutritionStatUnit}>kcal</Text>
+            <Text style={styles.nutritionStatLabel}>Calory gained</Text>
+            <Text style={styles.nutritionStatPercentage}>52%</Text>
+          </View>
+
+          <View style={styles.nutritionStatCard}>
+            <Text style={styles.nutritionStatValue}>
+              {totalNutrition.carbs}
+            </Text>
+            <Text style={styles.nutritionStatUnit}>g</Text>
+            <Text style={styles.nutritionStatLabel}>Carbs</Text>
+            <Text style={styles.nutritionStatPercentage}>17%</Text>
+          </View>
+        </View>
+
+        {/* Detailed Nutrition Grid */}
+        <View style={styles.detailedNutritionContainer}>
+          <Text style={styles.detailedNutritionTitle}>Nutrition Breakdown</Text>
+          <View style={styles.nutritionGrid}>
+            <View style={styles.nutritionGridItem}>
+              <View
+                style={[styles.nutritionIcon, { backgroundColor: "#FEE2E2" }]}
+              >
+                <Flame size={20} color="#EF4444" />
+              </View>
+              <Text style={styles.nutritionGridValue}>
                 {totalNutrition.calories}
               </Text>
-              <Text style={styles.nutritionLabel}>Calories</Text>
+              <Text style={styles.nutritionGridLabel}>Calories</Text>
             </View>
 
-            <View style={styles.nutritionCard}>
+            <View style={styles.nutritionGridItem}>
               <View
-                style={[
-                  styles.nutritionIconContainer,
-                  { backgroundColor: "#dbeafe" },
-                ]}
+                style={[styles.nutritionIcon, { backgroundColor: "#DBEAFE" }]}
               >
-                <Zap size={24} color="#3b82f6" />
+                <Zap size={20} color="#3B82F6" />
               </View>
-              <Text style={styles.nutritionValue}>
+              <Text style={styles.nutritionGridValue}>
                 {totalNutrition.protein}g
               </Text>
-              <Text style={styles.nutritionLabel}>Protein</Text>
+              <Text style={styles.nutritionGridLabel}>Protein</Text>
             </View>
 
-            <View style={styles.nutritionCard}>
+            <View style={styles.nutritionGridItem}>
               <View
-                style={[
-                  styles.nutritionIconContainer,
-                  { backgroundColor: "#fef3c7" },
-                ]}
+                style={[styles.nutritionIcon, { backgroundColor: "#FEF3C7" }]}
               >
-                <Wheat size={24} color="#f59e0b" />
+                <Wheat size={20} color="#F59E0B" />
               </View>
-              <Text style={styles.nutritionValue}>{totalNutrition.carbs}g</Text>
-              <Text style={styles.nutritionLabel}>Carbs</Text>
+              <Text style={styles.nutritionGridValue}>
+                {totalNutrition.carbs}g
+              </Text>
+              <Text style={styles.nutritionGridLabel}>Carbs</Text>
             </View>
 
-            <View style={styles.nutritionCard}>
+            <View style={styles.nutritionGridItem}>
               <View
-                style={[
-                  styles.nutritionIconContainer,
-                  { backgroundColor: "#ecfdf5" },
-                ]}
+                style={[styles.nutritionIcon, { backgroundColor: "#ECFDF5" }]}
               >
-                <Droplets size={24} color="#10b981" />
+                <Droplets size={20} color="#10B981" />
               </View>
-              <Text style={styles.nutritionValue}>{totalNutrition.fat}g</Text>
-              <Text style={styles.nutritionLabel}>Fat</Text>
+              <Text style={styles.nutritionGridValue}>
+                {totalNutrition.fat}g
+              </Text>
+              <Text style={styles.nutritionGridLabel}>Fat</Text>
             </View>
           </View>
 
+          {/* Additional Nutrition Details */}
           {(totalNutrition.fiber > 0 ||
             totalNutrition.sugar > 0 ||
             totalNutrition.sodium > 0) && (
-            <TouchableOpacity
-              style={styles.detailsToggle}
-              onPress={() => setShowNutritionDetails(!showNutritionDetails)}
-            >
-              <Text style={styles.detailsToggleText}>
-                {showNutritionDetails ? "Hide Details" : "Show More Details"}
-              </Text>
-              <Animated.View
-                style={[
-                  styles.chevron,
-                  showNutritionDetails && styles.chevronRotated,
-                ]}
-              >
-                <ChevronDown size={18} color={colors.primary} />
-              </Animated.View>
-            </TouchableOpacity>
-          )}
-
-          {showNutritionDetails && (
-            <Animated.View style={styles.detailedNutrition}>
+            <View style={styles.additionalNutrition}>
               {totalNutrition.fiber > 0 && (
-                <View style={styles.detailRow}>
-                  <View style={styles.detailLabelContainer}>
-                    <Apple size={16} color={colors.textSecondary} />
-                    <Text style={styles.detailLabel}>Fiber</Text>
-                  </View>
-                  <Text style={styles.detailValue}>
+                <View style={styles.nutritionDetailRow}>
+                  <Text style={styles.nutritionDetailLabel}>Fiber</Text>
+                  <Text style={styles.nutritionDetailValue}>
                     {totalNutrition.fiber}g
                   </Text>
                 </View>
               )}
               {totalNutrition.sugar > 0 && (
-                <View style={styles.detailRow}>
-                  <View style={styles.detailLabelContainer}>
-                    <Heart size={16} color={colors.textSecondary} />
-                    <Text style={styles.detailLabel}>Sugar</Text>
-                  </View>
-                  <Text style={styles.detailValue}>
+                <View style={styles.nutritionDetailRow}>
+                  <Text style={styles.nutritionDetailLabel}>Sugar</Text>
+                  <Text style={styles.nutritionDetailValue}>
                     {totalNutrition.sugar}g
                   </Text>
                 </View>
               )}
               {totalNutrition.sodium > 0 && (
-                <View style={styles.detailRow}>
-                  <View style={styles.detailLabelContainer}>
-                    <Droplets size={16} color={colors.textSecondary} />
-                    <Text style={styles.detailLabel}>Sodium</Text>
-                  </View>
-                  <Text style={styles.detailValue}>
+                <View style={styles.nutritionDetailRow}>
+                  <Text style={styles.nutritionDetailLabel}>Sodium</Text>
+                  <Text style={styles.nutritionDetailValue}>
                     {totalNutrition.sodium}mg
                   </Text>
                 </View>
               )}
+            </View>
+          )}
+        </View>
 
-              {/* Advanced nutrition */}
+        {/* Add Food Button */}
+        <TouchableOpacity
+          style={styles.addFoodButton}
+          onPress={handleSaveMeal}
+          disabled={isPosting}
+        >
+          {isPosting ? (
+            <ActivityIndicator size="small" color="#FFFFFF" />
+          ) : (
+            <>
+              <Text style={styles.addFoodText}>Add food manual</Text>
+              <Plus size={20} color="#FFFFFF" />
+            </>
+          )}
+        </TouchableOpacity>
+
+        {/* Ingredients List */}
+        {(editedIngredients.length > 0 ||
+          (analysisData.ingredients &&
+            analysisData.ingredients.length > 0)) && (
+          <View style={styles.ingredientsContainer}>
+            <View style={styles.ingredientsHeader}>
+              <Text style={styles.ingredientsTitle}>Ingredients</Text>
               <TouchableOpacity
-                style={styles.advancedToggle}
-                onPress={() => setShowAdvancedNutrition(!showAdvancedNutrition)}
+                style={styles.addIngredientBtn}
+                onPress={handleAddIngredient}
               >
-                <Text style={styles.advancedToggleText}>
-                  Advanced Nutrition
-                </Text>
-                <Animated.View
-                  style={[showAdvancedNutrition && styles.chevronRotated]}
-                >
-                  <ChevronDown size={16} color={colors.primary} />
-                </Animated.View>
+                <Plus size={16} color="#10B981" />
               </TouchableOpacity>
-
-              {showAdvancedNutrition && (
-                <View style={styles.advancedNutrition}>
-                  {getNutritionValue(analysisData, "saturated_fats_g") > 0 && (
-                    <View style={styles.detailRow}>
-                      <View style={styles.detailLabelContainer}>
-                        <Droplets size={16} color={colors.textSecondary} />
-                        <Text style={styles.detailLabel}>Saturated Fat</Text>
-                      </View>
-                      <Text style={styles.detailValue}>
-                        {getNutritionValue(analysisData, "saturated_fats_g")}g
-                      </Text>
-                    </View>
-                  )}
-                  {getNutritionValue(analysisData, "cholesterol_mg") > 0 && (
-                    <View style={styles.detailRow}>
-                      <View style={styles.detailLabelContainer}>
-                        <Heart size={16} color={colors.textSecondary} />
-                        <Text style={styles.detailLabel}>Cholesterol</Text>
-                      </View>
-                      <Text style={styles.detailValue}>
-                        {getNutritionValue(analysisData, "cholesterol_mg")}mg
-                      </Text>
-                    </View>
-                  )}
-                  {getNutritionValue(analysisData, "serving_size_g") > 0 && (
-                    <View style={styles.detailRow}>
-                      <View style={styles.detailLabelContainer}>
-                        <Apple size={16} color={colors.textSecondary} />
-                        <Text style={styles.detailLabel}>Serving Size</Text>
-                      </View>
-                      <Text style={styles.detailValue}>
-                        {getNutritionValue(analysisData, "serving_size_g")}g
-                      </Text>
-                    </View>
+            </View>
+            {(editedIngredients.length > 0
+              ? editedIngredients
+              : analysisData.ingredients || []
+            ).map((ingredient, index) => (
+              <View key={index} style={styles.ingredientRow}>
+                <View style={styles.ingredientInfo}>
+                  <Text style={styles.ingredientName}>
+                    {typeof ingredient === "string"
+                      ? ingredient
+                      : ingredient.name}
+                  </Text>
+                  {typeof ingredient !== "string" && (
+                    <Text style={styles.ingredientNutrition}>
+                      {getNutritionValueForIngredient(ingredient, "calories")}{" "}
+                      cal •{" "}
+                      {getNutritionValueForIngredient(ingredient, "protein")}g
+                      protein
+                    </Text>
                   )}
                 </View>
-              )}
-            </Animated.View>
-          )}
-        </LinearGradient>
-      </Animated.View>
+                <View style={styles.ingredientActions}>
+                  <TouchableOpacity
+                    onPress={() =>
+                      handleEditIngredient(
+                        typeof ingredient === "string"
+                          ? {
+                              name: ingredient,
+                              calories: 0,
+                              protein: 0,
+                              carbs: 0,
+                              fat: 0,
+                            }
+                          : ingredient,
+                        index
+                      )
+                    }
+                  >
+                    <Edit3 size={16} color="#10B981" />
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => handleRemoveIngredient(index)}
+                  >
+                    <Trash2 size={16} color="#EF4444" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Health Recommendations */}
+        {(analysisData.recommendations || analysisData.healthNotes) && (
+          <View style={styles.recommendationsContainer}>
+            <Text style={styles.recommendationsTitle}>Health Insights</Text>
+            <View style={styles.recommendationCard}>
+              <TrendingUp size={20} color="#10B981" />
+              <Text style={styles.recommendationText}>
+                {analysisData.recommendations || analysisData.healthNotes}
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* Shopping List */}
+        {(editedIngredients.length > 0 ||
+          (analysisData.ingredients &&
+            analysisData.ingredients.length > 0)) && (
+          <View style={styles.shoppingListContainer}>
+            <View style={styles.shoppingListHeader}>
+              <Text style={styles.shoppingListTitle}>Shopping List</Text>
+              <TouchableOpacity style={styles.shoppingListButton}>
+                <ShoppingCart size={16} color="#10B981" />
+                <Text style={styles.shoppingListButtonText}>Add to List</Text>
+              </TouchableOpacity>
+            </View>
+            <View style={styles.shoppingItems}>
+              {(editedIngredients.length > 0
+                ? editedIngredients
+                : analysisData.ingredients || []
+              )
+                .slice(0, 3)
+                .map((ingredient, index) => (
+                  <View key={index} style={styles.shoppingItem}>
+                    <Text style={styles.shoppingItemText}>
+                      {typeof ingredient === "string"
+                        ? ingredient
+                        : ingredient.name}
+                    </Text>
+                  </View>
+                ))}
+            </View>
+          </View>
+        )}
+
+        {/* Action Buttons */}
+        <View style={styles.actionButtonsContainer}>
+          <TouchableOpacity
+            style={styles.deleteButton}
+            onPress={handleDeleteMeal}
+          >
+            <Trash2 size={18} color="#EF4444" />
+            <Text style={styles.deleteButtonText}>Delete</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.reanalyzeButton,
+              isUpdating && styles.buttonDisabled,
+            ]}
+            onPress={handleReAnalyze}
+            disabled={isUpdating}
+          >
+            {isUpdating ? (
+              <ActivityIndicator size="small" color="#10B981" />
+            ) : (
+              <RefreshCw size={18} color="#10B981" />
+            )}
+            <Text style={styles.reanalyzeButtonText}>
+              {isUpdating ? "Updating..." : "Re-analyze"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
     );
   };
 
@@ -1109,56 +1098,40 @@ export default function CameraScreen() {
     <View style={styles.selectedImageContainer}>
       <View style={styles.imageWrapper}>
         <Image source={{ uri: selectedImage! }} style={styles.selectedImage} />
-        <LinearGradient
-          colors={["transparent", "rgba(0,0,0,0.3)"]}
-          style={styles.imageGradientOverlay}
-        />
 
-        {/* Image overlay with quick actions */}
-        <View style={styles.imageOverlay}>
+        <View style={styles.imageActions}>
           <TouchableOpacity
-            style={[styles.overlayButton, styles.deleteOverlayButton]}
+            style={styles.imageActionButton}
             onPress={() => {
               resetAnalysisState();
               setSelectedImage(null);
               setShowResults(false);
             }}
           >
-            <X size={18} color="#ffffff" />
+            <X size={18} color="#FFFFFF" />
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.overlayButton, styles.retakeOverlayButton]}
+            style={styles.imageActionButton}
             onPress={handleTakePhoto}
           >
-            <RotateCcw size={18} color="#ffffff" />
+            <RotateCcw size={18} color="#FFFFFF" />
           </TouchableOpacity>
         </View>
       </View>
 
       {!hasBeenAnalyzed && (
-        <>
+        <View style={styles.analyzeSection}>
           <View style={styles.commentContainer}>
-            <Text style={[styles.commentLabel, isRTL && styles.rtlText]}>
-              Additional Information (Optional)
-            </Text>
+            <Text style={styles.commentLabel}>Add details (optional)</Text>
             <TextInput
-              style={[
-                styles.commentInput,
-                isRTL && styles.rtlTextInput,
-                {
-                  backgroundColor: colors.background,
-                  borderColor: colors.border,
-                  color: colors.text,
-                },
-              ]}
-              placeholder="Add any details about the meal (ingredients, cooking method, etc.)"
-              placeholderTextColor={colors.textSecondary}
+              style={styles.commentInput}
+              placeholder="Describe ingredients, cooking method, or any special details..."
+              placeholderTextColor="#9CA3AF"
               value={userComment}
               onChangeText={setUserComment}
               multiline
               numberOfLines={3}
-              textAlign={isRTL ? "right" : "left"}
             />
           </View>
 
@@ -1167,325 +1140,28 @@ export default function CameraScreen() {
             onPress={handleAnalyzeImage}
             disabled={isAnalyzing}
           >
-            <LinearGradient
-              colors={
-                isAnalyzing
-                  ? [colors.disabled, colors.textSecondary]
-                  : [colors.primary, colors.primaryDark]
-              }
-              style={styles.analyzeButtonGradient}
-            >
-              {isAnalyzing ? (
-                <ActivityIndicator size="small" color="#ffffff" />
-              ) : (
-                <Send size={20} color="#ffffff" />
-              )}
-              <Text style={styles.analyzeButtonText}>
-                {isAnalyzing ? "Analyzing Meal..." : "Analyze My Meal"}
-              </Text>
-            </LinearGradient>
+            {isAnalyzing ? (
+              <View style={styles.analyzingContent}>
+                <ActivityIndicator size="small" color="#FFFFFF" />
+                <Text style={styles.analyzeButtonText}>Analyzing...</Text>
+                <Text style={styles.analyzeSubtext}>
+                  This may take a few seconds
+                </Text>
+              </View>
+            ) : (
+              <View style={styles.analyzeContent}>
+                <Send size={20} color="#FFFFFF" />
+                <Text style={styles.analyzeButtonText}>Analyze Meal</Text>
+                <Text style={styles.analyzeSubtext}>
+                  Get detailed nutrition info
+                </Text>
+              </View>
+            )}
           </TouchableOpacity>
-        </>
+        </View>
       )}
     </View>
   );
-
-  const renderAnalysisResults = () => {
-    if (!analysisData) return null;
-
-    console.log("🔄 Rendering analysis results with data:", analysisData);
-
-    return (
-      <View style={styles.analysisContainer}>
-        {renderMealHeader()}
-        {renderNutritionSummary()}
-
-        {/* Ingredients Section */}
-        <View style={styles.ingredientsSection}>
-          <View style={styles.ingredientsHeader}>
-            <Text style={[styles.sectionTitle, isRTL && styles.rtlText]}>
-              Identified Ingredients (
-              {
-                (editedIngredients.length > 0
-                  ? editedIngredients
-                  : analysisData.ingredients || []
-                ).length
-              }
-              )
-            </Text>
-            <TouchableOpacity
-              style={styles.addIngredientButton}
-              onPress={handleAddIngredient}
-            >
-              <Plus size={16} color={colors.primary} />
-              <Text style={[styles.addIngredientText, isRTL && styles.rtlText]}>
-                {isRTL ? "הוסף" : "Add"}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          {editedIngredients.length > 0 ? (
-            editedIngredients.map((ingredient, index) => (
-              <View key={`edited-${index}`} style={styles.ingredientItem}>
-                <View style={styles.ingredientHeader}>
-                  <Text
-                    style={[
-                      styles.ingredientName,
-                      isRTL && styles.rtlText,
-                      { color: colors.text },
-                    ]}
-                  >
-                    {ingredient.name || `Ingredient ${index + 1}`}
-                  </Text>
-                  <View style={styles.ingredientActions}>
-                    <TouchableOpacity
-                      style={styles.ingredientActionButton}
-                      onPress={() => handleEditIngredient(ingredient, index)}
-                    >
-                      <Edit3 size={16} color={colors.primary} />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={styles.ingredientActionButton}
-                      onPress={() => handleRemoveIngredient(index)}
-                    >
-                      <Trash2 size={16} color={colors.error} />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-                <View style={styles.ingredientNutrition}>
-                  <Text style={styles.ingredientNutritionText}>
-                    {Math.round(
-                      getNutritionValueForIngredient(ingredient, "calories") ||
-                        0
-                    )}{" "}
-                    cal
-                  </Text>
-                  {(getNutritionValueForIngredient(ingredient, "protein_g") ||
-                    getNutritionValueForIngredient(ingredient, "protein")) >
-                    0 && (
-                    <Text style={styles.ingredientNutritionText}>
-                      •{" "}
-                      {Math.round(
-                        getNutritionValueForIngredient(
-                          ingredient,
-                          "protein_g"
-                        ) ||
-                          getNutritionValueForIngredient(
-                            ingredient,
-                            "protein"
-                          ) ||
-                          0
-                      )}
-                      g protein
-                    </Text>
-                  )}
-                  {(getNutritionValueForIngredient(ingredient, "carbs_g") ||
-                    getNutritionValueForIngredient(ingredient, "carbs")) >
-                    0 && (
-                    <Text style={styles.ingredientNutritionText}>
-                      •{" "}
-                      {Math.round(
-                        getNutritionValueForIngredient(ingredient, "carbs_g") ||
-                          getNutritionValueForIngredient(ingredient, "carbs") ||
-                          0
-                      )}
-                      g carbs
-                    </Text>
-                  )}
-                </View>
-              </View>
-            ))
-          ) : analysisData.ingredients &&
-            analysisData.ingredients.length > 0 ? (
-            analysisData.ingredients.map((ingredient, index) => (
-              <View key={`original-${index}`} style={styles.ingredientItem}>
-                <View style={styles.ingredientHeader}>
-                  <Text
-                    style={[
-                      styles.ingredientName,
-                      isRTL && styles.rtlText,
-                      { color: colors.text },
-                    ]}
-                  >
-                    {typeof ingredient === "string"
-                      ? ingredient
-                      : ingredient.name || `Ingredient ${index + 1}`}
-                  </Text>
-                  <View style={styles.ingredientActions}>
-                    <TouchableOpacity
-                      style={styles.ingredientActionButton}
-                      onPress={() => {
-                        const ingredientToEdit =
-                          typeof ingredient === "string"
-                            ? {
-                                name: ingredient,
-                                calories: 0,
-                                protein: 0,
-                                carbs: 0,
-                                fat: 0,
-                              }
-                            : ingredient;
-                        handleEditIngredient(ingredientToEdit, index);
-                      }}
-                    >
-                      <Edit3 size={16} color={colors.primary} />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-                <View style={styles.ingredientNutrition}>
-                  {typeof ingredient !== "string" && (
-                    <>
-                      <Text style={styles.ingredientNutritionText}>
-                        {Math.round(
-                          getNutritionValueForIngredient(
-                            ingredient,
-                            "calories"
-                          ) || 0
-                        )}{" "}
-                        cal
-                      </Text>
-                      {(getNutritionValueForIngredient(
-                        ingredient,
-                        "protein_g"
-                      ) ||
-                        getNutritionValueForIngredient(ingredient, "protein")) >
-                        0 && (
-                        <Text style={styles.ingredientNutritionText}>
-                          •{" "}
-                          {Math.round(
-                            getNutritionValueForIngredient(
-                              ingredient,
-                              "protein_g"
-                            ) ||
-                              getNutritionValueForIngredient(
-                                ingredient,
-                                "protein"
-                              ) ||
-                              0
-                          )}
-                          g protein
-                        </Text>
-                      )}
-                      {(getNutritionValueForIngredient(ingredient, "carbs_g") ||
-                        getNutritionValueForIngredient(ingredient, "carbs")) >
-                        0 && (
-                        <Text style={styles.ingredientNutritionText}>
-                          •{" "}
-                          {Math.round(
-                            getNutritionValueForIngredient(
-                              ingredient,
-                              "carbs_g"
-                            ) ||
-                              getNutritionValueForIngredient(
-                                ingredient,
-                                "carbs"
-                              ) ||
-                              0
-                          )}
-                          g carbs
-                        </Text>
-                      )}
-                    </>
-                  )}
-                </View>
-              </View>
-            ))
-          ) : (
-            <View style={styles.noIngredientsContainer}>
-              <Text
-                style={[
-                  styles.noIngredientsText,
-                  isRTL && styles.rtlText,
-                  { color: colors.textSecondary },
-                ]}
-              >
-                No ingredients identified. Add some manually or re-analyze the
-                image.
-              </Text>
-            </View>
-          )}
-        </View>
-
-        {/* Recommendations Section */}
-        {(analysisData.recommendations || analysisData.healthNotes) && (
-          <View style={styles.recommendationsSection}>
-            <Text style={[styles.sectionTitle, isRTL && styles.rtlText]}>
-              AI Health Recommendations
-            </Text>
-            <View style={styles.recommendationCard}>
-              <TrendingUp size={20} color={colors.primary} />
-              <Text
-                style={[
-                  styles.recommendationText,
-                  isRTL && styles.rtlText,
-                  { color: colors.text },
-                ]}
-              >
-                {analysisData.recommendations || analysisData.healthNotes}
-              </Text>
-            </View>
-          </View>
-        )}
-
-        {/* Action Buttons */}
-        <View style={styles.actionButtons}>
-          <TouchableOpacity
-            style={styles.secondaryButton}
-            onPress={handleDeleteMeal}
-          >
-            <Trash2 size={18} color={colors.error} />
-            <Text style={[styles.secondaryButtonText, { color: colors.error }]}>
-              Delete
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.secondaryButton,
-              isUpdating && styles.buttonDisabled,
-            ]}
-            onPress={handleReAnalyze}
-            disabled={isUpdating}
-          >
-            {isUpdating ? (
-              <ActivityIndicator size="small" color={colors.primary} />
-            ) : (
-              <RefreshCw size={18} color={colors.primary} />
-            )}
-            <Text
-              style={[styles.secondaryButtonText, { color: colors.primary }]}
-            >
-              {isUpdating ? "Updating..." : "Re-analyze"}
-            </Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.primaryButton, isPosting && styles.buttonDisabled]}
-            onPress={handleSaveMeal}
-            disabled={isPosting}
-          >
-            <LinearGradient
-              colors={
-                isPosting
-                  ? [colors.disabled, colors.textSecondary]
-                  : [colors.success, colors.emerald600]
-              }
-              style={styles.primaryButtonGradient}
-            >
-              {isPosting ? (
-                <ActivityIndicator size="small" color="#ffffff" />
-              ) : (
-                <Save size={20} color="#ffffff" />
-              )}
-              <Text style={styles.primaryButtonText}>
-                {isPosting ? "Saving..." : "Save Meal"}
-              </Text>
-            </LinearGradient>
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  };
 
   const renderEditModal = () => (
     <Modal
@@ -1498,17 +1174,13 @@ export default function CameraScreen() {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.modalOverlay}
       >
-        <View
-          style={[styles.modalContent, { backgroundColor: colors.background }]}
-        >
-          <View
-            style={[styles.modalHeader, { borderBottomColor: colors.border }]}
-          >
-            <Text style={[styles.modalTitle, { color: colors.text }]}>
+        <View style={styles.modalContent}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>
               {editingIndex >= 0 ? "Edit" : "Add"} Ingredient
             </Text>
             <TouchableOpacity onPress={() => setShowEditModal(false)}>
-              <X size={24} color={colors.icon} />
+              <X size={24} color="#6B7280" />
             </TouchableOpacity>
           </View>
 
@@ -1517,18 +1189,9 @@ export default function CameraScreen() {
             showsVerticalScrollIndicator={false}
           >
             <View style={styles.inputGroup}>
-              <Text style={[styles.inputLabel, { color: colors.text }]}>
-                Name *
-              </Text>
+              <Text style={styles.inputLabel}>Name *</Text>
               <TextInput
-                style={[
-                  styles.modalInput,
-                  {
-                    backgroundColor: colors.surface,
-                    borderColor: colors.border,
-                    color: colors.text,
-                  },
-                ]}
+                style={styles.modalInput}
                 value={editingIngredient?.name || ""}
                 onChangeText={(text) =>
                   setEditingIngredient((prev) =>
@@ -1536,25 +1199,15 @@ export default function CameraScreen() {
                   )
                 }
                 placeholder="Enter ingredient name"
-                placeholderTextColor={colors.textSecondary}
-                textAlign={isRTL ? "right" : "left"}
+                placeholderTextColor="#9CA3AF"
               />
             </View>
 
             <View style={styles.inputRow}>
-              <View style={styles.inputGroup}>
-                <Text style={[styles.inputLabel, { color: colors.text }]}>
-                  Calories
-                </Text>
+              <View style={[styles.inputGroup, { flex: 1 }]}>
+                <Text style={styles.inputLabel}>Calories</Text>
                 <TextInput
-                  style={[
-                    styles.modalInput,
-                    {
-                      backgroundColor: colors.surface,
-                      borderColor: colors.border,
-                      color: colors.text,
-                    },
-                  ]}
+                  style={styles.modalInput}
                   value={editingIngredient?.calories?.toString() || "0"}
                   onChangeText={(text) =>
                     setEditingIngredient((prev) =>
@@ -1563,23 +1216,14 @@ export default function CameraScreen() {
                   }
                   keyboardType="numeric"
                   placeholder="0"
-                  placeholderTextColor={colors.textSecondary}
+                  placeholderTextColor="#9CA3AF"
                 />
               </View>
 
-              <View style={styles.inputGroup}>
-                <Text style={[styles.inputLabel, { color: colors.text }]}>
-                  Protein (g)
-                </Text>
+              <View style={[styles.inputGroup, { flex: 1 }]}>
+                <Text style={styles.inputLabel}>Protein (g)</Text>
                 <TextInput
-                  style={[
-                    styles.modalInput,
-                    {
-                      backgroundColor: colors.surface,
-                      borderColor: colors.border,
-                      color: colors.text,
-                    },
-                  ]}
+                  style={styles.modalInput}
                   value={editingIngredient?.protein?.toString() || "0"}
                   onChangeText={(text) =>
                     setEditingIngredient((prev) =>
@@ -1588,25 +1232,16 @@ export default function CameraScreen() {
                   }
                   keyboardType="numeric"
                   placeholder="0"
-                  placeholderTextColor={colors.textSecondary}
+                  placeholderTextColor="#9CA3AF"
                 />
               </View>
             </View>
 
             <View style={styles.inputRow}>
-              <View style={styles.inputGroup}>
-                <Text style={[styles.inputLabel, { color: colors.text }]}>
-                  Carbs (g)
-                </Text>
+              <View style={[styles.inputGroup, { flex: 1 }]}>
+                <Text style={styles.inputLabel}>Carbs (g)</Text>
                 <TextInput
-                  style={[
-                    styles.modalInput,
-                    {
-                      backgroundColor: colors.surface,
-                      borderColor: colors.border,
-                      color: colors.text,
-                    },
-                  ]}
+                  style={styles.modalInput}
                   value={editingIngredient?.carbs?.toString() || "0"}
                   onChangeText={(text) =>
                     setEditingIngredient((prev) =>
@@ -1615,23 +1250,14 @@ export default function CameraScreen() {
                   }
                   keyboardType="numeric"
                   placeholder="0"
-                  placeholderTextColor={colors.textSecondary}
+                  placeholderTextColor="#9CA3AF"
                 />
               </View>
 
-              <View style={styles.inputGroup}>
-                <Text style={[styles.inputLabel, { color: colors.text }]}>
-                  Fat (g)
-                </Text>
+              <View style={[styles.inputGroup, { flex: 1 }]}>
+                <Text style={styles.inputLabel}>Fat (g)</Text>
                 <TextInput
-                  style={[
-                    styles.modalInput,
-                    {
-                      backgroundColor: colors.surface,
-                      borderColor: colors.border,
-                      color: colors.text,
-                    },
-                  ]}
+                  style={styles.modalInput}
                   value={editingIngredient?.fat?.toString() || "0"}
                   onChangeText={(text) =>
                     setEditingIngredient((prev) =>
@@ -1640,25 +1266,16 @@ export default function CameraScreen() {
                   }
                   keyboardType="numeric"
                   placeholder="0"
-                  placeholderTextColor={colors.textSecondary}
+                  placeholderTextColor="#9CA3AF"
                 />
               </View>
             </View>
 
             <View style={styles.inputRow}>
-              <View style={styles.inputGroup}>
-                <Text style={[styles.inputLabel, { color: colors.text }]}>
-                  Fiber (g)
-                </Text>
+              <View style={[styles.inputGroup, { flex: 1 }]}>
+                <Text style={styles.inputLabel}>Fiber (g)</Text>
                 <TextInput
-                  style={[
-                    styles.modalInput,
-                    {
-                      backgroundColor: colors.surface,
-                      borderColor: colors.border,
-                      color: colors.text,
-                    },
-                  ]}
+                  style={styles.modalInput}
                   value={editingIngredient?.fiber?.toString() || "0"}
                   onChangeText={(text) =>
                     setEditingIngredient((prev) =>
@@ -1667,23 +1284,14 @@ export default function CameraScreen() {
                   }
                   keyboardType="numeric"
                   placeholder="0"
-                  placeholderTextColor={colors.textSecondary}
+                  placeholderTextColor="#9CA3AF"
                 />
               </View>
 
-              <View style={styles.inputGroup}>
-                <Text style={[styles.inputLabel, { color: colors.text }]}>
-                  Sugar (g)
-                </Text>
+              <View style={[styles.inputGroup, { flex: 1 }]}>
+                <Text style={styles.inputLabel}>Sugar (g)</Text>
                 <TextInput
-                  style={[
-                    styles.modalInput,
-                    {
-                      backgroundColor: colors.surface,
-                      borderColor: colors.border,
-                      color: colors.text,
-                    },
-                  ]}
+                  style={styles.modalInput}
                   value={editingIngredient?.sugar?.toString() || "0"}
                   onChangeText={(text) =>
                     setEditingIngredient((prev) =>
@@ -1692,24 +1300,15 @@ export default function CameraScreen() {
                   }
                   keyboardType="numeric"
                   placeholder="0"
-                  placeholderTextColor={colors.textSecondary}
+                  placeholderTextColor="#9CA3AF"
                 />
               </View>
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={[styles.inputLabel, { color: colors.text }]}>
-                Sodium (mg)
-              </Text>
+              <Text style={styles.inputLabel}>Sodium (mg)</Text>
               <TextInput
-                style={[
-                  styles.modalInput,
-                  {
-                    backgroundColor: colors.surface,
-                    borderColor: colors.border,
-                    color: colors.text,
-                  },
-                ]}
+                style={styles.modalInput}
                 value={editingIngredient?.sodium_mg?.toString() || "0"}
                 onChangeText={(text) =>
                   setEditingIngredient((prev) =>
@@ -1718,41 +1317,24 @@ export default function CameraScreen() {
                 }
                 keyboardType="numeric"
                 placeholder="0"
-                placeholderTextColor={colors.textSecondary}
+                placeholderTextColor="#9CA3AF"
               />
             </View>
           </ScrollView>
 
-          <View
-            style={[styles.modalActions, { borderTopColor: colors.border }]}
-          >
+          <View style={styles.modalActions}>
             <TouchableOpacity
-              style={[
-                styles.modalCancelButton,
-                { backgroundColor: colors.surface, borderColor: colors.border },
-              ]}
+              style={styles.modalCancelButton}
               onPress={() => setShowEditModal(false)}
             >
-              <Text
-                style={[
-                  styles.modalCancelText,
-                  { color: colors.textSecondary },
-                ]}
-              >
-                Cancel
-              </Text>
+              <Text style={styles.modalCancelText}>Cancel</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.modalSaveButton}
               onPress={handleSaveIngredient}
             >
-              <LinearGradient
-                colors={[colors.primary, colors.primary]}
-                style={styles.modalSaveButtonGradient}
-              >
-                <Text style={styles.modalSaveText}>Save</Text>
-              </LinearGradient>
+              <Text style={styles.modalSaveText}>Save</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1768,23 +1350,11 @@ export default function CameraScreen() {
       onRequestClose={() => setShowDeleteConfirm(false)}
     >
       <View style={styles.modalOverlay}>
-        <View
-          style={[
-            styles.confirmModalContent,
-            { backgroundColor: colors.background },
-          ]}
-        >
-          <View style={styles.warningIconContainer}>
-            <AlertTriangle size={48} color={colors.error} />
-          </View>
-          <Text style={[styles.confirmTitle, { color: colors.text }]}>
-            Delete Analysis
-          </Text>
-          <Text
-            style={[styles.confirmMessage, { color: colors.textSecondary }]}
-          >
-            Are you sure you want to delete this meal analysis? This action
-            cannot be undone.
+        <View style={styles.confirmModalContent}>
+          <AlertTriangle size={48} color="#EF4444" />
+          <Text style={styles.confirmTitle}>Delete Analysis</Text>
+          <Text style={styles.confirmMessage}>
+            Are you sure you want to delete this meal analysis?
           </Text>
 
           <View style={styles.confirmActions}>
@@ -1799,12 +1369,7 @@ export default function CameraScreen() {
               style={styles.confirmDeleteButton}
               onPress={confirmDeleteMeal}
             >
-              <LinearGradient
-                colors={[colors.error, "#dc2626"]}
-                style={styles.confirmDeleteButtonGradient}
-              >
-                <Text style={styles.confirmDeleteText}>Delete</Text>
-              </LinearGradient>
+              <Text style={styles.confirmDeleteText}>Delete</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1812,967 +1377,931 @@ export default function CameraScreen() {
     </Modal>
   );
 
-  // Error display
-  const renderError = () => {
-    if (!error) return null;
-
-    return (
-      <View
-        style={[
-          styles.errorContainer,
-          {
-            backgroundColor: isDark ? "#2d1b1b" : "#fef2f2",
-            borderColor: isDark ? "#5b2d2d" : "#fecaca",
-          },
-        ]}
-      >
-        <AlertTriangle size={20} color={colors.error} />
-        <Text
-          style={[
-            styles.errorText,
-            isRTL && styles.rtlText,
-            { color: colors.error },
-          ]}
-        >
-          {error}
-        </Text>
-        <TouchableOpacity
-          style={styles.errorDismiss}
-          onPress={() => dispatch(clearError())}
-        >
-          <X size={16} color={colors.error} />
-        </TouchableOpacity>
-      </View>
-    );
-  };
-
-  const createStyles = (colors: any, isDark: boolean) =>
-    StyleSheet.create({
-      container: {
-        flex: 1,
-        backgroundColor: colors.background,
-      },
-      scrollView: {
-        flex: 1,
-      },
-      scrollContent: {
-        paddingBottom: 32,
-      },
-      header: {
-        paddingHorizontal: 24,
-        paddingVertical: 20,
-        alignItems: "center",
-      },
-      title: {
-        fontSize: 32,
-        fontWeight: "bold",
-        marginBottom: 8,
-        color: colors.text,
-      },
-      subtitle: {
-        fontSize: 16,
-        textAlign: "center",
-        lineHeight: 24,
-        color: colors.textSecondary,
-      },
-      rtlText: {
-        textAlign: "right",
-        writingDirection: "rtl",
-      },
-      rtlTextInput: {
-        textAlign: "right",
-      },
-
-      // Error styles
-      errorContainer: {
-        flexDirection: "row",
-        alignItems: "center",
-        borderWidth: 1,
-        borderRadius: 12,
-        padding: 16,
-        marginHorizontal: 24,
-        marginBottom: 16,
-      },
-      errorText: {
-        flex: 1,
-        fontSize: 14,
-        marginLeft: 12,
-      },
-      errorDismiss: {
-        padding: 4,
-      },
-
-      // Image selection styles
-      imageSelectionContainer: {
-        marginHorizontal: 24,
-        borderRadius: 24,
-        overflow: "hidden",
-        elevation: 6,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.15,
-        shadowRadius: 16,
-      },
-      imageSelectionGradient: {
-        padding: 40,
-      },
-      imageSelectionHeader: {
-        alignItems: "center",
-        marginBottom: 40,
-      },
-      cameraIconContainer: {
-        width: 120,
-        height: 120,
-        borderRadius: 60,
-        backgroundColor: "rgba(255, 255, 255, 0.9)",
-        justifyContent: "center",
-        alignItems: "center",
-        marginBottom: 24,
-        elevation: 4,
-        shadowColor: colors.primary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
-      },
-      imageSelectionTitle: {
-        fontSize: 28,
-        fontWeight: "bold",
-        color: colors.primaryDark,
-        marginBottom: 12,
-        textAlign: "center",
-      },
-      imageSelectionSubtitle: {
-        fontSize: 16,
-        color: colors.primary,
-        textAlign: "center",
-        lineHeight: 24,
-        paddingHorizontal: 20,
-      },
-      imageSelectionButtons: {
-        gap: 16,
-        marginBottom: 32,
-      },
-      imageSelectionButton: {
-        borderRadius: 16,
-        overflow: "hidden",
-        elevation: 4,
-        shadowColor: colors.primary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 12,
-      },
-      imageButtonGradient: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "center",
-        paddingVertical: 18,
-        paddingHorizontal: 24,
-        gap: 12,
-      },
-      imageButtonText: {
-        fontSize: 16,
-        fontWeight: "600",
-        color: "#ffffff",
-      },
-      tipContainer: {
-        flexDirection: "row",
-        alignItems: "flex-start",
-        backgroundColor: "rgba(255, 255, 255, 0.95)",
-        borderRadius: 16,
-        padding: 20,
-        gap: 16,
-        elevation: 2,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-      },
-      tipTextContainer: {
-        flex: 1,
-      },
-      tipTitle: {
-        fontSize: 16,
-        fontWeight: "700",
-        color: colors.primaryDark,
-        marginBottom: 8,
-      },
-      tipDescription: {
-        fontSize: 14,
-        color: colors.primary,
-        lineHeight: 20,
-      },
-
-      // Selected image styles
-      selectedImageContainer: {
-        marginHorizontal: 24,
-        marginBottom: 24,
-      },
-      imageWrapper: {
-        position: "relative",
-        borderRadius: 20,
-        overflow: "hidden",
-        elevation: 12,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.25,
-        shadowRadius: 20,
-      },
-      selectedImage: {
-        width: "100%",
-        height: 280,
-        backgroundColor: colors.surface,
-      },
-      imageGradientOverlay: {
-        position: "absolute",
-        bottom: 0,
-        left: 0,
-        right: 0,
-        height: 60,
-      },
-      imageOverlay: {
-        position: "absolute",
-        top: 16,
-        right: 16,
-        flexDirection: "row",
-        gap: 12,
-      },
-      overlayButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        justifyContent: "center",
-        alignItems: "center",
-        elevation: 4,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.3,
-        shadowRadius: 4,
-      },
-      deleteOverlayButton: {
-        backgroundColor: "rgba(239, 68, 68, 0.9)",
-      },
-      retakeOverlayButton: {
-        backgroundColor: "rgba(59, 130, 246, 0.9)",
-      },
-      commentContainer: {
-        marginTop: 20,
-      },
-      commentLabel: {
-        fontSize: 16,
-        fontWeight: "600",
-        color: colors.text,
-        marginBottom: 12,
-      },
-      commentInput: {
-        borderWidth: 2,
-        borderRadius: 16,
-        padding: 18,
-        fontSize: 16,
-        minHeight: 100,
-        textAlignVertical: "top",
-        elevation: 2,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
-      },
-      analyzeButton: {
-        marginTop: 24,
-        borderRadius: 20,
-        overflow: "hidden",
-        elevation: 8,
-        shadowColor: colors.primary,
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.4,
-        shadowRadius: 16,
-      },
-      analyzeButtonGradient: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "center",
-        paddingVertical: 20,
-        gap: 12,
-      },
-      analyzeButtonText: {
-        fontSize: 18,
-        fontWeight: "bold",
-        color: "#ffffff",
-      },
-
-      // Analysis results styles
-      analysisContainer: {
-        marginHorizontal: 24,
-        gap: 24,
-      },
-
-      // Meal header styles
-      mealHeaderContainer: {
-        borderRadius: 24,
-        overflow: "hidden",
-        elevation: 8,
-        shadowColor: colors.primary,
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.2,
-        shadowRadius: 16,
-      },
-      mealHeaderGradient: {
-        padding: 24,
-      },
-      mealHeaderContent: {
-        gap: 16,
-      },
-      mealTitleRow: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "flex-start",
-      },
-      mealTitleContainer: {
-        flex: 1,
-        marginRight: 16,
-      },
-      mealTitle: {
-        fontSize: 24,
-        fontWeight: "bold",
-        color: "#ffffff",
-        marginBottom: 6,
-      },
-      confidenceContainer: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 6,
-      },
-      confidenceText: {
-        fontSize: 14,
-        color: "rgba(255,255,255,0.8)",
-        fontWeight: "500",
-      },
-      qualityBadge: {
-        flexDirection: "row",
-        alignItems: "center",
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 16,
-        gap: 4,
-      },
-      qualityText: {
-        fontSize: 12,
-        fontWeight: "600",
-        color: "#ffffff",
-      },
-      mealMetaRow: {
-        flexDirection: "row",
-        gap: 20,
-        flexWrap: "wrap",
-      },
-      metaItem: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 8,
-      },
-      metaText: {
-        fontSize: 14,
-        color: "rgba(255,255,255,0.9)",
-        fontWeight: "500",
-      },
-
-      // Nutrition summary styles
-      nutritionContainer: {
-        borderRadius: 20,
-        overflow: "hidden",
-        elevation: 6,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 12,
-      },
-      nutritionGradient: {
-        padding: 24,
-      },
-      nutritionHeader: {
-        marginBottom: 20,
-      },
-      nutritionTitle: {
-        fontSize: 20,
-        fontWeight: "bold",
-        color: colors.text,
-        marginBottom: 4,
-      },
-      nutritionSubtitle: {
-        fontSize: 14,
-        color: colors.textSecondary,
-      },
-      nutritionCard: {
-        flex: 1,
-        minWidth: (screenWidth - 96) / 2 - 6,
-        backgroundColor: colors.card,
-        borderRadius: 16,
-        padding: 20,
-        alignItems: "center",
-        elevation: 2,
-        shadowColor: isDark ? "#000" : "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: isDark ? 0.3 : 0.05,
-        shadowRadius: 8,
-      },
-      nutritionIconContainer: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
-        justifyContent: "center",
-        alignItems: "center",
-        marginBottom: 12,
-      },
-      nutritionValue: {
-        fontSize: 24,
-        fontWeight: "bold",
-        color: colors.text,
-        marginBottom: 4,
-      },
-      nutritionLabel: {
-        fontSize: 12,
-        color: colors.textSecondary,
-        fontWeight: "600",
-        textTransform: "uppercase",
-        letterSpacing: 0.5,
-      },
-      detailsToggle: {
-        flexDirection: "row",
-        justifyContent: "center",
-        alignItems: "center",
-        paddingVertical: 12,
-        gap: 8,
-      },
-      detailsToggleText: {
-        fontSize: 14,
-        color: colors.primary,
-        fontWeight: "600",
-      },
-      chevron: {
-        // Base chevron container style
-      },
-      chevronRotated: {
-        transform: [{ rotate: "180deg" }],
-      },
-      detailedNutrition: {
-        marginTop: 16,
-        paddingTop: 20,
-        borderTopWidth: 1,
-        borderTopColor: colors.border,
-        gap: 12,
-      },
-      detailRow: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        paddingVertical: 8,
-      },
-      detailLabelContainer: {
-        flexDirection: "row",
-        alignItems: "center",
-        gap: 8,
-      },
-      detailLabel: {
-        fontSize: 14,
-        color: colors.textSecondary,
-        fontWeight: "500",
-      },
-      detailValue: {
-        fontSize: 14,
-        color: colors.text,
-        fontWeight: "600",
-      },
-      advancedToggle: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        paddingVertical: 12,
-        marginTop: 12,
-      },
-      advancedToggleText: {
-        fontSize: 14,
-        color: colors.primary,
-        fontWeight: "600",
-      },
-      advancedNutrition: {
-        marginTop: 12,
-        paddingTop: 12,
-        borderTopWidth: 1,
-        borderTopColor: colors.border,
-        gap: 8,
-      },
-
-      // Ingredients styles
-      ingredientsSection: {
-        backgroundColor: colors.card,
-        borderRadius: 20,
-        padding: 24,
-        elevation: 4,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: isDark ? 0.2 : 0.08,
-        shadowRadius: 12,
-      },
-      ingredientsHeader: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        marginBottom: 20,
-      },
-      sectionTitle: {
-        fontSize: 18,
-        fontWeight: "bold",
-        color: colors.text,
-      },
-      addIngredientButton: {
-        flexDirection: "row",
-        alignItems: "center",
-        backgroundColor: colors.mint,
-        paddingVertical: 8,
-        paddingHorizontal: 12,
-        borderRadius: 12,
-        borderWidth: 1,
-        borderColor: colors.primary,
-        gap: 4,
-      },
-      addIngredientText: {
-        fontSize: 14,
-        color: colors.primary,
-        fontWeight: "600",
-      },
-      ingredientItem: {
-        backgroundColor: colors.card,
-        borderRadius: 8,
-        padding: 12,
-        marginBottom: 8,
-        borderLeftWidth: 3,
-        borderLeftColor: colors.primary || "#10b981",
-        shadowColor: isDark ? "#000" : "#000",
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: isDark ? 0.2 : 0.05,
-        shadowRadius: 2,
-        elevation: 1,
-      },
-      ingredientHeader: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-      },
-      ingredientName: {
-        fontSize: 16,
-        fontWeight: "600",
-        color: colors.text,
-        flex: 1,
-      },
-      ingredientNutrition: {
-        fontSize: 14,
-        color: colors.textSecondary,
-        lineHeight: 20,
-        marginBottom: 2,
-        marginTop: 4,
-      },
-      ingredientNutritionText: {
-        fontSize: 14,
-        color: colors.textSecondary,
-        marginRight: 5,
-      },
-      ingredientPortion: {
-        fontSize: 12,
-        color: colors.textSecondary,
-        fontStyle: "italic",
-      },
-      ingredientActions: {
-        flexDirection: "row",
-        gap: 8,
-      },
-      ingredientActionButton: {
-        padding: 10,
-        borderRadius: 12,
-        backgroundColor: colors.cardBackground,
-        elevation: 1,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
-      },
-
-      // Recommendations styles
-      recommendationsSection: {
-        backgroundColor: colors.card,
-        borderRadius: 20,
-        padding: 24,
-        elevation: 4,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: isDark ? 0.2 : 0.08,
-        shadowRadius: 12,
-      },
-      recommendationCard: {
-        flexDirection: "row",
-        alignItems: "flex-start",
-        backgroundColor: colors.seafoam,
-        borderRadius: 16,
-        padding: 20,
-        gap: 16,
-        marginTop: 12,
-      },
-      recommendationText: {
-        flex: 1,
-        fontSize: 14,
-        color: colors.text,
-        lineHeight: 20,
-      },
-
-      // Action buttons styles
-      actionButtons: {
-        flexDirection: "row",
-        gap: 12,
-        flexWrap: "wrap",
-      },
-      primaryButton: {
-        flex: 2,
-        minWidth: 200,
-        borderRadius: 16,
-        overflow: "hidden",
-        elevation: 6,
-        shadowColor: colors.success,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 12,
-      },
-      primaryButtonGradient: {
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "center",
-        paddingVertical: 16,
-        gap: 8,
-      },
-      primaryButtonText: {
-        fontSize: 16,
-        fontWeight: "bold",
-        color: "#ffffff",
-      },
-      secondaryButton: {
-        flex: 1,
-        minWidth: 100,
-        flexDirection: "row",
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: colors.cardBackground,
-        borderWidth: 2,
-        borderColor: colors.border,
-        borderRadius: 16,
-        paddingVertical: 16,
-        gap: 6,
-        elevation: 2,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
-      },
-      secondaryButtonText: {
-        fontSize: 14,
-        fontWeight: "600",
-        color: colors.textSecondary,
-      },
-      buttonDisabled: {
-        opacity: 0.6,
-      },
-
-      // Modal styles
-      modalOverlay: {
-        flex: 1,
-        backgroundColor: "rgba(0, 0, 0, 0.5)",
-        justifyContent: "center",
-        alignItems: "center",
-      },
-      modalContent: {
-        backgroundColor: colors.cardBackground,
-        borderRadius: 24,
-        width: screenWidth - 48,
-        maxHeight: "85%",
-        elevation: 12,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.3,
-        shadowRadius: 20,
-      },
-      modalHeader: {
-        flexDirection: "row",
-        justifyContent: "space-between",
-        alignItems: "center",
-        paddingHorizontal: 24,
-        paddingVertical: 20,
-        borderBottomWidth: 1,
-        borderBottomColor: colors.border,
-      },
-      modalTitle: {
-        fontSize: 18,
-        fontWeight: "bold",
-        color: colors.text,
-      },
-      modalBody: {
-        paddingHorizontal: 24,
-        paddingVertical: 20,
-        maxHeight: 400,
-      },
-      inputGroup: {
-        marginBottom: 16,
-      },
-      inputRow: {
-        flexDirection: "row",
-        gap: 12,
-      },
-      inputLabel: {
-        fontSize: 14,
-        fontWeight: "600",
-        color: colors.text,
-        marginBottom: 8,
-      },
-      modalInput: {
-        backgroundColor: colors.surface,
-        borderWidth: 1,
-        borderColor: colors.border,
-        borderRadius: 12,
-        padding: 14,
-        fontSize: 16,
-        color: colors.text,
-      },
-      modalActions: {
-        flexDirection: "row",
-        paddingHorizontal: 24,
-        paddingVertical: 20,
-        borderTopWidth: 1,
-        borderTopColor: colors.border,
-        gap: 12,
-      },
-      modalCancelButton: {
-        flex: 1,
-        backgroundColor: colors.surface,
-        borderWidth: 1,
-        borderColor: colors.border,
-        borderRadius: 12,
-        paddingVertical: 14,
-        alignItems: "center",
-      },
-      modalCancelText: {
-        fontSize: 16,
-        fontWeight: "600",
-        color: colors.textSecondary,
-      },
-      modalSaveButton: {
-        flex: 1,
-        borderRadius: 12,
-        overflow: "hidden",
-      },
-      modalSaveButtonGradient: {
-        paddingVertical: 14,
-        alignItems: "center",
-      },
-      modalSaveText: {
-        fontSize: 16,
-        fontWeight: "600",
-        color: "#ffffff",
-      },
-
-      // No ingredients styles
-      noIngredientsContainer: {
-        backgroundColor: colors.surface,
-        borderRadius: 16,
-        padding: 20,
-        alignItems: "center",
-        borderWidth: 1,
-        borderColor: colors.border,
-        borderStyle: "dashed",
-      },
-      noIngredientsText: {
-        fontSize: 14,
-        color: colors.textSecondary,
-        textAlign: "center",
-        lineHeight: 20,
-      },
-
-      // Confirm modal styles
-      confirmModalContent: {
-        backgroundColor: colors.cardBackground,
-        borderRadius: 24,
-        padding: 32,
-        alignItems: "center",
-        marginHorizontal: 24,
-        elevation: 12,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.3,
-        shadowRadius: 20,
-      },
-      warningIconContainer: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
-        backgroundColor: "#fef2f2",
-        justifyContent: "center",
-        alignItems: "center",
-        marginBottom: 16,
-      },
-      confirmTitle: {
-        fontSize: 20,
-        fontWeight: "bold",
-        color: colors.text,
-        marginBottom: 8,
-        textAlign: "center",
-      },
-      confirmMessage: {
-        fontSize: 16,
-        color: colors.textSecondary,
-        textAlign: "center",
-        lineHeight: 24,
-        marginBottom: 32,
-      },
-      confirmActions: {
-        flexDirection: "row",
-        gap: 12,
-        width: "100%",
-      },
-      confirmCancelButton: {
-        flex: 1,
-        backgroundColor: colors.surface,
-        borderWidth: 1,
-        borderColor: colors.border,
-        borderRadius: 12,
-        paddingVertical: 14,
-        alignItems: "center",
-      },
-      confirmCancelText: {
-        fontSize: 16,
-        fontWeight: "600",
-        color: colors.textSecondary,
-      },
-      confirmDeleteButton: {
-        flex: 1,
-        borderRadius: 12,
-        overflow: "hidden",
-      },
-      confirmDeleteButtonGradient: {
-        paddingVertical: 14,
-        alignItems: "center",
-      },
-      confirmDeleteText: {
-        fontSize: 16,
-        fontWeight: "600",
-        color: "#ffffff",
-      },
-      // Permission styles
-      permissionContainer: {
-        flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
-        padding: 20,
-      },
-      permissionText: {
-        fontSize: 18,
-        textAlign: "center",
-        marginBottom: 20,
-      },
-      permissionButton: {
-        paddingHorizontal: 30,
-        paddingVertical: 12,
-        borderRadius: 8,
-      },
-      permissionButtonText: {
-        color: "#FFFFFF",
-        fontSize: 16,
-        fontWeight: "600",
-      },
-      // Modal specific styles
-      modalContainer: {
-        flex: 1,
-      },
-    });
-
-  const styles = createStyles(colors, isDark);
-
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar
-        barStyle={isDark ? "light-content" : "dark-content"}
-        backgroundColor={colors.background}
-      />
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
 
-      {!hasPermission && (
-        <View
-          style={[
-            styles.permissionContainer,
-            { backgroundColor: colors.background },
-          ]}
-        >
-          <Text style={[styles.permissionText, { color: colors.text }]}>
-            {t("camera.permission") || "Camera permission is required"}
-          </Text>
-          <TouchableOpacity
-            style={[
-              styles.permissionButton,
-              { backgroundColor: colors.primary },
-            ]}
-            onPress={async () => {
-              const { status } =
-                await ImagePicker.requestCameraPermissionsAsync();
-              setHasPermission(status === "granted");
-            }}
-          >
-            <Text style={styles.permissionButtonText}>
-              {t("camera.grantPermission") || "Grant Permission"}
-            </Text>
-          </TouchableOpacity>
-        </View>
-      )}
+      <ScrollView
+        ref={scrollViewRef}
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {!selectedImage ? (
+          renderImageSelection()
+        ) : (
+          <>
+            {renderSelectedImage()}
+            {showResults && renderAnalysisResults()}
+          </>
+        )}
+      </ScrollView>
 
-      {hasPermission && (
-        <ScrollView
-          ref={scrollViewRef}
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Header */}
-          <View style={styles.header}>
-            <Text
-              style={[
-                styles.title,
-                isRTL && styles.rtlText,
-                { color: colors.text },
-              ]}
-            >
-              Meal Scanner
-            </Text>
-            <Text
-              style={[
-                styles.subtitle,
-                isRTL && styles.rtlText,
-                { color: colors.textSecondary },
-              ]}
-            >
-              Discover nutritional insights with AI-powered food analysis
-            </Text>
-          </View>
-
-          {/* Error Display */}
-          {renderError()}
-
-          {/* Main Content */}
-          {!selectedImage ? (
-            renderImageSelection()
-          ) : (
-            <>
-              {renderSelectedImage()}
-              {/* Conditionally render analysis results based on showResults state */}
-              {showResults && renderAnalysisResults()}
-            </>
-          )}
-        </ScrollView>
-      )}
-
-      {/* Modals */}
       {renderEditModal()}
       {renderDeleteConfirmModal()}
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#FFFFFF",
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 32,
+  },
+
+  // Image Selection Styles
+  imageSelectionContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 24,
+    paddingVertical: 60,
+  },
+  cameraIconContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: "#F0FDF4",
+    justifyContent: "center",
+    alignItems: "center",
+    marginBottom: 32,
+  },
+  imageSelectionTitle: {
+    fontSize: 28,
+    fontWeight: "700",
+    color: "#111827",
+    marginBottom: 12,
+    textAlign: "center",
+  },
+  imageSelectionSubtitle: {
+    fontSize: 16,
+    color: "#6B7280",
+    textAlign: "center",
+    lineHeight: 24,
+    marginBottom: 48,
+    paddingHorizontal: 20,
+  },
+  imageSelectionButtons: {
+    width: "100%",
+    gap: 16,
+  },
+  primaryActionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#10B981",
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 16,
+    gap: 12,
+    shadowColor: "#10B981",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  primaryActionText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#FFFFFF",
+  },
+  secondaryActionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFFFFF",
+    borderWidth: 2,
+    borderColor: "#10B981",
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 16,
+    gap: 12,
+  },
+  secondaryActionText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#10B981",
+  },
+
+  // Selected Image Styles
+  selectedImageContainer: {
+    paddingHorizontal: 24,
+    paddingTop: 20,
+  },
+  imageWrapper: {
+    position: "relative",
+    borderRadius: 20,
+    overflow: "hidden",
+    marginBottom: 24,
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  selectedImage: {
+    width: "100%",
+    height: 240,
+    backgroundColor: "#F3F4F6",
+  },
+  imageActions: {
+    position: "absolute",
+    top: 16,
+    right: 16,
+    flexDirection: "row",
+    gap: 8,
+  },
+  imageActionButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "rgba(0, 0, 0, 0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  // Analyze Section
+  analyzeSection: {
+    gap: 20,
+  },
+  commentContainer: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: "#F3F4F6",
+  },
+  commentLabel: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#111827",
+    marginBottom: 12,
+  },
+  commentInput: {
+    backgroundColor: "#F9FAFB",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 16,
+    color: "#111827",
+    minHeight: 80,
+    textAlignVertical: "top",
+  },
+  analyzeButton: {
+    backgroundColor: "#10B981",
+    borderRadius: 20,
+    overflow: "hidden",
+    shadowColor: "#10B981",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+  analyzeContent: {
+    alignItems: "center",
+    paddingVertical: 20,
+    paddingHorizontal: 24,
+    gap: 8,
+  },
+  analyzingContent: {
+    alignItems: "center",
+    paddingVertical: 20,
+    paddingHorizontal: 24,
+    gap: 8,
+  },
+  analyzeButtonText: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#FFFFFF",
+  },
+  analyzeSubtext: {
+    fontSize: 14,
+    color: "rgba(255, 255, 255, 0.8)",
+    fontWeight: "500",
+  },
+  buttonDisabled: {
+    opacity: 0.6,
+  },
+
+  // Results Container
+  resultsContainer: {
+    paddingHorizontal: 24,
+  },
+
+  // Header Styles
+  resultsHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 16,
+    marginBottom: 20,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#F9FAFB",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  resultsTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#111827",
+  },
+  menuButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#10B981",
+    justifyContent: "center",
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 2,
+  },
+  menuDot: {
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#FFFFFF",
+  },
+
+  // Search Styles
+  searchContainer: {
+    marginBottom: 24,
+  },
+  searchBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F9FAFB",
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 12,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+    color: "#111827",
+  },
+  searchButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#FFFFFF",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+
+  // Calorie Card Styles
+  calorieCard: {
+    backgroundColor: "#F0FDF4",
+    borderRadius: 20,
+    padding: 24,
+    marginBottom: 24,
+  },
+  calorieHeader: {
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  calorieValue: {
+    fontSize: 48,
+    fontWeight: "700",
+    color: "#111827",
+    lineHeight: 56,
+  },
+  calorieUnit: {
+    fontSize: 16,
+    fontWeight: "500",
+    color: "#6B7280",
+    marginTop: -8,
+  },
+  calorieMetadata: {
+    alignItems: "center",
+    marginBottom: 24,
+  },
+  calorieDate: {
+    fontSize: 14,
+    fontWeight: "500",
+    color: "#6B7280",
+    marginBottom: 8,
+  },
+  calorieStats: {
+    flexDirection: "row",
+    gap: 16,
+  },
+  calorieStatItem: {
+    fontSize: 14,
+    color: "#6B7280",
+  },
+
+  // Chart Styles
+  chartContainer: {
+    height: 120,
+  },
+  chartArea: {
+    height: 80,
+    position: "relative",
+    marginBottom: 16,
+    backgroundColor: "rgba(255, 255, 255, 0.5)",
+    borderRadius: 12,
+    padding: 10,
+  },
+  chartLines: {
+    position: "absolute",
+    top: 10,
+    left: 10,
+    right: 10,
+    bottom: 10,
+  },
+  chartLine: {
+    position: "absolute",
+    height: 3,
+    borderRadius: 1.5,
+  },
+  caloriesLine: {
+    backgroundColor: "#10B981",
+    top: "15%",
+    left: "5%",
+    right: "5%",
+    transform: [{ rotate: "2deg" }],
+  },
+  carbsLine: {
+    backgroundColor: "#F59E0B",
+    top: "35%",
+    left: "8%",
+    right: "8%",
+    transform: [{ rotate: "-1deg" }],
+  },
+  fatLine: {
+    backgroundColor: "#EF4444",
+    top: "55%",
+    left: "6%",
+    right: "6%",
+    transform: [{ rotate: "3deg" }],
+  },
+  proteinLine: {
+    backgroundColor: "#8B5CF6",
+    top: "25%",
+    left: "4%",
+    right: "4%",
+    transform: [{ rotate: "-2deg" }],
+  },
+  chartPoints: {
+    position: "absolute",
+    top: 10,
+    left: 10,
+    right: 10,
+    bottom: 10,
+  },
+  chartPoint: {
+    position: "absolute",
+    width: 8,
+    height: 8,
+  },
+  dataPoint: {
+    position: "absolute",
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  caloriesPoint: {
+    backgroundColor: "#10B981",
+    top: "15%",
+  },
+  carbsPoint: {
+    backgroundColor: "#F59E0B",
+    top: "35%",
+  },
+  fatPoint: {
+    backgroundColor: "#EF4444",
+    top: "55%",
+  },
+  proteinPoint: {
+    backgroundColor: "#8B5CF6",
+    top: "25%",
+  },
+  chartLegend: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    paddingHorizontal: 20,
+  },
+  legendItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  legendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  legendText: {
+    fontSize: 12,
+    color: "#6B7280",
+    fontWeight: "500",
+  },
+
+  // Nutrition Stats Styles
+  nutritionStatsContainer: {
+    flexDirection: "row",
+    gap: 16,
+    marginBottom: 24,
+  },
+  nutritionStatCard: {
+    flex: 1,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 20,
+    alignItems: "center",
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: "#F3F4F6",
+  },
+  nutritionStatValue: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#111827",
+    marginBottom: 4,
+  },
+  nutritionStatUnit: {
+    fontSize: 14,
+    color: "#6B7280",
+    marginBottom: 8,
+  },
+  nutritionStatLabel: {
+    fontSize: 12,
+    color: "#6B7280",
+    fontWeight: "500",
+    marginBottom: 4,
+  },
+  nutritionStatPercentage: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#10B981",
+  },
+
+  // Detailed Nutrition Grid
+  detailedNutritionContainer: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 24,
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: "#F3F4F6",
+  },
+  detailedNutritionTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#111827",
+    marginBottom: 16,
+  },
+  nutritionGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+    marginBottom: 16,
+  },
+  nutritionGridItem: {
+    flex: 1,
+    minWidth: (screenWidth - 88) / 2,
+    backgroundColor: "#F9FAFB",
+    borderRadius: 12,
+    padding: 16,
+    alignItems: "center",
+    gap: 8,
+  },
+  nutritionIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  nutritionGridValue: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#111827",
+  },
+  nutritionGridLabel: {
+    fontSize: 12,
+    color: "#6B7280",
+    fontWeight: "500",
+  },
+  additionalNutrition: {
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: "#F3F4F6",
+    gap: 8,
+  },
+  nutritionDetailRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 8,
+  },
+  nutritionDetailLabel: {
+    fontSize: 14,
+    color: "#6B7280",
+    fontWeight: "500",
+  },
+  nutritionDetailValue: {
+    fontSize: 14,
+    color: "#111827",
+    fontWeight: "600",
+  },
+
+  // Add Food Button
+  addFoodButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#064E3B",
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 16,
+    gap: 12,
+    marginBottom: 24,
+    shadowColor: "#064E3B",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  addFoodText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#FFFFFF",
+  },
+
+  // Ingredients Styles
+  ingredientsContainer: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 24,
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: "#F3F4F6",
+  },
+  ingredientsHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  ingredientsTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#111827",
+  },
+  addIngredientBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: "#F0FDF4",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  ingredientRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F3F4F6",
+  },
+  ingredientInfo: {
+    flex: 1,
+  },
+  ingredientName: {
+    fontSize: 16,
+    color: "#111827",
+    fontWeight: "500",
+    marginBottom: 4,
+  },
+  ingredientNutrition: {
+    fontSize: 14,
+    color: "#6B7280",
+  },
+  ingredientActions: {
+    flexDirection: "row",
+    gap: 12,
+  },
+
+  // Recommendations
+  recommendationsContainer: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 24,
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: "#F3F4F6",
+  },
+  recommendationsTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#111827",
+    marginBottom: 16,
+  },
+  recommendationCard: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    backgroundColor: "#F0FDF4",
+    borderRadius: 12,
+    padding: 16,
+    gap: 12,
+  },
+  recommendationText: {
+    flex: 1,
+    fontSize: 14,
+    color: "#111827",
+    lineHeight: 20,
+  },
+
+  // Shopping List
+  shoppingListContainer: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 24,
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: "#F3F4F6",
+  },
+  shoppingListHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  shoppingListTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#111827",
+  },
+  shoppingListButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F0FDF4",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    gap: 6,
+  },
+  shoppingListButtonText: {
+    fontSize: 14,
+    color: "#10B981",
+    fontWeight: "600",
+  },
+  shoppingItems: {
+    gap: 8,
+  },
+  shoppingItem: {
+    backgroundColor: "#F9FAFB",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: "#10B981",
+  },
+  shoppingItemText: {
+    fontSize: 14,
+    color: "#111827",
+    fontWeight: "500",
+  },
+
+  // Action Buttons
+  actionButtonsContainer: {
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 24,
+  },
+  deleteButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFFFFF",
+    borderWidth: 2,
+    borderColor: "#EF4444",
+    paddingVertical: 14,
+    borderRadius: 12,
+    gap: 8,
+  },
+  deleteButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#EF4444",
+  },
+  reanalyzeButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#FFFFFF",
+    borderWidth: 2,
+    borderColor: "#10B981",
+    paddingVertical: 14,
+    borderRadius: 12,
+    gap: 8,
+  },
+  reanalyzeButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#10B981",
+  },
+
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalContent: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    width: screenWidth - 48,
+    maxHeight: "80%",
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F3F4F6",
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#111827",
+  },
+  modalBody: {
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+    maxHeight: 400,
+  },
+  inputGroup: {
+    marginBottom: 20,
+  },
+  inputRow: {
+    flexDirection: "row",
+    gap: 16,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#111827",
+    marginBottom: 8,
+  },
+  modalInput: {
+    backgroundColor: "#F9FAFB",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderRadius: 12,
+    padding: 16,
+    fontSize: 16,
+    color: "#111827",
+  },
+  modalActions: {
+    flexDirection: "row",
+    paddingHorizontal: 24,
+    paddingVertical: 20,
+    borderTopWidth: 1,
+    borderTopColor: "#F3F4F6",
+    gap: 12,
+  },
+  modalCancelButton: {
+    flex: 1,
+    backgroundColor: "#F9FAFB",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: "center",
+  },
+  modalCancelText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#6B7280",
+  },
+  modalSaveButton: {
+    flex: 1,
+    backgroundColor: "#10B981",
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: "center",
+  },
+  modalSaveText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#FFFFFF",
+  },
+
+  // Confirm Modal Styles
+  confirmModalContent: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    padding: 32,
+    alignItems: "center",
+    marginHorizontal: 24,
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  confirmTitle: {
+    fontSize: 20,
+    fontWeight: "600",
+    color: "#111827",
+    marginTop: 16,
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  confirmMessage: {
+    fontSize: 16,
+    color: "#6B7280",
+    textAlign: "center",
+    lineHeight: 24,
+    marginBottom: 32,
+  },
+  confirmActions: {
+    flexDirection: "row",
+    gap: 12,
+    width: "100%",
+  },
+  confirmCancelButton: {
+    flex: 1,
+    backgroundColor: "#F9FAFB",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: "center",
+  },
+  confirmCancelText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#6B7280",
+  },
+  confirmDeleteButton: {
+    flex: 1,
+    backgroundColor: "#EF4444",
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: "center",
+  },
+  confirmDeleteText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#FFFFFF",
+  },
+});

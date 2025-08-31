@@ -842,10 +842,10 @@ const HomeScreen = React.memo(() => {
                 />
                 <View style={styles.onlineIndicator} />
               </View>
-            </View>
-            <View style={styles.headerCenter}>
-              <View style={styles.dateContainer}>
-                <Text style={styles.dateText}>{getCurrentDate()}</Text>
+              <View style={styles.headerCenter}>
+                <View style={styles.dateContainer}>
+                  <Text style={styles.dateText}>{getCurrentDate()}</Text>
+                </View>
               </View>
             </View>
           </View>
@@ -1099,10 +1099,9 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 100,
   },
-
   header: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    justifyContent: "center",
     alignItems: "center",
     paddingHorizontal: 20,
     paddingVertical: 20,
@@ -1114,9 +1113,10 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   headerCenter: {
-    flex: 1,
+    flex: 2, // Give it more space to push towards center
     alignItems: "center",
     justifyContent: "center",
+    marginLeft: -40, // Offset the profile image width to center better
   },
   profileContainer: {
     position: "relative",
@@ -1237,8 +1237,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 8,
     borderRadius: 20,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
   },
   dateText: {
     fontSize: 14,
@@ -1247,19 +1245,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
     letterSpacing: 0.2,
   },
-  menuButton: {
-    width: 40,
-    height: 40,
-    backgroundColor: "#10B981",
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: "#10B981",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-  },
-
   // Greeting Section
   greetingSection: {
     paddingHorizontal: 20,
