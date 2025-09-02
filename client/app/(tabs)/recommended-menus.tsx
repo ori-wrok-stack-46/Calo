@@ -44,6 +44,7 @@ import {
   Flame,
   Activity,
   ShoppingCart,
+  Menu as MenuIcon,
 } from "lucide-react-native";
 import ShoppingList from "@/components/ShoppingList";
 import { api, mealAPI } from "@/src/services/api";
@@ -51,6 +52,7 @@ import LoadingScreen from "@/components/LoadingScreen";
 import { router, useFocusEffect } from "expo-router";
 import { useSelector } from "react-redux";
 import { RootState } from "@/src/store";
+import { MenuCreator, MealDetailView, MealsListView } from "@/components/menu";
 
 const { width } = Dimensions.get("window");
 
@@ -370,7 +372,7 @@ const MenuCard = ({
               {language === "he" ? "ארוחות לדוגמה" : "Sample Meals"}
             </Text>
             <TouchableOpacity
-              onPress={() => onView(menu.menu_id)}
+              onPress={() => handleViewMeals(menu)}
               style={styles.viewAllButton}
             >
               <Text style={[styles.viewAllText, { color: colors.emerald500 }]}>
@@ -386,7 +388,7 @@ const MenuCard = ({
             contentContainerStyle={styles.mealsScrollContainer}
           >
             {menu.meals.slice(0, 4).map((meal: any, mealIndex: number) => (
-              <View
+              <TouchableOpacity
                 key={meal.meal_id}
                 style={[
                   styles.mealPreviewCard,
@@ -395,6 +397,8 @@ const MenuCard = ({
                     borderColor: colors.border,
                   },
                 ]}
+                onPress={() => handleMealPress(meal)}
+                activeOpacity={0.8}
               >
                 <View style={styles.mealPreviewHeader}>
                   <Utensils size={12} color={colors.emerald500} />
@@ -422,7 +426,7 @@ const MenuCard = ({
                     {language === "he" ? "קל" : "cal"}
                   </Text>
                 </View>
-              </View>
+              </TouchableOpacity>
             ))}
           </ScrollView>
         </View>
@@ -543,6 +547,13 @@ export default function RecommendedMenusScreen() {
   );
   const [shoppingListItems, setShoppingListItems] = useState<any[]>([]);
   const { user } = useSelector((state: RootState) => state.auth);
+
+  // New states for menu components
+  const [showMenuCreator, setShowMenuCreator] = useState(false);
+  const [showMealDetail, setShowMealDetail] = useState(false);
+  const [showMealsList, setShowMealsList] = useState(false);
+  const [selectedMeal, setSelectedMeal] = useState<any>(null);
+  const [selectedMenuForMeals, setSelectedMenuForMeals] = useState<any>(null);
 
   // Animation values
   const [fadeAnim] = useState(new Animated.Value(0));
@@ -975,6 +986,28 @@ export default function RecommendedMenusScreen() {
       return false;
     }
     return activePlanData.plan_id === menuId;
+  };
+
+  const handleViewMeals = (menu: RecommendedMenu) => {
+    setSelectedMenuForMeals(menu);
+    setShowMealsList(true);
+  };
+
+  const handleMealPress = (meal: any) => {
+    setSelectedMeal(meal);
+    setShowMealDetail(true);
+  };
+
+  const handleCreateMenuFromCreator = (selectedItems: any[]) => {
+    console.log("Creating menu from selected items:", selectedItems);
+    setShowMenuCreator(false);
+    // Here you can implement the logic to create a menu from selected items
+    Alert.alert(
+      language === "he" ? "הצלחה!" : "Success!",
+      language === "he"
+        ? `תפריט נוצר עם ${selectedItems.length} ארוחות!`
+        : `Menu created with ${selectedItems.length} meals!`
+    );
   };
 
   const activateMenuPlan = async (
@@ -1883,6 +1916,19 @@ export default function RecommendedMenusScreen() {
 
             <TouchableOpacity
               style={[
+                styles.headerActionButton,
+                {
+                  backgroundColor: colors.emerald500 + "15",
+                  borderColor: colors.emerald500 + "30",
+                },
+              ]}
+              onPress={() => setShowMenuCreator(true)}
+            >
+              <MenuIcon size={20} color={colors.emerald500} />
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
                 styles.generateButton,
                 { backgroundColor: colors.emerald500 },
               ]}
@@ -1994,6 +2040,93 @@ export default function RecommendedMenusScreen() {
         visible={showShoppingList}
         onClose={() => setShowShoppingList(false)}
       />
+
+      {/* MenuCreator Modal */}
+      <Modal
+        visible={showMenuCreator}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={() => setShowMenuCreator(false)}
+      >
+        <MenuCreator
+          onCreateMenu={handleCreateMenuFromCreator}
+          onClose={() => setShowMenuCreator(false)}
+        />
+      </Modal>
+
+      {/* Meals List Modal */}
+      <Modal
+        visible={showMealsList}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={() => setShowMealsList(false)}
+      >
+        {selectedMenuForMeals && (
+          <View
+            style={[
+              styles.modalContainer,
+              { backgroundColor: colors.background },
+            ]}
+          >
+            <View
+              style={[styles.modalHeader, { backgroundColor: colors.surface }]}
+            >
+              <TouchableOpacity
+                style={styles.modalCloseButton}
+                onPress={() => setShowMealsList(false)}
+              >
+                <X size={24} color={colors.icon} />
+              </TouchableOpacity>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>
+                {selectedMenuForMeals.title}
+              </Text>
+              <View style={{ width: 40 }} />
+            </View>
+
+            <MealsListView
+              meals={selectedMenuForMeals.meals}
+              onMealPress={handleMealPress}
+              onAddMeal={() => {
+                setShowMealsList(false);
+                setShowMenuCreator(true);
+              }}
+            />
+          </View>
+        )}
+      </Modal>
+
+      {/* Meal Detail Modal */}
+      <Modal
+        visible={showMealDetail}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={() => setShowMealDetail(false)}
+      >
+        {selectedMeal && (
+          <MealDetailView
+            meal={selectedMeal}
+            onClose={() => setShowMealDetail(false)}
+            onAddToFavorites={() => {
+              // Handle adding to favorites
+              Alert.alert(
+                language === "he" ? "נוסף למועדפים!" : "Added to Favorites!",
+                language === "he"
+                  ? `${selectedMeal.name} נוסף למועדפים`
+                  : `${selectedMeal.name} added to favorites`
+              );
+            }}
+            onShare={() => {
+              // Handle sharing
+              Alert.alert(
+                language === "he" ? "שיתוף" : "Share",
+                language === "he"
+                  ? "האם תרצה לשתף את המתכון?"
+                  : "Would you like to share this recipe?"
+              );
+            }}
+          />
+        )}
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -2774,6 +2907,34 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
     textDecorationLine: "underline",
+  },
+
+  // Modal styles for new components
+  modalContainer: {
+    flex: 1,
+  },
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    paddingTop: 60,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(0, 0, 0, 0.1)",
+  },
+  modalCloseButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    textAlign: "center",
+    flex: 1,
   },
 
   // Legacy modal styles for other modals
