@@ -569,7 +569,11 @@ export function ScrollableTabBar({
         />
 
         {/* Subtle inner border */}
-        <View style={[styles.innerBorder]} />
+        <View
+          style={[
+            styles.innerBorder,
+          ]}
+        />
 
         {/* Regular tabs */}
         <ScrollView
@@ -775,7 +779,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     position: "relative",
-    backgroundColor: "#064E3B",
+    backgroundColor: "#064E3B"
   },
 
   cameraHighlight: {

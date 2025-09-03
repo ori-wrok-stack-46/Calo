@@ -5,6 +5,7 @@ interface ToastConfig {
   position?: "top" | "bottom";
   onPress?: () => void;
   onHide?: () => void;
+  type?: "success" | "error" | "info" | "warning";
 }
 
 export class ToastService {
@@ -26,6 +27,17 @@ export class ToastService {
     this.error(title, message, {
       duration: onRetry ? 6000 : 4000,
       onPress: onRetry,
+    });
+  }
+  static show(title: string, message?: string, config?: ToastConfig) {
+    Toast.show({
+      type: config?.type || "info",
+      text1: title,
+      text2: message,
+      visibilityTime: config?.duration || 3000,
+      position: config?.position || "top",
+      onPress: config?.onPress,
+      onHide: config?.onHide,
     });
   }
 

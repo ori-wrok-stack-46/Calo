@@ -8,14 +8,12 @@ import {
   Alert,
   ActivityIndicator,
   RefreshControl,
-  Dimensions,
   Animated,
   Modal,
   TextInput,
   FlatList,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { LinearGradient } from "expo-linear-gradient";
 import { useTranslation } from "react-i18next";
 import { useLanguage } from "@/src/i18n/context/LanguageContext";
 import { useTheme } from "@/src/context/ThemeContext";
@@ -23,11 +21,9 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   ChefHat,
   Plus,
-  Sparkles,
   Calendar,
   Clock,
   DollarSign,
-  Users,
   Star,
   Eye,
   Play,
@@ -35,26 +31,25 @@ import {
   Send,
   Utensils,
   Target,
-  TrendingUp,
-  Award,
+  Activity,
   Filter,
   Search,
-  CheckCircle,
+  CircleCheck as CheckCircle,
   ArrowRight,
   Flame,
-  Activity,
-  ShoppingCart,
-  Menu as MenuIcon,
+  TrendingUp,
+  Award,
+  Heart,
+  Zap,
 } from "lucide-react-native";
 import ShoppingList from "@/components/ShoppingList";
-import { api, mealAPI } from "@/src/services/api";
+import { api } from "@/src/services/api";
 import LoadingScreen from "@/components/LoadingScreen";
 import { router, useFocusEffect } from "expo-router";
 import { useSelector } from "react-redux";
 import { RootState } from "@/src/store";
 import { MenuCreator, MealDetailView, MealsListView } from "@/components/menu";
-
-const { width } = Dimensions.get("window");
+import { ToastService } from "@/src/services/totastService";
 
 interface RecommendedMenu {
   menu_id: string;
@@ -96,110 +91,92 @@ interface RecommendedMenu {
   }>;
 }
 
-// Expandable Search Component (matching history style)
-const ExpandableSearch = ({
-  searchQuery,
-  setSearchQuery,
+// Filter Types
+const FILTER_OPTIONS = [
+  { key: "all", label: "All Menus", icon: ChefHat },
+  { key: "recent", label: "Recent", icon: Clock },
+  { key: "high_protein", label: "High Protein", icon: TrendingUp },
+  { key: "low_calorie", label: "Low Calorie", icon: Target },
+  { key: "quick_prep", label: "Quick Prep", icon: Zap },
+  { key: "budget_friendly", label: "Budget Friendly", icon: DollarSign },
+] as const;
+
+// Enhanced Filter Modal
+const FilterModal = ({
+  visible,
+  onClose,
+  selectedFilter,
+  onFilterSelect,
   colors,
-  onFilterPress,
+  language,
 }: any) => {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const searchWidth = useState(new Animated.Value(44))[0];
-  const searchOpacity = useState(new Animated.Value(0))[0];
-
-  const expandSearch = () => {
-    setIsExpanded(true);
-    Animated.parallel([
-      Animated.timing(searchWidth, {
-        toValue: width - 120,
-        duration: 300,
-        useNativeDriver: false,
-      }),
-      Animated.timing(searchOpacity, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: false,
-      }),
-    ]).start();
-  };
-
-  const collapseSearch = () => {
-    if (searchQuery.length === 0) {
-      Animated.parallel([
-        Animated.timing(searchWidth, {
-          toValue: 44,
-          duration: 300,
-          useNativeDriver: false,
-        }),
-        Animated.timing(searchOpacity, {
-          toValue: 0,
-          duration: 300,
-          useNativeDriver: false,
-        }),
-      ]).start(() => {
-        setIsExpanded(false);
-      });
-    }
-  };
-
   return (
-    <View style={styles.searchRow}>
-      <Animated.View
-        style={[
-          styles.expandableSearchContainer,
-          {
-            backgroundColor: colors.surface,
-            borderColor: colors.border,
-            width: searchWidth,
-          },
-        ]}
-      >
-        <TouchableOpacity
-          onPress={expandSearch}
-          style={styles.searchIconButton}
-          activeOpacity={0.7}
+    <Modal
+      visible={visible}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+    >
+      <View style={styles.filterModalOverlay}>
+        <View
+          style={[
+            styles.filterModalContainer,
+            { backgroundColor: colors.card },
+          ]}
         >
-          <Search size={18} color={colors.icon} />
-        </TouchableOpacity>
-
-        <Animated.View
-          style={[styles.searchInputContainer, { opacity: searchOpacity }]}
-        >
-          <TextInput
-            style={[styles.expandableSearchInput, { color: colors.text }]}
-            placeholder="Search menus..."
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            placeholderTextColor={colors.icon}
-            onBlur={collapseSearch}
-            autoFocus={isExpanded}
-          />
-          {searchQuery.length > 0 && (
+          <View style={styles.filterModalHeader}>
+            <Text style={[styles.filterModalTitle, { color: colors.text }]}>
+              {language === "he" ? "סנן תפריטים" : "Filter Menus"}
+            </Text>
             <TouchableOpacity
-              onPress={() => setSearchQuery("")}
-              style={styles.clearSearchButton}
-              activeOpacity={0.7}
+              onPress={onClose}
+              style={styles.filterCloseButton}
             >
-              <X size={16} color={colors.icon} />
+              <X size={24} color={colors.icon} />
             </TouchableOpacity>
-          )}
-        </Animated.View>
-      </Animated.View>
+          </View>
 
-      <TouchableOpacity
-        style={[
-          styles.filterButtonCompact,
-          {
-            backgroundColor: colors.emerald500 + "15",
-            borderColor: colors.emerald500 + "30",
-          },
-        ]}
-        onPress={onFilterPress}
-        activeOpacity={0.8}
-      >
-        <Filter size={18} color={colors.emerald500} />
-      </TouchableOpacity>
-    </View>
+          <ScrollView style={styles.filterOptions}>
+            {FILTER_OPTIONS.map((option) => {
+              const IconComponent = option.icon;
+              const isSelected = selectedFilter === option.key;
+
+              return (
+                <TouchableOpacity
+                  key={option.key}
+                  style={[
+                    styles.filterOption,
+                    {
+                      backgroundColor: isSelected
+                        ? colors.emerald500
+                        : colors.surface,
+                    },
+                  ]}
+                  onPress={() => {
+                    onFilterSelect(option.key);
+                    onClose();
+                  }}
+                >
+                  <IconComponent
+                    size={20}
+                    color={isSelected ? "#ffffff" : colors.icon}
+                  />
+                  <Text
+                    style={[
+                      styles.filterOptionText,
+                      { color: isSelected ? "#ffffff" : colors.text },
+                    ]}
+                  >
+                    {option.label}
+                  </Text>
+                  {isSelected && <CheckCircle size={16} color="#ffffff" />}
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
   );
 };
 
@@ -212,7 +189,6 @@ const MenuCard = ({
   isRTL,
   onStart,
   onView,
-  isCurrentActiveMenu,
 }: any) => {
   const avgCaloriesPerDay = Math.round(
     menu.total_calories / (menu.days_count || 1)
@@ -221,288 +197,149 @@ const MenuCard = ({
     (menu.total_protein || 0) / (menu.days_count || 1)
   );
 
+  const getDifficultyColor = (level: number) => {
+    if (level <= 2) return "#10b981"; // Easy - Green
+    if (level <= 3) return "#f59e0b"; // Medium - Amber
+    return "#ef4444"; // Hard - Red
+  };
+
+  const getDifficultyLabel = (level: number) => {
+    if (level <= 2) return language === "he" ? "קל" : "Easy";
+    if (level <= 3) return language === "he" ? "בינוני" : "Medium";
+    return language === "he" ? "קשה" : "Hard";
+  };
+
   return (
-    <View
-      style={[
-        styles.menuCard,
-        {
-          backgroundColor: colors.card,
-          borderColor: colors.border,
-        },
-      ]}
-    >
-      {/* Header with Gradient */}
-      <LinearGradient
-        colors={
-          isDark
-            ? ["#059669", "#047857", "#065f46"]
-            : ["#10b981", "#059669", "#047857"]
-        }
-        style={styles.cardHeader}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
+    <View style={[styles.menuCard, { backgroundColor: colors.card }]}>
+      {/* Menu Image Header */}
+      <View
+        style={[styles.menuImageHeader, { backgroundColor: colors.surface }]}
       >
-        <View style={[styles.headerContent, isRTL && styles.rtlRow]}>
-          <View style={styles.headerLeft}>
-            <View style={styles.iconContainer}>
-              <ChefHat size={24} color="#ffffff" />
+        <View style={styles.menuImageContent}>
+          <ChefHat size={32} color={colors.emerald500} />
+          <View style={styles.menuBadges}>
+            <View
+              style={[styles.badge, { backgroundColor: colors.emerald500 }]}
+            >
+              <Calendar size={12} color="#ffffff" />
+              <Text style={styles.badgeText}>{menu.days_count}d</Text>
             </View>
-            <View style={styles.headerText}>
-              <Text style={[styles.menuTitle, isRTL && styles.rtlText]}>
-                {menu.title}
-              </Text>
-              <Text style={[styles.menuDate, isRTL && styles.rtlText]}>
-                {new Date(menu.created_at).toLocaleDateString(
-                  language === "he" ? "he-IL" : "en-US",
-                  {
-                    day: "numeric",
-                    month: "short",
-                    year: "numeric",
-                  }
-                )}
+            <View
+              style={[
+                styles.badge,
+                { backgroundColor: getDifficultyColor(menu.difficulty_level) },
+              ]}
+            >
+              <Star size={12} color="#ffffff" />
+              <Text style={styles.badgeText}>
+                {getDifficultyLabel(menu.difficulty_level)}
               </Text>
             </View>
-          </View>
-          <View style={styles.daysContainer}>
-            <Text style={styles.daysNumber}>{menu.days_count}</Text>
-            <Text style={styles.daysLabel}>
-              {language === "he" ? "ימים" : "days"}
-            </Text>
           </View>
         </View>
-      </LinearGradient>
+      </View>
 
-      {/* Content */}
-      <View style={styles.cardContent}>
-        {/* Description */}
-        {menu.description && (
-          <View style={styles.descriptionContainer}>
-            <Text
-              style={[
-                styles.description,
-                { color: colors.text },
-                isRTL && styles.rtlText,
-              ]}
-              numberOfLines={2}
-              ellipsizeMode="tail"
-            >
-              {menu.description}
-            </Text>
-          </View>
-        )}
-
-        {/* Nutrition Grid */}
-        <View style={styles.nutritionSection}>
+      {/* Menu Content */}
+      <View style={styles.menuContent}>
+        <View style={styles.menuHeader}>
           <Text
-            style={[
-              styles.sectionTitle,
-              { color: colors.text },
-              isRTL && styles.rtlText,
-            ]}
+            style={[styles.menuTitle, { color: colors.text }]}
+            numberOfLines={2}
           >
-            {language === "he"
-              ? "סיכום תזונתי יומי"
-              : "Daily Nutrition Summary"}
+            {menu.title}
           </Text>
-
-          <View style={styles.nutritionGrid}>
-            <View
-              style={[
-                styles.nutritionCard,
-                { backgroundColor: colors.surface },
-              ]}
-            >
-              <View style={styles.nutritionIcon}>
-                <Target size={16} color="#ef4444" />
-              </View>
-              <Text style={[styles.nutritionValue, { color: colors.text }]}>
-                {avgCaloriesPerDay}
-              </Text>
-              <Text style={[styles.nutritionLabel, { color: colors.icon }]}>
-                {language === "he" ? "קלוריות" : "Calories"}
-              </Text>
-            </View>
-
-            <View
-              style={[
-                styles.nutritionCard,
-                { backgroundColor: colors.surface },
-              ]}
-            >
-              <View style={styles.nutritionIcon}>
-                <Activity size={16} color="#3b82f6" />
-              </View>
-              <Text style={[styles.nutritionValue, { color: colors.text }]}>
-                {avgProteinPerDay}g
-              </Text>
-              <Text style={[styles.nutritionLabel, { color: colors.icon }]}>
-                {language === "he" ? "חלבון" : "Protein"}
-              </Text>
-            </View>
-
-            <View
-              style={[
-                styles.nutritionCard,
-                { backgroundColor: colors.surface },
-              ]}
-            >
-              <View style={styles.nutritionIcon}>
-                <Award size={16} color="#10b981" />
-              </View>
-              <Text style={[styles.nutritionValue, { color: colors.text }]}>
-                {menu.meals.length}
-              </Text>
-              <Text style={[styles.nutritionLabel, { color: colors.icon }]}>
-                {language === "he" ? "ארוחות" : "Meals"}
-              </Text>
-            </View>
-          </View>
+          <Text style={[styles.menuSubtitle, { color: colors.icon }]}>
+            {menu.dietary_category || "Balanced Menu"}
+          </Text>
         </View>
 
-        {/* Meals Preview */}
-        <View style={styles.mealsPreview}>
-          <View style={styles.previewHeader}>
-            <Text
-              style={[
-                styles.sectionTitle,
-                { color: colors.text },
-                isRTL && styles.rtlText,
-              ]}
+        {/* Enhanced Nutrition Grid */}
+        <View style={styles.nutritionGrid}>
+          <View style={styles.nutritionItem}>
+            <View
+              style={[styles.nutritionIcon, { backgroundColor: "#fef3c7" }]}
             >
-              {language === "he" ? "ארוחות לדוגמה" : "Sample Meals"}
+              <Flame size={16} color="#f59e0b" />
+            </View>
+            <Text style={[styles.nutritionValue, { color: colors.text }]}>
+              {avgCaloriesPerDay}
             </Text>
-            <TouchableOpacity
-              onPress={() => handleViewMeals(menu)}
-              style={styles.viewAllButton}
-            >
-              <Text style={[styles.viewAllText, { color: colors.emerald500 }]}>
-                {language === "he" ? "צפה בהכל" : "View All"}
-              </Text>
-              <ArrowRight size={12} color={colors.emerald500} />
-            </TouchableOpacity>
+            <Text style={[styles.nutritionLabel, { color: colors.icon }]}>
+              {language === "he" ? "קלוריות" : "Calories"}
+            </Text>
           </View>
 
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.mealsScrollContainer}
-          >
-            {menu.meals.slice(0, 4).map((meal: any, mealIndex: number) => (
-              <TouchableOpacity
-                key={meal.meal_id}
-                style={[
-                  styles.mealPreviewCard,
-                  {
-                    backgroundColor: colors.surface,
-                    borderColor: colors.border,
-                  },
-                ]}
-                onPress={() => handleMealPress(meal)}
-                activeOpacity={0.8}
-              >
-                <View style={styles.mealPreviewHeader}>
-                  <Utensils size={12} color={colors.emerald500} />
-                  <Text
-                    style={[styles.mealTypeText, { color: colors.emerald500 }]}
-                  >
-                    {meal.meal_type}
-                  </Text>
-                </View>
-                <Text
-                  style={[styles.mealPreviewName, { color: colors.text }]}
-                  numberOfLines={2}
-                >
-                  {meal.name}
-                </Text>
-                <View style={styles.mealPreviewStats}>
-                  <Text
-                    style={[styles.mealPreviewCalories, { color: colors.text }]}
-                  >
-                    {meal.calories}
-                  </Text>
-                  <Text
-                    style={[styles.mealPreviewLabel, { color: colors.icon }]}
-                  >
-                    {language === "he" ? "קל" : "cal"}
-                  </Text>
-                </View>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+          <View style={styles.nutritionItem}>
+            <View
+              style={[styles.nutritionIcon, { backgroundColor: "#dcfce7" }]}
+            >
+              <TrendingUp size={16} color="#10b981" />
+            </View>
+            <Text style={[styles.nutritionValue, { color: colors.text }]}>
+              {avgProteinPerDay}g
+            </Text>
+            <Text style={[styles.nutritionLabel, { color: colors.icon }]}>
+              {language === "he" ? "חלבון" : "Protein"}
+            </Text>
+          </View>
+
+          <View style={styles.nutritionItem}>
+            <View
+              style={[styles.nutritionIcon, { backgroundColor: "#f3e8ff" }]}
+            >
+              <Clock size={16} color="#8b5cf6" />
+            </View>
+            <Text style={[styles.nutritionValue, { color: colors.text }]}>
+              {menu.prep_time_minutes || 30}m
+            </Text>
+            <Text style={[styles.nutritionLabel, { color: colors.icon }]}>
+              {language === "he" ? "הכנה" : "Prep"}
+            </Text>
+          </View>
         </View>
 
-        {/* Info Row */}
-        <View style={styles.infoRow}>
+        {/* Cost and Rating */}
+        <View style={styles.menuMeta}>
           {menu.estimated_cost && (
-            <View style={[styles.infoItem, isRTL && styles.rtlRow]}>
-              <DollarSign size={14} color={colors.emerald500} />
-              <Text style={[styles.infoText, { color: colors.text }]}>
+            <View
+              style={[
+                styles.costBadge,
+                { backgroundColor: colors.success + "20" },
+              ]}
+            >
+              <Text style={[styles.costText, { color: colors.success }]}>
                 ₪{menu.estimated_cost.toFixed(0)}
               </Text>
             </View>
           )}
 
-          {menu.prep_time_minutes && (
-            <View style={[styles.infoItem, isRTL && styles.rtlRow]}>
-              <Clock size={14} color={colors.emerald500} />
-              <Text style={[styles.infoText, { color: colors.text }]}>
-                {menu.prep_time_minutes} {language === "he" ? "דק'" : "min"}
-              </Text>
-            </View>
-          )}
-
-          <View style={[styles.infoItem, isRTL && styles.rtlRow]}>
-            <Star size={14} color="#fbbf24" fill="#fbbf24" />
-            <Text style={[styles.infoText, { color: colors.text }]}>
+          <View style={styles.ratingBadge}>
+            <Star size={14} color="#FFB800" fill="#FFB800" />
+            <Text style={[styles.ratingText, { color: colors.text }]}>
               {menu.difficulty_level}/5
             </Text>
           </View>
         </View>
 
         {/* Action Buttons */}
-        <View style={[styles.actionButtons, isRTL && styles.rtlRow]}>
+        <View style={styles.menuActions}>
           <TouchableOpacity
-            style={[
-              styles.secondaryButton,
-              {
-                borderColor: colors.emerald500,
-                backgroundColor: colors.surface,
-              },
-            ]}
+            style={[styles.viewButton, { backgroundColor: colors.surface }]}
             onPress={() => onView(menu.menu_id)}
           >
-            <Eye size={14} color={colors.emerald500} />
-            <Text
-              style={[styles.secondaryButtonText, { color: colors.emerald500 }]}
-            >
+            <Eye size={16} color={colors.icon} />
+            <Text style={[styles.viewButtonText, { color: colors.icon }]}>
               {language === "he" ? "צפה" : "View"}
             </Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[
-              styles.primaryButton,
-              {
-                backgroundColor: isCurrentActiveMenu(menu.menu_id)
-                  ? colors.success || "#10b981"
-                  : colors.emerald500,
-              },
-            ]}
+            style={[styles.startButton, { backgroundColor: colors.emerald500 }]}
             onPress={() => onStart(menu.menu_id)}
           >
-            {isCurrentActiveMenu(menu.menu_id) ? (
-              <CheckCircle size={14} color="#ffffff" />
-            ) : (
-              <Play size={14} color="#ffffff" />
-            )}
-            <Text style={styles.primaryButtonText}>
-              {isCurrentActiveMenu(menu.menu_id)
-                ? language === "he"
-                  ? "המשך"
-                  : "Continue"
-                : language === "he"
-                ? "התחל"
-                : "Start"}
+            <Play size={16} color="#ffffff" />
+            <Text style={styles.startButtonText}>
+              {language === "he" ? "התחל" : "Start"}
             </Text>
           </TouchableOpacity>
         </View>
@@ -511,415 +348,223 @@ const MenuCard = ({
   );
 };
 
+// Active Plan Card Component
+const ActivePlanCard = ({ plan, colors, language, onContinue }: any) => {
+  return (
+    <View
+      style={[styles.activePlanCard, { backgroundColor: colors.emerald500 }]}
+    >
+      <View style={styles.activePlanHeader}>
+        <View style={styles.activePlanBadge}>
+          <CheckCircle size={16} color="#ffffff" />
+          <Text style={styles.activePlanBadgeText}>
+            {language === "he" ? "פעיל" : "Active"}
+          </Text>
+        </View>
+        <TouchableOpacity onPress={onContinue} style={styles.activePlanAction}>
+          <ArrowRight size={16} color="#ffffff" />
+        </TouchableOpacity>
+      </View>
+
+      <Text style={styles.activePlanTitle}>
+        {plan.name ||
+          (language === "he" ? "התוכנית הפעילה שלך" : "Your Active Plan")}
+      </Text>
+
+      <Text style={styles.activePlanSubtitle}>
+        {language === "he"
+          ? "המשך לעקוב אחר התקדמותך"
+          : "Continue tracking your progress"}
+      </Text>
+
+      <TouchableOpacity
+        style={styles.activePlanContinueButton}
+        onPress={onContinue}
+      >
+        <Text style={styles.activePlanContinueText}>
+          {language === "he" ? "המשך התוכנית" : "Continue Plan"}
+        </Text>
+        <ArrowRight size={14} color="#ffffff" />
+      </TouchableOpacity>
+    </View>
+  );
+};
+
+// Quick Stats Component
+const QuickStats = ({ menus, colors, language }: any) => {
+  const stats = useMemo(() => {
+    if (!menus.length) return null;
+
+    const totalCalories = menus.reduce(
+      (sum: number, menu: any) => sum + (menu.total_calories || 0),
+      0
+    );
+    const avgCalories = Math.round(totalCalories / menus.length);
+    const totalMeals = menus.reduce(
+      (sum: number, menu: any) => sum + menu.meals.length,
+      0
+    );
+    const avgCost = Math.round(
+      menus.reduce(
+        (sum: number, menu: any) => sum + (menu.estimated_cost || 0),
+        0
+      ) / menus.length
+    );
+
+    return {
+      totalMenus: menus.length,
+      avgCalories,
+      totalMeals,
+      avgCost,
+    };
+  }, [menus]);
+
+  if (!stats) return null;
+
+  return (
+    <View style={[styles.statsCard, { backgroundColor: colors.card }]}>
+      <View style={styles.statsHeader}>
+        <Text style={[styles.statsTitle, { color: colors.text }]}>
+          {language === "he" ? "סיכום תפריטים" : "Menu Overview"}
+        </Text>
+        <Award size={20} color={colors.emerald500} />
+      </View>
+
+      <View style={styles.statsGrid}>
+        <View style={styles.statItem}>
+          <Text style={[styles.statValue, { color: colors.emerald500 }]}>
+            {stats.totalMenus}
+          </Text>
+          <Text style={[styles.statLabel, { color: colors.icon }]}>
+            {language === "he" ? "תפריטים" : "Menus"}
+          </Text>
+        </View>
+
+        <View style={styles.statItem}>
+          <Text style={[styles.statValue, { color: colors.emerald500 }]}>
+            {stats.avgCalories}
+          </Text>
+          <Text style={[styles.statLabel, { color: colors.icon }]}>
+            {language === "he" ? 'ק"ק ממוצע' : "Avg Cal"}
+          </Text>
+        </View>
+
+        <View style={styles.statItem}>
+          <Text style={[styles.statValue, { color: colors.emerald500 }]}>
+            {stats.totalMeals}
+          </Text>
+          <Text style={[styles.statLabel, { color: colors.icon }]}>
+            {language === "he" ? "ארוחות" : "Meals"}
+          </Text>
+        </View>
+
+        <View style={styles.statItem}>
+          <Text style={[styles.statValue, { color: colors.emerald500 }]}>
+            ₪{stats.avgCost}
+          </Text>
+          <Text style={[styles.statLabel, { color: colors.icon }]}>
+            {language === "he" ? "עלות ממוצעת" : "Avg Cost"}
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+};
+
+// Category Pills Component
+const CategoryPills = ({ colors, language }: any) => {
+  const [selectedCategory, setSelectedCategory] = useState("all");
+
+  const categories = [
+    { key: "all", label: language === "he" ? "הכל" : "All", icon: ChefHat },
+    {
+      key: "healthy",
+      label: language === "he" ? "בריא" : "Healthy",
+      icon: Heart,
+    },
+    { key: "keto", label: language === "he" ? "קטו" : "Keto", icon: Target },
+    {
+      key: "protein",
+      label: language === "he" ? "חלבון" : "Protein",
+      icon: Activity,
+    },
+    { key: "quick", label: language === "he" ? "מהיר" : "Quick", icon: Zap },
+  ];
+
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      style={styles.categoryScrollContainer}
+      contentContainerStyle={styles.categoryContainer}
+    >
+      {categories.map((category) => {
+        const IconComponent = category.icon;
+        const isActive = selectedCategory === category.key;
+
+        return (
+          <TouchableOpacity
+            key={category.key}
+            style={[
+              styles.categoryPill,
+              {
+                backgroundColor: isActive ? colors.emerald500 : colors.surface,
+              },
+            ]}
+            onPress={() => setSelectedCategory(category.key)}
+          >
+            <IconComponent
+              size={16}
+              color={isActive ? "#ffffff" : colors.icon}
+            />
+            <Text
+              style={[
+                styles.categoryText,
+                { color: isActive ? "#ffffff" : colors.text },
+              ]}
+            >
+              {category.label}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
+    </ScrollView>
+  );
+};
+
 export default function RecommendedMenusScreen() {
   const { t } = useTranslation();
   const { isRTL, language } = useLanguage();
   const { colors, isDark } = useTheme();
+  const { user } = useSelector((state: RootState) => state.auth);
 
+  // State
   const [menus, setMenus] = useState<RecommendedMenu[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isGenerating, setIsGenerating] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [showCustomModal, setShowCustomModal] = useState(false);
-  const [customRequest, setCustomRequest] = useState("");
-  const [selectedDays, setSelectedDays] = useState(7);
-  const [selectedMealsPerDay, setSelectedMealsPerDay] = useState("3_main");
-  const [budget, setBudget] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedFilter, setSelectedFilter] = useState("all");
-  const [showComprehensiveModal, setShowComprehensiveModal] = useState(false);
-  const [showShoppingList, setShowShoppingList] = useState(false);
-  const [showEnhancedCreation, setShowEnhancedCreation] = useState(false);
-  const [menuName, setMenuName] = useState("");
-  const [targetCalories, setTargetCalories] = useState("");
-  const [proteinGoal, setProteinGoal] = useState("");
-  const [carbGoal, setCarbGoal] = useState("");
-  const [fatGoal, setFatGoal] = useState("");
-  const [specialRequests, setSpecialRequests] = useState("");
+  const [showFilterModal, setShowFilterModal] = useState(false);
   const [hasActivePlan, setHasActivePlan] = useState(false);
   const [activePlanData, setActivePlanData] = useState<any>(null);
-  const [selectedDietaryPreference, setSelectedDietaryPreference] =
-    useState("");
-  const [selectedMealCount, setSelectedMealCount] = useState("3");
-  const [dietaryRestrictions, setDietaryRestrictions] = useState("");
-  const [includeShoppingItems, setIncludeShoppingItems] = useState<string[]>(
-    []
-  );
-  const [shoppingListItems, setShoppingListItems] = useState<any[]>([]);
-  const { user } = useSelector((state: RootState) => state.auth);
-
-  // New states for menu components
-  const [showMenuCreator, setShowMenuCreator] = useState(false);
-  const [showMealDetail, setShowMealDetail] = useState(false);
-  const [showMealsList, setShowMealsList] = useState(false);
-  const [selectedMeal, setSelectedMeal] = useState<any>(null);
-  const [selectedMenuForMeals, setSelectedMenuForMeals] = useState<any>(null);
-
-  // Animation values
-  const [fadeAnim] = useState(new Animated.Value(0));
-  const [slideAnim] = useState(new Animated.Value(50));
-
-  useEffect(() => {
-    loadRecommendedMenus();
-    checkForActivePlan();
-
-    // Start animations
-    Animated.parallel([
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 800,
-        useNativeDriver: true,
-      }),
-      Animated.timing(slideAnim, {
-        toValue: 0,
-        duration: 600,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, []);
-
-  // Refresh active plan status when user returns to screen
-  useFocusEffect(
-    useCallback(() => {
-      console.log("🔄 Screen focused, checking for active plans...");
-      checkForActivePlan();
-    }, [])
-  );
-
-  const loadRecommendedMenus = async () => {
-    try {
-      console.log("🔄 Loading recommended menus...");
-      const response = await api.get("/recommended-menus");
-
-      if (response.data.success) {
-        setMenus(response.data.data || []);
-        console.log("✅ Loaded", response.data.data?.length || 0, "menus");
-      } else {
-        console.log("⚠️ No menus found or API returned error");
-        setMenus([]);
-      }
-    } catch (error) {
-      console.error("💥 Error loading menus:", error);
-      setMenus([]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const onRefresh = useCallback(async () => {
-    setRefreshing(true);
-    await loadRecommendedMenus();
-    setRefreshing(false);
-  }, []);
-
-  const handleGenerateMenu = async () => {
-    try {
-      setIsGenerating(true);
-      console.log("🤖 Generating new menu...");
-
-      const response = await api.post("/recommended-menus/generate", {
-        days: 7,
-        mealsPerDay: "3_main",
-        mealChangeFrequency: "daily",
-        includeLeftovers: false,
-        sameMealTimes: true,
-      });
-
-      if (response.data.success) {
-        Alert.alert(
-          language === "he" ? "הצלחה!" : "Success!",
-          language === "he"
-            ? "תפריט חדש נוצר בהצלחה!"
-            : "New menu generated successfully!",
-          [
-            {
-              text: language === "he" ? "אישור" : "OK",
-              onPress: () => loadRecommendedMenus(),
-            },
-          ]
-        );
-      } else {
-        throw new Error(response.data.error || "Failed to generate menu");
-      }
-    } catch (error: any) {
-      console.error("💥 Error generating menu:", error);
-      Alert.alert(
-        language === "he" ? "שגיאה" : "Error",
-        error.message ||
-          (language === "he"
-            ? "נכשל ביצירת תפריט חדש"
-            : "Failed to generate new menu")
-      );
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
-  const handleGenerateCustomMenu = async () => {
-    if (!customRequest.trim()) {
-      Alert.alert(
-        language === "he" ? "שגיאה" : "Error",
-        language === "he"
-          ? "אנא הכנס תיאור לתפריט המותאם"
-          : "Please enter a description for the custom menu"
-      );
-      return;
-    }
-
-    try {
-      setIsGenerating(true);
-      console.log("🎨 Generating custom menu...");
-
-      const response = await api.post("/recommended-menus/generate-custom", {
-        days: selectedDays,
-        mealsPerDay: selectedMealsPerDay,
-        customRequest: customRequest.trim(),
-        budget: budget ? parseFloat(budget) : undefined,
-        mealChangeFrequency: "daily",
-        includeLeftovers: false,
-        sameMealTimes: true,
-      });
-
-      if (response.data.success) {
-        setShowCustomModal(false);
-        setCustomRequest("");
-        setBudget("");
-
-        Alert.alert(
-          language === "he" ? "הצלחה!" : "Success!",
-          language === "he"
-            ? "תפריט מותאם נוצר בהצלחה!"
-            : "Custom menu generated successfully!",
-          [
-            {
-              text: language === "he" ? "אישור" : "OK",
-              onPress: () => loadRecommendedMenus(),
-            },
-          ]
-        );
-      } else {
-        throw new Error(
-          response.data.error || "Failed to generate custom menu"
-        );
-      }
-    } catch (error: any) {
-      console.error("💥 Error generating custom menu:", error);
-      Alert.alert(
-        language === "he" ? "שגיאה" : "Error",
-        error.message ||
-          (language === "he"
-            ? "נכשל ביצירת תפריט מותאם"
-            : "Failed to generate custom menu")
-      );
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
-  const loadShoppingListItems = async () => {
-    try {
-      const response = await api.get("/shopping-lists");
-      if (response.data.success) {
-        setShoppingListItems(
-          response.data.data.filter((item: any) => !item.is_purchased) || []
-        );
-      }
-    } catch (error) {
-      console.error("Failed to load shopping list:", error);
-    }
-  };
-
-  const handleOpenEnhancedCreation = () => {
-    loadShoppingListItems();
-    setShowEnhancedCreation(true);
-  };
-
-  const handleCreateEnhancedMenu = async () => {
-    try {
-      setIsGenerating(true);
-      console.log("🤖 Creating enhanced menu with preferences...");
-
-      if (!menuName.trim()) {
-        Alert.alert(
-          language === "he" ? "שגיאה" : "Error",
-          language === "he" ? "אנא הכנס שם תפריט" : "Please enter a menu name"
-        );
-        setIsGenerating(false);
-        return;
-      }
-
-      // Get complete user questionnaire data
-      let userQuestionnaire = null;
-      try {
-        const questionnaireData = await AsyncStorage.getItem(
-          "user_questionnaire"
-        );
-        if (questionnaireData) {
-          userQuestionnaire = JSON.parse(questionnaireData);
-          console.log("✅ Retrieved complete user questionnaire for AI");
-        } else {
-          console.warn("⚠️ No questionnaire data found - using form data only");
-        }
-      } catch (error) {
-        console.error("💥 Error loading questionnaire:", error);
-      }
-
-      const selectedShoppingItems = shoppingListItems.filter((item) =>
-        includeShoppingItems.includes(item.id)
-      );
-
-      const payload = {
-        name: menuName,
-        days: selectedDays,
-        mealsPerDay: selectedMealCount,
-        dietaryPreference: selectedDietaryPreference,
-        dietaryRestrictions: dietaryRestrictions.trim(),
-        targetCalories: targetCalories ? parseFloat(targetCalories) : undefined,
-        proteinGoal: proteinGoal ? parseFloat(proteinGoal) : undefined,
-        carbGoal: carbGoal ? parseFloat(carbGoal) : undefined,
-        fatGoal: fatGoal ? parseFloat(fatGoal) : undefined,
-        budget: budget ? parseFloat(budget) : undefined,
-        specialRequests: specialRequests.trim(),
-        includeIngredients: selectedShoppingItems.map((item) => ({
-          name: item.name,
-          quantity: item.quantity,
-          unit: item.unit,
-        })),
-        // Include complete user questionnaire data
-        userQuestionnaire: userQuestionnaire,
-      };
-
-      const response = await api.post(
-        "/recommended-menus/generate-enhanced",
-        payload
-      );
-
-      if (response.data.success) {
-        setShowEnhancedCreation(false);
-        resetEnhancedForm();
-
-        Alert.alert(
-          language === "he" ? "הצלחה!" : "Success!",
-          language === "he"
-            ? "תפריט מותאם נוצר והופעל בהצלחה!"
-            : "Enhanced menu created and activated successfully!",
-          [
-            {
-              text: language === "he" ? "אישור" : "OK",
-              onPress: () => loadRecommendedMenus(),
-            },
-          ]
-        );
-      } else {
-        throw new Error(
-          response.data.error || "Failed to generate enhanced menu"
-        );
-      }
-    } catch (error: any) {
-      console.error("💥 Error generating enhanced menu:", error);
-      Alert.alert(
-        language === "he" ? "שגיאה" : "Error",
-        error.message ||
-          (language === "he"
-            ? "נכשל ביצירת תפריט מותאם"
-            : "Failed to generate enhanced menu")
-      );
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
-  const resetEnhancedForm = () => {
-    setMenuName("");
-    setTargetCalories("");
-    setProteinGoal("");
-    setCarbGoal("");
-    setFatGoal("");
-    setBudget("");
-    setSpecialRequests("");
-    setSelectedDietaryPreference("");
-    setSelectedMealCount("3");
-    setDietaryRestrictions("");
-    setIncludeShoppingItems([]);
-  };
-
-  const handleCreateComprehensiveMenu = async () => {
-    try {
-      setIsGenerating(true);
-      console.log("🤖 Creating comprehensive menu...");
-
-      if (!menuName.trim()) {
-        Alert.alert(
-          language === "he" ? "שגיאה" : "Error",
-          language === "he" ? "אנא הכנס שם תפריט" : "Please enter a menu name"
-        );
-        setIsGenerating(false);
-        return;
-      }
-
-      const payload = {
-        name: menuName,
-        days: selectedDays,
-        mealsPerDay: selectedMealsPerDay,
-        targetCalories: targetCalories ? parseFloat(targetCalories) : undefined,
-        proteinGoal: proteinGoal ? parseFloat(proteinGoal) : undefined,
-        carbGoal: carbGoal ? parseFloat(carbGoal) : undefined,
-        fatGoal: fatGoal ? parseFloat(fatGoal) : undefined,
-        budget: budget ? parseFloat(budget) : undefined,
-        specialRequests: specialRequests.trim(),
-      };
-
-      const response = await api.post(
-        "/recommended-menus/generate-comprehensive",
-        payload
-      );
-
-      if (response.data.success) {
-        setShowComprehensiveModal(false);
-        setMenuName("");
-        setTargetCalories("");
-        setProteinGoal("");
-        setCarbGoal("");
-        setFatGoal("");
-        setBudget("");
-        setSpecialRequests("");
-
-        Alert.alert(
-          language === "he" ? "הצלחה!" : "Success!",
-          language === "he"
-            ? "תפריט מקיף נוצר והופעל בהצלחה!"
-            : "Comprehensive menu created and activated successfully!",
-          [
-            {
-              text: language === "he" ? "אישור" : "OK",
-              onPress: () => loadRecommendedMenus(),
-            },
-          ]
-        );
-      } else {
-        throw new Error(
-          response.data.error || "Failed to generate comprehensive menu"
-        );
-      }
-    } catch (error: any) {
-      console.error("💥 Error generating comprehensive menu:", error);
-      Alert.alert(
-        language === "he" ? "שגיאה" : "Error",
-        error.message ||
-          (language === "he"
-            ? "נכשל ביצירת תפריט מקיף"
-            : "Failed to generate comprehensive menu")
-      );
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
+  const [showEnhancedCreation, setShowEnhancedCreation] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [selectedMenuToStart, setSelectedMenuToStart] = useState<string | null>(
     null
   );
   const [currentActivePlan, setCurrentActivePlan] = useState<any>(null);
+
+  // Enhanced creation form states
+  const [menuName, setMenuName] = useState("");
+  const [selectedDays, setSelectedDays] = useState(7);
+  const [selectedDietaryPreference, setSelectedDietaryPreference] =
+    useState("");
+  const [targetCalories, setTargetCalories] = useState("");
+  const [budget, setBudget] = useState("");
+  const [specialRequests, setSpecialRequests] = useState("");
+
+  // Feedback form
   const [feedbackForm, setFeedbackForm] = useState({
     rating: 0,
     liked: "",
@@ -927,11 +572,43 @@ export default function RecommendedMenusScreen() {
     suggestions: "",
   });
 
+  // Animations
+  const [fadeAnim] = useState(new Animated.Value(0));
+
+  useEffect(() => {
+    loadRecommendedMenus();
+    checkForActivePlan();
+
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 600,
+      useNativeDriver: true,
+    }).start();
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      checkForActivePlan();
+    }, [])
+  );
+
+  const loadRecommendedMenus = async () => {
+    try {
+      const response = await api.get("/recommended-menus");
+      if (response.data.success) {
+        setMenus(response.data.data || []);
+      }
+    } catch (error) {
+      console.error("Error loading menus:", error);
+      setMenus([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const checkForActivePlan = async () => {
     try {
-      console.log("🔍 Checking for active plan...");
       const response = await api.get("/meal-plans/current");
-
       if (
         response.data.success &&
         response.data.hasActivePlan &&
@@ -942,36 +619,37 @@ export default function RecommendedMenusScreen() {
           name: response.data.planName || "Active Plan",
           data: response.data.data,
         };
-        console.log("✅ Active plan found:", planData.plan_id);
         setCurrentActivePlan(planData);
         setActivePlanData(planData);
         setHasActivePlan(true);
       } else {
-        console.log("❌ No active plan found or plan data is empty");
         setCurrentActivePlan(null);
         setActivePlanData(null);
         setHasActivePlan(false);
       }
     } catch (error) {
-      console.log("❌ No active plan found (error):", error);
       setCurrentActivePlan(null);
       setActivePlanData(null);
       setHasActivePlan(false);
     }
   };
 
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadRecommendedMenus();
+    await checkForActivePlan();
+    setRefreshing(false);
+  }, []);
+
   const handleStartMenu = async (menuId: string) => {
     try {
-      console.log("🚀 Starting menu:", menuId);
       setSelectedMenuToStart(menuId);
-
       if (currentActivePlan) {
         setShowFeedbackModal(true);
       } else {
         await activateMenuPlan(menuId);
       }
     } catch (error: any) {
-      console.error("💥 Error starting menu:", error);
       Alert.alert(
         language === "he" ? "שגיאה" : "Error",
         error.message ||
@@ -980,58 +658,16 @@ export default function RecommendedMenusScreen() {
     }
   };
 
-  // Check if this menu is the current active one
-  const isCurrentActiveMenu = (menuId: string) => {
-    if (!hasActivePlan || !activePlanData) {
-      return false;
-    }
-    return activePlanData.plan_id === menuId;
-  };
-
-  const handleViewMeals = (menu: RecommendedMenu) => {
-    setSelectedMenuForMeals(menu);
-    setShowMealsList(true);
-  };
-
-  const handleMealPress = (meal: any) => {
-    setSelectedMeal(meal);
-    setShowMealDetail(true);
-  };
-
-  const handleCreateMenuFromCreator = (selectedItems: any[]) => {
-    console.log("Creating menu from selected items:", selectedItems);
-    setShowMenuCreator(false);
-    // Here you can implement the logic to create a menu from selected items
-    Alert.alert(
-      language === "he" ? "הצלחה!" : "Success!",
-      language === "he"
-        ? `תפריט נוצר עם ${selectedItems.length} ארוחות!`
-        : `Menu created with ${selectedItems.length} meals!`
-    );
-  };
-
   const activateMenuPlan = async (
     menuId: string,
     previousPlanFeedback?: any
   ) => {
     try {
-      console.log("🚀 Starting menu:", menuId);
-
       if (previousPlanFeedback && currentActivePlan) {
-        try {
-          await api.post(
-            `/meal-plans/${
-              currentActivePlan.plan_id || currentActivePlan
-            }/complete`,
-            previousPlanFeedback
-          );
-          console.log("✅ Previous plan feedback submitted");
-        } catch (feedbackError) {
-          console.warn(
-            "⚠️ Failed to submit previous plan feedback:",
-            feedbackError
-          );
-        }
+        await api.post(
+          `/meal-plans/${currentActivePlan.plan_id}/complete`,
+          previousPlanFeedback
+        );
       }
 
       const response = await api.post(
@@ -1054,27 +690,95 @@ export default function RecommendedMenusScreen() {
           [
             {
               text: language === "he" ? "אישור" : "OK",
-              onPress: () => {
-                console.log(
-                  "Navigating to active menu with plan ID:",
-                  newPlan.plan_id
-                );
-                router.push(`/menu/activeMenu?planId=${newPlan.plan_id}`);
-              },
+              onPress: () =>
+                router.push(`/menu/activeMenu?planId=${newPlan.plan_id}`),
             },
           ]
         );
-      } else {
-        throw new Error(response.data.error || "Failed to start menu");
       }
     } catch (error: any) {
-      console.error("💥 Error activating menu plan:", error);
       Alert.alert(
         language === "he" ? "שגיאה" : "Error",
         error.message ||
           (language === "he" ? "נכשל בהפעלת התפריט" : "Failed to start menu")
       );
     }
+  };
+
+  const handleCreateEnhancedMenu = async () => {
+    if (!menuName.trim()) {
+      Alert.alert(
+        language === "he" ? "שגיאה" : "Error",
+        language === "he" ? "אנא הכנס שם תפריט" : "Please enter a menu name"
+      );
+      return;
+    }
+
+    try {
+      setIsGenerating(true);
+
+      let userQuestionnaire = null;
+      try {
+        const questionnaireData = await AsyncStorage.getItem(
+          "user_questionnaire"
+        );
+        if (questionnaireData) {
+          userQuestionnaire = JSON.parse(questionnaireData);
+        }
+      } catch (error) {
+        console.error("Error loading questionnaire:", error);
+      }
+
+      const payload = {
+        name: menuName,
+        days: selectedDays,
+        mealsPerDay: "3",
+        dietaryPreference: selectedDietaryPreference,
+        targetCalories: targetCalories ? parseFloat(targetCalories) : undefined,
+        budget: budget ? parseFloat(budget) : undefined,
+        specialRequests: specialRequests.trim(),
+        userQuestionnaire: userQuestionnaire,
+      };
+
+      const response = await api.post(
+        "/recommended-menus/generate-enhanced",
+        payload
+      );
+
+      if (response.data.success) {
+        setShowEnhancedCreation(false);
+        resetEnhancedForm();
+
+        Alert.alert(
+          language === "he" ? "הצלחה!" : "Success!",
+          language === "he"
+            ? "תפריט מותאם נוצר בהצלחה!"
+            : "Enhanced menu created successfully!",
+          [
+            {
+              text: language === "he" ? "אישור" : "OK",
+              onPress: loadRecommendedMenus,
+            },
+          ]
+        );
+      }
+    } catch (error: any) {
+      Alert.alert(
+        language === "he" ? "שגיאה" : "Error",
+        error.message ||
+          (language === "he" ? "נכשל ביצירת תפריט" : "Failed to create menu")
+      );
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const resetEnhancedForm = () => {
+    setMenuName("");
+    setSelectedDietaryPreference("");
+    setTargetCalories("");
+    setBudget("");
+    setSpecialRequests("");
   };
 
   const handleFeedbackSubmit = async () => {
@@ -1096,214 +800,69 @@ export default function RecommendedMenusScreen() {
     await activateMenuPlan(selectedMenuToStart!, previousPlanFeedback);
   };
 
+  // Filter menus to exclude active plan and apply filters
   const filteredMenus = useMemo(() => {
-    return menus.filter((menu) => {
-      if (searchQuery.trim()) {
-        const query = searchQuery.toLowerCase();
-        const matchesSearch =
-          menu.title.toLowerCase().includes(query) ||
-          menu.description?.toLowerCase().includes(query) ||
-          menu.dietary_category?.toLowerCase().includes(query);
-        if (!matchesSearch) return false;
+    let filtered = menus.filter((menu) => {
+      // Exclude the currently active menu from recommendations
+      if (
+        hasActivePlan &&
+        activePlanData &&
+        menu.menu_id === activePlanData.plan_id
+      ) {
+        return false;
       }
-
-      if (selectedFilter !== "all") {
-        if (selectedFilter === "recent" && menu.created_at) {
-          const menuDate = new Date(menu.created_at);
-          const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-          if (menuDate < weekAgo) return false;
-        } else if (selectedFilter === "high_protein") {
-          const proteinRatio =
-            ((menu.total_protein || 0) / (menu.total_calories || 1)) * 4;
-          if (proteinRatio < 0.25) return false;
-        } else if (selectedFilter === "low_calorie") {
-          const avgCaloriesPerDay =
-            menu.total_calories / (menu.days_count || 1);
-          if (avgCaloriesPerDay > 1800) return false;
-        }
-      }
-
       return true;
     });
-  }, [menus, searchQuery, selectedFilter]);
 
-  const insights = useMemo(() => {
-    if (!filteredMenus.length) return null;
-
-    const totalCalories = filteredMenus.reduce(
-      (sum: number, menu: any) => sum + (menu.total_calories || 0),
-      0
-    );
-    const avgCalories = Math.round(totalCalories / filteredMenus.length);
-    const totalMeals = filteredMenus.reduce(
-      (sum: number, menu: any) => sum + menu.meals.length,
-      0
-    );
-
-    return {
-      totalMenus: filteredMenus.length,
-      avgCalories,
-      totalMeals,
-      avgDays: Math.round(
-        filteredMenus.reduce(
-          (sum: number, menu: any) => sum + menu.days_count,
-          0
-        ) / filteredMenus.length
-      ),
-    };
-  }, [filteredMenus]);
-
-  const listData = useMemo(() => {
-    const data = [];
-    if (insights) {
-      data.push({ type: "insights", data: insights });
-    }
-    return data.concat(
-      filteredMenus.map((menu: any) => ({ type: "menu", data: menu }))
-    );
-  }, [filteredMenus, insights]);
-
-  const renderItem = ({ item }: { item: any }) => {
-    if (item.type === "insights") {
-      return (
-        <View
-          style={[
-            styles.insightsCard,
-            { backgroundColor: colors.card, borderColor: colors.border },
-          ]}
-        >
-          <LinearGradient
-            colors={[colors.emerald500 + "08", colors.emerald500 + "15"]}
-            style={styles.insightsGradient}
-          >
-            <View style={styles.insightsHeader}>
-              <View
-                style={[
-                  styles.insightsIconContainer,
-                  { backgroundColor: colors.emerald500 + "20" },
-                ]}
-              >
-                <Sparkles size={20} color={colors.emerald500} />
-              </View>
-              <View>
-                <Text style={[styles.insightsTitle, { color: colors.text }]}>
-                  {language === "he" ? "הסטטיסטיקות שלך" : "Your Menu Stats"}
-                </Text>
-                <Text style={[styles.insightsSubtitle, { color: colors.icon }]}>
-                  {language === "he" ? "סקירה כללית" : "Overview"}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.insightsGrid}>
-              <View
-                style={[
-                  styles.insightItem,
-                  { backgroundColor: colors.surface },
-                ]}
-              >
-                <View
-                  style={[
-                    styles.insightIconBox,
-                    { backgroundColor: colors.emerald500 + "15" },
-                  ]}
-                >
-                  <Target size={16} color={colors.emerald500} />
-                </View>
-                <Text style={[styles.insightValue, { color: colors.text }]}>
-                  {item.data.totalMenus}
-                </Text>
-                <Text style={[styles.insightLabel, { color: colors.icon }]}>
-                  {language === "he" ? "תפריטים" : "Menus"}
-                </Text>
-              </View>
-
-              <View
-                style={[
-                  styles.insightItem,
-                  { backgroundColor: colors.surface },
-                ]}
-              >
-                <View
-                  style={[
-                    styles.insightIconBox,
-                    { backgroundColor: "#f59e0b15" },
-                  ]}
-                >
-                  <Flame size={16} color="#f59e0b" />
-                </View>
-                <Text style={[styles.insightValue, { color: colors.text }]}>
-                  {item.data.avgCalories}
-                </Text>
-                <Text style={[styles.insightLabel, { color: colors.icon }]}>
-                  {language === "he" ? "קלוריות ממוצע" : "Avg Calories"}
-                </Text>
-              </View>
-
-              <View
-                style={[
-                  styles.insightItem,
-                  { backgroundColor: colors.surface },
-                ]}
-              >
-                <View
-                  style={[
-                    styles.insightIconBox,
-                    { backgroundColor: "#8b5cf615" },
-                  ]}
-                >
-                  <Utensils size={16} color="#8b5cf6" />
-                </View>
-                <Text style={[styles.insightValue, { color: colors.text }]}>
-                  {item.data.totalMeals}
-                </Text>
-                <Text style={[styles.insightLabel, { color: colors.icon }]}>
-                  {language === "he" ? "ארוחות" : "Meals"}
-                </Text>
-              </View>
-
-              <View
-                style={[
-                  styles.insightItem,
-                  { backgroundColor: colors.surface },
-                ]}
-              >
-                <View
-                  style={[
-                    styles.insightIconBox,
-                    { backgroundColor: "#3b82f615" },
-                  ]}
-                >
-                  <Calendar size={16} color="#3b82f6" />
-                </View>
-                <Text style={[styles.insightValue, { color: colors.text }]}>
-                  {item.data.avgDays}
-                </Text>
-                <Text style={[styles.insightLabel, { color: colors.icon }]}>
-                  {language === "he" ? "ימים ממוצע" : "Avg Days"}
-                </Text>
-              </View>
-            </View>
-          </LinearGradient>
-        </View>
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (menu) =>
+          menu.title.toLowerCase().includes(query) ||
+          menu.description?.toLowerCase().includes(query) ||
+          menu.dietary_category?.toLowerCase().includes(query)
       );
     }
 
-    return (
-      <MenuCard
-        menu={item.data}
-        colors={colors}
-        isDark={isDark}
-        language={language}
-        isRTL={isRTL}
-        onStart={handleStartMenu}
-        onView={(menuId: string) => router.push(`/menu/${menuId}`)}
-        isCurrentActiveMenu={isCurrentActiveMenu}
-      />
-    );
-  };
+    // Apply category filter
+    if (selectedFilter !== "all") {
+      filtered = filtered.filter((menu) => {
+        switch (selectedFilter) {
+          case "recent":
+            if (menu.created_at) {
+              const menuDate = new Date(menu.created_at);
+              const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+              return menuDate > weekAgo;
+            }
+            return false;
 
-  // Enhanced menu creation modal
+          case "high_protein":
+            const proteinRatio =
+              ((menu.total_protein || 0) / (menu.total_calories || 1)) * 4;
+            return proteinRatio >= 0.25;
+
+          case "low_calorie":
+            const avgCaloriesPerDay =
+              menu.total_calories / (menu.days_count || 1);
+            return avgCaloriesPerDay <= 1800;
+
+          case "quick_prep":
+            return (menu.prep_time_minutes || 60) <= 30;
+
+          case "budget_friendly":
+            return (menu.estimated_cost || 1000) <= 200;
+
+          default:
+            return true;
+        }
+      });
+    }
+
+    return filtered;
+  }, [menus, searchQuery, selectedFilter, hasActivePlan, activePlanData]);
+
+  // Enhanced creation modal
   const renderEnhancedCreationModal = () => (
     <Modal
       visible={showEnhancedCreation}
@@ -1314,51 +873,35 @@ export default function RecommendedMenusScreen() {
       <View style={styles.modalOverlay}>
         <View
           style={[
-            styles.feedbackModalContainer,
+            styles.enhancedModalContainer,
             { backgroundColor: colors.card },
           ]}
         >
-          <LinearGradient
-            colors={[colors.emerald500, colors.emerald500 + "90"]}
-            style={styles.feedbackModalHeader}
-          >
-            <View style={styles.feedbackHeaderContent}>
-              <View style={styles.feedbackIconContainer}>
-                <ChefHat size={24} color="#ffffff" />
-              </View>
-              <View style={styles.feedbackTitleContainer}>
-                <Text style={styles.feedbackModalTitle}>
-                  {language === "he"
-                    ? "יצירת תפריט מותאם"
-                    : "Create Custom Menu"}
-                </Text>
-                <Text style={styles.feedbackModalSubtitle}>
-                  {language === "he"
-                    ? "התאמה אישית מלאה"
-                    : "Full customization options"}
-                </Text>
-              </View>
-            </View>
+          <View style={styles.modalHeader}>
             <TouchableOpacity
               onPress={() => setShowEnhancedCreation(false)}
-              style={styles.feedbackCloseButton}
+              style={styles.modalCloseButton}
             >
-              <X size={22} color="#ffffff" />
+              <X size={24} color={colors.icon} />
             </TouchableOpacity>
-          </LinearGradient>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>
+              {language === "he" ? "יצירת תפריט מותאם" : "Create Custom Menu"}
+            </Text>
+            <View style={{ width: 40 }} />
+          </View>
 
           <ScrollView
-            style={styles.feedbackModalContent}
+            style={styles.modalContent}
             showsVerticalScrollIndicator={false}
           >
             {/* Menu Name */}
-            <View style={styles.feedbackInputSection}>
-              <Text style={[styles.feedbackInputLabel, { color: colors.text }]}>
+            <View style={styles.inputSection}>
+              <Text style={[styles.inputLabel, { color: colors.text }]}>
                 {language === "he" ? "שם התפריט" : "Menu Name"} *
               </Text>
               <TextInput
                 style={[
-                  styles.feedbackTextArea,
+                  styles.textInput,
                   {
                     backgroundColor: colors.surface,
                     borderColor: colors.border,
@@ -1374,180 +917,161 @@ export default function RecommendedMenusScreen() {
               />
             </View>
 
-            {/* Dietary Preference */}
-            <View style={styles.feedbackInputSection}>
-              <Text style={[styles.feedbackInputLabel, { color: colors.text }]}>
+            {/* Days Selection */}
+            <View style={styles.inputSection}>
+              <Text style={[styles.inputLabel, { color: colors.text }]}>
+                {language === "he" ? "מספר ימים" : "Number of Days"}
+              </Text>
+              <View style={styles.chipContainer}>
+                {[3, 5, 7, 14].map((days) => (
+                  <TouchableOpacity
+                    key={days}
+                    style={[
+                      styles.chip,
+                      {
+                        backgroundColor:
+                          selectedDays === days
+                            ? colors.emerald500
+                            : colors.surface,
+                        borderColor:
+                          selectedDays === days
+                            ? colors.emerald500
+                            : colors.border,
+                      },
+                    ]}
+                    onPress={() => setSelectedDays(days)}
+                  >
+                    <Text
+                      style={[
+                        styles.chipText,
+                        {
+                          color:
+                            selectedDays === days ? "#ffffff" : colors.text,
+                        },
+                      ]}
+                    >
+                      {days} {language === "he" ? "ימים" : "days"}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Dietary Preferences */}
+            <View style={styles.inputSection}>
+              <Text style={[styles.inputLabel, { color: colors.text }]}>
                 {language === "he" ? "העדפה תזונתית" : "Dietary Preference"}
               </Text>
-              <View style={styles.preferencesGrid}>
+              <View style={styles.chipContainer}>
                 {[
-                  "balanced",
-                  "vegetarian",
-                  "vegan",
-                  "keto",
-                  "low-carb",
-                  "high-protein",
+                  { key: "balanced", label: "Balanced" },
+                  { key: "vegetarian", label: "Vegetarian" },
+                  { key: "vegan", label: "Vegan" },
+                  { key: "keto", label: "Keto" },
+                  { key: "low_carb", label: "Low Carb" },
+                  { key: "high_protein", label: "High Protein" },
                 ].map((pref) => (
                   <TouchableOpacity
-                    key={pref}
+                    key={pref.key}
                     style={[
-                      styles.preferenceChip,
+                      styles.chip,
                       {
                         backgroundColor:
-                          selectedDietaryPreference === pref
+                          selectedDietaryPreference === pref.key
                             ? colors.emerald500
                             : colors.surface,
                         borderColor:
-                          selectedDietaryPreference === pref
+                          selectedDietaryPreference === pref.key
                             ? colors.emerald500
                             : colors.border,
                       },
                     ]}
-                    onPress={() => setSelectedDietaryPreference(pref)}
+                    onPress={() => setSelectedDietaryPreference(pref.key)}
                   >
                     <Text
                       style={[
-                        styles.preferenceChipText,
+                        styles.chipText,
                         {
                           color:
-                            selectedDietaryPreference === pref
+                            selectedDietaryPreference === pref.key
                               ? "#ffffff"
                               : colors.text,
                         },
                       ]}
                     >
-                      {pref.charAt(0).toUpperCase() + pref.slice(1)}
+                      {pref.label}
                     </Text>
                   </TouchableOpacity>
                 ))}
               </View>
             </View>
 
-            {/* Number of Meals */}
-            <View style={styles.feedbackInputSection}>
-              <Text style={[styles.feedbackInputLabel, { color: colors.text }]}>
-                {language === "he" ? "מספר ארוחות ביום" : "Meals per Day"}
-              </Text>
-              <View style={styles.mealsGrid}>
-                {["2", "3", "4", "5", "6"].map((count) => (
-                  <TouchableOpacity
-                    key={count}
-                    style={[
-                      styles.mealCountChip,
-                      {
-                        backgroundColor:
-                          selectedMealCount === count
-                            ? colors.emerald500
-                            : colors.surface,
-                        borderColor:
-                          selectedMealCount === count
-                            ? colors.emerald500
-                            : colors.border,
-                      },
-                    ]}
-                    onPress={() => setSelectedMealCount(count)}
-                  >
-                    <Text
-                      style={[
-                        styles.mealCountText,
-                        {
-                          color:
-                            selectedMealCount === count
-                              ? "#ffffff"
-                              : colors.text,
-                        },
-                      ]}
-                    >
-                      {count}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            {/* Shopping List Integration */}
-            {shoppingListItems.length > 0 && (
-              <View style={styles.feedbackInputSection}>
-                <Text
-                  style={[styles.feedbackInputLabel, { color: colors.text }]}
-                >
-                  {language === "he"
-                    ? "כלול רכיבים מרשימת הקניות"
-                    : "Include Shopping List Items"}
-                </Text>
-                <Text
-                  style={[styles.feedbackInputHelper, { color: colors.icon }]}
-                >
-                  {language === "he"
-                    ? "בחר רכיבים לכלול בתפריט החדש"
-                    : "Select ingredients to include in the new menu"}
-                </Text>
-                <View style={styles.shoppingItemsGrid}>
-                  {shoppingListItems.map((item) => (
-                    <TouchableOpacity
-                      key={item.id}
-                      style={[
-                        styles.shoppingItemChip,
-                        {
-                          backgroundColor: includeShoppingItems.includes(
-                            item.id
-                          )
-                            ? colors.emerald500 + "20"
-                            : colors.surface,
-                          borderColor: includeShoppingItems.includes(item.id)
-                            ? colors.emerald500
-                            : colors.border,
-                        },
-                      ]}
-                      onPress={() => {
-                        setIncludeShoppingItems((prev) =>
-                          prev.includes(item.id)
-                            ? prev.filter((id) => id !== item.id)
-                            : [...prev, item.id]
-                        );
-                      }}
-                    >
-                      <Text
-                        style={[
-                          styles.shoppingItemText,
-                          {
-                            color: includeShoppingItems.includes(item.id)
-                              ? colors.emerald500
-                              : colors.text,
-                          },
-                        ]}
-                      >
-                        {item.name} ({item.quantity} {item.unit})
-                      </Text>
-                      {includeShoppingItems.includes(item.id) && (
-                        <CheckCircle size={16} color={colors.emerald500} />
-                      )}
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-            )}
-
-            {/* Dietary Restrictions */}
-            <View style={styles.feedbackInputSection}>
-              <Text style={[styles.feedbackInputLabel, { color: colors.text }]}>
-                {language === "he" ? "הגבלות תזונתיות" : "Dietary Restrictions"}
+            {/* Target Calories */}
+            <View style={styles.inputSection}>
+              <Text style={[styles.inputLabel, { color: colors.text }]}>
+                {language === "he"
+                  ? "יעד קלוריות יומי"
+                  : "Daily Calorie Target"}
               </Text>
               <TextInput
                 style={[
-                  styles.feedbackTextArea,
+                  styles.textInput,
                   {
                     backgroundColor: colors.surface,
                     borderColor: colors.border,
                     color: colors.text,
                   },
                 ]}
-                value={dietaryRestrictions}
-                onChangeText={setDietaryRestrictions}
+                value={targetCalories}
+                onChangeText={setTargetCalories}
+                placeholder="2000"
+                placeholderTextColor={colors.icon}
+                keyboardType="numeric"
+              />
+            </View>
+
+            {/* Budget */}
+            <View style={styles.inputSection}>
+              <Text style={[styles.inputLabel, { color: colors.text }]}>
+                {language === "he" ? "תקציב (₪)" : "Budget (₪)"}
+              </Text>
+              <TextInput
+                style={[
+                  styles.textInput,
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                    color: colors.text,
+                  },
+                ]}
+                value={budget}
+                onChangeText={setBudget}
+                placeholder="300"
+                placeholderTextColor={colors.icon}
+                keyboardType="numeric"
+              />
+            </View>
+
+            {/* Special Requests */}
+            <View style={styles.inputSection}>
+              <Text style={[styles.inputLabel, { color: colors.text }]}>
+                {language === "he" ? "בקשות מיוחדות" : "Special Requests"}
+              </Text>
+              <TextInput
+                style={[
+                  styles.textArea,
+                  {
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                    color: colors.text,
+                  },
+                ]}
+                value={specialRequests}
+                onChangeText={setSpecialRequests}
                 placeholder={
                   language === "he"
-                    ? "אלרגיות, הגבלות, דרישות מיוחדות..."
-                    : "Allergies, restrictions, special requirements..."
+                    ? "כל בקשה מיוחדת..."
+                    : "Any special requests..."
                 }
                 placeholderTextColor={colors.icon}
                 multiline
@@ -1559,24 +1083,22 @@ export default function RecommendedMenusScreen() {
             {/* Submit Button */}
             <TouchableOpacity
               style={[
-                styles.feedbackSubmitButton,
+                styles.submitButton,
                 {
                   backgroundColor: menuName.trim()
                     ? colors.emerald500
                     : colors.border,
-                  opacity: menuName.trim() ? 1 : 0.6,
                 },
               ]}
               onPress={handleCreateEnhancedMenu}
               disabled={!menuName.trim() || isGenerating}
-              activeOpacity={0.8}
             >
               {isGenerating ? (
                 <ActivityIndicator size="small" color="#ffffff" />
               ) : (
                 <ChefHat size={18} color="#ffffff" />
               )}
-              <Text style={styles.feedbackSubmitButtonText}>
+              <Text style={styles.submitButtonText}>
                 {language === "he" ? "צור תפריט מותאם" : "Create Custom Menu"}
               </Text>
             </TouchableOpacity>
@@ -1586,7 +1108,7 @@ export default function RecommendedMenusScreen() {
     </Modal>
   );
 
-  // Enhanced feedback modal with better styling
+  // Feedback modal
   const renderFeedbackModal = () => (
     <Modal
       visible={showFeedbackModal}
@@ -1597,89 +1119,51 @@ export default function RecommendedMenusScreen() {
       <View style={styles.modalOverlay}>
         <View
           style={[
-            styles.feedbackModalContainer,
+            styles.enhancedModalContainer,
             { backgroundColor: colors.card },
           ]}
         >
-          {/* Header with gradient */}
-          <LinearGradient
-            colors={[colors.emerald500, colors.emerald500 + "90"]}
-            style={styles.feedbackModalHeader}
-          >
-            <View style={styles.feedbackHeaderContent}>
-              <View style={styles.feedbackIconContainer}>
-                <Star size={24} color="#ffffff" fill="#ffffff" />
-              </View>
-              <View style={styles.feedbackTitleContainer}>
-                <Text style={styles.feedbackModalTitle}>
-                  {language === "he"
-                    ? "דרג את התוכנית הקודמת"
-                    : "Rate Previous Plan"}
-                </Text>
-                <Text style={styles.feedbackModalSubtitle}>
-                  {language === "he"
-                    ? "המשוב שלך יעזור לנו לשפר"
-                    : "Your feedback helps us improve"}
-                </Text>
-              </View>
-            </View>
+          <View style={styles.modalHeader}>
             <TouchableOpacity
               onPress={() => setShowFeedbackModal(false)}
-              style={styles.feedbackCloseButton}
+              style={styles.modalCloseButton}
             >
-              <X size={22} color="#ffffff" />
+              <X size={24} color={colors.icon} />
             </TouchableOpacity>
-          </LinearGradient>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>
+              {language === "he"
+                ? "דרג את התוכנית הקודמת"
+                : "Rate Previous Plan"}
+            </Text>
+            <View style={{ width: 40 }} />
+          </View>
 
           <ScrollView
-            style={styles.feedbackModalContent}
+            style={styles.modalContent}
             showsVerticalScrollIndicator={false}
           >
             {/* Rating Section */}
-            <View style={styles.feedbackRatingSection}>
-              <Text
-                style={[styles.feedbackSectionTitle, { color: colors.text }]}
-              >
+            <View style={styles.inputSection}>
+              <Text style={[styles.inputLabel, { color: colors.text }]}>
                 {language === "he" ? "דירוג כללי" : "Overall Rating"}
               </Text>
-              <Text
-                style={[styles.feedbackSectionSubtitle, { color: colors.icon }]}
-              >
-                {language === "he"
-                  ? "איך היית מדרג את התוכנית?"
-                  : "How would you rate this plan?"}
-              </Text>
-
-              <View style={styles.feedbackRatingStars}>
+              <View style={styles.ratingContainer}>
                 {[1, 2, 3, 4, 5].map((star) => (
                   <TouchableOpacity
                     key={star}
                     onPress={() =>
                       setFeedbackForm({ ...feedbackForm, rating: star })
                     }
-                    style={[
-                      styles.feedbackStarButton,
-                      {
-                        backgroundColor:
-                          feedbackForm.rating >= star
-                            ? "#fbbf2415"
-                            : colors.surface,
-                        borderColor:
-                          feedbackForm.rating >= star
-                            ? "#fbbf24"
-                            : colors.border,
-                      },
-                    ]}
-                    activeOpacity={0.7}
+                    style={styles.starButton}
                   >
                     <Text
                       style={[
-                        styles.feedbackStarText,
+                        styles.starText,
                         {
                           color:
                             feedbackForm.rating >= star
-                              ? "#fbbf24"
-                              : colors.icon,
+                              ? "#FFB800"
+                              : colors.border,
                         },
                       ]}
                     >
@@ -1690,26 +1174,14 @@ export default function RecommendedMenusScreen() {
               </View>
             </View>
 
-            {/* Positive Feedback */}
-            <View style={styles.feedbackInputSection}>
-              <View style={styles.feedbackInputHeader}>
-                <View
-                  style={[
-                    styles.feedbackInputIcon,
-                    { backgroundColor: "#10b98115" },
-                  ]}
-                >
-                  <CheckCircle size={16} color="#10b981" />
-                </View>
-                <Text
-                  style={[styles.feedbackInputLabel, { color: colors.text }]}
-                >
-                  {language === "he" ? "מה אהבת?" : "What did you like?"}
-                </Text>
-              </View>
+            {/* Feedback Inputs */}
+            <View style={styles.inputSection}>
+              <Text style={[styles.inputLabel, { color: colors.text }]}>
+                {language === "he" ? "מה אהבת?" : "What did you like?"}
+              </Text>
               <TextInput
                 style={[
-                  styles.feedbackTextArea,
+                  styles.textArea,
                   {
                     backgroundColor: colors.surface,
                     borderColor: colors.border,
@@ -1722,8 +1194,8 @@ export default function RecommendedMenusScreen() {
                 }
                 placeholder={
                   language === "he"
-                    ? "ספר לנו מה אהבת בתוכנית..."
-                    : "Tell us what you enjoyed about the plan..."
+                    ? "ספר לנו מה אהבת..."
+                    : "Tell us what you enjoyed..."
                 }
                 placeholderTextColor={colors.icon}
                 multiline
@@ -1732,28 +1204,13 @@ export default function RecommendedMenusScreen() {
               />
             </View>
 
-            {/* Negative Feedback */}
-            <View style={styles.feedbackInputSection}>
-              <View style={styles.feedbackInputHeader}>
-                <View
-                  style={[
-                    styles.feedbackInputIcon,
-                    { backgroundColor: "#ef444415" },
-                  ]}
-                >
-                  <X size={16} color="#ef4444" />
-                </View>
-                <Text
-                  style={[styles.feedbackInputLabel, { color: colors.text }]}
-                >
-                  {language === "he"
-                    ? "מה ניתן לשפר?"
-                    : "What could be improved?"}
-                </Text>
-              </View>
+            <View style={styles.inputSection}>
+              <Text style={[styles.inputLabel, { color: colors.text }]}>
+                {language === "he" ? "מה לא אהבת?" : "What didn't you like?"}
+              </Text>
               <TextInput
                 style={[
-                  styles.feedbackTextArea,
+                  styles.textArea,
                   {
                     backgroundColor: colors.surface,
                     borderColor: colors.border,
@@ -1765,53 +1222,7 @@ export default function RecommendedMenusScreen() {
                   setFeedbackForm({ ...feedbackForm, disliked: text })
                 }
                 placeholder={
-                  language === "he"
-                    ? "איך נוכל לשפר את החוויה שלך?"
-                    : "How can we improve your experience?"
-                }
-                placeholderTextColor={colors.icon}
-                multiline
-                numberOfLines={3}
-                textAlignVertical="top"
-              />
-            </View>
-
-            {/* Suggestions */}
-            <View style={styles.feedbackInputSection}>
-              <View style={styles.feedbackInputHeader}>
-                <View
-                  style={[
-                    styles.feedbackInputIcon,
-                    { backgroundColor: "#3b82f615" },
-                  ]}
-                >
-                  <Sparkles size={16} color="#3b82f6" />
-                </View>
-                <Text
-                  style={[styles.feedbackInputLabel, { color: colors.text }]}
-                >
-                  {language === "he"
-                    ? "הצעות נוספות"
-                    : "Additional Suggestions"}
-                </Text>
-              </View>
-              <TextInput
-                style={[
-                  styles.feedbackTextArea,
-                  {
-                    backgroundColor: colors.surface,
-                    borderColor: colors.border,
-                    color: colors.text,
-                  },
-                ]}
-                value={feedbackForm.suggestions}
-                onChangeText={(text) =>
-                  setFeedbackForm({ ...feedbackForm, suggestions: text })
-                }
-                placeholder={
-                  language === "he"
-                    ? "יש לך רעיונות נוספים?"
-                    : "Any other ideas or suggestions?"
+                  language === "he" ? "מה היית משנה?" : "What would you change?"
                 }
                 placeholderTextColor={colors.icon}
                 multiline
@@ -1823,38 +1234,20 @@ export default function RecommendedMenusScreen() {
             {/* Submit Button */}
             <TouchableOpacity
               style={[
-                styles.feedbackSubmitButton,
+                styles.submitButton,
                 {
                   backgroundColor:
                     feedbackForm.rating > 0 ? colors.emerald500 : colors.border,
-                  opacity: feedbackForm.rating > 0 ? 1 : 0.6,
                 },
               ]}
               onPress={handleFeedbackSubmit}
               disabled={feedbackForm.rating === 0}
-              activeOpacity={0.8}
             >
               <Send size={18} color="#ffffff" />
-              <Text style={styles.feedbackSubmitButtonText}>
+              <Text style={styles.submitButtonText}>
                 {language === "he"
-                  ? "שלח משוב והתחל תוכנית חדשה"
-                  : "Submit Feedback & Start New Plan"}
-              </Text>
-            </TouchableOpacity>
-
-            {/* Skip Button */}
-            <TouchableOpacity
-              style={styles.feedbackSkipButton}
-              onPress={() => {
-                setShowFeedbackModal(false);
-                activateMenuPlan(selectedMenuToStart!, {});
-              }}
-              activeOpacity={0.7}
-            >
-              <Text
-                style={[styles.feedbackSkipButtonText, { color: colors.icon }]}
-              >
-                {language === "he" ? "דלג והתחל תוכנית" : "Skip & Start Plan"}
+                  ? "שלח משוב והתחל"
+                  : "Submit & Start New Plan"}
               </Text>
             </TouchableOpacity>
           </ScrollView>
@@ -1863,8 +1256,7 @@ export default function RecommendedMenusScreen() {
     </Modal>
   );
 
-  // Only show loading screen if truly loading and no menus exist
-  if (isLoading && !menus.length) {
+  if (isLoading) {
     return (
       <LoadingScreen text={isRTL ? "טוען תפריטים..." : "Loading menus..."} />
     );
@@ -1874,259 +1266,170 @@ export default function RecommendedMenusScreen() {
     <SafeAreaView
       style={[styles.container, { backgroundColor: colors.background }]}
     >
-      {/* Header */}
-      <View style={[styles.header, { backgroundColor: colors.background }]}>
-        <View style={styles.headerTop}>
-          <View style={styles.titleContainer}>
-            <Text
-              style={[
-                styles.title,
-                { color: colors.text },
-                isRTL && styles.rtlText,
-              ]}
-            >
-              {language === "he" ? "תפריטים מומלצים" : "Recommended Menus"}
-            </Text>
-            <Text
-              style={[
-                styles.subtitle,
-                { color: colors.icon },
-                isRTL && styles.rtlText,
-              ]}
-            >
-              {language === "he"
-                ? "תפריטים מותאמים אישית עבורך"
-                : "AI-powered personalized menus"}
-            </Text>
-          </View>
-
-          <View style={styles.headerActions}>
-            <TouchableOpacity
-              style={[
-                styles.headerActionButton,
-                {
-                  backgroundColor: colors.emerald500 + "15",
-                  borderColor: colors.emerald500 + "30",
-                },
-              ]}
-              onPress={() => setShowShoppingList(true)}
-            >
-              <ShoppingCart size={20} color={colors.emerald500} />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.headerActionButton,
-                {
-                  backgroundColor: colors.emerald500 + "15",
-                  borderColor: colors.emerald500 + "30",
-                },
-              ]}
-              onPress={() => setShowMenuCreator(true)}
-            >
-              <MenuIcon size={20} color={colors.emerald500} />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[
-                styles.generateButton,
-                { backgroundColor: colors.emerald500 },
-              ]}
-              onPress={handleOpenEnhancedCreation}
-              disabled={isGenerating}
-            >
-              {isGenerating ? (
-                <ActivityIndicator size="small" color="#ffffff" />
-              ) : (
-                <Plus size={20} color="#ffffff" />
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Continue Button */}
-        {hasActivePlan && (
-          <View style={styles.continueButtonContainer}>
-            <TouchableOpacity
-              style={[
-                styles.centeredContinueButton,
-                { backgroundColor: colors.emerald500 },
-              ]}
-              onPress={() =>
-                router.push(
-                  `/menu/activeMenu?planId=${activePlanData?.plan_id}`
-                )
+      {/* Fixed Search Header */}
+      <View
+        style={[styles.searchHeader, { backgroundColor: colors.background }]}
+      >
+        <View style={styles.searchContainer}>
+          <View style={[styles.searchBar, { backgroundColor: colors.surface }]}>
+            <Search size={20} color={colors.icon} />
+            <TextInput
+              style={[styles.searchInput, { color: colors.text }]}
+              placeholder={
+                language === "he" ? "חיפוש תפריטים..." : "Search menus..."
               }
-            >
-              <CheckCircle size={18} color="#ffffff" />
-              <Text style={styles.centeredContinueButtonText}>
-                {language === "he"
-                  ? "המשך התוכנית הפעילה"
-                  : "Continue Active Plan"}
-              </Text>
-              <ArrowRight size={14} color="#ffffff" />
-            </TouchableOpacity>
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              placeholderTextColor={colors.icon}
+            />
           </View>
-        )}
 
-        {/* Search Section */}
-        <View style={styles.searchSection}>
-          <ExpandableSearch
-            searchQuery={searchQuery}
-            setSearchQuery={setSearchQuery}
-            colors={colors}
-            onFilterPress={() => {}} // Add filter functionality if needed
-          />
+          <TouchableOpacity
+            style={[styles.filterButton, { backgroundColor: colors.surface }]}
+            onPress={() => setShowFilterModal(true)}
+          >
+            <Filter size={20} color={colors.icon} />
+          </TouchableOpacity>
         </View>
       </View>
 
-      {/* Content */}
-      {listData.length > 0 ? (
-        <FlatList
-          data={listData}
-          keyExtractor={(item, index) =>
-            item.type === "insights" ? "insights" : index.toString()
-          }
-          renderItem={renderItem}
-          contentContainerStyle={styles.contentContainer}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              colors={[colors.emerald500]}
-              tintColor={colors.emerald500}
-            />
-          }
-        />
-      ) : (
-        <View style={styles.emptyState}>
-          <View
-            style={[
-              styles.emptyStateIcon,
-              { backgroundColor: colors.emerald500 + "15" },
-            ]}
-          >
-            <ChefHat size={48} color={colors.emerald500} />
-          </View>
-          <Text style={[styles.emptyTitle, { color: colors.text }]}>
-            {language === "he" ? "אין תפריטים זמינים" : "No menus available"}
-          </Text>
-          <Text style={[styles.emptyText, { color: colors.icon }]}>
-            {language === "he"
-              ? "צור תפריט מותאם אישית כדי להתחיל"
-              : "Create a personalized menu to get started"}
+      {/* Scrollable Content */}
+      <Animated.ScrollView
+        style={[styles.scrollContent, { opacity: fadeAnim }]}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[colors.emerald500]}
+            tintColor={colors.emerald500}
+          />
+        }
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.contentContainer}>
+          {/* Page Title */}
+          <Text style={[styles.pageTitle, { color: colors.text }]}>
+            {language === "he" ? "תפריטים מומלצים" : "Recommended Menus"}
           </Text>
 
+          {/* Active Plan Card */}
+          {hasActivePlan && activePlanData && (
+            <ActivePlanCard
+              plan={activePlanData}
+              colors={colors}
+              language={language}
+              onContinue={() =>
+                router.push(`/menu/activeMenu?planId=${activePlanData.plan_id}`)
+              }
+            />
+          )}
+
+          {/* Category Pills */}
+          <CategoryPills colors={colors} language={language} />
+
+          {/* Create New Menu Button */}
           <TouchableOpacity
             style={[
-              styles.createFirstButton,
+              styles.createMenuButton,
               { backgroundColor: colors.emerald500 },
             ]}
-            onPress={() => setShowCustomModal(true)}
+            onPress={() => setShowEnhancedCreation(true)}
+            disabled={isGenerating}
           >
-            <Plus size={18} color="#ffffff" />
-            <Text style={styles.createFirstButtonText}>
-              {language === "he" ? "צור תפריט ראשון" : "Create First Menu"}
+            {isGenerating ? (
+              <ActivityIndicator size="small" color="#ffffff" />
+            ) : (
+              <Plus size={20} color="#ffffff" />
+            )}
+            <Text style={styles.createMenuButtonText}>
+              {language === "he" ? "צור תפריט חדש" : "Create New Menu"}
             </Text>
           </TouchableOpacity>
+
+          {/* Quick Stats */}
+          {filteredMenus.length > 0 && (
+            <QuickStats
+              menus={filteredMenus}
+              colors={colors}
+              language={language}
+            />
+          )}
+
+          {/* Menus List */}
+          {filteredMenus.length > 0 ? (
+            <View style={styles.menusGrid}>
+              {filteredMenus.map((menu) => (
+                <MenuCard
+                  key={menu.menu_id}
+                  menu={menu}
+                  colors={colors}
+                  isDark={isDark}
+                  language={language}
+                  isRTL={isRTL}
+                  onStart={handleStartMenu}
+                  onView={(menuId: string) => router.push(`/menu/${menuId}`)}
+                />
+              ))}
+            </View>
+          ) : (
+            <View style={styles.emptyState}>
+              <View
+                style={[styles.emptyIcon, { backgroundColor: colors.surface }]}
+              >
+                <ChefHat size={48} color={colors.emerald500} />
+              </View>
+              <Text style={[styles.emptyTitle, { color: colors.text }]}>
+                {searchQuery.trim()
+                  ? language === "he"
+                    ? "לא נמצאו תוצאות"
+                    : "No results found"
+                  : language === "he"
+                  ? "אין תפריטים זמינים"
+                  : "No menus available"}
+              </Text>
+              <Text style={[styles.emptyText, { color: colors.icon }]}>
+                {searchQuery.trim()
+                  ? language === "he"
+                    ? "נסה מילות חיפוש אחרות"
+                    : "Try different search terms"
+                  : language === "he"
+                  ? "צור תפריט מותאם אישית כדי להתחיל"
+                  : "Create a personalized menu to get started"}
+              </Text>
+
+              {!searchQuery.trim() && (
+                <TouchableOpacity
+                  style={[
+                    styles.emptyButton,
+                    { backgroundColor: colors.emerald500 },
+                  ]}
+                  onPress={() => setShowEnhancedCreation(true)}
+                >
+                  <Plus size={18} color="#ffffff" />
+                  <Text style={styles.emptyButtonText}>
+                    {language === "he"
+                      ? "צור תפריט ראשון"
+                      : "Create First Menu"}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
         </View>
-      )}
+      </Animated.ScrollView>
+
+      {/* Modals */}
+      <FilterModal
+        visible={showFilterModal}
+        onClose={() => setShowFilterModal(false)}
+        selectedFilter={selectedFilter}
+        onFilterSelect={setSelectedFilter}
+        colors={colors}
+        language={language}
+      />
 
       {renderFeedbackModal()}
       {renderEnhancedCreationModal()}
-
-      <ShoppingList
-        visible={showShoppingList}
-        onClose={() => setShowShoppingList(false)}
-      />
-
-      {/* MenuCreator Modal */}
-      <Modal
-        visible={showMenuCreator}
-        animationType="slide"
-        presentationStyle="fullScreen"
-        onRequestClose={() => setShowMenuCreator(false)}
-      >
-        <MenuCreator
-          onCreateMenu={handleCreateMenuFromCreator}
-          onClose={() => setShowMenuCreator(false)}
-        />
-      </Modal>
-
-      {/* Meals List Modal */}
-      <Modal
-        visible={showMealsList}
-        animationType="slide"
-        presentationStyle="fullScreen"
-        onRequestClose={() => setShowMealsList(false)}
-      >
-        {selectedMenuForMeals && (
-          <View
-            style={[
-              styles.modalContainer,
-              { backgroundColor: colors.background },
-            ]}
-          >
-            <View
-              style={[styles.modalHeader, { backgroundColor: colors.surface }]}
-            >
-              <TouchableOpacity
-                style={styles.modalCloseButton}
-                onPress={() => setShowMealsList(false)}
-              >
-                <X size={24} color={colors.icon} />
-              </TouchableOpacity>
-              <Text style={[styles.modalTitle, { color: colors.text }]}>
-                {selectedMenuForMeals.title}
-              </Text>
-              <View style={{ width: 40 }} />
-            </View>
-
-            <MealsListView
-              meals={selectedMenuForMeals.meals}
-              onMealPress={handleMealPress}
-              onAddMeal={() => {
-                setShowMealsList(false);
-                setShowMenuCreator(true);
-              }}
-            />
-          </View>
-        )}
-      </Modal>
-
-      {/* Meal Detail Modal */}
-      <Modal
-        visible={showMealDetail}
-        animationType="slide"
-        presentationStyle="fullScreen"
-        onRequestClose={() => setShowMealDetail(false)}
-      >
-        {selectedMeal && (
-          <MealDetailView
-            meal={selectedMeal}
-            onClose={() => setShowMealDetail(false)}
-            onAddToFavorites={() => {
-              // Handle adding to favorites
-              Alert.alert(
-                language === "he" ? "נוסף למועדפים!" : "Added to Favorites!",
-                language === "he"
-                  ? `${selectedMeal.name} נוסף למועדפים`
-                  : `${selectedMeal.name} added to favorites`
-              );
-            }}
-            onShare={() => {
-              // Handle sharing
-              Alert.alert(
-                language === "he" ? "שיתוף" : "Share",
-                language === "he"
-                  ? "האם תרצה לשתף את המתכון?"
-                  : "Would you like to share this recipe?"
-              );
-            }}
-          />
-        )}
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -2135,853 +1438,612 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  header: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 12,
+
+  // Fixed Search Header
+  searchHeader: {
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(0,0,0,0.05)",
   },
-  headerTop: {
+
+  searchContainer: {
+    flexDirection: "row",
+    gap: 12,
+  },
+
+  searchBar: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 25,
+    gap: 10,
+  },
+
+  searchInput: {
+    flex: 1,
+    fontSize: 16,
+  },
+
+  filterButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  // Scrollable Content
+  scrollContent: {
+    flex: 1,
+  },
+
+  contentContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 100,
+  },
+
+  pageTitle: {
+    fontSize: 28,
+    fontWeight: "bold",
+    marginBottom: 20,
+  },
+
+  // Active Plan Card
+  activePlanCard: {
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 24,
+    position: "relative",
+    overflow: "hidden",
+  },
+
+  activePlanHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
     marginBottom: 12,
   },
-  titleContainer: {
-    flex: 1,
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: "700",
-    marginBottom: 4,
-    letterSpacing: -0.3,
-  },
-  subtitle: {
-    fontSize: 13,
-    opacity: 0.7,
-    fontWeight: "500",
-  },
-  rtlText: {
-    textAlign: "right",
-  },
-  rtlRow: {
-    flexDirection: "row-reverse",
-  },
-  headerActions: {
+
+  activePlanBadge: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-  },
-  headerActionButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 1,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-  },
-  generateButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-  },
-  preferencesGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginTop: 8,
-  },
-  preferenceChip: {
+    backgroundColor: "rgba(255,255,255,0.2)",
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 16,
-    borderWidth: 1,
-  },
-  preferenceChipText: {
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  mealsGrid: {
-    flexDirection: "row",
-    gap: 8,
-    marginTop: 8,
-  },
-  mealCountChip: {
-    width: 40,
-    height: 40,
+    paddingVertical: 6,
     borderRadius: 20,
-    borderWidth: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  mealCountText: {
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  shoppingItemsGrid: {
-    gap: 8,
-    marginTop: 8,
-  },
-  shoppingItemChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-  },
-  shoppingItemText: {
-    fontSize: 13,
-    fontWeight: "500",
-    flex: 1,
-  },
-  feedbackInputHelper: {
-    fontSize: 12,
-    marginBottom: 8,
-    fontStyle: "italic",
-  },
-  continueButtonContainer: {
-    alignItems: "center",
-    marginBottom: 16,
-  },
-  centeredContinueButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 20,
-    gap: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    minWidth: 220,
-    justifyContent: "center",
-  },
-  centeredContinueButtonText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#ffffff",
-    textAlign: "center",
-  },
-  searchSection: {
-    gap: 12,
-  },
-
-  // Search styles (matching history)
-  searchRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  expandableSearchContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    height: 38,
-    borderRadius: 19,
-    borderWidth: 1,
-    paddingHorizontal: 4,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-  },
-  searchIconButton: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  searchInputContainer: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    paddingRight: 12,
-  },
-  expandableSearchInput: {
-    flex: 1,
-    fontSize: 16,
-    fontWeight: "500",
-    paddingLeft: 8,
-  },
-  clearSearchButton: {
-    padding: 4,
-  },
-  filterButtonCompact: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 1,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 3,
-  },
-
-  // Content
-  contentContainer: {
-    paddingBottom: 100,
-    paddingTop: 8,
-  },
-
-  // Insights card (matching history style)
-  insightsCard: {
-    marginHorizontal: 16,
-    marginVertical: 12,
-    borderRadius: 20,
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    borderWidth: 1,
-  },
-  insightsGradient: {
-    padding: 20,
-  },
-  insightsHeader: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 20,
-    gap: 12,
-  },
-  insightsIconContainer: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  insightsTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-  },
-  insightsSubtitle: {
-    fontSize: 12,
-    opacity: 0.8,
-    marginTop: 2,
-  },
-  insightsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
     gap: 6,
   },
-  insightItem: {
-    flex: 1,
-    padding: 16,
-    borderRadius: 16,
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
+
+  activePlanBadgeText: {
+    color: "#ffffff",
+    fontSize: 12,
+    fontWeight: "600",
   },
-  insightIconBox: {
+
+  activePlanAction: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.2)",
     alignItems: "center",
-    marginBottom: 8,
-  },
-  insightValue: {
-    fontSize: 18,
-    fontWeight: "800",
-    marginBottom: 4,
-  },
-  insightLabel: {
-    fontSize: 11,
-    fontWeight: "600",
-    textAlign: "center",
+    justifyContent: "center",
   },
 
-  // Menu card
-  menuCard: {
-    marginHorizontal: 16,
-    marginVertical: 8,
-    borderRadius: 20,
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    borderWidth: 1,
-  },
-  cardHeader: {
-    padding: 20,
-  },
-  headerContent: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  headerLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 14,
-    flex: 1,
-  },
-  iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  headerText: {
-    flex: 1,
-  },
-  menuTitle: {
+  activePlanTitle: {
+    color: "#ffffff",
     fontSize: 20,
-    fontWeight: "800",
-    color: "#ffffff",
-    marginBottom: 4,
-    letterSpacing: -0.3,
+    fontWeight: "bold",
+    marginBottom: 6,
   },
-  menuDate: {
-    fontSize: 13,
-    color: "#ffffff",
-    opacity: 0.9,
-    fontWeight: "500",
+
+  activePlanSubtitle: {
+    color: "rgba(255,255,255,0.8)",
+    fontSize: 14,
+    marginBottom: 16,
   },
-  daysContainer: {
-    alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.25)",
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 14,
-  },
-  daysNumber: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: "#ffffff",
-  },
-  daysLabel: {
-    fontSize: 11,
-    color: "#ffffff",
-    opacity: 0.9,
-    fontWeight: "600",
-    textTransform: "uppercase",
-  },
-  cardContent: {
-    padding: 20,
-    gap: 20,
-  },
-  descriptionContainer: {
-    marginBottom: 4,
-  },
-  description: {
-    fontSize: 15,
-    lineHeight: 22,
-    opacity: 0.8,
-    fontWeight: "500",
-  },
-  nutritionSection: {
-    gap: 14,
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    letterSpacing: -0.2,
-  },
-  nutritionGrid: {
+
+  activePlanContinueButton: {
     flexDirection: "row",
-    gap: 10,
-  },
-  nutritionCard: {
-    flex: 1,
-    padding: 16,
-    borderRadius: 14,
     alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(255,255,255,0.15)",
+    paddingVertical: 12,
+    borderRadius: 12,
     gap: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
   },
-  nutritionIcon: {
-    marginBottom: 4,
-  },
-  nutritionValue: {
-    fontSize: 18,
-    fontWeight: "800",
-  },
-  nutritionLabel: {
-    fontSize: 11,
-    fontWeight: "600",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  mealsPreview: {
-    gap: 14,
-  },
-  previewHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  viewAllButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  viewAllText: {
-    fontSize: 13,
+
+  activePlanContinueText: {
+    color: "#ffffff",
+    fontSize: 16,
     fontWeight: "600",
   },
-  mealsScrollContainer: {
+
+  // Category Scroll
+  categoryScrollContainer: {
+    marginBottom: 24,
+  },
+
+  categoryContainer: {
     paddingRight: 20,
     gap: 12,
   },
-  mealPreviewCard: {
-    width: 120,
-    padding: 14,
-    borderRadius: 14,
-    borderWidth: 1,
+
+  categoryPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    gap: 6,
+  },
+
+  categoryText: {
+    fontSize: 14,
+    fontWeight: "500",
+  },
+
+  // Create Menu Button
+  createMenuButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    borderRadius: 16,
+    marginBottom: 24,
     gap: 8,
-    marginRight: 12,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+
+  createMenuButtonText: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+
+  // Quick Stats Card
+  statsCard: {
+    padding: 20,
+    borderRadius: 16,
+    marginBottom: 24,
+    elevation: 1,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
   },
-  mealPreviewHeader: {
+
+  statsHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 16,
+  },
+
+  statsTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+  },
+
+  statsGrid: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+
+  statItem: {
+    alignItems: "center",
+    gap: 4,
+    flex: 1,
+  },
+
+  statValue: {
+    fontSize: 20,
+    fontWeight: "bold",
+  },
+
+  statLabel: {
+    fontSize: 12,
+    fontWeight: "500",
+    textAlign: "center",
+  },
+
+  // Menus Grid
+  menusGrid: {
+    gap: 20,
+  },
+
+  // Enhanced Menu Cards
+  menuCard: {
+    borderRadius: 20,
+    overflow: "hidden",
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+  },
+
+  menuImageHeader: {
+    height: 120,
+    justifyContent: "space-between",
+    padding: 16,
+  },
+
+  menuImageContent: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+  },
+
+  menuBadges: {
+    gap: 8,
+  },
+
+  badge: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
+  },
+
+  badgeText: {
+    color: "#ffffff",
+    fontSize: 11,
+    fontWeight: "600",
+  },
+
+  menuContent: {
+    padding: 16,
+  },
+
+  menuHeader: {
+    marginBottom: 16,
+  },
+
+  menuTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    marginBottom: 4,
+  },
+
+  menuSubtitle: {
+    fontSize: 14,
+    fontWeight: "500",
+  },
+
+  // Enhanced Nutrition Grid
+  nutritionGrid: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 16,
+  },
+
+  nutritionItem: {
+    alignItems: "center",
+    gap: 6,
+    flex: 1,
+  },
+
+  nutritionIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  nutritionValue: {
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+
+  nutritionLabel: {
+    fontSize: 12,
+    fontWeight: "500",
+  },
+
+  // Menu Meta
+  menuMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 16,
+  },
+
+  costBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    gap: 4,
+  },
+
+  costText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+
+  ratingBadge: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
   },
-  mealTypeText: {
-    fontSize: 9,
-    fontWeight: "600",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
-  mealPreviewName: {
-    fontSize: 13,
-    fontWeight: "600",
-    textAlign: "center",
-    lineHeight: 16,
-    flex: 1,
-  },
-  mealPreviewStats: {
-    alignItems: "center",
-    gap: 2,
-  },
-  mealPreviewCalories: {
-    fontSize: 15,
-    fontWeight: "700",
-  },
-  mealPreviewLabel: {
-    fontSize: 9,
+
+  ratingText: {
+    fontSize: 14,
     fontWeight: "500",
-    textTransform: "uppercase",
   },
-  infoRow: {
-    flexDirection: "row",
-    justifyContent: "space-around",
-    paddingVertical: 14,
-    backgroundColor: "rgba(16, 185, 129, 0.05)",
-    borderRadius: 14,
-  },
-  infoItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-  },
-  infoText: {
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  actionButtons: {
+
+  // Action Buttons
+  menuActions: {
     flexDirection: "row",
     gap: 12,
   },
-  secondaryButton: {
+
+  viewButton: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 16,
-    borderRadius: 18,
-    gap: 8,
-    elevation: 4,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    borderWidth: 2,
-  },
-  secondaryButtonText: {
-    fontSize: 15,
-    fontWeight: "700",
-    letterSpacing: 0.2,
-  },
-  primaryButton: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingVertical: 14,
-    borderRadius: 14,
-    gap: 8,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-  },
-  primaryButtonText: {
-    fontSize: 14,
-    fontWeight: "700",
-    color: "#ffffff",
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 6,
   },
 
-  // Empty state
-  emptyState: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingVertical: 80,
-    gap: 20,
+  viewButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
   },
-  emptyStateIcon: {
+
+  startButton: {
+    flex: 2,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 8,
+  },
+
+  startButtonText: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+
+  // Empty State
+  emptyState: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 60,
+    paddingHorizontal: 40,
+  },
+
+  emptyIcon: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    justifyContent: "center",
     alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
   },
+
   emptyTitle: {
-    fontSize: 24,
-    fontWeight: "800",
-    textAlign: "center",
-    letterSpacing: -0.5,
-  },
-  emptyText: {
-    fontSize: 15,
-    textAlign: "center",
-    opacity: 0.8,
-    lineHeight: 22,
-    maxWidth: 280,
-  },
-  createFirstButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 28,
-    paddingVertical: 16,
-    borderRadius: 14,
-    gap: 10,
-    marginTop: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-  },
-  createFirstButtonText: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: "#ffffff",
-  },
-
-  // FAB
-  fab: {
-    position: "absolute",
-    bottom: 30,
-    right: 30,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 10,
-  },
-
-  // Modal styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0, 0, 0, 0.6)",
-    justifyContent: "flex-end",
-    alignItems: "center",
-  },
-  modalContainer: {
-    width: "90%",
-    maxWidth: 400,
-    borderRadius: 20,
-    maxHeight: "80%",
-  },
-  modalHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(0, 0, 0, 0.1)",
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-  },
-  closeButton: {
-    padding: 4,
-  },
-  modalContent: {
-    padding: 20,
-  },
-
-  // Enhanced feedback modal styles
-  feedbackModalContainer: {
-    width: "95%",
-    maxWidth: 480,
-    borderRadius: 24,
-    maxHeight: "90%",
-    marginBottom: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-  },
-  feedbackModalHeader: {
-    paddingTop: 24,
-    paddingHorizontal: 24,
-    paddingBottom: 20,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-  },
-  feedbackHeaderContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 16,
+    fontSize: 20,
+    fontWeight: "bold",
     marginBottom: 8,
-  },
-  feedbackIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  feedbackTitleContainer: {
-    flex: 1,
-  },
-  feedbackModalTitle: {
-    fontSize: 20,
-    fontWeight: "800",
-    color: "#ffffff",
-    marginBottom: 4,
-  },
-  feedbackModalSubtitle: {
-    fontSize: 14,
-    color: "#ffffff",
-    opacity: 0.9,
-    fontWeight: "500",
-  },
-  feedbackCloseButton: {
-    position: "absolute",
-    top: 20,
-    right: 20,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  feedbackModalContent: {
-    paddingHorizontal: 24,
-    paddingVertical: 20,
-  },
-  feedbackRatingSection: {
-    alignItems: "center",
-    marginBottom: 32,
-    paddingVertical: 20,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    backgroundColor: "rgba(16, 185, 129, 0.05)",
-  },
-  feedbackSectionTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    marginBottom: 6,
-  },
-  feedbackSectionSubtitle: {
-    fontSize: 14,
-    opacity: 0.8,
-    marginBottom: 20,
     textAlign: "center",
   },
-  feedbackRatingStars: {
+
+  emptyText: {
+    fontSize: 16,
+    textAlign: "center",
+    marginBottom: 24,
+    lineHeight: 24,
+  },
+
+  emptyButton: {
     flexDirection: "row",
-    gap: 12,
-  },
-  feedbackStarButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    justifyContent: "center",
     alignItems: "center",
-    borderWidth: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 25,
+    gap: 8,
   },
-  feedbackStarText: {
-    fontSize: 20,
+
+  emptyButtonText: {
+    color: "#ffffff",
+    fontSize: 16,
     fontWeight: "600",
   },
-  feedbackInputSection: {
-    marginBottom: 24,
+
+  // Filter Modal
+  filterModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
   },
-  feedbackInputHeader: {
+
+  filterModalContainer: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: "60%",
+  },
+
+  filterModalHeader: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    marginBottom: 12,
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(0,0,0,0.05)",
   },
-  feedbackInputIcon: {
+
+  filterModalTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+
+  filterCloseButton: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  feedbackInputLabel: {
-    fontSize: 16,
-    fontWeight: "600",
-    flex: 1,
-  },
-  feedbackTextArea: {
-    borderWidth: 1.5,
-    borderRadius: 16,
-    padding: 16,
-    fontSize: 15,
-    lineHeight: 22,
-    minHeight: 90,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-  },
-  feedbackSubmitButton: {
-    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    paddingVertical: 18,
-    borderRadius: 16,
-    gap: 10,
-    marginTop: 8,
-    marginBottom: 12,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-  },
-  feedbackSubmitButtonText: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#ffffff",
-  },
-  feedbackSkipButton: {
-    alignItems: "center",
-    paddingVertical: 12,
-    marginBottom: 8,
-  },
-  feedbackSkipButtonText: {
-    fontSize: 14,
-    fontWeight: "600",
-    textDecorationLine: "underline",
   },
 
-  // Modal styles for new components
-  modalContainer: {
-    flex: 1,
+  filterOptions: {
+    padding: 20,
   },
+
+  filterOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 12,
+    marginBottom: 8,
+    gap: 12,
+  },
+
+  filterOptionText: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: "500",
+  },
+
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "flex-end",
+  },
+
+  enhancedModalContainer: {
+    maxHeight: "90%",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingBottom: 20,
+  },
+
   modalHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 20,
     paddingVertical: 16,
-    paddingTop: 60,
     borderBottomWidth: 1,
-    borderBottomColor: "rgba(0, 0, 0, 0.1)",
+    borderBottomColor: "rgba(0,0,0,0.05)",
   },
+
   modalCloseButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    justifyContent: "center",
     alignItems: "center",
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    textAlign: "center",
-    flex: 1,
+    justifyContent: "center",
   },
 
-  // Legacy modal styles for other modals
-  ratingSection: {
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+
+  modalContent: {
+    flex: 1,
+    paddingHorizontal: 20,
+  },
+
+  // Form Inputs
+  inputSection: {
     marginBottom: 24,
-    alignItems: "center",
   },
-  ratingLabel: {
-    fontSize: 16,
-    fontWeight: "600",
-    marginBottom: 12,
-  },
-  ratingStars: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  starButton: {
-    padding: 4,
-  },
-  starText: {
-    fontSize: 24,
-  },
-  inputGroup: {
-    marginBottom: 20,
-  },
+
   inputLabel: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: "600",
     marginBottom: 8,
   },
+
+  textInput: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 16,
+  },
+
   textArea: {
     borderWidth: 1,
     borderRadius: 12,
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     fontSize: 16,
-    textAlignVertical: "top",
-    minHeight: 80,
+    height: 100,
   },
-  submitFeedbackButton: {
+
+  // Chips
+  chipContainer: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+
+  chip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+
+  chipText: {
+    fontSize: 14,
+    fontWeight: "500",
+  },
+
+  // Rating
+  ratingContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 8,
+    marginTop: 8,
+  },
+
+  starButton: {
+    padding: 8,
+  },
+
+  starText: {
+    fontSize: 28,
+  },
+
+  // Submit Button
+  submitButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     paddingVertical: 16,
     borderRadius: 12,
-    alignItems: "center",
+    gap: 8,
     marginTop: 20,
   },
-  submitFeedbackButtonText: {
-    fontSize: 16,
-    fontWeight: "700",
+
+  submitButtonText: {
     color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "600",
   },
 });
