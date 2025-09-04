@@ -1,38 +1,64 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
-  ActivityIndicator,
-  Alert,
   TouchableOpacity,
-  Dimensions,
+  Alert,
+  ActivityIndicator,
+  RefreshControl,
   Animated,
+  Modal,
+  TextInput,
+  Dimensions,
 } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
-import { LinearGradient } from "expo-linear-gradient";
-import { BlurView } from "expo-blur";
-import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
+import { useLanguage } from "@/src/i18n/context/LanguageContext";
+import { useTheme } from "@/src/context/ThemeContext";
+import {
+  ArrowLeft,
+  ChefHat,
+  Calendar,
+  Clock,
+  Star,
+  Flame,
+  Target,
+  TrendingUp,
+  Activity,
+  Play,
+  Eye,
+  Heart,
+  Share2,
+  ChevronDown,
+  ChevronUp,
+  X,
+  Utensils,
+  Award,
+  Plus,
+  Send,
+} from "lucide-react-native";
 import { api } from "@/src/services/api";
 import LoadingScreen from "@/components/LoadingScreen";
 
-const { width: screenWidth, height: screenHeight } = Dimensions.get("window");
+const { width: screenWidth } = Dimensions.get("window");
 
 interface Ingredient {
+  ingredient_id: string;
   name: string;
   quantity: number;
   unit: string;
   category?: string;
+  estimated_cost?: number;
 }
 
 interface Meal {
   meal_id: string;
   name: string;
-  name_english?: string;
   meal_type: string;
+  day_number: number;
   calories: number;
   protein: number;
   carbs: number;
@@ -40,10 +66,8 @@ interface Meal {
   fiber?: number;
   prep_time_minutes?: number;
   cooking_method?: string;
-  instructions?: string | string[];
-  instructions_english?: string | string[];
-  ingredients?: Ingredient[];
-  day_number?: number;
+  instructions?: string;
+  ingredients: Ingredient[];
 }
 
 interface MenuDetails {
@@ -54,33 +78,60 @@ interface MenuDetails {
   total_protein?: number;
   total_carbs?: number;
   total_fat?: number;
+  total_fiber?: number;
   days_count: number;
+  dietary_category?: string;
   estimated_cost?: number;
-  meals: Meal[];
+  prep_time_minutes?: number;
+  difficulty_level: number;
+  is_active: boolean;
   created_at: string;
+  meals: Meal[];
 }
 
 export default function MenuDetailsScreen() {
   const { id } = useLocalSearchParams();
   const router = useRouter();
-  const { t, i18n } = useTranslation();
-  const isRTL = i18n.language === "he";
+  const { t } = useTranslation();
+  const { isRTL, language } = useLanguage();
+  const { colors, isDark } = useTheme();
 
+  // State
   const [menu, setMenu] = useState<MenuDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [expandedMeal, setExpandedMeal] = useState<string | null>(null);
   const [selectedDay, setSelectedDay] = useState<number>(1);
-  const [scrollY] = useState(new Animated.Value(0));
+  const [showStartModal, setShowStartModal] = useState(false);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [isStarting, setIsStarting] = useState(false);
+
+  // Feedback form
+  const [feedbackForm, setFeedbackForm] = useState({
+    rating: 0,
+    liked: "",
+    disliked: "",
+    suggestions: "",
+  });
+
+  // Animations
+  const [fadeAnim] = useState(new Animated.Value(0));
 
   useEffect(() => {
     if (id) {
       loadMenuDetails();
     }
+
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 600,
+      useNativeDriver: true,
+    }).start();
   }, [id]);
 
   const loadMenuDetails = async () => {
     try {
-      console.log("🔄 Loading menu details for ID:", id);
+      setIsLoading(true);
       const response = await api.get(`/recommended-menus/${id}`);
 
       if (response.data.success && response.data.data) {
@@ -89,14 +140,58 @@ export default function MenuDetailsScreen() {
         throw new Error("Menu not found");
       }
     } catch (error: any) {
-      console.error("💥 Load menu details error:", error);
+      console.error("Error loading menu details:", error);
       Alert.alert(
-        isRTL ? "שגיאה" : "Error",
-        isRTL ? "לא ניתן לטעון את פרטי התפריט" : "Failed to load menu details"
+        language === "he" ? "שגיאה" : "Error",
+        language === "he"
+          ? "לא ניתן לטעון את פרטי התפריט"
+          : "Failed to load menu details"
       );
       router.back();
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await loadMenuDetails();
+    setRefreshing(false);
+  }, []);
+
+  const handleStartMenu = async () => {
+    if (!menu) return;
+
+    try {
+      setIsStarting(true);
+      const response = await api.post(
+        `/recommended-menus/${menu.menu_id}/start-today`
+      );
+
+      if (response.data.success) {
+        setShowStartModal(false);
+        Alert.alert(
+          language === "he" ? "הצלחה!" : "Success!",
+          language === "he"
+            ? "התפריט הופעל בהצלחה!"
+            : "Menu started successfully!",
+          [
+            {
+              text: language === "he" ? "אישור" : "OK",
+              onPress: () =>
+                router.push(`/menu/activeMenu?planId=${response.data.planId}`),
+            },
+          ]
+        );
+      }
+    } catch (error: any) {
+      Alert.alert(
+        language === "he" ? "שגיאה" : "Error",
+        error.message ||
+          (language === "he" ? "נכשל בהפעלת התפריט" : "Failed to start menu")
+      );
+    } finally {
+      setIsStarting(false);
     }
   };
 
@@ -114,1039 +209,1198 @@ export default function MenuDetailsScreen() {
   const getMealTypeIcon = (mealType: string) => {
     switch (mealType.toLowerCase()) {
       case "breakfast":
-        return "sunny-outline";
+        return <Activity size={20} color={colors.emerald500} />;
       case "lunch":
-        return "restaurant-outline";
+        return <Utensils size={20} color={colors.emerald500} />;
       case "dinner":
-        return "moon-outline";
+        return <ChefHat size={20} color={colors.emerald500} />;
       case "snack":
-        return "cafe-outline";
+        return <Target size={20} color={colors.emerald500} />;
       default:
-        return "nutrition-outline";
+        return <Utensils size={20} color={colors.emerald500} />;
     }
   };
 
-  const formatInstructions = (instructions?: string | string[]) => {
+  const formatInstructions = (instructions?: string) => {
     if (!instructions) return [];
-    if (typeof instructions === "string") {
-      return instructions.split(".").filter((step) => step.trim().length > 0);
-    }
-    return instructions;
+    return instructions.split(".").filter((step) => step.trim().length > 0);
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString(isRTL ? "he-IL" : "en-US", {
-      month: "long",
-      day: "numeric",
-      year: "numeric",
-    });
+  const getDifficultyColor = (level: number) => {
+    if (level <= 2) return "#10b981"; // Easy - Green
+    if (level <= 3) return "#f59e0b"; // Medium - Amber
+    return "#ef4444"; // Hard - Red
   };
 
-  const headerOpacity = scrollY.interpolate({
-    inputRange: [0, 100],
-    outputRange: [1, 0.9],
-    extrapolate: "clamp",
-  });
+  const getDifficultyLabel = (level: number) => {
+    if (level <= 2) return language === "he" ? "קל" : "Easy";
+    if (level <= 3) return language === "he" ? "בינוני" : "Medium";
+    return language === "he" ? "קשה" : "Hard";
+  };
+
+  const renderStartModal = () => (
+    <Modal
+      visible={showStartModal}
+      transparent
+      animationType="slide"
+      onRequestClose={() => setShowStartModal(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={[styles.modalContainer, { backgroundColor: colors.card }]}>
+          <View style={styles.modalHeader}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>
+              {language === "he" ? "התחל תפריט" : "Start Menu"}
+            </Text>
+            <TouchableOpacity
+              onPress={() => setShowStartModal(false)}
+              style={styles.modalCloseButton}
+            >
+              <X size={24} color={colors.icon} />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.modalContent}>
+            <Text style={[styles.modalText, { color: colors.text }]}>
+              {language === "he"
+                ? "האם אתה בטוח שברצונך להתחיל תפריט זה? זה יחליף את התפריט הפעיל הנוכחי שלך."
+                : "Are you sure you want to start this menu? This will replace your current active plan."}
+            </Text>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={[
+                  styles.cancelButton,
+                  { backgroundColor: colors.surface },
+                ]}
+                onPress={() => setShowStartModal(false)}
+              >
+                <Text style={[styles.cancelButtonText, { color: colors.text }]}>
+                  {language === "he" ? "ביטול" : "Cancel"}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.confirmButton,
+                  { backgroundColor: colors.emerald500 },
+                ]}
+                onPress={handleStartMenu}
+                disabled={isStarting}
+              >
+                {isStarting ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <Play size={16} color="#ffffff" />
+                )}
+                <Text style={styles.confirmButtonText}>
+                  {language === "he" ? "התחל" : "Start"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+
+  const renderMealCard = (meal: Meal) => {
+    const isExpanded = expandedMeal === meal.meal_id;
+
+    return (
+      <View
+        key={meal.meal_id}
+        style={[styles.mealCard, { backgroundColor: colors.card }]}
+      >
+        <TouchableOpacity
+          onPress={() => setExpandedMeal(isExpanded ? null : meal.meal_id)}
+          style={styles.mealCardHeader}
+        >
+          <View style={styles.mealInfo}>
+            <View style={styles.mealTypeContainer}>
+              {getMealTypeIcon(meal.meal_type)}
+              <Text style={[styles.mealName, { color: colors.text }]}>
+                {meal.name}
+              </Text>
+            </View>
+            <View style={styles.mealMeta}>
+              <View
+                style={[
+                  styles.mealTypeBadge,
+                  { backgroundColor: colors.surface },
+                ]}
+              >
+                <Text
+                  style={[styles.mealTypeText, { color: colors.emerald500 }]}
+                >
+                  {meal.meal_type}
+                </Text>
+              </View>
+              {meal.prep_time_minutes && (
+                <View style={styles.prepTimeContainer}>
+                  <Clock size={12} color={colors.icon} />
+                  <Text style={[styles.prepTimeText, { color: colors.icon }]}>
+                    {meal.prep_time_minutes} {language === "he" ? "דק'" : "min"}
+                  </Text>
+                </View>
+              )}
+            </View>
+          </View>
+
+          <View style={styles.mealStats}>
+            <View style={styles.caloriesBadge}>
+              <Text
+                style={[styles.caloriesValue, { color: colors.emerald500 }]}
+              >
+                {meal.calories}
+              </Text>
+              <Text style={[styles.caloriesLabel, { color: colors.icon }]}>
+                {language === "he" ? "קלוריות" : "cal"}
+              </Text>
+            </View>
+            {isExpanded ? (
+              <ChevronUp size={20} color={colors.icon} />
+            ) : (
+              <ChevronDown size={20} color={colors.icon} />
+            )}
+          </View>
+        </TouchableOpacity>
+
+        {/* Nutrition Preview */}
+        <View style={styles.nutritionPreview}>
+          <View style={styles.nutritionItem}>
+            <Text style={[styles.nutritionValue, { color: colors.text }]}>
+              {meal.protein}g
+            </Text>
+            <Text style={[styles.nutritionLabel, { color: colors.icon }]}>
+              {language === "he" ? "חלבון" : "Protein"}
+            </Text>
+          </View>
+          <View style={styles.nutritionItem}>
+            <Text style={[styles.nutritionValue, { color: colors.text }]}>
+              {meal.carbs}g
+            </Text>
+            <Text style={[styles.nutritionLabel, { color: colors.icon }]}>
+              {language === "he" ? "פחמימות" : "Carbs"}
+            </Text>
+          </View>
+          <View style={styles.nutritionItem}>
+            <Text style={[styles.nutritionValue, { color: colors.text }]}>
+              {meal.fat}g
+            </Text>
+            <Text style={[styles.nutritionLabel, { color: colors.icon }]}>
+              {language === "he" ? "שומן" : "Fat"}
+            </Text>
+          </View>
+        </View>
+
+        {/* Expanded Details */}
+        {isExpanded && (
+          <View
+            style={[styles.expandedDetails, { borderTopColor: colors.border }]}
+          >
+            {/* Ingredients */}
+            {meal.ingredients && meal.ingredients.length > 0 && (
+              <View style={styles.detailSection}>
+                <Text
+                  style={[styles.detailSectionTitle, { color: colors.text }]}
+                >
+                  {language === "he" ? "רכיבים" : "Ingredients"}
+                </Text>
+                <View style={styles.ingredientsGrid}>
+                  {meal.ingredients.map((ingredient, idx) => (
+                    <View
+                      key={idx}
+                      style={[
+                        styles.ingredientChip,
+                        { backgroundColor: colors.surface },
+                      ]}
+                    >
+                      <Text
+                        style={[styles.ingredientText, { color: colors.text }]}
+                      >
+                        {ingredient.quantity} {ingredient.unit}{" "}
+                        {ingredient.name}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
+
+            {/* Instructions */}
+            {meal.instructions && (
+              <View style={styles.detailSection}>
+                <Text
+                  style={[styles.detailSectionTitle, { color: colors.text }]}
+                >
+                  {language === "he" ? "הוראות הכנה" : "Instructions"}
+                </Text>
+                <View style={styles.instructionsList}>
+                  {formatInstructions(meal.instructions).map(
+                    (instruction, idx) => (
+                      <View key={idx} style={styles.instructionItem}>
+                        <View
+                          style={[
+                            styles.stepNumber,
+                            { backgroundColor: colors.emerald500 },
+                          ]}
+                        >
+                          <Text style={styles.stepNumberText}>{idx + 1}</Text>
+                        </View>
+                        <Text
+                          style={[
+                            styles.instructionText,
+                            { color: colors.text },
+                          ]}
+                        >
+                          {instruction.trim()}
+                        </Text>
+                      </View>
+                    )
+                  )}
+                </View>
+              </View>
+            )}
+
+            {/* Cooking Method */}
+            {meal.cooking_method && (
+              <View
+                style={[
+                  styles.cookingMethodBadge,
+                  { backgroundColor: colors.surface },
+                ]}
+              >
+                <ChefHat size={16} color={colors.emerald500} />
+                <Text
+                  style={[
+                    styles.cookingMethodText,
+                    { color: colors.emerald500 },
+                  ]}
+                >
+                  {meal.cooking_method}
+                </Text>
+              </View>
+            )}
+          </View>
+        )}
+      </View>
+    );
+  };
 
   if (isLoading) {
-    return LoadingScreen;
+    return (
+      <LoadingScreen
+        text={
+          language === "he" ? "טוען פרטי תפריט..." : "Loading menu details..."
+        }
+      />
+    );
   }
 
   if (!menu) {
     return (
-      <View style={styles.container}>
-        <SafeAreaView style={styles.safeArea}>
-          <View style={styles.errorContainer}>
-            <BlurView intensity={20} style={styles.errorCard}>
-              <Ionicons name="alert-circle-outline" size={48} color="#10b981" />
-              <Text style={[styles.errorText, isRTL && styles.rtlText]}>
-                {isRTL ? "תפריט לא נמצא" : "Menu not found"}
-              </Text>
-            </BlurView>
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: colors.background }]}
+      >
+        <View style={styles.emptyState}>
+          <View style={[styles.emptyIcon, { backgroundColor: colors.surface }]}>
+            <ChefHat size={48} color={colors.emerald500} />
           </View>
-        </SafeAreaView>
-      </View>
+          <Text style={[styles.emptyTitle, { color: colors.text }]}>
+            {language === "he" ? "תפריט לא נמצא" : "Menu not found"}
+          </Text>
+          <Text style={[styles.emptyText, { color: colors.icon }]}>
+            {language === "he"
+              ? "התפריט שחיפשת אינו זמין או נמחק"
+              : "The menu you're looking for is not available or has been deleted"}
+          </Text>
+          <TouchableOpacity
+            style={[styles.backButton, { backgroundColor: colors.emerald500 }]}
+            onPress={() => router.back()}
+          >
+            <ArrowLeft size={18} color="#ffffff" />
+            <Text style={styles.backButtonText}>
+              {language === "he" ? "חזור" : "Go Back"}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
     );
   }
 
+  const avgCaloriesPerDay = Math.round(
+    menu.total_calories / (menu.days_count || 1)
+  );
+  const avgProteinPerDay = Math.round(
+    (menu.total_protein || 0) / (menu.days_count || 1)
+  );
+
   return (
-    <View style={styles.container}>
-      <ScrollView>
-        <SafeAreaView style={styles.safeArea}>
-          <Animated.ScrollView
-            style={styles.scrollView}
-            showsVerticalScrollIndicator={false}
-            onScroll={Animated.event(
-              [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-              { useNativeDriver: false }
-            )}
-            scrollEventThrottle={16}
-          >
-            {/* Hero Section */}
-            <View style={styles.heroSection}>
-              <BlurView intensity={20} style={styles.heroCard}>
-                <View style={styles.heroContent}>
-                  <View style={styles.heroHeader}>
-                    <Text style={[styles.heroTitle, isRTL && styles.rtlText]}>
-                      {menu.title}
-                    </Text>
-                    <Text
-                      style={[styles.heroDescription, isRTL && styles.rtlText]}
-                    >
-                      {menu.description ||
-                        (isRTL
-                          ? "תפריט מותאם אישית"
-                          : "Personalized meal plan")}
-                    </Text>
-                  </View>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.background }]}
+    >
+      {/* Header */}
+      <View style={[styles.header, { backgroundColor: colors.background }]}>
+        <TouchableOpacity
+          style={[styles.headerBackButton, { backgroundColor: colors.surface }]}
+          onPress={() => router.back()}
+        >
+          <ArrowLeft size={20} color={colors.emerald500} />
+        </TouchableOpacity>
 
-                  <View style={styles.statsGrid}>
-                    <View style={styles.statCard}>
-                      <Ionicons name="flame" size={24} color="#10b981" />
-                      <Text style={styles.statValue}>
-                        {menu.total_calories}
-                      </Text>
-                      <Text style={[styles.statLabel, isRTL && styles.rtlText]}>
-                        {isRTL ? "קלוריות" : "Calories"}
-                      </Text>
-                    </View>
+        <View style={styles.headerContent}>
+          <Text style={[styles.headerTitle, { color: colors.text }]}>
+            {language === "he" ? "פרטי תפריט" : "Menu Details"}
+          </Text>
+        </View>
 
-                    <View style={styles.statCard}>
-                      <Ionicons name="fitness" size={24} color="#10b981" />
-                      <Text style={styles.statValue}>
-                        {menu.total_protein || 0}g
-                      </Text>
-                      <Text style={[styles.statLabel, isRTL && styles.rtlText]}>
-                        {isRTL ? "חלבון" : "Protein"}
-                      </Text>
-                    </View>
+        <TouchableOpacity
+          style={[styles.shareButton, { backgroundColor: colors.surface }]}
+          onPress={() => {
+            /* Add share functionality */
+          }}
+        >
+          <Share2 size={20} color={colors.emerald500} />
+        </TouchableOpacity>
+      </View>
 
-                    <View style={styles.statCard}>
-                      <Ionicons name="leaf" size={24} color="#10b981" />
-                      <Text style={styles.statValue}>
-                        {menu.total_carbs || 0}g
-                      </Text>
-                      <Text style={[styles.statLabel, isRTL && styles.rtlText]}>
-                        {isRTL ? "פחמימות" : "Carbs"}
-                      </Text>
-                    </View>
-
-                    <View style={styles.statCard}>
-                      <Ionicons name="water" size={24} color="#10b981" />
-                      <Text style={styles.statValue}>
-                        {menu.total_fat || 0}g
-                      </Text>
-                      <Text style={[styles.statLabel, isRTL && styles.rtlText]}>
-                        {isRTL ? "שומן" : "Fat"}
-                      </Text>
-                    </View>
-                  </View>
-
-                  {menu.estimated_cost && (
-                    <View style={styles.costBadge}>
-                      <Ionicons name="card-outline" size={20} color="#10b981" />
-                      <Text style={[styles.costText, isRTL && styles.rtlText]}>
-                        {isRTL
-                          ? `עלות משוערת: ₪${menu.estimated_cost.toFixed(0)}`
-                          : `Estimated cost: ₪${menu.estimated_cost.toFixed(
-                              0
-                            )}`}
-                      </Text>
-                    </View>
-                  )}
+      <Animated.ScrollView
+        style={[styles.scrollContent, { opacity: fadeAnim }]}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={[colors.emerald500]}
+            tintColor={colors.emerald500}
+          />
+        }
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.contentContainer}>
+          {/* Hero Section */}
+          <View style={[styles.heroCard, { backgroundColor: colors.card }]}>
+            <View style={styles.heroHeader}>
+              <View
+                style={[styles.heroIcon, { backgroundColor: colors.surface }]}
+              >
+                <ChefHat size={32} color={colors.emerald500} />
+              </View>
+              <View style={styles.heroBadges}>
+                <View
+                  style={[styles.badge, { backgroundColor: colors.emerald500 }]}
+                >
+                  <Calendar size={12} color="#ffffff" />
+                  <Text style={styles.badgeText}>{menu.days_count}d</Text>
                 </View>
-              </BlurView>
+                <View
+                  style={[
+                    styles.badge,
+                    {
+                      backgroundColor: getDifficultyColor(
+                        menu.difficulty_level
+                      ),
+                    },
+                  ]}
+                >
+                  <Star size={12} color="#ffffff" />
+                  <Text style={styles.badgeText}>
+                    {getDifficultyLabel(menu.difficulty_level)}
+                  </Text>
+                </View>
+              </View>
             </View>
 
-            {/* Day Selector */}
-            <View style={styles.daySelectorContainer}>
-              <BlurView intensity={20} style={styles.daySelector}>
+            <Text style={[styles.heroTitle, { color: colors.text }]}>
+              {menu.title}
+            </Text>
+
+            <Text style={[styles.heroDescription, { color: colors.icon }]}>
+              {menu.description ||
+                (language === "he"
+                  ? "תפריט מותאם אישית"
+                  : "Personalized meal plan")}
+            </Text>
+
+            {/* Enhanced Nutrition Grid */}
+            <View style={styles.nutritionGrid}>
+              <View style={styles.nutritionGridItem}>
+                <View
+                  style={[styles.nutritionIcon, { backgroundColor: "#fef3c7" }]}
+                >
+                  <Flame size={16} color="#f59e0b" />
+                </View>
                 <Text
-                  style={[styles.daySelectorTitle, isRTL && styles.rtlText]}
+                  style={[styles.nutritionGridValue, { color: colors.text }]}
                 >
-                  {isRTL ? "בחר יום" : "Select Day"}
+                  {avgCaloriesPerDay}
                 </Text>
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.daysContainer}
+                <Text
+                  style={[styles.nutritionGridLabel, { color: colors.icon }]}
                 >
-                  {getDaysArray().map((day) => (
-                    <TouchableOpacity
-                      key={day}
-                      style={[
-                        styles.dayChip,
-                        selectedDay === day && styles.selectedDayChip,
-                      ]}
-                      onPress={() => setSelectedDay(day)}
-                      activeOpacity={0.8}
-                    >
-                      <Text
-                        style={[
-                          styles.dayChipText,
-                          selectedDay === day && styles.selectedDayChipText,
-                          isRTL && styles.rtlText,
-                        ]}
-                      >
-                        {isRTL ? `יום ${day}` : `Day ${day}`}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </BlurView>
-            </View>
+                  {language === "he" ? "קלוריות" : "Calories"}
+                </Text>
+              </View>
 
-            {/* Meals List */}
-            <View style={styles.mealsContainer}>
-              {getMealsByDay(selectedDay).map((meal, index) => (
-                <View key={meal.meal_id} style={styles.mealCardContainer}>
-                  <BlurView intensity={20} style={styles.mealCard}>
-                    <TouchableOpacity
-                      onPress={() =>
-                        setExpandedMeal(
-                          expandedMeal === meal.meal_id ? null : meal.meal_id
-                        )
-                      }
-                      activeOpacity={0.9}
-                    >
-                      {/* Meal Header */}
-                      <View style={[styles.mealHeader, isRTL && styles.rtlRow]}>
-                        <View
-                          style={[
-                            styles.mealHeaderLeft,
-                            isRTL && styles.rtlRow,
-                          ]}
-                        >
-                          <View style={styles.mealIconContainer}>
-                            <Ionicons
-                              name={getMealTypeIcon(meal.meal_type)}
-                              size={24}
-                              color="#10b981"
-                            />
-                          </View>
-                          <View
-                            style={[
-                              styles.mealInfo,
-                              isRTL && styles.rtlMealInfo,
-                            ]}
-                          >
-                            <Text
-                              style={[styles.mealName, isRTL && styles.rtlText]}
-                            >
-                              {meal.name}
-                            </Text>
-                            <View
-                              style={[
-                                styles.mealMetaRow,
-                                isRTL && styles.rtlRow,
-                              ]}
-                            >
-                              <View style={styles.mealTypeBadge}>
-                                <Text
-                                  style={[
-                                    styles.mealTypeText,
-                                    isRTL && styles.rtlText,
-                                  ]}
-                                >
-                                  {meal.meal_type}
-                                </Text>
-                              </View>
-                              {meal.prep_time_minutes && (
-                                <View style={styles.timeIndicator}>
-                                  <Ionicons
-                                    name="time-outline"
-                                    size={14}
-                                    color="#6b7280"
-                                  />
-                                  <Text style={styles.timeText}>
-                                    {meal.prep_time_minutes}
-                                    {isRTL ? "ד" : "min"}
-                                  </Text>
-                                </View>
-                              )}
-                            </View>
-                          </View>
-                        </View>
-
-                        <View
-                          style={[styles.mealStats, isRTL && styles.rtlRow]}
-                        >
-                          <View style={styles.caloriesBadge}>
-                            <Text style={styles.caloriesValue}>
-                              {meal.calories}
-                            </Text>
-                            <Text style={styles.caloriesLabel}>
-                              {isRTL ? "קלוריות" : "cal"}
-                            </Text>
-                          </View>
-                          <Ionicons
-                            name={
-                              expandedMeal === meal.meal_id
-                                ? "chevron-up"
-                                : "chevron-down"
-                            }
-                            size={20}
-                            color="#6b7280"
-                          />
-                        </View>
-                      </View>
-
-                      {/* Quick Nutrition Preview */}
-                      <View style={styles.quickNutrition}>
-                        <View style={styles.nutritionPreviewRow}>
-                          <View style={styles.nutritionPreviewItem}>
-                            <Text style={styles.nutritionPreviewValue}>
-                              {meal.protein}g
-                            </Text>
-                            <Text
-                              style={[
-                                styles.nutritionPreviewLabel,
-                                isRTL && styles.rtlText,
-                              ]}
-                            >
-                              {isRTL ? "חלבון" : "Protein"}
-                            </Text>
-                          </View>
-                          <View style={styles.nutritionPreviewItem}>
-                            <Text style={styles.nutritionPreviewValue}>
-                              {meal.carbs}g
-                            </Text>
-                            <Text
-                              style={[
-                                styles.nutritionPreviewLabel,
-                                isRTL && styles.rtlText,
-                              ]}
-                            >
-                              {isRTL ? "פחמימות" : "Carbs"}
-                            </Text>
-                          </View>
-                          <View style={styles.nutritionPreviewItem}>
-                            <Text style={styles.nutritionPreviewValue}>
-                              {meal.fat}g
-                            </Text>
-                            <Text
-                              style={[
-                                styles.nutritionPreviewLabel,
-                                isRTL && styles.rtlText,
-                              ]}
-                            >
-                              {isRTL ? "שומן" : "Fat"}
-                            </Text>
-                          </View>
-                          {meal.fiber && (
-                            <View style={styles.nutritionPreviewItem}>
-                              <Text style={styles.nutritionPreviewValue}>
-                                {meal.fiber}g
-                              </Text>
-                              <Text
-                                style={[
-                                  styles.nutritionPreviewLabel,
-                                  isRTL && styles.rtlText,
-                                ]}
-                              >
-                                {isRTL ? "סיבים" : "Fiber"}
-                              </Text>
-                            </View>
-                          )}
-                        </View>
-                      </View>
-                    </TouchableOpacity>
-
-                    {/* Expanded Details */}
-                    {expandedMeal === meal.meal_id && (
-                      <View style={styles.expandedDetails}>
-                        {/* Ingredients */}
-                        {meal.ingredients && meal.ingredients.length > 0 && (
-                          <View style={styles.detailSection}>
-                            <Text
-                              style={[
-                                styles.detailSectionTitle,
-                                isRTL && styles.rtlText,
-                              ]}
-                            >
-                              {isRTL ? "רכיבים" : "Ingredients"}
-                            </Text>
-                            <View style={styles.ingredientsGrid}>
-                              {meal.ingredients.map((ingredient, idx) => (
-                                <View key={idx} style={styles.ingredientChip}>
-                                  <Text
-                                    style={[
-                                      styles.ingredientText,
-                                      isRTL && styles.rtlText,
-                                    ]}
-                                  >
-                                    {ingredient.quantity} {ingredient.unit}{" "}
-                                    {ingredient.name}
-                                  </Text>
-                                </View>
-                              ))}
-                            </View>
-                          </View>
-                        )}
-
-                        {/* Instructions */}
-                        {meal.instructions && (
-                          <View style={styles.detailSection}>
-                            <Text
-                              style={[
-                                styles.detailSectionTitle,
-                                isRTL && styles.rtlText,
-                              ]}
-                            >
-                              {isRTL ? "הוראות הכנה" : "Instructions"}
-                            </Text>
-                            <View style={styles.instructionsList}>
-                              {formatInstructions(meal.instructions).map(
-                                (instruction, idx) => (
-                                  <View
-                                    key={idx}
-                                    style={[
-                                      styles.instructionItem,
-                                      isRTL && styles.rtlRow,
-                                    ]}
-                                  >
-                                    <View style={styles.stepNumber}>
-                                      <Text style={styles.stepNumberText}>
-                                        {idx + 1}
-                                      </Text>
-                                    </View>
-                                    <Text
-                                      style={[
-                                        styles.instructionText,
-                                        isRTL && styles.rtlText,
-                                      ]}
-                                    >
-                                      {instruction.trim()}
-                                    </Text>
-                                  </View>
-                                )
-                              )}
-                            </View>
-                          </View>
-                        )}
-
-                        {/* Cooking Method */}
-                        {meal.cooking_method && (
-                          <View style={styles.cookingMethodBadge}>
-                            <Ionicons
-                              name="restaurant"
-                              size={16}
-                              color="#10b981"
-                            />
-                            <Text
-                              style={[
-                                styles.cookingMethodText,
-                                isRTL && styles.rtlText,
-                              ]}
-                            >
-                              {meal.cooking_method}
-                            </Text>
-                          </View>
-                        )}
-                      </View>
-                    )}
-                  </BlurView>
+              <View style={styles.nutritionGridItem}>
+                <View
+                  style={[styles.nutritionIcon, { backgroundColor: "#dcfce7" }]}
+                >
+                  <TrendingUp size={16} color="#10b981" />
                 </View>
-              ))}
+                <Text
+                  style={[styles.nutritionGridValue, { color: colors.text }]}
+                >
+                  {avgProteinPerDay}g
+                </Text>
+                <Text
+                  style={[styles.nutritionGridLabel, { color: colors.icon }]}
+                >
+                  {language === "he" ? "חלבון" : "Protein"}
+                </Text>
+              </View>
+
+              <View style={styles.nutritionGridItem}>
+                <View
+                  style={[styles.nutritionIcon, { backgroundColor: "#f3e8ff" }]}
+                >
+                  <Target size={16} color="#8b5cf6" />
+                </View>
+                <Text
+                  style={[styles.nutritionGridValue, { color: colors.text }]}
+                >
+                  {Math.round((menu.total_carbs || 0) / (menu.days_count || 1))}
+                  g
+                </Text>
+                <Text
+                  style={[styles.nutritionGridLabel, { color: colors.icon }]}
+                >
+                  {language === "he" ? "פחמימות" : "Carbs"}
+                </Text>
+              </View>
+
+              <View style={styles.nutritionGridItem}>
+                <View
+                  style={[styles.nutritionIcon, { backgroundColor: "#fef3c7" }]}
+                >
+                  <Activity size={16} color="#f59e0b" />
+                </View>
+                <Text
+                  style={[styles.nutritionGridValue, { color: colors.text }]}
+                >
+                  {menu.prep_time_minutes || 30}m
+                </Text>
+                <Text
+                  style={[styles.nutritionGridLabel, { color: colors.icon }]}
+                >
+                  {language === "he" ? "הכנה" : "Prep"}
+                </Text>
+              </View>
             </View>
-          </Animated.ScrollView>
-        </SafeAreaView>
-      </ScrollView>
-    </View>
+
+            {/* Cost and Meta */}
+            <View style={styles.heroMeta}>
+              {menu.estimated_cost && (
+                <View
+                  style={[
+                    styles.costBadge,
+                    { backgroundColor: colors.success + "20" },
+                  ]}
+                >
+                  <Text style={[styles.costText, { color: colors.success }]}>
+                    ₪{menu.estimated_cost.toFixed(0)}
+                  </Text>
+                </View>
+              )}
+
+              <Text style={[styles.categoryText, { color: colors.icon }]}>
+                {menu.dietary_category || "Balanced Menu"}
+              </Text>
+            </View>
+
+            {/* Action Buttons */}
+            <View style={styles.heroActions}>
+              <TouchableOpacity
+                style={[
+                  styles.secondaryButton,
+                  { backgroundColor: colors.surface },
+                ]}
+                onPress={() => {
+                  /* Add to favorites */
+                }}
+              >
+                <Heart size={16} color={colors.icon} />
+                <Text
+                  style={[styles.secondaryButtonText, { color: colors.icon }]}
+                >
+                  {language === "he" ? "שמור" : "Save"}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.primaryButton,
+                  { backgroundColor: colors.emerald500 },
+                ]}
+                onPress={() => setShowStartModal(true)}
+              >
+                <Play size={16} color="#ffffff" />
+                <Text style={styles.primaryButtonText}>
+                  {language === "he" ? "התחל תפריט" : "Start Menu"}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Day Selector */}
+          <View
+            style={[styles.daySelectorCard, { backgroundColor: colors.card }]}
+          >
+            <Text style={[styles.daySelectorTitle, { color: colors.text }]}>
+              {language === "he" ? "בחר יום" : "Select Day"}
+            </Text>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.daysContainer}
+            >
+              {getDaysArray().map((day) => (
+                <TouchableOpacity
+                  key={day}
+                  style={[
+                    styles.dayChip,
+                    {
+                      backgroundColor:
+                        selectedDay === day
+                          ? colors.emerald500
+                          : colors.surface,
+                      borderColor:
+                        selectedDay === day ? colors.emerald500 : colors.border,
+                    },
+                  ]}
+                  onPress={() => setSelectedDay(day)}
+                >
+                  <Text
+                    style={[
+                      styles.dayChipText,
+                      { color: selectedDay === day ? "#ffffff" : colors.text },
+                    ]}
+                  >
+                    {language === "he" ? `יום ${day}` : `Day ${day}`}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+
+          {/* Meals List */}
+          <View style={styles.mealsSection}>
+            <Text style={[styles.mealsSectionTitle, { color: colors.text }]}>
+              {language === "he" ? "ארוחות היום" : "Day's Meals"}
+            </Text>
+            {getMealsByDay(selectedDay).length > 0 ? (
+              getMealsByDay(selectedDay).map(renderMealCard)
+            ) : (
+              <View
+                style={[
+                  styles.noMealsContainer,
+                  { backgroundColor: colors.surface },
+                ]}
+              >
+                <Utensils size={24} color={colors.icon} />
+                <Text style={[styles.noMealsText, { color: colors.icon }]}>
+                  {language === "he"
+                    ? "אין ארוחות לתאריך זה"
+                    : "No meals for this date"}
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+      </Animated.ScrollView>
+
+      {/* Modals */}
+      {renderStartModal()}
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f8fafc",
-  },
-  safeArea: {
-    flex: 1,
-  },
-  rtlText: {
-    textAlign: "right",
-    writingDirection: "rtl",
-  },
-  rtlRow: {
-    flexDirection: "row-reverse",
-  },
-  rtlHeaderInfo: {
-    alignItems: "flex-end",
-  },
-  rtlMealInfo: {
-    alignItems: "flex-end",
-  },
-  quickNutrition: {
-    backgroundColor: "#f8f9fa",
-    borderRadius: 12,
-    padding: 16,
-    marginVertical: 8,
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
   },
 
-  nutritionPreviewRow: {
+  // Header
+  header: {
     flexDirection: "row",
-    justifyContent: "space-around",
     alignItems: "center",
-    flexWrap: "wrap",
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(0,0,0,0.05)",
+  },
+
+  headerBackButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  headerContent: {
+    flex: 1,
+    marginHorizontal: 16,
+  },
+
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+  },
+
+  shareButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  // Scrollable Content
+  scrollContent: {
+    flex: 1,
+  },
+
+  contentContainer: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 100,
+  },
+
+  // Hero Section
+  heroCard: {
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 24,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+  },
+
+  heroHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    marginBottom: 16,
+  },
+
+  heroIcon: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  heroBadges: {
     gap: 8,
   },
 
-  nutritionPreviewItem: {
+  badge: {
+    flexDirection: "row",
     alignItems: "center",
-    justifyContent: "center",
-    minWidth: 60,
-    paddingVertical: 8,
-    paddingHorizontal: 4,
-    backgroundColor: "#ffffff",
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: "#e9ecef",
-    flex: 1,
-  },
-  expandedDetails: {
-    backgroundColor: "#ffffff",
-    borderTopWidth: 1,
-    borderTopColor: "#e9ecef",
-    paddingTop: 20,
-    paddingHorizontal: 16,
-    paddingBottom: 16,
-    marginTop: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 4,
   },
 
-  detailSection: {
+  badgeText: {
+    color: "#ffffff",
+    fontSize: 11,
+    fontWeight: "600",
+  },
+
+  heroTitle: {
+    fontSize: 24,
+    fontWeight: "bold",
+    marginBottom: 8,
+  },
+
+  heroDescription: {
+    fontSize: 16,
+    lineHeight: 24,
+    marginBottom: 20,
+  },
+
+  // Nutrition Grid
+  nutritionGrid: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 20,
+  },
+
+  nutritionGridItem: {
+    alignItems: "center",
+    gap: 6,
+    flex: 1,
+  },
+
+  nutritionIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  nutritionGridValue: {
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+
+  nutritionGridLabel: {
+    fontSize: 12,
+    fontWeight: "500",
+  },
+
+  // Hero Meta
+  heroMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 20,
+  },
+
+  costBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+  },
+
+  costText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+
+  categoryText: {
+    fontSize: 14,
+    fontWeight: "500",
+  },
+
+  // Hero Actions
+  heroActions: {
+    flexDirection: "row",
+    gap: 12,
+  },
+
+  secondaryButton: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 6,
+  },
+
+  secondaryButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+
+  primaryButton: {
+    flex: 2,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 8,
+  },
+
+  primaryButtonText: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+
+  // Day Selector
+  daySelectorCard: {
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 24,
+    elevation: 1,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+  },
+
+  daySelectorTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 12,
+  },
+
+  daysContainer: {
+    paddingRight: 20,
+    gap: 8,
+  },
+
+  dayChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+    minWidth: 80,
+    alignItems: "center",
+  },
+
+  dayChipText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+
+  // Meals Section
+  mealsSection: {
     marginBottom: 24,
   },
 
-  detailSectionTitle: {
-    fontSize: 18,
+  mealsSectionTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    marginBottom: 16,
+  },
+
+  mealCard: {
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 16,
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+  },
+
+  mealCardHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+
+  mealInfo: {
+    flex: 1,
+  },
+
+  mealTypeContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginBottom: 8,
+  },
+
+  mealName: {
+    fontSize: 16,
     fontWeight: "600",
-    color: "#2c3e50",
-    marginBottom: 12,
+  },
+
+  mealMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+
+  mealTypeBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+
+  mealTypeText: {
+    fontSize: 11,
+    fontWeight: "600",
     textTransform: "capitalize",
+  },
+
+  prepTimeContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+
+  prepTimeText: {
+    fontSize: 11,
+    fontWeight: "500",
+  },
+
+  mealStats: {
+    alignItems: "center",
+    gap: 8,
+  },
+
+  caloriesBadge: {
+    alignItems: "center",
+  },
+
+  caloriesValue: {
+    fontSize: 16,
+    fontWeight: "bold",
+  },
+
+  caloriesLabel: {
+    fontSize: 10,
+    fontWeight: "500",
+    textTransform: "uppercase",
+  },
+
+  // Nutrition Preview
+  nutritionPreview: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(0,0,0,0.05)",
+  },
+
+  nutritionItem: {
+    alignItems: "center",
+    flex: 1,
+  },
+
+  nutritionValue: {
+    fontSize: 14,
+    fontWeight: "bold",
+  },
+
+  nutritionLabel: {
+    fontSize: 10,
+    fontWeight: "500",
+    marginTop: 2,
+  },
+
+  // Expanded Details
+  expandedDetails: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+  },
+
+  detailSection: {
+    marginBottom: 20,
+  },
+
+  detailSectionTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 12,
   },
 
   ingredientsGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
-    marginTop: 8,
   },
 
   ingredientChip: {
-    backgroundColor: "#f1f3f4",
-    paddingVertical: 8,
     paddingHorizontal: 12,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: "#e9ecef",
-    marginBottom: 6,
+    paddingVertical: 6,
+    borderRadius: 16,
   },
 
   ingredientText: {
-    fontSize: 14,
-    color: "#495057",
+    fontSize: 12,
     fontWeight: "500",
-    textAlign: "center",
   },
 
   instructionsList: {
-    marginTop: 8,
+    gap: 12,
   },
 
   instructionItem: {
     flexDirection: "row",
     alignItems: "flex-start",
-    marginBottom: 16,
-    paddingRight: 8,
+    gap: 12,
   },
 
   stepNumber: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: "#10b981",
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     alignItems: "center",
     justifyContent: "center",
-    marginRight: 12,
-    shadowColor: "#10b981",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
+    marginTop: 2,
   },
 
   stepNumberText: {
     color: "#ffffff",
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: "600",
   },
 
   instructionText: {
     flex: 1,
-    fontSize: 15,
-    lineHeight: 22,
-    color: "#495057",
-    fontWeight: "400",
-    textAlign: "left",
+    fontSize: 14,
+    lineHeight: 20,
   },
 
   cookingMethodBadge: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#d1fae5",
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    borderRadius: 20,
     alignSelf: "flex-start",
-    marginTop: 8,
-    borderWidth: 1,
-    borderColor: "#a7f3d0",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    gap: 6,
   },
 
   cookingMethodText: {
-    marginLeft: 6,
-    fontSize: 14,
-    fontWeight: "500",
-    color: "#065f46",
-    textTransform: "capitalize",
-  },
-
-  nutritionPreviewValue: {
-    fontSize: 18,
-    fontWeight: "700",
-    color: "#2c3e50",
-    marginBottom: 4,
-    textAlign: "center",
-  },
-
-  nutritionPreviewLabel: {
     fontSize: 12,
     fontWeight: "500",
-    color: "#6c757d",
-    textAlign: "center",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
   },
 
-  loadingContainer: {
-    flex: 1,
+  // No meals state
+  noMealsContainer: {
+    alignItems: "center",
     justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-  },
-  loadingCard: {
-    borderRadius: 20,
-    overflow: "hidden",
     padding: 32,
-    alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.9)",
-    borderWidth: 1,
-    borderColor: "rgba(16, 185, 129, 0.2)",
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: "#374151",
-    fontWeight: "500",
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    padding: 20,
-  },
-  errorCard: {
-    borderRadius: 20,
-    overflow: "hidden",
-    padding: 32,
-    alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.9)",
-    borderWidth: 1,
-    borderColor: "rgba(16, 185, 129, 0.2)",
-  },
-  errorText: {
-    marginTop: 16,
-    fontSize: 16,
-    color: "#374151",
-    fontWeight: "500",
-    textAlign: "center",
+    borderRadius: 12,
   },
 
-  // Header
-  floatingHeader: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    zIndex: 1000,
-  },
-  headerBlur: {
-    margin: 16,
+  noMealsText: {
+    fontSize: 14,
     marginTop: 8,
-    borderRadius: 16,
-    overflow: "hidden",
-    backgroundColor: "rgba(255, 255, 255, 0.9)",
-    borderWidth: 1,
-    borderColor: "rgba(16, 185, 129, 0.2)",
+    textAlign: "center",
   },
-  headerContent: {
+
+  // Empty State
+  emptyState: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 40,
+  },
+
+  emptyIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+  },
+
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    marginBottom: 8,
+    textAlign: "center",
+  },
+
+  emptyText: {
+    fontSize: 16,
+    textAlign: "center",
+    marginBottom: 24,
+    lineHeight: 24,
+  },
+
+  backButton: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 16,
-    gap: 12,
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: 25,
+    gap: 8,
   },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "rgba(255, 255, 255, 0.8)",
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "rgba(16, 185, 129, 0.2)",
-  },
-  headerInfo: {
-    flex: 1,
-  },
-  headerTitle: {
+
+  backButtonText: {
+    color: "#ffffff",
     fontSize: 16,
     fontWeight: "600",
-    color: "#374151",
-    marginBottom: 2,
-  },
-  headerSubtitle: {
-    fontSize: 12,
-    color: "#6b7280",
-    fontWeight: "400",
-  },
-  headerBadge: {
-    backgroundColor: "rgba(16, 185, 129, 0.1)",
-    borderRadius: 10,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "rgba(16, 185, 129, 0.2)",
-  },
-  headerBadgeText: {
-    fontSize: 14,
-    fontWeight: "600",
-    color: "#10b981",
-  },
-  headerBadgeLabel: {
-    fontSize: 10,
-    color: "#6b7280",
-    fontWeight: "500",
   },
 
-  // ScrollView
-  scrollView: {
+  // Modal Styles
+  modalOverlay: {
     flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
   },
 
-  // Hero Section
-  heroSection: {
-    paddingTop: 90,
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-  },
-  heroCard: {
+  modalContainer: {
+    width: screenWidth - 60,
     borderRadius: 20,
+    padding: 0,
     overflow: "hidden",
-    backgroundColor: "rgba(255, 255, 255, 0.9)",
-    borderWidth: 1,
-    borderColor: "rgba(16, 185, 129, 0.2)",
   },
-  heroContent: {
+
+  modalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "rgba(0,0,0,0.05)",
+  },
+
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+
+  modalCloseButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+
+  modalContent: {
     padding: 20,
   },
-  heroHeader: {
-    marginBottom: 20,
-    alignItems: "center",
-  },
-  heroTitle: {
-    fontSize: 22,
-    fontWeight: "700",
-    color: "#374151",
-    textAlign: "center",
-    marginBottom: 6,
-  },
-  heroDescription: {
-    fontSize: 14,
-    color: "#6b7280",
-    textAlign: "center",
-    fontWeight: "400",
-  },
-  statsGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
-    marginBottom: 16,
-  },
-  statCard: {
-    flex: 1,
-    minWidth: (screenWidth - 70) / 2,
-    backgroundColor: "rgba(255, 255, 255, 0.8)",
-    borderRadius: 12,
-    padding: 16,
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "rgba(16, 185, 129, 0.1)",
-  },
-  statValue: {
+
+  modalText: {
     fontSize: 16,
-    fontWeight: "700",
-    color: "#374151",
-    marginTop: 6,
-    marginBottom: 2,
-  },
-  statLabel: {
-    fontSize: 11,
-    color: "#6b7280",
-    fontWeight: "500",
-  },
-  costBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "rgba(16, 185, 129, 0.1)",
-    borderRadius: 12,
-    padding: 12,
-    gap: 8,
-    borderWidth: 1,
-    borderColor: "rgba(16, 185, 129, 0.2)",
-  },
-  costText: {
-    fontSize: 13,
-    fontWeight: "500",
-    color: "#374151",
-    flex: 1,
+    lineHeight: 24,
+    marginBottom: 24,
+    textAlign: "center",
   },
 
-  // Day Selector
-  daySelectorContainer: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-  },
-  daySelector: {
-    borderRadius: 16,
-    overflow: "hidden",
-    backgroundColor: "rgba(255, 255, 255, 0.9)",
-    borderWidth: 1,
-    borderColor: "rgba(16, 185, 129, 0.2)",
-    padding: 16,
-  },
-  daySelectorTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#374151",
-    marginBottom: 12,
-  },
-  daysContainer: {
-    paddingRight: 10,
-  },
-  dayChip: {
-    backgroundColor: "rgba(255, 255, 255, 0.8)",
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    marginRight: 10,
-    borderWidth: 1,
-    borderColor: "rgba(16, 185, 129, 0.2)",
-  },
-  selectedDayChip: {
-    backgroundColor: "#10b981",
-    borderColor: "#10b981",
-  },
-  dayChipText: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#374151",
-  },
-  selectedDayChipText: {
-    color: "#ffffff",
-  },
-
-  // Meals
-  mealsContainer: {
-    paddingHorizontal: 20,
-    paddingBottom: 32,
-  },
-  mealCardContainer: {
-    marginBottom: 16,
-  },
-  mealCard: {
-    borderRadius: 16,
-    overflow: "hidden",
-    backgroundColor: "rgba(255, 255, 255, 0.9)",
-    borderWidth: 1,
-    borderColor: "rgba(16, 185, 129, 0.2)",
-  },
-  mealHeader: {
+  modalActions: {
     flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    padding: 16,
-  },
-  mealHeaderLeft: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-  },
-  mealIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "rgba(16, 185, 129, 0.1)",
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 12,
-    borderWidth: 1,
-    borderColor: "rgba(16, 185, 129, 0.2)",
-  },
-  mealInfo: {
-    flex: 1,
-  },
-  mealName: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#374151",
-    marginBottom: 4,
-  },
-  mealMetaRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  mealTypeBadge: {
-    backgroundColor: "rgba(16, 185, 129, 0.1)",
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-  },
-  mealTypeText: {
-    fontSize: 11,
-    color: "#10b981",
-    fontWeight: "500",
-    textTransform: "capitalize",
-  },
-  timeIndicator: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  timeText: {
-    fontSize: 11,
-    color: "#6b7280",
-    fontWeight: "500",
-  },
-  mealStats: {
-    flexDirection: "row",
-    alignItems: "center",
     gap: 12,
   },
-  caloriesBadge: {
-    alignItems: "center",
-  },
-  caloriesValue: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#10b981",
-  },
-  caloriesLabel: {
-    fontSize: 12,
-    fontWeight: "500",
-    color: "#6c757d",
-    textAlign: "center",
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-    marginTop: 2,
-  },
-  caloriesText: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#10b981",
-  },
-  mealDetails: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-    borderTopWidth: 1,
-    borderTopColor: "rgba(16, 185, 129, 0.1)",
-  },
-  sectionTitle: {
-    fontSize: 16,
-    fontWeight: "700",
-    color: "#064e3b",
-    marginBottom: 12,
-    marginTop: 16,
-  },
-  mealNutrition: {},
-  nutritionRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  nutritionDetailItem: {
-    alignItems: "center",
+
+  cancelButton: {
     flex: 1,
-  },
-  nutritionDetailValue: {
-    fontSize: 16,
-    fontWeight: "800",
-    color: "#10b981",
-    marginBottom: 4,
-  },
-  nutritionDetailLabel: {
-    fontSize: 12,
-    color: "#059669",
-    fontWeight: "600",
-  },
-  cookingInfo: {},
-  cookingDetails: {
-    flexDirection: "row",
-    gap: 16,
-  },
-  cookingItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    backgroundColor: "rgba(16, 185, 129, 0.08)",
+    paddingVertical: 12,
     borderRadius: 12,
-    padding: 12,
-    flex: 1,
+    alignItems: "center",
   },
-  cookingText: {
+
+  cancelButtonText: {
     fontSize: 14,
-    color: "#059669",
     fontWeight: "600",
   },
-  ingredientsSection: {},
-  ingredientsList: {},
-  ingredientItem: {
-    marginBottom: 8,
-  },
-  instructionsSection: {},
-  instructionNumber: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: "#10b981",
-    justifyContent: "center",
+
+  confirmButton: {
+    flex: 2,
+    flexDirection: "row",
     alignItems: "center",
-    marginRight: 12,
-    marginTop: 2,
+    justifyContent: "center",
+    paddingVertical: 12,
+    borderRadius: 12,
+    gap: 8,
   },
-  instructionNumberText: {
-    fontSize: 12,
-    fontWeight: "700",
+
+  confirmButtonText: {
     color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "600",
   },
 });

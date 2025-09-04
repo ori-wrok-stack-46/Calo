@@ -891,8 +891,9 @@ export default function RecommendedMenusScreen() {
           </View>
 
           <ScrollView
-            style={styles.modalContent}
+            style={styles.modalScrollContent}
             showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.modalContentContainer}
           >
             {/* Menu Name */}
             <View style={styles.inputSection}>
@@ -1139,8 +1140,9 @@ export default function RecommendedMenusScreen() {
           </View>
 
           <ScrollView
-            style={styles.modalContent}
+            style={styles.modalScrollContent}
             showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.modalContentContainer}
           >
             {/* Rating Section */}
             <View style={styles.inputSection}>
@@ -1962,9 +1964,13 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
 
-  modalContent: {
+  modalScrollContent: {
     flex: 1,
+  },
+
+  modalContentContainer: {
     paddingHorizontal: 20,
+    paddingBottom: 20, // Add padding to the bottom of the scrollable content
   },
 
   // Form Inputs

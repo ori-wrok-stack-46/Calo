@@ -12,6 +12,7 @@ import {
   Modal,
   TextInput,
   FlatList,
+  Animated,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -45,7 +46,7 @@ import {
 import { api, mealPlanAPI } from "@/src/services/api";
 import LoadingScreen from "@/components/LoadingScreen";
 
-const { width } = Dimensions.get("window");
+const { width, width: screenWidth } = Dimensions.get("window");
 
 interface MealPlan {
   plan_id: string;
@@ -1048,23 +1049,22 @@ export default function ActiveMenuScreen() {
     >
       <View style={styles.modalOverlay}>
         <View
-          style={[styles.modalContent, { backgroundColor: colors.background }]}
+          style={[
+            styles.enhancedModalContainer,
+            { backgroundColor: colors.card },
+          ]}
         >
-          <View
-            style={[styles.modalHeader, { borderBottomColor: colors.border }]}
-          >
-            <Text
-              style={[
-                styles.modalTitle,
-                { color: colors.text },
-                isRTL && styles.rtlText,
-              ]}
+          <View style={styles.modalHeader}>
+            <TouchableOpacity
+              onPress={() => setShowMealModal(false)}
+              style={styles.modalCloseButton}
             >
-              {selectedMeal?.name}
-            </Text>
-            <TouchableOpacity onPress={() => setShowMealModal(false)}>
               <X size={24} color={colors.icon} />
             </TouchableOpacity>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>
+              {selectedMeal?.name}
+            </Text>
+            <View style={{ width: 40 }} />
           </View>
 
           <ScrollView style={styles.modalBody}>
@@ -1239,23 +1239,22 @@ export default function ActiveMenuScreen() {
     >
       <View style={styles.modalOverlay}>
         <View
-          style={[styles.modalContent, { backgroundColor: colors.background }]}
+          style={[
+            styles.enhancedModalContainer,
+            { backgroundColor: colors.card },
+          ]}
         >
-          <View
-            style={[styles.modalHeader, { borderBottomColor: colors.border }]}
-          >
-            <Text
-              style={[
-                styles.modalTitle,
-                { color: colors.text },
-                isRTL && styles.rtlText,
-              ]}
+          <View style={styles.modalHeader}>
+            <TouchableOpacity
+              onPress={() => setShowCompletePlanModal(false)}
+              style={styles.modalCloseButton}
             >
-              {language === "he" ? "השלמת התוכנית" : "Complete Plan"}
-            </Text>
-            <TouchableOpacity onPress={() => setShowCompletePlanModal(false)}>
               <X size={24} color={colors.icon} />
             </TouchableOpacity>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>
+              {language === "he" ? "השלמת התוכנית" : "Complete Plan"}
+            </Text>
+            <View style={{ width: 40 }} />
           </View>
 
           <ScrollView style={styles.modalBody}>
@@ -1448,23 +1447,22 @@ export default function ActiveMenuScreen() {
     >
       <View style={styles.modalOverlay}>
         <View
-          style={[styles.modalContent, { backgroundColor: colors.background }]}
+          style={[
+            styles.enhancedModalContainer,
+            { backgroundColor: colors.card },
+          ]}
         >
-          <View
-            style={[styles.modalHeader, { borderBottomColor: colors.border }]}
-          >
-            <Text
-              style={[
-                styles.modalTitle,
-                { color: colors.text },
-                isRTL && styles.rtlText,
-              ]}
+          <View style={styles.modalHeader}>
+            <TouchableOpacity
+              onPress={() => setShowSwapModal(false)}
+              style={styles.modalCloseButton}
             >
-              {language === "he" ? "החלף ארוחה" : "Swap Meal"}
-            </Text>
-            <TouchableOpacity onPress={() => setShowSwapModal(false)}>
               <X size={24} color={colors.icon} />
             </TouchableOpacity>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>
+              {language === "he" ? "החלף ארוחה" : "Swap Meal"}
+            </Text>
+            <View style={{ width: 40 }} />
           </View>
 
           <ScrollView style={styles.modalBody}>
@@ -2272,19 +2270,35 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.5)",
-    justifyContent: "flex-end",
+    justifyContent: "center",
+    alignItems: "center",
   },
   modalContent: {
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     maxHeight: "85%",
   },
+  enhancedModalContainer: {
+    width: screenWidth - 40,
+    maxHeight: "90%",
+    borderRadius: 20,
+    paddingBottom: 20,
+  },
+  modalCloseButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+  },
   modalHeader: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    padding: 20,
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingVertical: 16,
     borderBottomWidth: 1,
+    borderBottomColor: "rgba(0,0,0,0.05)",
   },
   modalTitle: {
     fontSize: 18,
@@ -2292,8 +2306,9 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   modalBody: {
-    padding: 20,
-    maxHeight: 500,
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
   },
   mealDetailsSection: {
     marginBottom: 20,
