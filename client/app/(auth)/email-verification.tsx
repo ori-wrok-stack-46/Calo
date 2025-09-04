@@ -4,19 +4,22 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  StyleSheet,
   Alert,
+  StyleSheet,
+  Dimensions,
   KeyboardAvoidingView,
   Platform,
-  Dimensions,
+  SafeAreaView,
   I18nManager,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useTheme } from "@/src/context/ThemeContext";
+import { useDispatch } from "react-redux";
+import { verifyEmail } from "@/src/store/authSlice";
+import { AppDispatch } from "@/src/store";
 
 const { width, height } = Dimensions.get("window");
 
@@ -28,9 +31,11 @@ export default function EmailVerificationScreen() {
   const [canResend, setCanResend] = useState(false);
 
   const router = useRouter();
+  const { email } = useLocalSearchParams();
   const { t } = useTranslation();
   const { colors } = useTheme();
   const isRTL = I18nManager.isRTL;
+  const dispatch = useDispatch<AppDispatch>();
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -59,28 +64,42 @@ export default function EmailVerificationScreen() {
 
     setLoading(true);
     try {
-      // Add your verification API call here
-      // const response = await verifyEmailAPI(verificationCode);
+      const userEmail = Array.isArray(email) ? email[0] : email || "";
 
-      // For now, simulate success
-      setTimeout(() => {
-        setLoading(false);
-        Alert.alert(
-          t("common.success"),
-          t("auth.email_verification.verification_successful"),
-          [
-            {
-              text: t("common.ok"),
-              onPress: () => router.replace("/(tabs)"),
-            },
-          ]
-        );
-      }, 2000);
-    } catch (error) {
+      if (!userEmail) {
+        throw new Error("Email parameter missing");
+      }
+
+      console.log("🔄 Dispatching email verification...");
+      const result = await dispatch(
+        verifyEmail({
+          email: userEmail,
+          code: verificationCode,
+        })
+      ).unwrap();
+
+      console.log("✅ Email verification successful:", result);
       setLoading(false);
+
+      Alert.alert(
+        t("common.success"),
+        t("auth.email_verification.verification_successful"),
+        [
+          {
+            text: t("common.ok"),
+            onPress: () => {
+              // Let the auth routing logic handle the redirect
+              router.replace("/");
+            },
+          },
+        ]
+      );
+    } catch (error: any) {
+      setLoading(false);
+      console.error("Email verification error:", error);
       Alert.alert(
         t("common.error"),
-        t("auth.email_verification.verification_failed")
+        error.message || t("auth.email_verification.verification_failed")
       );
     }
   };
@@ -90,11 +109,28 @@ export default function EmailVerificationScreen() {
 
     setResendLoading(true);
     try {
-      // Add your resend API call here
-      // await resendVerificationCodeAPI();
+      const userEmail = Array.isArray(email) ? email[0] : email || "";
 
-      // For now, simulate success
-      setTimeout(() => {
+      if (!userEmail) {
+        throw new Error("Email parameter missing");
+      }
+
+      const response = await fetch(
+        `${process.env.EXPO_PUBLIC_API_URL}/api/auth/resend-verification`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email: userEmail,
+          }),
+        }
+      );
+
+      const result = await response.json();
+
+      if (result.success) {
         setResendLoading(false);
         setCanResend(false);
         setCountdown(60);
@@ -102,12 +138,15 @@ export default function EmailVerificationScreen() {
           t("common.success"),
           t("auth.email_verification.resend_successful")
         );
-      }, 2000);
-    } catch (error) {
+      } else {
+        throw new Error(result.error || "Resend failed");
+      }
+    } catch (error: any) {
       setResendLoading(false);
+      console.error("Resend verification error:", error);
       Alert.alert(
         t("common.error"),
-        t("auth.email_verification.resend_failed")
+        error.message || t("auth.email_verification.resend_failed")
       );
     }
   };

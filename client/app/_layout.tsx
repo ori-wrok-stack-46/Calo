@@ -26,7 +26,6 @@ import i18n from "@/src/i18n";
 import LanguageToolbar from "@/components/ToolBar";
 import { NotificationService } from "@/src/services/notifications";
 import React from "react";
-import FloatingChatButton from "@/components/FloatingChatButton";
 import { I18nManager } from "react-native";
 import { useOptimizedAuthSelector } from "@/hooks/useOptimizedSelector";
 import { ErrorHandler } from "@/src/utils/errorHandler";
@@ -318,20 +317,125 @@ function useHelpContent(): { title: string; description: string } | undefined {
 const AppContent = React.memo(() => {
   const authState = useOptimizedAuthSelector();
   const { isAuthenticated = false, user = null } = authState || {};
+  const segments = useSegments() as string[];
+  const router = useRouter(); // Get router instance
+
+  const authInitialized = true; // Assuming auth is initialized here for the sake of the example
+
+  useEffect(() => {
+    const handleRouting = () => {
+      if (!authInitialized) return;
+
+      // Enhanced routing logic with complete step-by-step flow
+      const currentPath = segments?.join("/") || "";
+      console.log("🚦 Root Layout - Current Path:", currentPath);
+      console.log("🚦 Root Layout - Auth State:", {
+        isAuthenticated,
+        user: user
+          ? {
+              email_verified: user.email_verified,
+              is_questionnaire_completed: user.is_questionnaire_completed,
+              subscription_type: user.subscription_type,
+            }
+          : null,
+      });
+
+      // If not authenticated, redirect to signin
+      if (!isAuthenticated) {
+        const authRoutes = [
+          "signin",
+          "signup",
+          "email-verification",
+          "forgotPassword",
+          "resetPassword",
+          "reset-password-verify",
+        ];
+        if (!authRoutes.some((route) => currentPath.includes(route))) {
+          console.log("🚦 Not authenticated - redirecting to signin");
+          router.replace("/(auth)/signin");
+        }
+        return;
+      }
+
+      // If authenticated but no user data, wait for it
+      if (!user) {
+        console.log("🚦 Waiting for user data...");
+        return;
+      }
+
+      // Step-by-Step Progress Check (only for authenticated users)
+
+      // Step 1: Check Email Verification
+      if (!user.email_verified) {
+        if (!currentPath.includes("email-verification")) {
+          console.log("🚦 Step 1 Failed: Email not verified - redirecting");
+          router.replace("/(auth)/email-verification");
+        }
+        return;
+      }
+
+      // Step 2: Check Questionnaire Completion
+      if (!user.is_questionnaire_completed) {
+        if (!currentPath.includes("questionnaire")) {
+          console.log(
+            "🚦 Step 2 Failed: Questionnaire not completed - redirecting"
+          );
+          router.replace("/questionnaire");
+        }
+        return;
+      }
+
+      // Step 3: Check Plan Selection
+      if (!user.subscription_type || user.subscription_type === null) {
+        if (!currentPath.includes("payment-plan")) {
+          console.log("🚦 Step 3 Failed: No plan selected - redirecting");
+          router.replace("/payment-plan");
+        }
+        return;
+      }
+
+      // Step 4: Payment Check (for paid plans)
+      // Note: Add payment status check here if you have a separate payment_status field
+      const hasPaidPlan =
+        user.subscription_type === "PREMIUM" ||
+        user.subscription_type === "GOLD";
+      // For now, we assume if they have PREMIUM/GOLD subscription_type, payment is complete
+
+      // Step 5: All checks passed - ensure user is in main app
+      const exemptRoutes = ["payment", "privacy-policy"];
+      const shouldBeInMainApp = !exemptRoutes.some((route) =>
+        currentPath.includes(route)
+      );
+
+      if (
+        shouldBeInMainApp &&
+        !currentPath.includes("(tabs)") &&
+        currentPath !== ""
+      ) {
+        console.log("🚦 All checks passed - redirecting to main app");
+        router.replace("/(tabs)");
+        return;
+      }
+
+      console.log("✅ Root Layout - User in correct location");
+    };
+
+    handleRouting();
+  }, [
+    authInitialized,
+    isAuthenticated,
+    user?.email_verified,
+    user?.is_questionnaire_completed,
+    user?.subscription_type,
+    segments?.join("/") || "",
+    router,
+  ]);
 
   const [loaded] = useFonts({
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
 
-  const segments = useSegments() as string[];
-  const navigationState = useNavigationState(user, isAuthenticated, segments);
-
-  useNavigationManager(
-    navigationState.targetRoute,
-    navigationState.currentRoute,
-    navigationState.shouldNavigate,
-    loaded
-  );
+  // Removed the useNavigationState and useNavigationManager as the logic is now within the useEffect above.
 
   useEffect(() => {
     if (loaded) {
@@ -361,7 +465,6 @@ const MainApp = React.memo(() => {
     <View style={styles.container}>
       <AppContent />
       <LanguageToolbar helpContent={helpContent} />
-      {isAuthenticated && <FloatingChatButton />}
       <ToastWrapper />
     </View>
   );

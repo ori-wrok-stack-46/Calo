@@ -19,14 +19,18 @@ router.post("/signup", async (req, res, next) => {
     const result = await AuthService.signUp(validatedData);
 
     console.log("✅ Signup successful - email verification required");
-    console.log("📧 Verification code sent to:", validatedData.email);
+    console.log("📧 Verification process initiated for:", validatedData.email);
+
+    const message =
+      process.env.NODE_ENV === "production"
+        ? "Account created successfully! Please check your email for verification code."
+        : "Account created successfully! Please check your email for verification code (or check console for development).";
 
     res.status(201).json({
       success: true,
       user: result.user,
       needsEmailVerification: result.needsEmailVerification,
-      message:
-        "Account created successfully! Please check your email for verification code (check console for development)",
+      message: message,
     });
   } catch (error) {
     console.error("💥 Signup error:", error);
@@ -50,17 +54,22 @@ router.post("/signup", async (req, res, next) => {
   }
 });
 
-router.post("/verify-email", async (req, res) => {
+router.post("/verify-email", async (req, res, next) => {
   try {
+    console.log("🔄 Processing email verification request...");
+    console.log("📧 Request body:", req.body);
+
     const { email, code } = req.body;
 
     if (!email || !code) {
+      console.log("❌ Missing email or code");
       return res.status(400).json({
         success: false,
         error: "Email and verification code are required",
       });
     }
 
+    console.log(`🔒 Verifying code ${code} for email: ${email}`);
     const result = await AuthService.verifyEmail(email, code);
 
     // Set secure HTTP-only cookie for web clients
@@ -75,7 +84,8 @@ router.post("/verify-email", async (req, res) => {
       console.log("🍪 Cookie set for web client");
     }
 
-    console.log("✅ Email verification successful");
+    console.log("✅ Email verification successful for:", email);
+    console.log("👤 Updated user:", result.user);
 
     res.json({
       success: true,

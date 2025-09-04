@@ -53,7 +53,11 @@ interface MenuItem {
 }
 
 interface MenuCreatorProps {
-  onCreateMenu: (selectedItems: MenuItem[]) => void;
+  onCreateMenu: (
+    selectedItems: MenuItem[],
+    selectedDays?: any,
+    menuSections?: any
+  ) => void;
   onClose: () => void;
 }
 
@@ -67,6 +71,16 @@ export const MenuCreator: React.FC<MenuCreatorProps> = ({
   const [selectedItems, setSelectedItems] = useState<MenuItem[]>([]);
   const [activeCategory, setActiveCategory] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
+
+  // For future enhancements: multi-day planning and sections
+  const [selectedDays] = useState<string[]>([]); // Placeholder
+  const [menuSections] = useState<any>({}); // Placeholder
+
+  // Helper function to get total selected items, used for button disabled state
+  const getTotalSelectedItems = () => {
+    // In a more complex scenario, this would count items across days/sections
+    return selectedItems.length;
+  };
 
   // Animation refs
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -460,16 +474,20 @@ export const MenuCreator: React.FC<MenuCreatorProps> = ({
               styles.createButton,
               {
                 backgroundColor:
-                  selectedItems.length > 0 ? colors.emerald500 : colors.border,
-                opacity: selectedItems.length > 0 ? 1 : 0.5,
+                  getTotalSelectedItems() > 0
+                    ? colors.emerald500
+                    : colors.border,
+                opacity: getTotalSelectedItems() > 0 ? 1 : 0.5,
               },
             ]}
-            onPress={() => onCreateMenu(selectedItems)}
-            disabled={selectedItems.length === 0}
+            onPress={() =>
+              onCreateMenu(selectedItems, selectedDays, menuSections)
+            }
+            disabled={getTotalSelectedItems() === 0}
           >
             <ChefHat size={16} color="#ffffff" />
             <Text style={styles.createButtonText}>
-              {t("menu.create") || "Create"} ({selectedItems.length})
+              {t("menu.create") || "Create"} ({getTotalSelectedItems()})
             </Text>
           </TouchableOpacity>
         </View>

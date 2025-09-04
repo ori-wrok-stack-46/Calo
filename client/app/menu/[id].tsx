@@ -39,6 +39,7 @@ import {
   Award,
   Plus,
   Send,
+  RefreshCw,
 } from "lucide-react-native";
 import { api } from "@/src/services/api";
 import LoadingScreen from "@/components/LoadingScreen";
@@ -204,6 +205,46 @@ export default function MenuDetailsScreen() {
     if (!menu) return [];
     const days = new Set(menu.meals.map((meal) => meal.day_number || 1));
     return Array.from(days).sort((a, b) => a - b);
+  };
+
+  const getDayNames = () => {
+    const days = getDaysArray();
+    return days.map((day) => {
+      switch (day) {
+        case 1:
+          return language === "he" ? "יום ראשון" : "Sunday";
+        case 2:
+          return language === "he" ? "יום שני" : "Monday";
+        case 3:
+          return language === "he" ? "יום שלישי" : "Tuesday";
+        case 4:
+          return language === "he" ? "יום רביעי" : "Wednesday";
+        case 5:
+          return language === "he" ? "יום חמישי" : "Thursday";
+        case 6:
+          return language === "he" ? "יום שישי" : "Friday";
+        case 7:
+          return language === "he" ? "יום שבת" : "Saturday";
+        default:
+          return language === "he" ? `יום ${day}` : `Day ${day}`;
+      }
+    });
+  };
+
+  const handleSwapMeal = async (
+    mealToSwap: Meal,
+    day: string,
+    mealType: string
+  ) => {
+    // Placeholder for the actual swap logic.
+    // This would involve fetching available meals for the given day and meal type,
+    // and then allowing the user to select a replacement.
+    Alert.alert(
+      "Swap Meal",
+      `Swap ${mealToSwap.name} for ${mealType} on ${day}?`
+    );
+    // You would typically navigate to a new screen or open a modal here
+    // to allow the user to select a new meal.
   };
 
   const getMealTypeIcon = (mealType: string) => {
@@ -481,6 +522,50 @@ export default function MenuDetailsScreen() {
                 </Text>
               </View>
             )}
+
+            {/* Action Buttons */}
+            <View style={styles.menuActions}>
+              <TouchableOpacity
+                style={[styles.viewButton, { backgroundColor: colors.surface }]}
+                onPress={() => {}} // Placeholder for onView logic
+              >
+                <Eye size={16} color={colors.icon} />
+                <Text style={[styles.viewButtonText, { color: colors.icon }]}>
+                  {language === "he" ? "צפה" : "View"}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.swapButton, { backgroundColor: colors.surface }]}
+                onPress={() =>
+                  handleSwapMeal(
+                    meal,
+                    getDayNames()[selectedDay - 1],
+                    meal.meal_type
+                  )
+                }
+              >
+                <RefreshCw size={16} color={colors.emerald500} />
+                <Text
+                  style={[styles.swapButtonText, { color: colors.emerald500 }]}
+                >
+                  {language === "he" ? "החלף" : "Swap"}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.startButton,
+                  { backgroundColor: colors.emerald500 },
+                ]}
+                onPress={() => {}} // Placeholder for onStart logic
+              >
+                <Play size={16} color="#ffffff" />
+                <Text style={styles.startButtonText}>
+                  {language === "he" ? "התחל" : "Start"}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         )}
       </View>
@@ -1401,6 +1486,55 @@ const styles = StyleSheet.create({
   confirmButtonText: {
     color: "#ffffff",
     fontSize: 16,
+    fontWeight: "600",
+  },
+
+  // Added styles for swap button
+  menuActions: {
+    flexDirection: "row",
+    justifyContent: "flex-end", // Changed to flex-end to align buttons to the right
+    alignItems: "center",
+    marginTop: 16, // Add some space above the buttons
+    gap: 8,
+  },
+  viewButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    gap: 4,
+  },
+  viewButtonText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  swapButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    gap: 4,
+    borderWidth: 1,
+  },
+  swapButtonText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  startButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    gap: 4,
+  },
+  startButtonText: {
+    fontSize: 12,
     fontWeight: "600",
   },
 });

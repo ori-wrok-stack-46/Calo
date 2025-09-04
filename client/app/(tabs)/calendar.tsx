@@ -15,6 +15,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
 import { useDispatch, useSelector } from "react-redux";
 import { RootState, AppDispatch } from "../../src/store";
+import { useTheme } from "@/src/context/ThemeContext";
+import { useLanguage } from "@/src/i18n/context/LanguageContext";
 import {
   fetchCalendarData,
   addEvent,
@@ -82,7 +84,6 @@ export default function CalendarScreen() {
     isDeletingEvent,
     error,
   } = useSelector((state: RootState) => state.calendar);
-  const isRTL = i18n.language === "he";
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDay, setSelectedDay] = useState<DayData | null>(null);
   const [showDayModal, setShowDayModal] = useState(false);
@@ -98,121 +99,89 @@ export default function CalendarScreen() {
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedEvent, setSelectedEvent] = useState<any>(null);
   const [isEditingEvent, setIsEditingEvent] = useState(false);
-  const [language, setLanguage] = useState<"he" | "en">("he");
 
-  const texts = {
-    he: {
-      title: "לוח יעדים",
-      subtitle: "עקוב אחרי ההתקדמות היומית שלך",
-      monthlyStats: "סטטיסטיקות חודשיות",
-      successfulDays: "ימים מוצלחים",
-      averageCompletion: "ממוצע השלמה",
-      bestStreak: "רצף הטוב ביותר",
-      currentStreak: "רצף נוכחי",
-      dayDetails: "פרטי היום",
-      caloriesGoal: "יעד קלוריות",
-      proteinGoal: "יעד חלבון",
-      waterGoal: "יעד מים",
-      consumed: "נצרך",
-      goal: "יעד",
-      deviation: "סטייה",
-      over: "עודף",
-      under: "חסר",
-      goalMet: "יעד הושג!",
-      goalNotMet: "יעד לא הושג",
-      days: "ימים",
-      kcal: 'קק"ל',
-      g: "גר׳",
-      ml: 'מ"ל',
-      today: "היום",
-      selectDay: "בחר יום לצפייה בפרטים",
-      excellent: "מעולה!",
-      good: "טוב!",
-      needsImprovement: "צריך שיפור",
-      monthNames: [
-        "ינואר",
-        "פברואר",
-        "מרץ",
-        "אפריל",
-        "מאי",
-        "יוני",
-        "יולי",
-        "אוגוסט",
-        "ספטמבר",
-        "אוקטובר",
-        "נובמבר",
-        "דצמבר",
-      ],
-      dayNames: ["א", "ב", "ג", "ד", "ה", "ו", "ש"],
-      eventDetails: "פרטי האירוע",
-      editEvent: "ערוך אירוע",
-      viewEvent: "צפה באירוע",
-      deleteEvent: "מחק אירוע",
-      addEvent: "הוסף אירוע",
-      cancel: "ביטול",
-      save: "שמור",
-      edit: "ערוך",
-      delete: "מחק",
-    },
-    en: {
-      title: "Goal Calendar",
-      subtitle: "Track your daily progress",
-      monthlyStats: "Monthly Statistics",
-      successfulDays: "Successful Days",
-      averageCompletion: "Average Completion",
-      bestStreak: "Best Streak",
-      currentStreak: "Current Streak",
-      dayDetails: "Day Details",
-      caloriesGoal: "Calorie Goal",
-      proteinGoal: "Protein Goal",
-      waterGoal: "Water Goal",
-      consumed: "Consumed",
-      goal: "Goal",
-      deviation: "Deviation",
-      over: "Over",
-      under: "Under",
-      goalMet: "Goal Achieved!",
-      goalNotMet: "Goal Not Met",
-      days: "days",
-      kcal: "kcal",
-      g: "g",
-      ml: "ml",
-      today: "Today",
-      selectDay: "Select a day to view details",
-      excellent: "Excellent!",
-      good: "Good!",
-      needsImprovement: "Needs Improvement",
-      monthNames: [
-        "January",
-        "February",
-        "March",
-        "April",
-        "May",
-        "June",
-        "July",
-        "August",
-        "September",
-        "October",
-        "November",
-        "December",
-      ],
-      dayNames: ["S", "M", "T", "W", "T", "F", "S"],
-      eventDetails: "Event Details",
-      editEvent: "Edit Event",
-      viewEvent: "View Event",
-      deleteEvent: "Delete Event",
-      addEvent: "Add Event",
-      cancel: "Cancel",
-      save: "Save",
-      edit: "Edit",
-      delete: "Delete",
-    },
-  };
+  // Theme and language hooks
+  const { colors, isDark } = useTheme();
+  const { language, isRTL } = useLanguage();
 
-  const t = texts[language];
-
-  const toggleLanguage = () => {
-    setLanguage((prev) => (prev === "he" ? "en" : "he"));
+  const t = {
+    title: language === "he" ? "לוח יעדים" : "Goal Calendar",
+    subtitle:
+      language === "he"
+        ? "עקוב אחרי ההתקדמות היומית שלך"
+        : "Track your daily progress",
+    monthlyStats:
+      language === "he" ? "סטטיסטיקות חודשיות" : "Monthly Statistics",
+    successfulDays: language === "he" ? "ימים מוצלחים" : "Successful Days",
+    averageCompletion: language === "he" ? "ממוצע השלמה" : "Average Completion",
+    bestStreak: language === "he" ? "רצף הטוב ביותר" : "Best Streak",
+    currentStreak: language === "he" ? "רצף נוכחי" : "Current Streak",
+    dayDetails: language === "he" ? "פרטי היום" : "Day Details",
+    caloriesGoal: language === "he" ? "יעד קלוריות" : "Calorie Goal",
+    proteinGoal: language === "he" ? "יעד חלבון" : "Protein Goal",
+    waterGoal: language === "he" ? "יעד מים" : "Water Goal",
+    consumed: language === "he" ? "נצרך" : "Consumed",
+    goal: language === "he" ? "יעד" : "Goal",
+    deviation: language === "he" ? "סטייה" : "Deviation",
+    over: language === "he" ? "עודף" : "Over",
+    under: language === "he" ? "חסר" : "Under",
+    goalMet: language === "he" ? "יעד הושג!" : "Goal Achieved!",
+    goalNotMet: language === "he" ? "יעד לא הושג" : "Goal Not Met",
+    days: language === "he" ? "ימים" : "days",
+    kcal: language === "he" ? 'קק"ל' : "kcal",
+    g: language === "he" ? "גר׳" : "g",
+    ml: language === "he" ? 'מ"ל' : "ml",
+    today: language === "he" ? "היום" : "Today",
+    selectDay:
+      language === "he"
+        ? "בחר יום לצפייה בפרטים"
+        : "Select a day to view details",
+    excellent: language === "he" ? "מעולה!" : "Excellent!",
+    good: language === "he" ? "טוב!" : "Good!",
+    needsImprovement: language === "he" ? "צריך שיפור" : "Needs Improvement",
+    monthNames:
+      language === "he"
+        ? [
+            "ינואר",
+            "פברואר",
+            "מרץ",
+            "אפריל",
+            "מאי",
+            "יוני",
+            "יולי",
+            "אוגוסט",
+            "ספטמבר",
+            "אוקטובר",
+            "נובמבר",
+            "דצמבר",
+          ]
+        : [
+            "January",
+            "February",
+            "March",
+            "April",
+            "May",
+            "June",
+            "July",
+            "August",
+            "September",
+            "October",
+            "November",
+            "December",
+          ],
+    dayNames:
+      language === "he"
+        ? ["א", "ב", "ג", "ד", "ה", "ו", "ש"]
+        : ["S", "M", "T", "W", "T", "F", "S"],
+    eventDetails: language === "he" ? "פרטי האירוע" : "Event Details",
+    editEvent: language === "he" ? "ערוך אירוע" : "Edit Event",
+    viewEvent: language === "he" ? "צפה באירוע" : "View Event",
+    deleteEvent: language === "he" ? "מחק אירוע" : "Delete Event",
+    addEvent: language === "he" ? "הוסף אירוע" : "Add Event",
+    cancel: language === "he" ? "ביטול" : "Cancel",
+    save: language === "he" ? "שמור" : "Save",
+    edit: language === "he" ? "ערוך" : "Edit",
+    delete: language === "he" ? "מחק" : "Delete",
   };
 
   useEffect(() => {
@@ -599,7 +568,7 @@ export default function CalendarScreen() {
         <Text style={styles.sectionTitle}>{t.monthlyStats}</Text>
         <View style={styles.statsContainer}>
           <LinearGradient
-            colors={["#16A08515", "#16A08505"]}
+            colors={[colors.emerald + "15", colors.emerald + "05"]}
             style={styles.statsGradient}
           >
             <Text style={styles.motivationalMessage}>
@@ -667,13 +636,31 @@ export default function CalendarScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: colors.background }]}
+    >
       <ScrollView showsVerticalScrollIndicator={false}>
         {/* Header */}
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.title}>{t.title}</Text>
-            <Text style={styles.subtitle}>{t.subtitle}</Text>
+        <View style={[styles.header, isRTL && styles.headerRTL]}>
+          <View style={[isRTL && styles.headerContentRTL]}>
+            <Text
+              style={[
+                styles.title,
+                { color: colors.text },
+                isRTL && styles.textRTL,
+              ]}
+            >
+              {t.title}
+            </Text>
+            <Text
+              style={[
+                styles.subtitle,
+                { color: colors.textSecondary },
+                isRTL && styles.textRTL,
+              ]}
+            >
+              {t.subtitle}
+            </Text>
           </View>
         </View>
 
@@ -709,7 +696,9 @@ export default function CalendarScreen() {
 
         {/* Calendar */}
         <View style={styles.section}>
-          <View style={styles.calendarContainer}>
+          <View
+            style={[styles.calendarContainer, { backgroundColor: colors.card }]}
+          >
             {renderWeekDays()}
             <View style={styles.daysGrid}>
               {getDaysInMonth().map((dayData, index) =>
@@ -1329,7 +1318,6 @@ export default function CalendarScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#F8F9FA",
   },
   centered: {
     flex: 1,
@@ -1513,7 +1501,6 @@ const styles = StyleSheet.create({
     marginLeft: 8,
   },
   calendarContainer: {
-    backgroundColor: "#FFFFFF",
     borderRadius: 16,
     padding: 16,
     elevation: 2,
@@ -2128,4 +2115,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
   },
+
+  // RTL Support Styles
+  headerRTL: {
+    flexDirection: "row-reverse",
+  },
+
+  headerContentRTL: {
+    alignItems: "flex-end",
+  },
+
 });

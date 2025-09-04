@@ -1935,9 +1935,9 @@ const styles = StyleSheet.create({
   },
 
   enhancedModalContainer: {
-    maxHeight: "90%",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    width: "90%",
+    maxHeight: "85%",
+    borderRadius: 20,
     paddingBottom: 20,
   },
 
@@ -1965,12 +1965,13 @@ const styles = StyleSheet.create({
   },
 
   modalScrollContent: {
-    flex: 1,
+    flexGrow: 1,
+    maxHeight: 400,
   },
 
   modalContentContainer: {
     paddingHorizontal: 20,
-    paddingBottom: 20, // Add padding to the bottom of the scrollable content
+    paddingBottom: 120, // Add padding to the bottom of the scrollable content
   },
 
   // Form Inputs

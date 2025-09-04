@@ -149,13 +149,22 @@ export class AuthService {
     name: string
   ) {
     try {
-      console.log("📧 EMAIL_USER:", process.env.EMAIL_USER);
-      console.log();
-      console.log("🔑 EMAIL_PASSWORD value:", process.env.EMAIL_PASSWORD); // Temporary debug
+      console.log("📧 Attempting to send verification email to:", email);
+
+      // Check if email credentials are configured
+      if (!process.env.EMAIL_USER || !process.env.EMAIL_PASSWORD) {
+        console.error(
+          "❌ Email credentials not configured in environment variables"
+        );
+        throw new Error(
+          "Email service not configured. Please contact support."
+        );
+      }
+
       const nodemailer = require("nodemailer");
 
-      // Fixed: createTransport (not createTransporter)
       const transporter = nodemailer.createTransport({
+        service: "gmail",
         host: "smtp.gmail.com",
         port: 587,
         secure: false,
@@ -163,11 +172,22 @@ export class AuthService {
           user: process.env.EMAIL_USER,
           pass: process.env.EMAIL_PASSWORD,
         },
+        tls: {
+          rejectUnauthorized: false,
+        },
+        debug: process.env.NODE_ENV !== "production",
+        logger: process.env.NODE_ENV !== "production",
       });
-      // Test the connection
+
+      // Improve email configuration debugging
       console.log("🔍 Testing email connection...");
+      console.log("📧 Email config:", {
+        user: process.env.EMAIL_USER,
+        hasPassword: !!process.env.EMAIL_PASSWORD,
+        passwordLength: process.env.EMAIL_PASSWORD?.length || 0,
+      });
       await transporter.verify();
-      console.log("✅ Email connection verified", transporter);
+      console.log("✅ Email connection successful");
 
       const mailOptions = {
         from: `"Calo Fitness & Diet" <${process.env.EMAIL_USER}>`,
@@ -321,29 +341,46 @@ export class AuthService {
 
       return true;
     } catch (error: any) {
-      console.error("❌ Failed to send verification email:", error, { email });
+      console.error("❌ Failed to send verification email:", error);
 
       // More detailed error logging
       if (error.code === "EAUTH") {
         console.error(
           "🔐 Authentication failed - check your email credentials"
         );
+        console.error(
+          "💡 Make sure you're using an App Password for Gmail, not your regular password"
+        );
       } else if (error.code === "ECONNECTION") {
         console.error("🌐 Connection failed - check your internet connection");
+      } else if (error.code === "ESOCKET") {
+        console.error("🔌 Socket error - check network connectivity");
+      } else {
+        console.error("🚨 Unknown email error:", error.message);
       }
 
-      // Fallback to console logging if email fails
+      // Fallback to console logging for development
       console.log(`📧 FALLBACK - Verification email for ${email}`);
       console.log(`👤 Name: ${name}`);
       console.log(`🔑 Verification Code: ${code}`);
       console.log(`⏰ Code expires in 15 minutes`);
+      console.log(`⚠️ Please check server console for verification code`);
 
-      // Don't throw error - let the signup continue even if email fails
+      // For production, we should throw the error so signup knows email failed
+      if (process.env.NODE_ENV === "production") {
+        throw new Error(
+          "Failed to send verification email. Please try again or contact support."
+        );
+      }
+
+      // In development, continue without throwing error
       return true;
     }
   }
 
   static async verifyEmail(email: string, code: string) {
+    console.log(`🔒 Verifying email ${email} with code ${code}`);
+
     const user = await prisma.user.findUnique({
       where: { email },
       select: {
@@ -355,10 +392,19 @@ export class AuthService {
     });
 
     if (!user) {
+      console.log(`❌ User not found: ${email}`);
       throw new Error("User not found");
     }
 
+    console.log("🔍 User found:", {
+      email: user.email,
+      email_verified: user.email_verified,
+      has_code: !!user.email_verification_code,
+      code_expires: user.email_verification_expires,
+    });
+
     if (user.email_verified) {
+      console.log(`⚠️ Email already verified: ${email}`);
       throw new Error("Email already verified");
     }
 
@@ -366,12 +412,18 @@ export class AuthService {
       !user.email_verification_expires ||
       user.email_verification_expires < new Date()
     ) {
+      console.log(`❌ Verification code expired for: ${email}`);
       throw new Error("Verification code expired");
     }
 
     if (user.email_verification_code !== code) {
+      console.log(
+        `❌ Invalid verification code. Expected: ${user.email_verification_code}, Got: ${code}`
+      );
       throw new Error("Invalid verification code");
     }
+
+    console.log(`✅ Code verified, updating user: ${email}`);
 
     const updatedUser = await prisma.user.update({
       where: { email },
@@ -382,6 +434,8 @@ export class AuthService {
       },
       select: userSelectFields,
     });
+
+    console.log("✅ User updated:", updatedUser);
 
     const token = generateToken({
       user_id: updatedUser.user_id,
@@ -395,6 +449,8 @@ export class AuthService {
         expiresAt: getSessionExpiryDate(),
       },
     });
+
+    console.log(`✅ Session created for user: ${email}`);
 
     return { user: updatedUser, token };
   }
@@ -509,6 +565,11 @@ export class AuthService {
           user: process.env.EMAIL_USER,
           pass: process.env.EMAIL_PASSWORD,
         },
+        tls: {
+          rejectUnauthorized: false,
+        },
+        debug: process.env.NODE_ENV !== "production",
+        logger: process.env.NODE_ENV !== "production",
       });
 
       // Test the connection

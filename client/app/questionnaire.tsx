@@ -331,7 +331,7 @@ const QuestionnaireScreen: React.FC = () => {
       if (isEditMode || user?.is_questionnaire_completed) {
         router.back();
       } else {
-        router.replace("/payment-plan");
+        router.replace("/signin");
       }
     }
   };

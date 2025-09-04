@@ -7,6 +7,7 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
+  Dimensions,
 } from "react-native";
 import { Link, router } from "expo-router";
 import { useTranslation } from "react-i18next";
@@ -14,6 +15,8 @@ import { useLanguage } from "@/src/i18n/context/LanguageContext";
 import { useDispatch, useSelector } from "react-redux";
 import { signIn } from "@/src/store/authSlice";
 import { RootState, AppDispatch } from "@/src/store";
+
+const { width, height } = Dimensions.get("window");
 
 export default function SignInScreen() {
   const { t } = useTranslation();
@@ -41,83 +44,78 @@ export default function SignInScreen() {
   };
 
   return (
-    <View style={[styles.container, isRTL && styles.containerRTL]}>
-      <View style={styles.backgroundAccent} />
-
-      <View style={styles.content}>
-        <View style={styles.header}>
-          <Text style={[styles.title, isRTL && styles.titleRTL]}>
-            {t("auth.welcome_back")}
-          </Text>
-          <Text style={[styles.subtitle, isRTL && styles.subtitleRTL]}>
-            {t("auth.sign_in")}
-          </Text>
+    <View style={styles.container}>
+      {/* Header with icon */}
+      <View style={styles.header}>
+        <View style={styles.iconContainer}>
+          <View style={styles.icon}>
+            <Text style={styles.iconText}>H</Text>
+          </View>
         </View>
 
-        <View style={styles.form}>
-          <View style={styles.inputContainer}>
-            <TextInput
-              style={[styles.input, isRTL && styles.inputRTL]}
-              placeholder={t("auth.email")}
-              placeholderTextColor="#10B981"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              textAlign={isRTL ? "right" : "left"}
-              editable={!isLoading}
-            />
-          </View>
+        <Text style={[styles.title, isRTL && styles.titleRTL]}>
+          {t("auth.sign_in")}
+        </Text>
+      </View>
 
-          <View style={styles.inputContainer}>
-            <TextInput
-              style={[styles.input, isRTL && styles.inputRTL]}
-              placeholder={t("auth.password")}
-              placeholderTextColor="#10B981"
-              value={password}
-              onChangeText={setPassword}
-              secureTextEntry
-              textAlign={isRTL ? "right" : "left"}
-              editable={!isLoading}
-            />
-          </View>
+      {/* Form */}
+      <View style={styles.form}>
+        <View style={styles.inputContainer}>
+          <TextInput
+            style={[styles.input, isRTL && styles.inputRTL]}
+            placeholder={t("auth.email")}
+            placeholderTextColor="#9CA3AF"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            textAlign={isRTL ? "right" : "left"}
+            editable={!isLoading}
+          />
+        </View>
 
-          <TouchableOpacity
-            onPress={() => router.push("/forgotPassword")}
-            style={styles.forgotPassword}
-          >
-            <Text
-              style={[
-                styles.forgotPasswordText,
-                isRTL && styles.forgotPasswordTextRTL,
-              ]}
-            >
-              {t("auth.forgot_password")}
-            </Text>
-          </TouchableOpacity>
+        <View style={styles.inputContainer}>
+          <TextInput
+            style={[styles.input, isRTL && styles.inputRTL]}
+            placeholder={t("auth.password")}
+            placeholderTextColor="#9CA3AF"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            textAlign={isRTL ? "right" : "left"}
+            editable={!isLoading}
+          />
+        </View>
 
-          <TouchableOpacity
-            style={[styles.signInButton, isLoading && styles.buttonDisabled]}
-            onPress={handleSignIn}
-            disabled={isLoading}
-          >
-            {isLoading ? (
-              <ActivityIndicator size="small" color="#ffffff" />
-            ) : (
-              <Text style={styles.signInButtonText}>{t("auth.sign_in")}</Text>
-            )}
-          </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.signInButton, isLoading && styles.buttonDisabled]}
+          onPress={handleSignIn}
+          disabled={isLoading}
+        >
+          {isLoading ? (
+            <ActivityIndicator size="small" color="#ffffff" />
+          ) : (
+            <Text style={styles.signInButtonText}>{t("auth.sign_in")}</Text>
+          )}
+        </TouchableOpacity>
 
-          {error && <Text style={styles.errorText}>{error}</Text>}
+        {error && <Text style={styles.errorText}>{error}</Text>}
 
-          <View style={[styles.footer, isRTL && styles.footerRTL]}>
-            <Text style={styles.footerText}>{t("auth.no_account")} </Text>
-            <Link href="/signup" asChild>
-              <TouchableOpacity>
-                <Text style={styles.linkText}>{t("auth.sign_up")}</Text>
-              </TouchableOpacity>
-            </Link>
-          </View>
+        {/* Divider */}
+        <View style={styles.dividerContainer}>
+          <View style={styles.dividerLine} />
+          <Text style={styles.dividerText}>Or</Text>
+          <View style={styles.dividerLine} />
+        </View>
+
+        {/* Social Login Buttons */}
+        <View style={[styles.footer, isRTL && styles.footerRTL]}>
+          <Text style={styles.footerText}>{t("auth.no_account")} </Text>
+          <Link href="/signup" asChild>
+            <TouchableOpacity>
+              <Text style={styles.linkText}>{t("auth.sign_up")}</Text>
+            </TouchableOpacity>
+          </Link>
         </View>
       </View>
     </View>
@@ -128,135 +126,146 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#ffffff",
+    paddingTop: 60,
   },
   containerRTL: {
     flexDirection: "row-reverse",
   },
-  backgroundAccent: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-    height: "35%",
-    backgroundColor: "#f0fdf4",
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
-  },
-  content: {
-    flex: 1,
-    padding: 24,
-    justifyContent: "center",
-    zIndex: 1,
-  },
   header: {
-    marginBottom: 48,
+    alignItems: "center",
+    marginBottom: 60,
+    paddingHorizontal: 24,
+  },
+  iconContainer: {
+    marginBottom: 32,
+  },
+  icon: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: "#10B981",
+    justifyContent: "center",
     alignItems: "center",
   },
-  title: {
-    fontSize: 36,
+  iconText: {
+    color: "#ffffff",
+    fontSize: 24,
     fontWeight: "700",
-    color: "#065f46",
-    marginBottom: 8,
-    letterSpacing: -0.5,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: "600",
+    color: "#1F2937",
+    textAlign: "center",
   },
   titleRTL: {
-    textAlign: "right",
-  },
-  subtitle: {
-    fontSize: 18,
-    color: "#10B981",
-    fontWeight: "500",
-  },
-  subtitleRTL: {
-    textAlign: "right",
+    textAlign: "center",
   },
   form: {
+    paddingHorizontal: 24,
     flex: 1,
-    maxHeight: 400,
   },
   inputContainer: {
-    marginBottom: 20,
-    shadowColor: "#10B981",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    marginBottom: 16,
   },
   input: {
-    borderWidth: 2,
-    borderColor: "#d1fae5",
-    borderRadius: 16,
-    padding: 18,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    borderRadius: 8,
+    padding: 16,
     fontSize: 16,
-    backgroundColor: "#ffffff",
-    color: "#065f46",
-    fontWeight: "500",
+    backgroundColor: "#F9FAFB",
+    color: "#1F2937",
   },
   inputRTL: {
     textAlign: "right",
   },
-  forgotPassword: {
-    alignSelf: "flex-end",
-    marginBottom: 32,
-    marginTop: 8,
-  },
-  forgotPasswordText: {
-    color: "#10B981",
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  forgotPasswordTextRTL: {
-    alignSelf: "flex-start",
-  },
   signInButton: {
     backgroundColor: "#10B981",
-    borderRadius: 16,
-    padding: 18,
+    borderRadius: 25,
+    padding: 16,
     alignItems: "center",
-    shadowColor: "#10B981",
-    shadowOffset: {
-      width: 0,
-      height: 4,
-    },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
+    marginTop: 24,
+    marginBottom: 32,
   },
   buttonDisabled: {
     opacity: 0.7,
   },
   signInButtonText: {
     color: "#ffffff",
-    fontSize: 18,
-    fontWeight: "700",
-    letterSpacing: 0.5,
+    fontSize: 16,
+    fontWeight: "600",
   },
   errorText: {
     color: "#ef4444",
     fontSize: 14,
     textAlign: "center",
     marginTop: 16,
-    fontWeight: "500",
+  },
+  dividerContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginVertical: 24,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: "#E5E7EB",
+  },
+  dividerText: {
+    marginHorizontal: 16,
+    color: "#9CA3AF",
+    fontSize: 14,
+  },
+  socialContainer: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 20,
+    marginBottom: 40,
+  },
+  socialContainerRTL: {
+    flexDirection: "row-reverse",
+  },
+  socialButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#ffffff",
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  googleText: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#4285F4",
+  },
+  facebookText: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#1877F2",
+  },
+  twitterText: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#1DA1F2",
   },
   footer: {
     flexDirection: "row",
     justifyContent: "center",
-    marginTop: 32,
+    alignItems: "center",
   },
   footerRTL: {
     flexDirection: "row-reverse",
   },
   footerText: {
-    fontSize: 15,
-    color: "#6b7280",
-    fontWeight: "500",
+    fontSize: 14,
+    color: "#9CA3AF",
   },
   linkText: {
-    fontSize: 15,
+    fontSize: 14,
     color: "#10B981",
-    fontWeight: "700",
+    fontWeight: "600",
   },
 });
