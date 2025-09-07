@@ -876,16 +876,6 @@ export default function HistoryScreen() {
               <Text style={styles.greeting}>Good Morning</Text>
               <Text style={styles.headerTitle}>Meal History</Text>
             </View>
-
-            <View style={styles.headerRight}>
-              <TouchableOpacity style={styles.headerButton}>
-                <Bell size={20} color="#333" />
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.profileButton}>
-                <User size={20} color="#FF6B35" />
-              </TouchableOpacity>
-            </View>
           </View>
 
           {/* Search Bar */}

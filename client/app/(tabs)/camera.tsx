@@ -335,6 +335,7 @@ export default function CameraScreen() {
         language: isRTL ? "hebrew" : "english",
         includeDetailedIngredients: true,
         includeNutritionBreakdown: true,
+        updateText: "",
       };
 
       analysisParams.updateText =
@@ -985,7 +986,7 @@ export default function CameraScreen() {
       </KeyboardAvoidingView>
     </Modal>
   );
-  
+
   const renderDeleteConfirmModal = () => (
     <Modal
       visible={showDeleteConfirm}

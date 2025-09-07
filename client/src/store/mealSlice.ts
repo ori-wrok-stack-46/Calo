@@ -343,7 +343,7 @@ export const updateMeal = createAsyncThunk(
   "meal/updateMeal",
   async (
     { meal_id, updateText }: { meal_id: string; updateText: string },
-    { rejectWithValue }
+    { rejectWithValue, dispatch }
   ) => {
     try {
       console.log("Starting meal update...");
@@ -353,6 +353,8 @@ export const updateMeal = createAsyncThunk(
 
       if (response && response.success && response.data) {
         console.log("Meal updated successfully");
+        // Refetch all meals to ensure consistency
+        dispatch(fetchMeals());
         return response.data;
       } else {
         const errorMessage =
@@ -377,7 +379,7 @@ export const updateMeal = createAsyncThunk(
 
 export const postMeal = createAsyncThunk(
   "meal/postMeal",
-  async (_, { getState, rejectWithValue }) => {
+  async (_, { getState, rejectWithValue, dispatch }) => {
     try {
       const state = getState() as { meal: MealState };
       const { pendingMeal } = state.meal;
@@ -409,6 +411,8 @@ export const postMeal = createAsyncThunk(
         }
 
         console.log("Meal posted successfully");
+        // Refetch meals to ensure we have the latest data from server
+        dispatch(fetchMeals());
         return response;
       }
 
@@ -464,12 +468,16 @@ export const saveMealFeedback = createAsyncThunk(
         heavinessRating?: number;
       };
     },
-    { rejectWithValue }
+    { rejectWithValue, dispatch }
   ) => {
     try {
       console.log("💬 Saving meal feedback...");
       const response = await nutritionAPI.saveMealFeedback(mealId, feedback);
       console.log("✅ Feedback saved successfully");
+
+      // Refetch meals to ensure we have updated data
+      dispatch(fetchMeals());
+
       return { mealId, feedback };
     } catch (error) {
       console.error("💥 Save feedback error:", error);
@@ -480,11 +488,15 @@ export const saveMealFeedback = createAsyncThunk(
 
 export const toggleMealFavorite = createAsyncThunk(
   "meal/toggleMealFavorite",
-  async (mealId: string, { rejectWithValue }) => {
+  async (mealId: string, { rejectWithValue, dispatch }) => {
     try {
       console.log("❤️ Toggling meal favorite...");
       const response = await nutritionAPI.toggleMealFavorite(mealId);
       console.log("✅ Favorite toggled successfully");
+
+      // Refetch meals to ensure we have updated data
+      dispatch(fetchMeals());
+
       return { mealId, isFavorite: response.data.isFavorite };
     } catch (error) {
       console.error("💥 Toggle favorite error:", error);
@@ -497,13 +509,15 @@ export const duplicateMeal = createAsyncThunk(
   "meal/duplicateMeal",
   async (
     { mealId, newDate }: { mealId: string; newDate: string },
-    { rejectWithValue }
+    { rejectWithValue, dispatch }
   ) => {
     try {
       const response = await nutritionAPI.duplicateMeal(mealId, newDate);
       console.log("✅ Meal duplicated successfully");
 
       if (response.success && response.data) {
+        // Refetch meals to ensure we have all updated data
+        dispatch(fetchMeals());
         return response.data;
       } else {
         return rejectWithValue(response.error || "Failed to duplicate meal");
@@ -517,9 +531,11 @@ export const duplicateMeal = createAsyncThunk(
 
 export const removeMeal = createAsyncThunk(
   "meal/removeMeal",
-  async (mealId: string, { rejectWithValue }) => {
+  async (mealId: string, { rejectWithValue, dispatch }) => {
     try {
       await nutritionAPI.removeMeal(mealId);
+      // Refetch meals to ensure consistency
+      dispatch(fetchMeals());
       return mealId;
     } catch (error: any) {
       console.error("Remove meal error:", error);
@@ -634,14 +650,6 @@ const mealSlice = createSlice({
       .addCase(updateMeal.fulfilled, (state, action) => {
         state.isUpdating = false;
         state.error = null;
-        // Update the meal in the meals array
-        const updatedMeal = action.payload;
-        const index = state.meals.findIndex(
-          (meal) => meal.id === updatedMeal.id
-        );
-        if (index !== -1) {
-          state.meals[index] = updatedMeal;
-        }
         // Clear pending meal after successful update
         state.pendingMeal = null;
         console.log("Update completed successfully");
@@ -662,10 +670,6 @@ const mealSlice = createSlice({
         state.isPosting = false;
         state.pendingMeal = null;
         state.error = null;
-        // Add the new meal to the beginning of the list
-        if (action.payload) {
-          state.meals.unshift(action.payload);
-        }
         console.log("Meal posted successfully");
       })
       .addCase(postMeal.rejected, (state, action) => {
@@ -693,7 +697,7 @@ const mealSlice = createSlice({
       })
       .addCase(removeMeal.fulfilled, (state, action) => {
         state.isLoading = false;
-        state.meals = state.meals.filter((meal) => meal.id !== action.payload);
+        // Meals will be updated by fetchMeals dispatch
       })
       .addCase(removeMeal.rejected, (state, action) => {
         state.isLoading = false;
@@ -707,17 +711,6 @@ const mealSlice = createSlice({
       })
       .addCase(saveMealFeedback.fulfilled, (state, action) => {
         state.isSavingFeedback = false;
-        // Update meal with feedback in the state
-        const { mealId, feedback } = action.payload;
-        const mealIndex = state.meals.findIndex((meal) => meal.id === mealId);
-        if (mealIndex !== -1) {
-          const meal = state.meals[mealIndex] as any;
-          meal.tasteRating = feedback.tasteRating || meal.tasteRating;
-          meal.satietyRating = feedback.satietyRating || meal.satietyRating;
-          meal.energyRating = feedback.energyRating || meal.energyRating;
-          meal.heavinessRating =
-            feedback.heavinessRating || meal.heavinessRating;
-        }
         console.log("Feedback saved successfully");
       })
       .addCase(saveMealFeedback.rejected, (state, action) => {
@@ -732,12 +725,6 @@ const mealSlice = createSlice({
       })
       .addCase(toggleMealFavorite.fulfilled, (state, action) => {
         state.isTogglingFavorite = false;
-        // Update meal favorite status in the state
-        const { mealId, isFavorite } = action.payload;
-        const mealIndex = state.meals.findIndex((meal) => meal.id === mealId);
-        if (mealIndex !== -1) {
-          (state.meals[mealIndex] as any).isFavorite = isFavorite;
-        }
         console.log("Favorite toggled successfully");
       })
       .addCase(toggleMealFavorite.rejected, (state, action) => {
@@ -752,10 +739,6 @@ const mealSlice = createSlice({
       })
       .addCase(duplicateMeal.fulfilled, (state, action) => {
         state.isDuplicating = false;
-        // Add duplicated meal to the beginning of the list
-        if (action.payload) {
-          state.meals.unshift(action.payload);
-        }
         console.log("Meal duplicated successfully");
       })
       .addCase(duplicateMeal.rejected, (state, action) => {

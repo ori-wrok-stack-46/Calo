@@ -230,6 +230,85 @@
     "kcal": "kcal"
   },
   "history": {
+    "loading": "Loading history...",
+    "greeting": "Good Morning",
+    "searchPlaceholder": "Search for meals...",
+    "insights": {
+      "title": "Your Journey",
+      "subtitle": "Keep up the great work!",
+      "totalMeals": "Total Meals",
+      "avgCalories": "Avg Calories",
+      "favorites": "Favorites",
+      "avgRating": "Avg Rating"
+    },
+    "categories": {
+      "all": "All Categories",
+      "highProtein": "High Protein",
+      "highCarb": "High Carb",
+      "highFat": "High Fat",
+      "balanced": "Balanced",
+      "lowCalorie": "Low Calorie"
+    },
+    "timeRanges": {
+      "all": "All Time",
+      "today": "Today",
+      "thisWeek": "This Week",
+      "thisMonth": "This Month"
+    },
+    "nutritionInfo": "Nutrition Information",
+    "ingredients": "Ingredients",
+    "addToShopping": "Add to Shopping",
+    "addAllToShopping": "Add All",
+    "rateExperience": "Rate Your Experience",
+    "ratings": {
+      "taste": "Taste",
+      "fullness": "Fullness",
+      "energy": "Energy",
+      "heaviness": "Heaviness"
+    },
+    "saveRatings": "Save Ratings",
+    "actions": {
+      "copy": "Copy",
+      "delete": "Delete"
+    },
+    "filter": {
+      "title": "Filter & Sort",
+      "subtitle": "Customize your meal view",
+      "category": "Category",
+      "timePeriod": "Time Period",
+      "favoritesOnly": "Show Favorites Only",
+      "favoritesSubtext": "Filter by your favorite meals",
+      "reset": "Reset",
+      "apply": "Apply Filters"
+    },
+    "emptyState": {
+      "title": "No meals found",
+      "adjustedFilters": "Try adjusting your search or filters",
+      "default": "Start logging meals to see your history"
+    },
+    "messages": {
+      "success": "Success",
+      "error": "Error",
+      "addedToFavorites": "Added to favorites!",
+      "removedFromFavorites": "Removed from favorites!",
+      "favoriteUpdateFailed": "Failed to update favorite status. Please try again.",
+      "mealDuplicated": "Meal duplicated successfully!",
+      "duplicateFailed": "Failed to duplicate meal",
+      "deleteMeal": "Delete Meal",
+      "deleteConfirmation": "Are you sure you want to delete this meal?",
+      "cancel": "Cancel",
+      "mealDeleted": "Meal deleted successfully!",
+      "deleteFailed": "Failed to remove meal",
+      "ratingsSaved": "Ratings saved successfully!",
+      "ratingsSaveFailed": "Failed to save ratings. Please try again.",
+      "addToShoppingList": "Add to Shopping List",
+      "addSingleIngredient": "Add \"{ingredient}\" to your shopping list?",
+      "add": "Add",
+      "addAllIngredients": "Add all ingredients to your shopping list?",
+      "allIngredientsAdded": "All ingredients added to shopping list!",
+      "shoppingListFailed": "Failed to add items to shopping list.",
+      "generalError": "An error occurred. Please try again."
+    },
     "title": "Meal History",
     "search_meals": "Search meals...",
     "filter_meals": "Filter Meals",

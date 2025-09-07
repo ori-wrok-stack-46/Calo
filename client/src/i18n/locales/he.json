@@ -447,6 +447,85 @@
     "delete_meal": "מחיקת ארוחה"
   },
   "history": {
+    "loading": "טוען היסטוריה...",
+    "greeting": "בוקר טוב",
+    "searchPlaceholder": "חפש ארוחות...",
+    "insights": {
+      "title": "המסע שלך",
+      "subtitle": "תמשיך בעבודה המעולה!",
+      "totalMeals": "סה\"כ ארוחות",
+      "avgCalories": "ממוצע קלוריות",
+      "favorites": "מועדפות",
+      "avgRating": "דירוג ממוצע"
+    },
+    "categories": {
+      "all": "כל הקטגוריות",
+      "highProtein": "עתיר חלבון",
+      "highCarb": "עתיר פחמימות",
+      "highFat": "עתיר שומן",
+      "balanced": "מאוזן",
+      "lowCalorie": "דל קלוריות"
+    },
+    "timeRanges": {
+      "all": "כל הזמן",
+      "today": "היום",
+      "thisWeek": "השבוע",
+      "thisMonth": "החודש"
+    },
+    "nutritionInfo": "מידע תזונתי",
+    "ingredients": "רכיבים",
+    "addToShopping": "הוסף לקנייה",
+    "addAllToShopping": "הוסף הכל",
+    "rateExperience": "דרג את החוויה",
+    "ratings": {
+      "taste": "טעם",
+      "fullness": "שובע",
+      "energy": "אנרגיה",
+      "heaviness": "כבדות"
+    },
+    "saveRatings": "שמור דירוגים",
+    "actions": {
+      "copy": "העתק",
+      "delete": "מחק"
+    },
+    "filter": {
+      "title": "סינון ומיון",
+      "subtitle": "התאם את תצוגת הארוחות",
+      "category": "קטגוריה",
+      "timePeriod": "תקופת זמן",
+      "favoritesOnly": "הצג מועדפות בלבד",
+      "favoritesSubtext": "סנן לפי הארוחות המועדפות שלך",
+      "reset": "איפוס",
+      "apply": "החל מסננים"
+    },
+    "emptyState": {
+      "title": "לא נמצאו ארוחות",
+      "adjustedFilters": "נסה לשנות את החיפוש או המסננים",
+      "default": "התחל לתעד ארוחות כדי לראות את ההיסטוריה"
+    },
+    "messages": {
+      "success": "הצלחה",
+      "error": "שגיאה",
+      "addedToFavorites": "נוסף למועדפות!",
+      "removedFromFavorites": "הוסר מהמועדפות!",
+      "favoriteUpdateFailed": "נכשל בעדכון סטטוס המועדפות. אנא נסה שוב.",
+      "mealDuplicated": "הארוחה שוכפלה בהצלחה!",
+      "duplicateFailed": "נכשל בשכפול הארוחה",
+      "deleteMeal": "מחק ארוחה",
+      "deleteConfirmation": "האם אתה בטוח שברצונך למחוק את הארוחה הזו?",
+      "cancel": "ביטול",
+      "mealDeleted": "הארוחה נמחקה בהצלחה!",
+      "deleteFailed": "נכשל במחיקת הארוחה",
+      "ratingsSaved": "הדירוגים נשמרו בהצלחה!",
+      "ratingsSaveFailed": "נכשל בשמירת הדירוגים. אנא נסה שוב.",
+      "addToShoppingList": "הוסף לרשימת קניות",
+      "addSingleIngredient": "הוסף \"{ingredient}\" לרשימת הקניות שלך?",
+      "add": "הוסף",
+      "addAllIngredients": "הוסף את כל הרכיבים לרשימת הקניות?",
+      "allIngredientsAdded": "כל הרכיבים נוספו לרשימת הקניות!",
+      "shoppingListFailed": "נכשל בהוספת פריטים לרשימת הקניות.",
+      "generalError": "אירעה שגיאה. אנא נסה שוב."
+    },
     "title": "היסטוריית ארוחות",
     "no_history": "לא נמצאה היסטוריית ארוחות",
     "filter_by_date": "סינון לפי תאריך",
