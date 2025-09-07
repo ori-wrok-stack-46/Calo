@@ -14,15 +14,16 @@ import { Link, router } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useLanguage } from "@/src/i18n/context/LanguageContext";
 import { useDispatch, useSelector } from "react-redux";
-import { signUp, verifyEmail } from "@/src/store/authSlice";
+import { signUp } from "@/src/store/authSlice";
 import { RootState, AppDispatch } from "@/src/store";
-import LanguageSelector from "@/components/LanguageSelector";
 import { ToastService } from "@/src/services/totastService";
 import Toast from "react-native-toast-message";
+import { useTheme } from "@/src/context/ThemeContext";
 
 export default function SignUpScreen() {
   const { t } = useTranslation();
   const { isRTL } = useLanguage();
+  const { colors } = useTheme();
   const dispatch = useDispatch<AppDispatch>();
   const { isLoading, error } = useSelector((state: RootState) => state.auth);
 
@@ -96,8 +97,10 @@ export default function SignUpScreen() {
     } catch (error: any) {
       console.error("💥 Signup error in component:", error);
       ToastService.error(
-        "Error",
-        error.message || error || "Failed to create account"
+        t("common.error", "Error"),
+        error.message ||
+          error ||
+          t("auth.failed_create_account", "Failed to create account")
       );
     }
   };
@@ -116,6 +119,264 @@ export default function SignUpScreen() {
     // Implement Twitter sign up
     console.log("Twitter sign up");
   };
+
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    containerRTL: {
+      ...(Platform.OS === "web" ? { direction: "rtl" } : {}),
+    },
+    scrollView: {
+      flex: 1,
+    },
+    scrollContent: {
+      padding: 24,
+      paddingTop: 50,
+      paddingBottom: 40,
+    },
+    headerContainer: {
+      flexDirection: "row",
+      justifyContent: "space-between",
+      alignItems: "center",
+      marginBottom: 40,
+    },
+    backButton: {
+      width: 48,
+      height: 48,
+      borderRadius: 24,
+      backgroundColor: colors.surface,
+      justifyContent: "center",
+      alignItems: "center",
+      shadowColor: colors.text,
+      shadowOffset: {
+        width: 0,
+        height: 2,
+      },
+      shadowOpacity: 0.1,
+      shadowRadius: 8,
+      elevation: 4,
+    },
+    backButtonText: {
+      fontSize: 20,
+      color: colors.text,
+      fontWeight: "600",
+    },
+    titleContainer: {
+      marginBottom: 40,
+      alignItems: "center",
+    },
+    title: {
+      fontSize: 32,
+      fontWeight: "800",
+      color: colors.text,
+      textAlign: "center",
+      marginBottom: 8,
+    },
+    subtitle: {
+      fontSize: 16,
+      color: colors.textSecondary,
+      textAlign: "center",
+      fontWeight: "400",
+    },
+    titleRTL: {
+      textAlign: "center",
+    },
+    form: {
+      flex: 1,
+    },
+    inputContainer: {
+      marginBottom: 20,
+    },
+    inputLabel: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: colors.text,
+      marginBottom: 8,
+    },
+    input: {
+      borderWidth: 2,
+      borderColor: colors.border,
+      borderRadius: 16,
+      padding: 18,
+      fontSize: 16,
+      backgroundColor: colors.surface,
+      color: colors.text,
+      fontWeight: "400",
+      shadowColor: colors.text,
+      shadowOffset: {
+        width: 0,
+        height: 1,
+      },
+      shadowOpacity: 0.05,
+      shadowRadius: 4,
+      elevation: 2,
+    },
+    inputFocused: {
+      borderColor: colors.primary,
+      shadowColor: colors.primary,
+      shadowOpacity: 0.2,
+    },
+    inputRTL: {
+      textAlign: "right",
+    },
+    privacyPolicyContainer: {
+      marginTop: 8,
+      marginBottom: 32,
+      paddingHorizontal: 4,
+    },
+    checkboxContainer: {
+      flexDirection: "row",
+      alignItems: "flex-start",
+      paddingHorizontal: 4,
+    },
+    checkbox: {
+      width: 22,
+      height: 22,
+      borderWidth: 2,
+      borderColor: colors.border,
+      borderRadius: 6,
+      marginRight: 12,
+      alignItems: "center",
+      justifyContent: "center",
+      backgroundColor: colors.surface,
+      marginTop: 2,
+    },
+    checkboxChecked: {
+      backgroundColor: colors.primary,
+      borderColor: colors.primary,
+    },
+    checkmark: {
+      color: "#ffffff",
+      fontSize: 12,
+      fontWeight: "bold",
+    },
+    privacyText: {
+      fontSize: 14,
+      color: colors.textSecondary,
+      flex: 1,
+      lineHeight: 20,
+      fontWeight: "400",
+    },
+    privacyLinkContainer: {
+      display: "contents",
+    },
+    privacyLink: {
+      color: colors.primary,
+      fontWeight: "600",
+      textDecorationLine: "underline",
+    },
+    signUpButton: {
+      backgroundColor: colors.primary,
+      borderRadius: 16,
+      padding: 18,
+      alignItems: "center",
+      marginBottom: 24,
+      shadowColor: colors.primary,
+      shadowOffset: {
+        width: 0,
+        height: 4,
+      },
+      shadowOpacity: 0.3,
+      shadowRadius: 12,
+      elevation: 8,
+    },
+    buttonDisabled: {
+      opacity: 0.6,
+    },
+    signUpButtonText: {
+      color: "#ffffff",
+      fontSize: 18,
+      fontWeight: "700",
+      letterSpacing: 0.5,
+    },
+    errorText: {
+      color: colors.error,
+      fontSize: 14,
+      textAlign: "center",
+      marginBottom: 16,
+      fontWeight: "500",
+      backgroundColor: `${colors.error}10`,
+      padding: 12,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: `${colors.error}20`,
+    },
+    socialContainer: {
+      marginBottom: 32,
+    },
+    dividerContainer: {
+      flexDirection: "row",
+      alignItems: "center",
+      marginBottom: 24,
+    },
+    divider: {
+      flex: 1,
+      height: 1,
+      backgroundColor: colors.border,
+    },
+    dividerText: {
+      marginHorizontal: 16,
+      fontSize: 14,
+      color: colors.textSecondary,
+      fontWeight: "500",
+    },
+    socialButtons: {
+      flexDirection: "row",
+      justifyContent: "center",
+      gap: 16,
+    },
+    socialButton: {
+      width: 56,
+      height: 56,
+      borderRadius: 28,
+      backgroundColor: colors.surface,
+      borderWidth: 2,
+      borderColor: colors.border,
+      justifyContent: "center",
+      alignItems: "center",
+      shadowColor: colors.text,
+      shadowOffset: {
+        width: 0,
+        height: 2,
+      },
+      shadowOpacity: 0.1,
+      shadowRadius: 8,
+      elevation: 4,
+    },
+    socialButtonText: {
+      fontSize: 20,
+      fontWeight: "600",
+      color: colors.text,
+    },
+    footer: {
+      flexDirection: "row",
+      justifyContent: "center",
+      alignItems: "center",
+      paddingTop: 20,
+      borderTopWidth: 1,
+      borderTopColor: colors.border,
+      marginTop: 20,
+    },
+    footerRTL: {
+      flexDirection: "row-reverse",
+    },
+    footerText: {
+      fontSize: 15,
+      color: colors.textSecondary,
+      fontWeight: "400",
+    },
+    linkText: {
+      fontSize: 15,
+      color: colors.primary,
+      fontWeight: "700",
+      textDecorationLine: "underline",
+    },
+    textRTL: {
+      textAlign: "right",
+    },
+  });
 
   return (
     <>
@@ -138,17 +399,19 @@ export default function SignUpScreen() {
           {/* Title */}
           <View style={styles.titleContainer}>
             <Text style={[styles.title, isRTL && styles.titleRTL]}>
-              Create your account
+              {t("auth.create_account")}
             </Text>
+            <Text style={styles.subtitle}>{t("auth.welcome")}</Text>
           </View>
 
           {/* Form */}
           <View style={styles.form}>
             <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>{t("auth.full_name")}</Text>
               <TextInput
                 style={[styles.input, isRTL && styles.inputRTL]}
-                placeholder="Name"
-                placeholderTextColor="#9CA3AF"
+                placeholder={t("auth.name")}
+                placeholderTextColor={colors.textSecondary}
                 value={name}
                 onChangeText={setName}
                 textAlign={isRTL ? "right" : "left"}
@@ -157,10 +420,11 @@ export default function SignUpScreen() {
             </View>
 
             <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>{t("auth.email")}</Text>
               <TextInput
                 style={[styles.input, isRTL && styles.inputRTL]}
-                placeholder="Email"
-                placeholderTextColor="#9CA3AF"
+                placeholder={t("auth.enter_email")}
+                placeholderTextColor={colors.textSecondary}
                 value={email}
                 onChangeText={setEmail}
                 keyboardType="email-address"
@@ -171,10 +435,11 @@ export default function SignUpScreen() {
             </View>
 
             <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>{t("auth.password")}</Text>
               <TextInput
                 style={[styles.input, isRTL && styles.inputRTL]}
-                placeholder="Password"
-                placeholderTextColor="#9CA3AF"
+                placeholder={t("auth.enter_password")}
+                placeholderTextColor={colors.textSecondary}
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry
@@ -184,10 +449,13 @@ export default function SignUpScreen() {
             </View>
 
             <View style={styles.inputContainer}>
+              <Text style={styles.inputLabel}>
+                {t("auth.confirm_password")}
+              </Text>
               <TextInput
                 style={[styles.input, isRTL && styles.inputRTL]}
-                placeholder="Confirm password"
-                placeholderTextColor="#9CA3AF"
+                placeholder={t("auth.enter_password_again")}
+                placeholderTextColor={colors.textSecondary}
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
                 secureTextEntry
@@ -196,7 +464,6 @@ export default function SignUpScreen() {
               />
             </View>
 
-            {/* Privacy Policy Checkbox */}
             <View style={styles.privacyPolicyContainer}>
               <TouchableOpacity
                 style={styles.checkboxContainer}
@@ -212,15 +479,17 @@ export default function SignUpScreen() {
                     <Text style={styles.checkmark}>✓</Text>
                   )}
                 </View>
-                <Text style={[styles.privacyText, isRTL && styles.textRTL]}>
-                  I have read and agree to the{" "}
+                <View style={styles.privacyLinkContainer}>
+                  <Text style={[styles.privacyText, isRTL && styles.textRTL]}>
+                    {t("auth.privacy_agree")}{" "}
+                  </Text>
                   <TouchableOpacity
                     onPress={() => router.push("/privacy-policy")}
                     style={styles.privacyLinkContainer}
                   >
-                    <Text style={styles.privacyLink}>Privacy Policy</Text>
+                    <Text style={styles.privacyLink}>{t("privacy.title")}</Text>
                   </TouchableOpacity>
-                </Text>
+                </View>
               </TouchableOpacity>
             </View>
 
@@ -233,7 +502,7 @@ export default function SignUpScreen() {
               {isLoading ? (
                 <ActivityIndicator size="small" color="#ffffff" />
               ) : (
-                <Text style={styles.signUpButtonText}>Sign up</Text>
+                <Text style={styles.signUpButtonText}>{t("auth.create")}</Text>
               )}
             </TouchableOpacity>
 
@@ -241,10 +510,10 @@ export default function SignUpScreen() {
 
             {/* Footer */}
             <View style={[styles.footer, isRTL && styles.footerRTL]}>
-              <Text style={styles.footerText}>Already have an account? </Text>
+              <Text style={styles.footerText}>{t("auth.has_account")} </Text>
               <Link href="/signin" asChild>
                 <TouchableOpacity>
-                  <Text style={styles.linkText}>Sign in</Text>
+                  <Text style={styles.linkText}>{t("auth.sign_in")}</Text>
                 </TouchableOpacity>
               </Link>
             </View>
@@ -255,198 +524,3 @@ export default function SignUpScreen() {
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#ffffff",
-  },
-  containerRTL: {
-    ...(Platform.OS === "web" ? { direction: "rtl" } : {}),
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    padding: 24,
-    paddingTop: 50,
-    paddingBottom: 40,
-  },
-  headerContainer: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 40,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#F3F4F6",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  backButtonText: {
-    fontSize: 18,
-    color: "#374151",
-    fontWeight: "600",
-  },
-  languageContainer: {
-    // Language selector styling handled by the component
-  },
-  titleContainer: {
-    marginBottom: 40,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: "#111827",
-    textAlign: "center",
-  },
-  titleRTL: {
-    textAlign: "center",
-  },
-  form: {
-    flex: 1,
-  },
-  inputContainer: {
-    marginBottom: 16,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    borderRadius: 12,
-    padding: 16,
-    fontSize: 16,
-    backgroundColor: "#ffffff",
-    color: "#111827",
-    fontWeight: "400",
-  },
-  inputRTL: {
-    textAlign: "right",
-  },
-  privacyPolicyContainer: {
-    marginTop: 8,
-    marginBottom: 24,
-  },
-  checkboxContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingHorizontal: 4,
-  },
-  checkbox: {
-    width: 18,
-    height: 18,
-    borderWidth: 1.5,
-    borderColor: "#D1D5DB",
-    borderRadius: 3,
-    marginRight: 12,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#ffffff",
-  },
-  checkboxChecked: {
-    backgroundColor: "#10B981",
-    borderColor: "#10B981",
-  },
-  checkmark: {
-    color: "#ffffff",
-    fontSize: 11,
-    fontWeight: "bold",
-  },
-  privacyText: {
-    fontSize: 13,
-    color: "#6B7280",
-    flex: 1,
-    lineHeight: 18,
-  },
-  privacyLinkContainer: {
-    display: "contents",
-  },
-  privacyLink: {
-    color: "#10B981",
-    fontWeight: "500",
-  },
-  signUpButton: {
-    backgroundColor: "#10B981",
-    borderRadius: 12,
-    padding: 16,
-    alignItems: "center",
-    marginBottom: 24,
-  },
-  buttonDisabled: {
-    opacity: 0.7,
-  },
-  signUpButtonText: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  errorText: {
-    color: "#EF4444",
-    fontSize: 14,
-    textAlign: "center",
-    marginBottom: 16,
-    fontWeight: "400",
-  },
-  socialContainer: {
-    marginBottom: 32,
-  },
-  dividerContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 24,
-  },
-  divider: {
-    flex: 1,
-    height: 1,
-    backgroundColor: "#E5E7EB",
-  },
-  dividerText: {
-    marginHorizontal: 16,
-    fontSize: 14,
-    color: "#6B7280",
-    fontWeight: "400",
-  },
-  socialButtons: {
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: 16,
-  },
-  socialButton: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: "#F9FAFB",
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  socialButtonText: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#374151",
-  },
-  footer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  footerRTL: {
-    flexDirection: "row-reverse",
-  },
-  footerText: {
-    fontSize: 14,
-    color: "#6B7280",
-    fontWeight: "400",
-  },
-  linkText: {
-    fontSize: 14,
-    color: "#10B981",
-    fontWeight: "600",
-  },
-  textRTL: {
-    textAlign: "right",
-  },
-});

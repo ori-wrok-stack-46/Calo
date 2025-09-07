@@ -5,7 +5,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   Alert,
-  ActivityIndicator,
   ScrollView,
   TextInput,
   Modal,
@@ -20,7 +19,6 @@ import { useDispatch, useSelector } from "react-redux";
 import { RootState, AppDispatch } from "@/src/store";
 import {
   analyzeMeal,
-  updateMeal,
   postMeal,
   clearPendingMeal,
   clearError,
@@ -31,12 +29,7 @@ import { router } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import * as FileSystem from "expo-file-system";
 import {
-  Camera,
-  Send,
   CreditCard as Edit3,
-  Trash2,
-  Plus,
-  RotateCcw,
   TriangleAlert as AlertTriangle,
   X,
   ChevronLeft,

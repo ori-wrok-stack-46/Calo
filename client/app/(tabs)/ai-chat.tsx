@@ -72,48 +72,15 @@ export default function AIChatScreen({
   const [isLoading, setIsLoading] = useState(true);
   const scrollViewRef = useRef<ScrollView>(null);
   const isRTL = i18n.language === "he";
-  const texts = {
-    title: language === "he" ? "צ'אט AI תזונתי" : "Nutritional AI Chat",
-    subtitle:
-      language === "he"
-        ? "קבל המלצות תזונה מותאמות אישית"
-        : "Get personalized nutrition advice",
-    typePlaceholder:
-      language === "he" ? "הקלד שאלתך כאן..." : "Type your question here...",
-    send: language === "he" ? "שלח" : "Send",
-    typing: language === "he" ? "AI מקליד..." : "AI is typing...",
-    allergenWarning: language === "he" ? "אזהרת אלרגן!" : "Allergen Warning!",
-    clearChat: language === "he" ? "נקה צ'אט" : "Clear Chat",
-    tryThese: language === "he" ? "נסה את אלה:" : "Try these:",
-    welcomeMessage:
-      language === "he"
-        ? "שלום! אני היועץ התזונתי הדיגיטלי שלך. אני כאן לעזור לך עם שאלות תזונה, תכנון ארוחות והמלצות מותאמות אישית. איך אוכל לעזור לך היום?"
-        : "Hello! I'm your digital nutrition advisor. I'm here to help you with nutrition questions, meal planning, and personalized recommendations. How can I help you today?",
-    commonQuestions:
-      language === "he"
-        ? [
-            "איך אוכל לרדת במשקל בצורה בריאה?",
-            "מה המינון היומי הממולץ של חלבון?",
-            "אילו ירקות עשירים בוויטמין C?",
-            "איך לתכנן תפריט צמחוני מאוזן?",
-            "מה זה דיאטה קטוגנית?",
-          ]
-        : [
-            "How can I lose weight healthily?",
-            "What's the recommended daily protein intake?",
-            "Which vegetables are rich in vitamin C?",
-            "How to plan a balanced vegetarian menu?",
-            "What is a ketogenic diet?",
-          ],
-    loading: language === "he" ? "טוען..." : "Loading...",
-    error: language === "he" ? "שגיאה" : "Error",
-    networkError:
-      language === "he"
-        ? "אירעה שגיאה בתקשורת עם השרת"
-        : "Network error occurred",
-    loadingProfile:
-      language === "he" ? "טוען פרופיל משתמש..." : "Loading user profile...",
-  };
+
+  // Get common questions based on current language
+  const getCommonQuestions = () => [
+    t("ai_chat.commonQuestions.weightLoss"),
+    t("ai_chat.commonQuestions.proteinIntake"),
+    t("ai_chat.commonQuestions.vitaminC"),
+    t("ai_chat.commonQuestions.vegetarianMenu"),
+    t("ai_chat.commonQuestions.ketoDiet"),
+  ];
 
   // Load user profile and chat history on component mount
   useEffect(() => {
@@ -200,9 +167,9 @@ export default function AIChatScreen({
           {
             id: "welcome",
             type: "bot",
-            content: texts.welcomeMessage,
+            content: t("ai_chat.welcomeMessage"),
             timestamp: new Date(),
-            suggestions: texts.commonQuestions,
+            suggestions: getCommonQuestions(),
           },
         ]);
       }
@@ -213,9 +180,9 @@ export default function AIChatScreen({
         {
           id: "welcome",
           type: "bot",
-          content: texts.welcomeMessage,
+          content: t("ai_chat.welcomeMessage"),
           timestamp: new Date(),
-          suggestions: texts.commonQuestions,
+          suggestions: getCommonQuestions(),
         },
       ]);
     }
@@ -364,7 +331,7 @@ export default function AIChatScreen({
         hasWarning: allergens.length > 0,
         allergenWarning: allergens.length > 0 ? allergens : undefined,
         suggestions:
-          Math.random() > 0.7 ? texts.commonQuestions.slice(0, 3) : undefined,
+          Math.random() > 0.7 ? getCommonQuestions().slice(0, 3) : undefined,
       };
 
       setMessages((prev) => [...prev, aiMessage]);
@@ -376,55 +343,46 @@ export default function AIChatScreen({
       const errorMessage: Message = {
         id: `error-${Date.now()}`,
         type: "bot",
-        content:
-          language === "he"
-            ? "מצטער, אירעה שגיאה בתקשורת עם השרת. אנא נסה שוב."
-            : "Sorry, there was an error communicating with the server. Please try again.",
+        content: t("ai_chat.error.serverError"),
         timestamp: new Date(),
         hasWarning: true,
       };
 
       setMessages((prev) => [...prev, errorMessage]);
 
-      Alert.alert(texts.error, texts.networkError);
+      Alert.alert(t("ai_chat.error.title"), t("ai_chat.error.networkError"));
     } finally {
       setIsTyping(false);
     }
   };
 
   const clearChat = () => {
-    Alert.alert(
-      texts.clearChat,
-      language === "he"
-        ? "האם אתה בטוח שברצונך למחוק את השיחה?"
-        : "Are you sure you want to clear the chat?",
-      [
-        { text: language === "he" ? "ביטול" : "Cancel", style: "cancel" },
-        {
-          text: texts.clearChat,
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await chatAPI.clearHistory();
-              setMessages([
-                {
-                  id: "welcome",
-                  type: "bot",
-                  content: texts.welcomeMessage,
-                  timestamp: new Date(),
-                  suggestions: texts.commonQuestions,
-                },
-              ]);
-              console.log("🗑️ Chat history cleared");
-            } catch (error) {
-              console.error("💥 Error clearing chat:", error);
-              // Don't show error alert for clearing history
-              console.log("⚠️ Failed to clear chat history, but continuing");
-            }
-          },
+    Alert.alert(t("ai_chat.clearChat.title"), t("ai_chat.clearChat.message"), [
+      { text: t("ai_chat.clearChat.cancel"), style: "cancel" },
+      {
+        text: t("ai_chat.clearChat.confirm"),
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await chatAPI.clearHistory();
+            setMessages([
+              {
+                id: "welcome",
+                type: "bot",
+                content: t("ai_chat.welcomeMessage"),
+                timestamp: new Date(),
+                suggestions: getCommonQuestions(),
+              },
+            ]);
+            console.log("🗑️ Chat history cleared");
+          } catch (error) {
+            console.error("💥 Error clearing chat:", error);
+            // Don't show error alert for clearing history
+            console.log("⚠️ Failed to clear chat history, but continuing");
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
   const selectSuggestion = (suggestion: string) => {
@@ -462,7 +420,7 @@ export default function AIChatScreen({
                 <View style={styles.warningBanner}>
                   <AlertTriangle size={16} color="#E74C3C" />
                   <Text style={styles.warningText}>
-                    {texts.allergenWarning}
+                    {t("ai_chat.allergenWarning")}
                   </Text>
                 </View>
               )}
@@ -478,7 +436,9 @@ export default function AIChatScreen({
 
             {message.suggestions && (
               <View style={styles.suggestionsContainer}>
-                <Text style={styles.suggestionsLabel}>{texts.tryThese}</Text>
+                <Text style={styles.suggestionsLabel}>
+                  {t("ai_chat.tryThese")}
+                </Text>
                 <View style={styles.suggestionsGrid}>
                   {message.suggestions.map((suggestion, index) => (
                     <TouchableOpacity
@@ -507,9 +467,7 @@ export default function AIChatScreen({
   };
 
   if (isLoading) {
-    return (
-      <LoadingScreen text={isRTL ? "טוען בינה מלכותית" : "Loading AI..."} />
-    );
+    return <LoadingScreen text={t("ai_chat.loadingAI")} />;
   }
 
   return (
@@ -518,8 +476,8 @@ export default function AIChatScreen({
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <View style={styles.titleContainer}>
-            <Text style={styles.title}>{texts.title}</Text>
-            <Text style={styles.subtitle}>{texts.subtitle}</Text>
+            <Text style={styles.title}>{t("ai_chat.title")}</Text>
+            <Text style={styles.subtitle}>{t("ai_chat.subtitle")}</Text>
           </View>
         </View>
         <View style={styles.headerButtons}>
@@ -553,14 +511,14 @@ export default function AIChatScreen({
             <View style={styles.profileHeader}>
               <Shield size={18} color="#16A085" />
               <Text style={styles.profileTitle}>
-                {language === "he" ? "פרופיל בטיחות" : "Safety Profile"}
+                {t("ai_chat.safetyProfile.title")}
               </Text>
             </View>
             <View style={styles.profileContent}>
               {userProfile.allergies.length > 0 && (
                 <View style={styles.profileSection}>
                   <Text style={styles.profileLabel}>
-                    {language === "he" ? "אלרגיות:" : "Allergies:"}
+                    {t("ai_chat.safetyProfile.allergies")}
                   </Text>
                   <View style={styles.tagContainer}>
                     {userProfile.allergies.map((allergy, index) => (
@@ -574,7 +532,7 @@ export default function AIChatScreen({
               {userProfile.medicalConditions.length > 0 && (
                 <View style={styles.profileSection}>
                   <Text style={styles.profileLabel}>
-                    {language === "he" ? "מצבים רפואיים:" : "Medical:"}
+                    {t("ai_chat.safetyProfile.medical")}
                   </Text>
                   <View style={styles.tagContainer}>
                     {userProfile.medicalConditions.map((condition, index) => (
@@ -598,7 +556,7 @@ export default function AIChatScreen({
               </View>
               <View style={styles.typingBubble}>
                 <ActivityIndicator size="small" color="#16A085" />
-                <Text style={styles.typingText}>{texts.typing}</Text>
+                <Text style={styles.typingText}>{t("ai_chat.typing")}</Text>
               </View>
             </View>
           </View>
@@ -615,7 +573,7 @@ export default function AIChatScreen({
             style={styles.textInput}
             value={inputText}
             onChangeText={setInputText}
-            placeholder={texts.typePlaceholder}
+            placeholder={t("ai_chat.placeholder")}
             placeholderTextColor="#95A5A6"
             multiline
             maxLength={500}

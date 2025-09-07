@@ -1,0 +1,827 @@
+{
+  "client": {
+    "unusedFiles": [
+      "client\\src\\utils\\useOptimizedSelector.ts",
+      "client\\src\\utils\\secureStorage.ts",
+      "client\\src\\utils\\imageOptimiztion.ts",
+      "client\\src\\utils\\i18nUtils.ts",
+      "client\\src\\utils\\cardDetection.ts",
+      "client\\src\\utils\\cacheUtils.ts",
+      "client\\src\\styles\\globalStyles.ts",
+      "client\\src\\services\\backgroundSync.ts",
+      "client\\components\\XPNotification.tsx",
+      "client\\components\\ToolBar.tsx",
+      "client\\components\\ToastWrapper.tsx",
+      "client\\components\\ScrollableTabBar.tsx",
+      "client\\components\\ScreenWrapper.tsx",
+      "client\\components\\QuestionnaireProtection.tsx",
+      "client\\components\\ProtectedRoutes.tsx",
+      "client\\components\\PrivacySettings.tsx",
+      "client\\components\\ParallaxScrollView.tsx",
+      "client\\components\\NoteficationSettings.tsx",
+      "client\\components\\MenuCard.tsx",
+      "client\\components\\LocalizedText.tsx",
+      "client\\components\\LanguageSelector.tsx",
+      "client\\components\\FloatingChatButton.tsx",
+      "client\\components\\ExternalLink.tsx",
+      "client\\components\\ErrorBoundary.tsx",
+      "client\\components\\EditProfile.tsx",
+      "client\\components\\DynamicListInputs.tsx",
+      "client\\components\\Collapsible.tsx",
+      "client\\components\\ChatInterface.tsx",
+      "client\\components\\AuthRouteGuard.tsx",
+      "client\\components\\AccessibilityButton.tsx",
+      "client\\components\\ui\\TabBarBackground.ios.tsx",
+      "client\\components\\ui\\IconSymbol.ios.tsx",
+      "client\\components\\statistics\\TimePeriodFilter.tsx",
+      "client\\components\\statistics\\StatisticsHeaders.tsx",
+      "client\\components\\statistics\\MetricCard.tsx",
+      "client\\components\\statistics\\GamificationDashboard.tsx",
+      "client\\components\\questionnaire\\WeightScale.tsx",
+      "client\\components\\questionnaire\\StepContainer.tsx",
+      "client\\components\\questionnaire\\ProgressIndicator.tsx",
+      "client\\components\\questionnaire\\OptionGroup.tsx",
+      "client\\components\\questionnaire\\CustomTextInput.tsx",
+      "client\\components\\questionnaire\\CustomSwitch.tsx",
+      "client\\components\\questionnaire\\CheckBoxGroup.tsx",
+      "client\\components\\index\\CircularCaloriesProgress.tsx",
+      "client\\hooks\\useSwipeNavigation.ts",
+      "client\\hooks\\useRTLStyle.ts",
+      "client\\hooks\\usePrefetch.ts",
+      "client\\hooks\\useMealDataRefresh.ts",
+      "client\\hooks\\useGoogleFitAuth.ts",
+      "client\\hooks\\useFormattedTime.ts",
+      "client\\hooks\\useColorScheme.web.ts",
+      "client\\hooks\\useBackgroundRefetch.ts",
+      "client\\hooks\\useAppInitialization.ts"
+    ],
+    "unusedFunctions": [
+      {
+        "name": "useOptimizedSelector",
+        "files": [
+          "client\\src\\utils\\useOptimizedSelector.ts"
+        ]
+      },
+      {
+        "name": "useMealSelector",
+        "files": [
+          "client\\src\\utils\\useOptimizedSelector.ts"
+        ]
+      },
+      {
+        "name": "getRarityColor",
+        "files": [
+          "client\\src\\utils\\statisticsHelper.ts"
+        ]
+      },
+      {
+        "name": "getAchievementBackgroundColor",
+        "files": [
+          "client\\src\\utils\\statisticsHelper.ts"
+        ]
+      },
+      {
+        "name": "generateChartData",
+        "files": [
+          "client\\src\\utils\\statisticsHelper.ts"
+        ]
+      },
+      {
+        "name": "calculateTrend",
+        "files": [
+          "client\\src\\utils\\statisticsHelper.ts"
+        ]
+      },
+      {
+        "name": "calculateWeeklyChange",
+        "files": [
+          "client\\src\\utils\\statisticsHelper.ts"
+        ]
+      },
+      {
+        "name": "calculateNutritionStatus",
+        "files": [
+          "client\\src\\utils\\statisticsHelper.ts"
+        ]
+      },
+      {
+        "name": "setSecureItem",
+        "files": [
+          "client\\src\\utils\\secureStorage.ts"
+        ]
+      },
+      {
+        "name": "getSecureItem",
+        "files": [
+          "client\\src\\utils\\secureStorage.ts"
+        ]
+      },
+      {
+        "name": "removeSecureItem",
+        "files": [
+          "client\\src\\utils\\secureStorage.ts"
+        ]
+      },
+      {
+        "name": "useDebounce",
+        "files": [
+          "client\\src\\utils\\performance.ts"
+        ]
+      },
+      {
+        "name": "useThrottle",
+        "files": [
+          "client\\src\\utils\\performance.ts"
+        ]
+      },
+      {
+        "name": "useMemoizedSelector",
+        "files": [
+          "client\\src\\utils\\performance.ts"
+        ]
+      },
+      {
+        "name": "useSafeLayout",
+        "files": [
+          "client\\src\\utils\\layout.ts"
+        ]
+      },
+      {
+        "name": "useResponsiveLayout",
+        "files": [
+          "client\\src\\utils\\layout.ts"
+        ]
+      },
+      {
+        "name": "useOptimizedAnimation",
+        "files": [
+          "client\\src\\utils\\layout.ts"
+        ]
+      },
+      {
+        "name": "useLayoutMeasurement",
+        "files": [
+          "client\\src\\utils\\layout.ts"
+        ]
+      },
+      {
+        "name": "optimizeImageForUpload",
+        "files": [
+          "client\\src\\utils\\imageOptimiztion.ts"
+        ]
+      },
+      {
+        "name": "getOptimalImageSettings",
+        "files": [
+          "client\\src\\utils\\imageOptimiztion.ts"
+        ]
+      },
+      {
+        "name": "estimateBase64Size",
+        "files": [
+          "client\\src\\utils\\imageOptimiztion.ts"
+        ]
+      },
+      {
+        "name": "shouldCompressImage",
+        "files": [
+          "client\\src\\utils\\imageOptimiztion.ts"
+        ]
+      },
+      {
+        "name": "getAchievementIcon",
+        "files": [
+          "client\\src\\utils\\iconHelper.ts"
+        ]
+      },
+      {
+        "name": "useLocalizedContent",
+        "files": [
+          "client\\src\\utils\\i18nUtils.ts"
+        ]
+      },
+      {
+        "name": "formatNumber",
+        "files": [
+          "client\\src\\utils\\i18nUtils.ts"
+        ]
+      },
+      {
+        "name": "detectCardType",
+        "files": [
+          "client\\src\\utils\\cardDetection.ts"
+        ]
+      },
+      {
+        "name": "formatCardNumber",
+        "files": [
+          "client\\src\\utils\\cardDetection.ts"
+        ]
+      },
+      {
+        "name": "validateCardNumber",
+        "files": [
+          "client\\src\\utils\\cardDetection.ts"
+        ]
+      },
+      {
+        "name": "getCardIcon",
+        "files": [
+          "client\\src\\utils\\cardDetection.ts"
+        ]
+      },
+      {
+        "name": "processImage",
+        "files": [
+          "client\\src\\store\\mealSlice.ts"
+        ]
+      },
+      {
+        "name": "validateAndFixBase64Image",
+        "files": [
+          "client\\src\\store\\mealSlice.ts"
+        ]
+      },
+      {
+        "name": "invalidateAllQueries",
+        "files": [
+          "client\\src\\services\\queryClient.ts"
+        ]
+      },
+      {
+        "name": "removeAllQueries",
+        "files": [
+          "client\\src\\services\\queryClient.ts"
+        ]
+      },
+      {
+        "name": "resetQueryClient",
+        "files": [
+          "client\\src\\services\\queryClient.ts"
+        ]
+      },
+      {
+        "name": "LanguageProvider",
+        "files": [
+          "client\\src\\i18n\\context\\LanguageContext.tsx"
+        ]
+      },
+      {
+        "name": "ThemeProvider",
+        "files": [
+          "client\\src\\context\\ThemeContext.tsx"
+        ]
+      },
+      {
+        "name": "XPNotification",
+        "files": [
+          "client\\components\\XPNotification.tsx"
+        ]
+      },
+      {
+        "name": "ShoppingList",
+        "files": [
+          "client\\components\\ShoppingList.tsx"
+        ]
+      },
+      {
+        "name": "ScrollableTabBar",
+        "files": [
+          "client\\components\\ScrollableTabBar.tsx"
+        ]
+      },
+      {
+        "name": "ProtectedRoute",
+        "files": [
+          "client\\components\\ProtectedRoutes.tsx"
+        ]
+      },
+      {
+        "name": "PrivacySettings",
+        "files": [
+          "client\\components\\PrivacySettings.tsx"
+        ]
+      },
+      {
+        "name": "ParallaxScrollView",
+        "files": [
+          "client\\components\\ParallaxScrollView.tsx"
+        ]
+      },
+      {
+        "name": "MenuCard",
+        "files": [
+          "client\\components\\MenuCard.tsx"
+        ]
+      },
+      {
+        "name": "FloatingChatButton",
+        "files": [
+          "client\\components\\FloatingChatButton.tsx"
+        ]
+      },
+      {
+        "name": "ExternalLink",
+        "files": [
+          "client\\components\\ExternalLink.tsx"
+        ]
+      },
+      {
+        "name": "EditProfile",
+        "files": [
+          "client\\components\\EditProfile.tsx"
+        ]
+      },
+      {
+        "name": "DynamicListInputs",
+        "files": [
+          "client\\components\\DynamicListInputs.tsx"
+        ]
+      },
+      {
+        "name": "Collapsible",
+        "files": [
+          "client\\components\\Collapsible.tsx"
+        ]
+      },
+      {
+        "name": "ChatInterface",
+        "files": [
+          "client\\components\\ChatInterface.tsx"
+        ]
+      },
+      {
+        "name": "AccessibilityButton",
+        "files": [
+          "client\\components\\AccessibilityButton.tsx"
+        ]
+      },
+      {
+        "name": "BlurTabBarBackground",
+        "files": [
+          "client\\components\\ui\\TabBarBackground.ios.tsx"
+        ]
+      },
+      {
+        "name": "TimePeriodFilter",
+        "files": [
+          "client\\components\\statistics\\TimePeriodFilter.tsx"
+        ]
+      },
+      {
+        "name": "StatisticsHeader",
+        "files": [
+          "client\\components\\statistics\\StatisticsHeaders.tsx"
+        ]
+      },
+      {
+        "name": "MetricCard",
+        "files": [
+          "client\\components\\statistics\\MetricCard.tsx"
+        ]
+      },
+      {
+        "name": "GamificationDashboard",
+        "files": [
+          "client\\components\\statistics\\GamificationDashboard.tsx"
+        ]
+      },
+      {
+        "name": "CheckboxItem",
+        "files": [
+          "client\\components\\questionnaire\\CheckBoxGroup.tsx"
+        ]
+      },
+      {
+        "name": "useSwipeNavigation",
+        "files": [
+          "client\\hooks\\useSwipeNavigation.ts"
+        ]
+      },
+      {
+        "name": "useRTLStyles",
+        "files": [
+          "client\\hooks\\useRTLStyle.ts"
+        ]
+      },
+      {
+        "name": "useTooltipVisibility",
+        "files": [
+          "client\\hooks\\useQueries.ts"
+        ]
+      },
+      {
+        "name": "useMarkTooltipShown",
+        "files": [
+          "client\\hooks\\useQueries.ts"
+        ]
+      },
+      {
+        "name": "useSignIn",
+        "files": [
+          "client\\hooks\\useQueries.ts"
+        ]
+      },
+      {
+        "name": "useSignUp",
+        "files": [
+          "client\\hooks\\useQueries.ts"
+        ]
+      },
+      {
+        "name": "useSignOut",
+        "files": [
+          "client\\hooks\\useQueries.ts"
+        ]
+      },
+      {
+        "name": "useMeals",
+        "files": [
+          "client\\hooks\\useQueries.ts"
+        ]
+      },
+      {
+        "name": "useMealsInfinite",
+        "files": [
+          "client\\hooks\\useQueries.ts"
+        ]
+      },
+      {
+        "name": "useAnalyzeMeal",
+        "files": [
+          "client\\hooks\\useQueries.ts"
+        ]
+      },
+      {
+        "name": "useSaveMeal",
+        "files": [
+          "client\\hooks\\useQueries.ts"
+        ]
+      },
+      {
+        "name": "useUpdateMeal",
+        "files": [
+          "client\\hooks\\useQueries.ts"
+        ]
+      },
+      {
+        "name": "useDuplicateMeal",
+        "files": [
+          "client\\hooks\\useQueries.ts"
+        ]
+      },
+      {
+        "name": "useToggleMealFavorite",
+        "files": [
+          "client\\hooks\\useQueries.ts"
+        ]
+      },
+      {
+        "name": "useSaveMealFeedback",
+        "files": [
+          "client\\hooks\\useQueries.ts"
+        ]
+      },
+      {
+        "name": "useDailyStats",
+        "files": [
+          "client\\hooks\\useQueries.ts"
+        ]
+      },
+      {
+        "name": "useGlobalStats",
+        "files": [
+          "client\\hooks\\useQueries.ts"
+        ]
+      },
+      {
+        "name": "useCalendarData",
+        "files": [
+          "client\\hooks\\useQueries.ts"
+        ]
+      },
+      {
+        "name": "useCalendarStats",
+        "files": [
+          "client\\hooks\\useQueries.ts"
+        ]
+      },
+      {
+        "name": "useAddEvent",
+        "files": [
+          "client\\hooks\\useQueries.ts"
+        ]
+      },
+      {
+        "name": "useStatistics",
+        "files": [
+          "client\\hooks\\useQueries.ts"
+        ]
+      },
+      {
+        "name": "useUserProfile",
+        "files": [
+          "client\\hooks\\useQueries.ts"
+        ]
+      },
+      {
+        "name": "useDailyGoals",
+        "files": [
+          "client\\hooks\\useQueries.ts"
+        ]
+      },
+      {
+        "name": "useRemoveMeal",
+        "files": [
+          "client\\hooks\\useQueries.ts"
+        ]
+      },
+      {
+        "name": "usePrefetchData",
+        "files": [
+          "client\\hooks\\usePrefetch.ts"
+        ]
+      },
+      {
+        "name": "createMemoizedSelector",
+        "files": [
+          "client\\hooks\\useOptimizedSelector.ts"
+        ]
+      },
+      {
+        "name": "useOptimizedMealSelector",
+        "files": [
+          "client\\hooks\\useOptimizedSelector.ts"
+        ]
+      },
+      {
+        "name": "useOptimizedCalendarSelector",
+        "files": [
+          "client\\hooks\\useOptimizedSelector.ts"
+        ]
+      },
+      {
+        "name": "useOptimizedQuestionnaireSelector",
+        "files": [
+          "client\\hooks\\useOptimizedSelector.ts"
+        ]
+      },
+      {
+        "name": "useMealDataRefresh",
+        "files": [
+          "client\\hooks\\useMealDataRefresh.ts"
+        ]
+      },
+      {
+        "name": "useGoogleFitAuth",
+        "files": [
+          "client\\hooks\\useGoogleFitAuth.ts"
+        ]
+      },
+      {
+        "name": "useFormattedTime",
+        "files": [
+          "client\\hooks\\useFormattedTime.ts"
+        ]
+      },
+      {
+        "name": "useBackgroundRefetch",
+        "files": [
+          "client\\hooks\\useBackgroundRefetch.ts"
+        ]
+      }
+    ],
+    "unusedVariables": [
+      {
+        "name": "throttledCallback",
+        "files": [
+          "client\\src\\utils\\performance.ts"
+        ]
+      },
+      {
+        "name": "LayoutUtils",
+        "files": [
+          "client\\src\\utils\\performance.ts"
+        ]
+      },
+      {
+        "name": "AnimationUtils",
+        "files": [
+          "client\\src\\utils\\performance.ts"
+        ]
+      },
+      {
+        "name": "MemoryUtils",
+        "files": [
+          "client\\src\\utils\\performance.ts"
+        ]
+      },
+      {
+        "name": "NetworkUtils",
+        "files": [
+          "client\\src\\utils\\performance.ts"
+        ]
+      },
+      {
+        "name": "KeyboardUtils",
+        "files": [
+          "client\\src\\utils\\layout.ts"
+        ]
+      },
+      {
+        "name": "ColorUtils",
+        "files": [
+          "client\\src\\utils\\layout.ts"
+        ]
+      },
+      {
+        "name": "AchievementIcons",
+        "files": [
+          "client\\src\\utils\\iconHelper.ts"
+        ]
+      },
+      {
+        "name": "StatusIcons",
+        "files": [
+          "client\\src\\utils\\iconHelper.ts"
+        ]
+      },
+      {
+        "name": "GlobalStyles",
+        "files": [
+          "client\\src\\styles\\globalStyles.ts"
+        ]
+      },
+      {
+        "name": "Spacing",
+        "files": [
+          "client\\src\\styles\\globalStyles.ts"
+        ]
+      },
+      {
+        "name": "persistor",
+        "files": [
+          "client\\src\\store\\index.ts"
+        ]
+      },
+      {
+        "name": "ValidationRules",
+        "files": [
+          "client\\src\\services\\errorHandler.ts"
+        ]
+      },
+      {
+        "name": "backgroundSyncService",
+        "files": [
+          "client\\src\\services\\backgroundSync.ts"
+        ]
+      },
+      {
+        "name": "mealPlanAPI",
+        "files": [
+          "client\\src\\services\\api.ts"
+        ]
+      },
+      {
+        "name": "needsPayment",
+        "files": [
+          "client\\components\\AuthRouteGuard.tsx"
+        ]
+      },
+      {
+        "name": "remainingCalories",
+        "files": [
+          "client\\components\\index\\CircularCaloriesProgress.tsx"
+        ]
+      },
+      {
+        "name": "STALE_TIME",
+        "files": [
+          "client\\hooks\\useQueries.ts"
+        ]
+      },
+      {
+        "name": "CACHE_TIME",
+        "files": [
+          "client\\hooks\\useQueries.ts"
+        ]
+      },
+      {
+        "name": "RETRY_DELAY",
+        "files": [
+          "client\\hooks\\useQueries.ts"
+        ]
+      }
+    ],
+    "unusedImports": [
+      {
+        "name": "AxiosResponse",
+        "files": [
+          "client\\src\\services\\api.ts"
+        ]
+      },
+      {
+        "name": "interpolateColor",
+        "files": [
+          "client\\components\\ScrollableTabBar.tsx"
+        ]
+      },
+      {
+        "name": "useTokenValidation",
+        "files": [
+          "client\\components\\ProtectedRoutes.tsx"
+        ]
+      },
+      {
+        "name": "Users",
+        "files": [
+          "client\\components\\menu\\MealDetailView.tsx"
+        ]
+      },
+      {
+        "name": "RotateCcw",
+        "files": [
+          "client\\components\\camera\\SelectedImage.tsx"
+        ]
+      }
+    ]
+  },
+  "server": {
+    "unusedFiles": [
+      "server\\src\\types\\express.d.ts"
+    ],
+    "unusedFunctions": [
+      {
+        "name": "parsePartialJSON",
+        "files": [
+          "server\\src\\utils\\openai.ts"
+        ]
+      },
+      {
+        "name": "resetDailyLimits",
+        "files": [
+          "server\\src\\services\\cron.ts"
+        ]
+      },
+      {
+        "name": "generatePasswordResetToken",
+        "files": [
+          "server\\src\\services\\auth.ts"
+        ]
+      },
+      {
+        "name": "validateShoppingItem",
+        "files": [
+          "server\\src\\routes\\shoppingLists.ts"
+        ]
+      },
+      {
+        "name": "getDatabaseUrl",
+        "files": [
+          "server\\src\\lib\\database.ts"
+        ]
+      }
+    ],
+    "unusedVariables": [
+      {
+        "name": "updateSubscriptionSchema",
+        "files": [
+          "server\\src\\types\\auth.ts"
+        ]
+      },
+      {
+        "name": "customizedMeals",
+        "files": [
+          "server\\src\\services\\recommendedMenu.ts"
+        ]
+      },
+      {
+        "name": "userPrompt",
+        "files": [
+          "server\\src\\services\\openai.ts"
+        ]
+      },
+      {
+        "name": "planName",
+        "files": [
+          "server\\src\\routes\\mealPlans.ts"
+        ]
+      },
+      {
+        "name": "daysCount",
+        "files": [
+          "server\\src\\routes\\mealPlans.ts"
+        ]
+      }
+    ],
+    "unusedImports": [
+      {
+        "name": "healthRoutes",
+        "files": [
+          "server\\src\\index.ts"
+        ]
+      }
+    ],
+    "prismaIssues": []
+  }
+}

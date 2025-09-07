@@ -2,7 +2,6 @@ import { Tabs } from "expo-router";
 import React from "react";
 import { View, I18nManager } from "react-native";
 import { useTranslation } from "react-i18next";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ProtectedRoute } from "@/components/ProtectedRoutes";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import { ScrollableTabBar } from "@/components/ScrollableTabBar";
@@ -14,7 +13,6 @@ I18nManager.allowRTL(true);
 export default function TabLayout() {
   const { t } = useTranslation();
   const { colors } = useTheme();
-  const insets = useSafeAreaInsets();
 
   // Since your tab bar is floating, calculate the space it occupies
   // From your ScrollableTabBar config:

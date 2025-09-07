@@ -40,134 +40,6 @@ if (Platform.OS !== "web") {
 
 SplashScreen.preventAutoHideAsync();
 
-// Update the navigation state logic with proper memoization
-function useNavigationState(
-  user: any,
-  isAuthenticated: boolean,
-  segments: string[]
-) {
-  return useMemo(() => {
-    const currentPath = segments?.[0] || "";
-    const inAuthGroup = currentPath === "(auth)";
-    const inTabsGroup = currentPath === "(tabs)";
-    const onPaymentPlan = currentPath === "payment-plan";
-    const onPayment = currentPath === "payment";
-    const onQuestionnaire =
-      (inTabsGroup && segments?.[1] === "questionnaire") ||
-      currentPath === "questionnaire";
-    const onEmailVerification =
-      inAuthGroup && segments?.[1] === "email-verification";
-
-    const currentRoute = "/" + segments.join("/");
-
-    let targetRoute: string | null = null;
-
-    if (!isAuthenticated || !user) {
-      if (!inAuthGroup) {
-        targetRoute = "/(auth)/signin";
-      }
-    } else if (user && !user.email_verified && !onEmailVerification) {
-      targetRoute = "/(auth)/email-verification";
-    } else {
-      const hasPaidPlan =
-        user?.subscription_type && user?.subscription_type !== "FREE";
-      const needsQuestionnaire = !user?.is_questionnaire_completed;
-
-      // Priority 1: Paid plan users without questionnaire -> questionnaire
-      if (hasPaidPlan && needsQuestionnaire && !onQuestionnaire) {
-        targetRoute = "/questionnaire";
-      }
-      // Priority 2: Free plan users without subscription -> payment plan
-      else if (
-        !hasPaidPlan &&
-        user?.subscription_type === "FREE" &&
-        !onPaymentPlan &&
-        !onPayment
-      ) {
-        targetRoute = "/payment-plan";
-      }
-      // Priority 3: Users without questionnaire (FREE plan) -> questionnaire
-      else if (!hasPaidPlan && needsQuestionnaire && !onQuestionnaire) {
-        targetRoute = "/(tabs)/questionnaire";
-      }
-      // Priority 4: Completed users -> main app
-      else if (
-        !inTabsGroup &&
-        isAuthenticated &&
-        user?.email_verified &&
-        user?.subscription_type &&
-        user?.is_questionnaire_completed &&
-        !onPayment &&
-        !onPaymentPlan &&
-        !onQuestionnaire
-      ) {
-        targetRoute = "/(tabs)";
-      }
-    }
-
-    return {
-      targetRoute,
-      currentRoute,
-      shouldNavigate: targetRoute !== null && targetRoute !== currentRoute,
-    };
-  }, [
-    user?.email_verified,
-    user?.subscription_type,
-    user?.is_questionnaire_completed,
-    user?.email,
-    isAuthenticated,
-    segments?.join("/") || "",
-  ]);
-}
-
-function useNavigationManager(
-  targetRoute: string | null,
-  currentRoute: string,
-  shouldNavigate: boolean,
-  loaded: boolean
-) {
-  const router = useRouter();
-  const lastNavigationRef = useRef<string | null>(null);
-  const isNavigatingRef = useRef(false);
-  const segments = useSegments();
-
-  useEffect(() => {
-    if (!loaded || !shouldNavigate || !targetRoute || isNavigatingRef.current) {
-      return;
-    }
-
-    const currentPath = segments?.[0] || "";
-    const currentFullPath = "/" + segments.join("/");
-
-    if (
-      currentPath === "payment" ||
-      currentPath === "payment-plan" ||
-      currentPath === "questionnaire" ||
-      currentFullPath.includes("questionnaire") ||
-      currentPath === "menu"
-    ) {
-      return;
-    }
-
-    if (lastNavigationRef.current === targetRoute) {
-      return;
-    }
-
-    isNavigatingRef.current = true;
-    lastNavigationRef.current = targetRoute;
-
-    router.replace(targetRoute as any);
-
-    const resetTimeout = setTimeout(() => {
-      isNavigatingRef.current = false;
-    }, 100);
-
-    return () => {
-      clearTimeout(resetTimeout);
-    };
-  }, [loaded, shouldNavigate, targetRoute, router, segments]);
-}
-
 const LoadingScreen = React.memo(() => (
   <View style={styles.loadingContainer}>
     <ActivityIndicator size="large" color="#10b981" />
@@ -318,15 +190,14 @@ const AppContent = React.memo(() => {
   const authState = useOptimizedAuthSelector();
   const { isAuthenticated = false, user = null } = authState || {};
   const segments = useSegments() as string[];
-  const router = useRouter(); // Get router instance
+  const router = useRouter();
 
-  const authInitialized = true; // Assuming auth is initialized here for the sake of the example
+  const authInitialized = true;
 
   useEffect(() => {
     const handleRouting = () => {
       if (!authInitialized) return;
 
-      // Enhanced routing logic with complete step-by-step flow
       const currentPath = segments?.join("/") || "";
       console.log("🚦 Root Layout - Current Path:", currentPath);
       console.log("🚦 Root Layout - Auth State:", {
@@ -340,7 +211,25 @@ const AppContent = React.memo(() => {
           : null,
       });
 
-      // If not authenticated, redirect to signin
+      // 🔧 FIX: Allow access to privacy policy and other public routes without authentication
+      const publicRoutes = [
+        "privacy-policy",
+        "terms-of-service",
+        "about",
+        "contact",
+      ];
+
+      const isPublicRoute = publicRoutes.some((route) =>
+        currentPath.includes(route)
+      );
+
+      // Skip routing logic for public routes
+      if (isPublicRoute) {
+        console.log("🚦 Accessing public route - no authentication required");
+        return;
+      }
+
+      // If not authenticated, redirect to signin (except for auth routes and public routes)
       if (!isAuthenticated) {
         const authRoutes = [
           "signin",
@@ -350,6 +239,7 @@ const AppContent = React.memo(() => {
           "resetPassword",
           "reset-password-verify",
         ];
+
         if (!authRoutes.some((route) => currentPath.includes(route))) {
           console.log("🚦 Not authenticated - redirecting to signin");
           router.replace("/(auth)/signin");
@@ -395,11 +285,9 @@ const AppContent = React.memo(() => {
       }
 
       // Step 4: Payment Check (for paid plans)
-      // Note: Add payment status check here if you have a separate payment_status field
       const hasPaidPlan =
         user.subscription_type === "PREMIUM" ||
         user.subscription_type === "GOLD";
-      // For now, we assume if they have PREMIUM/GOLD subscription_type, payment is complete
 
       // Step 5: All checks passed - ensure user is in main app
       const exemptRoutes = ["payment", "privacy-policy"];
@@ -434,8 +322,6 @@ const AppContent = React.memo(() => {
   const [loaded] = useFonts({
     SpaceMono: require("../assets/fonts/SpaceMono-Regular.ttf"),
   });
-
-  // Removed the useNavigationState and useNavigationManager as the logic is now within the useEffect above.
 
   useEffect(() => {
     if (loaded) {

@@ -1,0 +1,6253 @@
+{
+  "client": {
+    "unusedFiles": [
+      "client\\expo-env.d.ts",
+      "client\\src\\utils\\secureStorage.ts",
+      "client\\src\\utils\\imageOptimiztion.ts",
+      "client\\src\\utils\\i18nUtils.ts",
+      "client\\src\\utils\\cardDetection.ts",
+      "client\\src\\utils\\cacheUtils.ts",
+      "client\\src\\styles\\globalStyles.ts",
+      "client\\src\\services\\notificationService.ts",
+      "client\\src\\services\\backgroundSync.ts",
+      "client\\hooks\\useSwipeNavigation.ts",
+      "client\\hooks\\useRTLStyle.ts",
+      "client\\hooks\\useQueries.ts",
+      "client\\hooks\\usePrefetch.ts",
+      "client\\hooks\\useGoogleFitAuth.ts",
+      "client\\hooks\\useFormattedTime.ts",
+      "client\\hooks\\useColorScheme.web.ts",
+      "client\\hooks\\useBackgroundRefetch.ts",
+      "client\\hooks\\useAppInitialization.ts",
+      "client\\src\\providers\\QueryProvider.tsx",
+      "client\\components\\ScreenWrapper.tsx",
+      "client\\components\\QuestionnaireProtection.tsx",
+      "client\\components\\ParallaxScrollView.tsx",
+      "client\\components\\NoteficationSettings.tsx",
+      "client\\components\\LocalizedText.tsx",
+      "client\\components\\FloatingChatButton.tsx",
+      "client\\components\\DynamicListInputs.tsx",
+      "client\\components\\Collapsible.tsx",
+      "client\\components\\ChatInterface.tsx",
+      "client\\components\\AuthRouteGuard.tsx",
+      "client\\components\\AccessibilityButton.tsx",
+      "client\\components\\ui\\TabBarBackground.tsx",
+      "client\\components\\ui\\TabBarBackground.ios.tsx",
+      "client\\components\\ui\\IconSymbol.ios.tsx",
+      "client\\components\\statistics\\TimePeriodFilter.tsx",
+      "client\\components\\statistics\\StatisticsHeaders.tsx",
+      "client\\components\\statistics\\GamificationDashboard.tsx"
+    ],
+    "unusedFunctions": [
+      {
+        "name": "moveDirectories",
+        "file": "client\\scripts\\reset-project.js",
+        "type": "expression"
+      },
+      {
+        "name": "getStatusIconColor",
+        "file": "client\\src\\utils\\iconHelper.ts",
+        "type": "expression"
+      },
+      {
+        "name": "setQuestionnaireCompletedAction",
+        "file": "client\\src\\store\\questionnaireSlice.ts",
+        "type": "expression"
+      },
+      {
+        "name": "createCrossPlatformStorage",
+        "file": "client\\src\\store\\index.ts",
+        "type": "expression"
+      },
+      {
+        "name": "sanitizeKey",
+        "file": "client\\src\\store\\index.ts",
+        "type": "expression"
+      },
+      {
+        "name": "clearQueries",
+        "file": "client\\src\\store\\authSlice.ts",
+        "type": "expression"
+      },
+      {
+        "name": "queryErrorHandler",
+        "file": "client\\src\\services\\queryClient.ts",
+        "type": "expression"
+      },
+      {
+        "name": "mutationErrorHandler",
+        "file": "client\\src\\services\\queryClient.ts",
+        "type": "expression"
+      },
+      {
+        "name": "createApiInstance",
+        "file": "client\\src\\services\\api.ts",
+        "type": "expression"
+      },
+      {
+        "name": "getStoredToken",
+        "file": "client\\src\\services\\api.ts",
+        "type": "expression"
+      },
+      {
+        "name": "setStoredToken",
+        "file": "client\\src\\services\\api.ts",
+        "type": "expression"
+      },
+      {
+        "name": "clearStoredToken",
+        "file": "client\\src\\services\\api.ts",
+        "type": "expression"
+      },
+      {
+        "name": "navigateToCamera",
+        "file": "client\\hooks\\useSwipeNavigation.ts",
+        "type": "expression"
+      },
+      {
+        "name": "prefetchCriticalData",
+        "file": "client\\hooks\\usePrefetch.ts",
+        "type": "expression"
+      },
+      {
+        "name": "connectGoogleFit",
+        "file": "client\\hooks\\useGoogleFitAuth.ts",
+        "type": "expression"
+      },
+      {
+        "name": "refetchStaleData",
+        "file": "client\\hooks\\useBackgroundRefetch.ts",
+        "type": "expression"
+      },
+      {
+        "name": "initializeApp",
+        "file": "client\\hooks\\useAppInitialization.ts",
+        "type": "expression"
+      },
+      {
+        "name": "loadThemePreference",
+        "file": "client\\src\\context\\ThemeContext.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "XPNotification",
+        "file": "client\\components\\XPNotification.tsx",
+        "type": "declaration"
+      },
+      {
+        "name": "hideNotification",
+        "file": "client\\components\\XPNotification.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "ToolBar",
+        "file": "client\\components\\ToolBar.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "ToastWrapper",
+        "file": "client\\components\\ToastWrapper.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "ShoppingList",
+        "file": "client\\components\\ShoppingList.tsx",
+        "type": "declaration"
+      },
+      {
+        "name": "handleAddItem",
+        "file": "client\\components\\ShoppingList.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleUpdateItem",
+        "file": "client\\components\\ShoppingList.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleTogglePurchased",
+        "file": "client\\components\\ShoppingList.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleDeleteItem",
+        "file": "client\\components\\ShoppingList.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleClearPurchased",
+        "file": "client\\components\\ShoppingList.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "triggerHaptic",
+        "file": "client\\components\\ScrollableTabBar.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "getIconComponent",
+        "file": "client\\components\\ScrollableTabBar.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "getTabLabel",
+        "file": "client\\components\\ScrollableTabBar.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleAppStateChange",
+        "file": "client\\components\\ScrollableTabBar.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "TabLayout",
+        "file": "client\\components\\ScrollableTabBar.tsx",
+        "type": "declaration"
+      },
+      {
+        "name": "ScreenWrapper",
+        "file": "client\\components\\ScreenWrapper.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "QuestionnaireProtection",
+        "file": "client\\components\\QuestionnaireProtection.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "validateAuth",
+        "file": "client\\components\\ProtectedRoutes.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "PrivacySettings",
+        "file": "client\\components\\PrivacySettings.tsx",
+        "type": "declaration"
+      },
+      {
+        "name": "ParallaxScrollView",
+        "file": "client\\components\\ParallaxScrollView.tsx",
+        "type": "declaration"
+      },
+      {
+        "name": "NotificationSettings",
+        "file": "client\\components\\NotificationSettings.tsx",
+        "type": "declaration"
+      },
+      {
+        "name": "NotificationSettings",
+        "file": "client\\components\\NoteficationSettings.tsx",
+        "type": "declaration"
+      },
+      {
+        "name": "toggleSetting",
+        "file": "client\\components\\NoteficationSettings.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "MenuCard",
+        "file": "client\\components\\MenuCard.tsx",
+        "type": "declaration"
+      },
+      {
+        "name": "LeafIcon",
+        "file": "client\\components\\LoadingScreen.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "SeedlingIcon",
+        "file": "client\\components\\LoadingScreen.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "TreeIcon",
+        "file": "client\\components\\LoadingScreen.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "FlowerIcon",
+        "file": "client\\components\\LoadingScreen.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "LoadingScreen",
+        "file": "client\\components\\LoadingScreen.tsx",
+        "type": "declaration"
+      },
+      {
+        "name": "createDynamicStyles",
+        "file": "client\\components\\LoadingScreen.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "LanguageSelector",
+        "file": "client\\components\\LanguageSelector.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleLanguageSelect",
+        "file": "client\\components\\LanguageSelector.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "openModal",
+        "file": "client\\components\\LanguageSelector.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "closeModal",
+        "file": "client\\components\\LanguageSelector.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "FloatingChatButton",
+        "file": "client\\components\\FloatingChatButton.tsx",
+        "type": "declaration"
+      },
+      {
+        "name": "ErrorDisplay",
+        "file": "client\\components\\ErrorDisplay.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "getContainerStyle",
+        "file": "client\\components\\ErrorDisplay.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "ElementLoader",
+        "file": "client\\components\\ElementLoader.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "EditProfile",
+        "file": "client\\components\\EditProfile.tsx",
+        "type": "declaration"
+      },
+      {
+        "name": "onChangeDate",
+        "file": "client\\components\\EditProfile.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleSave",
+        "file": "client\\components\\EditProfile.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleImagePicker",
+        "file": "client\\components\\EditProfile.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "DynamicListInputs",
+        "file": "client\\components\\DynamicListInputs.tsx",
+        "type": "declaration"
+      },
+      {
+        "name": "updateItem",
+        "file": "client\\components\\DynamicListInputs.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "ChatInterface",
+        "file": "client\\components\\ChatInterface.tsx",
+        "type": "declaration"
+      },
+      {
+        "name": "pulseAnimation",
+        "file": "client\\components\\ChatInterface.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "openChat",
+        "file": "client\\components\\ChatInterface.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "closeChat",
+        "file": "client\\components\\ChatInterface.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleSuggestionPress",
+        "file": "client\\components\\ChatInterface.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "createChatStyles",
+        "file": "client\\components\\ChatInterface.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "CardLoader",
+        "file": "client\\components\\CardLoader.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "ButtonLoader",
+        "file": "client\\components\\ButtonLoader.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "getButtonStyle",
+        "file": "client\\components\\ButtonLoader.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "getTextStyle",
+        "file": "client\\components\\ButtonLoader.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "AccessibilityButton",
+        "file": "client\\components\\AccessibilityButton.tsx",
+        "type": "declaration"
+      },
+      {
+        "name": "toggleExpanded",
+        "file": "client\\components\\AccessibilityButton.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "toggleOption",
+        "file": "client\\components\\AccessibilityButton.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "getActiveOptionsCount",
+        "file": "client\\components\\AccessibilityButton.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "BlurTabBarBackground",
+        "file": "client\\components\\ui\\TabBarBackground.ios.tsx",
+        "type": "declaration"
+      },
+      {
+        "name": "WeightScale",
+        "file": "client\\components\\questionnaire\\WeightScale.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "getPositionForValue",
+        "file": "client\\components\\questionnaire\\WeightScale.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "getValueFromPosition",
+        "file": "client\\components\\questionnaire\\WeightScale.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "updateValue",
+        "file": "client\\components\\questionnaire\\WeightScale.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleValueChangeEnd",
+        "file": "client\\components\\questionnaire\\WeightScale.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "renderScaleMarks",
+        "file": "client\\components\\questionnaire\\WeightScale.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "StepContainer",
+        "file": "client\\components\\questionnaire\\StepContainer.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "ProgressIndicator",
+        "file": "client\\components\\questionnaire\\ProgressIndicator.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "OptionGroup",
+        "file": "client\\components\\questionnaire\\OptionGroup.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "OptionCard",
+        "file": "client\\components\\questionnaire\\OptionCard.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handlePressIn",
+        "file": "client\\components\\questionnaire\\OptionCard.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handlePressOut",
+        "file": "client\\components\\questionnaire\\OptionCard.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "DynamicListInput",
+        "file": "client\\components\\questionnaire\\DynamicListInput.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "removeItem",
+        "file": "client\\components\\questionnaire\\DynamicListInput.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "CustomTextInput",
+        "file": "client\\components\\questionnaire\\CustomTextInput.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleFocus",
+        "file": "client\\components\\questionnaire\\CustomTextInput.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleBlur",
+        "file": "client\\components\\questionnaire\\CustomTextInput.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "CustomSwitch",
+        "file": "client\\components\\questionnaire\\CustomSwitch.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "CheckboxGroup",
+        "file": "client\\components\\questionnaire\\CheckBoxGroup.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "CheckboxItem",
+        "file": "client\\components\\questionnaire\\CheckBoxGroup.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handlePress",
+        "file": "client\\components\\questionnaire\\CheckBoxGroup.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "getTotalSelectedItems",
+        "file": "client\\components\\menu\\MenuCreator.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "toggleItemSelection",
+        "file": "client\\components\\menu\\MenuCreator.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "isItemSelected",
+        "file": "client\\components\\menu\\MenuCreator.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "renderCategoryCard",
+        "file": "client\\components\\menu\\MenuCreator.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "renderSpecialSection",
+        "file": "client\\components\\menu\\MenuCreator.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "renderMenuItem",
+        "file": "client\\components\\menu\\MenuCreator.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "getMealTypeColor",
+        "file": "client\\components\\menu\\MealsListView.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "getMealImageUri",
+        "file": "client\\components\\menu\\MealsListView.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "renderMealItem",
+        "file": "client\\components\\menu\\MealsListView.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "renderAddMealItem",
+        "file": "client\\components\\menu\\MealsListView.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "renderFilterChip",
+        "file": "client\\components\\menu\\MealsListView.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleFavoriteToggle",
+        "file": "client\\components\\menu\\MealDetailView.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "getDifficultyStars",
+        "file": "client\\components\\menu\\MealDetailView.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "getImageUri",
+        "file": "client\\components\\menu\\MealDetailView.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "CircularCaloriesProgress",
+        "file": "client\\components\\index\\CircularCaloriesProgress.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "createArcPath",
+        "file": "client\\components\\index\\CircularCaloriesProgress.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "polarToCartesian",
+        "file": "client\\components\\index\\CircularCaloriesProgress.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "App",
+        "file": "client\\components\\index\\CircularCaloriesProgress.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "startAnimation",
+        "file": "client\\components\\camera\\ScanningAnimation.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "startRotation",
+        "file": "client\\components\\camera\\ScanningAnimation.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "startPulse",
+        "file": "client\\components\\camera\\ScanningAnimation.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "startScanLine",
+        "file": "client\\components\\camera\\ScanningAnimation.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "progressThroughSteps",
+        "file": "client\\components\\camera\\ScanningAnimation.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "resetAnimation",
+        "file": "client\\components\\camera\\ScanningAnimation.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "getCornerStyle",
+        "file": "client\\components\\camera\\ScanningAnimation.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "createPath",
+        "file": "client\\components\\camera\\PieChart.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleAddAllToShoppingList",
+        "file": "client\\components\\camera\\IngredientsList.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "useNavigationState",
+        "file": "client\\app\\_layout.tsx",
+        "type": "declaration"
+      },
+      {
+        "name": "useNavigationManager",
+        "file": "client\\app\\_layout.tsx",
+        "type": "declaration"
+      },
+      {
+        "name": "useHelpContent",
+        "file": "client\\app\\_layout.tsx",
+        "type": "declaration"
+      },
+      {
+        "name": "safeT",
+        "file": "client\\app\\_layout.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleRouting",
+        "file": "client\\app\\_layout.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "RootLayout",
+        "file": "client\\app\\_layout.tsx",
+        "type": "declaration"
+      },
+      {
+        "name": "QuestionnaireScreen",
+        "file": "client\\app\\questionnaire.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "safeString",
+        "file": "client\\app\\questionnaire.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "safeArray",
+        "file": "client\\app\\questionnaire.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "safeBoolean",
+        "file": "client\\app\\questionnaire.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "mapGenderToKey",
+        "file": "client\\app\\questionnaire.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleArrayToggle",
+        "file": "client\\app\\questionnaire.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleSubmit",
+        "file": "client\\app\\questionnaire.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "canProceed",
+        "file": "client\\app\\questionnaire.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleBack",
+        "file": "client\\app\\questionnaire.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "getStepIcon",
+        "file": "client\\app\\questionnaire.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "renderStep",
+        "file": "client\\app\\questionnaire.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "PrivacyPolicyScreen",
+        "file": "client\\app\\privacy-policy.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "toggleSection",
+        "file": "client\\app\\privacy-policy.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "openExternalLink",
+        "file": "client\\app\\privacy-policy.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "renderSection",
+        "file": "client\\app\\privacy-policy.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "validateCardNumber",
+        "file": "client\\app\\payment.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "getCardIcon",
+        "file": "client\\app\\payment.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "PaymentScreen",
+        "file": "client\\app\\payment.tsx",
+        "type": "declaration"
+      },
+      {
+        "name": "handleCardNumberChange",
+        "file": "client\\app\\payment.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleExpiryChange",
+        "file": "client\\app\\payment.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleCvvChange",
+        "file": "client\\app\\payment.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "validateForm",
+        "file": "client\\app\\payment.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleCvvFocus",
+        "file": "client\\app\\payment.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleCvvBlur",
+        "file": "client\\app\\payment.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "PaymentPlan",
+        "file": "client\\app\\payment-plan.tsx",
+        "type": "declaration"
+      },
+      {
+        "name": "detectCardType",
+        "file": "client\\app\\payment-plan.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "formatCardNumber",
+        "file": "client\\app\\payment-plan.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "formatExpiryDate",
+        "file": "client\\app\\payment-plan.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "validatePaymentData",
+        "file": "client\\app\\payment-plan.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handlePayment",
+        "file": "client\\app\\payment-plan.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "processPayment",
+        "file": "client\\app\\payment-plan.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handlePlanSelection",
+        "file": "client\\app\\payment-plan.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "renderPlan",
+        "file": "client\\app\\payment-plan.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "renderPaymentModal",
+        "file": "client\\app\\payment-plan.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "Index",
+        "file": "client\\app\\index.tsx",
+        "type": "declaration"
+      },
+      {
+        "name": "NotFoundScreen",
+        "file": "client\\app\\+not-found.tsx",
+        "type": "declaration"
+      },
+      {
+        "name": "handleGoHome",
+        "file": "client\\app\\+not-found.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleGoBack",
+        "file": "client\\app\\+not-found.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "MenuDetailsScreen",
+        "file": "client\\app\\menu\\[id].tsx",
+        "type": "declaration"
+      },
+      {
+        "name": "loadMenuDetails",
+        "file": "client\\app\\menu\\[id].tsx",
+        "type": "expression"
+      },
+      {
+        "name": "getMealsByDay",
+        "file": "client\\app\\menu\\[id].tsx",
+        "type": "expression"
+      },
+      {
+        "name": "getDaysArray",
+        "file": "client\\app\\menu\\[id].tsx",
+        "type": "expression"
+      },
+      {
+        "name": "getMealTypeIcon",
+        "file": "client\\app\\menu\\[id].tsx",
+        "type": "expression"
+      },
+      {
+        "name": "formatInstructions",
+        "file": "client\\app\\menu\\[id].tsx",
+        "type": "expression"
+      },
+      {
+        "name": "renderStartModal",
+        "file": "client\\app\\menu\\[id].tsx",
+        "type": "expression"
+      },
+      {
+        "name": "ActiveMenuScreen",
+        "file": "client\\app\\menu\\activeMenu.tsx",
+        "type": "declaration"
+      },
+      {
+        "name": "initializeCalendar",
+        "file": "client\\app\\menu\\activeMenu.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "generateWeekDays",
+        "file": "client\\app\\menu\\activeMenu.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "loadMealPlan",
+        "file": "client\\app\\menu\\activeMenu.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleMealPress",
+        "file": "client\\app\\menu\\activeMenu.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleSaveMealInteraction",
+        "file": "client\\app\\menu\\activeMenu.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleSwapMeal",
+        "file": "client\\app\\menu\\activeMenu.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "performMealSwap",
+        "file": "client\\app\\menu\\activeMenu.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleCompletePlan",
+        "file": "client\\app\\menu\\activeMenu.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "getDayNames",
+        "file": "client\\app\\menu\\activeMenu.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "navigateWeek",
+        "file": "client\\app\\menu\\activeMenu.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "selectDay",
+        "file": "client\\app\\menu\\activeMenu.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "getDailyNutritionTotals",
+        "file": "client\\app\\menu\\activeMenu.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "renderMealCard",
+        "file": "client\\app\\menu\\activeMenu.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "renderMealModal",
+        "file": "client\\app\\menu\\activeMenu.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "renderCompletePlanModal",
+        "file": "client\\app\\menu\\activeMenu.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "renderSwapModal",
+        "file": "client\\app\\menu\\activeMenu.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "TabLayout",
+        "file": "client\\app\\(tabs)\\_layout.tsx",
+        "type": "declaration"
+      },
+      {
+        "name": "CircularProgress",
+        "file": "client\\app\\(tabs)\\statistics.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "ChartNavigation",
+        "file": "client\\app\\(tabs)\\statistics.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "WeeklyProgressChart",
+        "file": "client\\app\\(tabs)\\statistics.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "MacronutrientChart",
+        "file": "client\\app\\(tabs)\\statistics.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "ProgressBarChart",
+        "file": "client\\app\\(tabs)\\statistics.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "HydrationChart",
+        "file": "client\\app\\(tabs)\\statistics.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "getAchievementIcon",
+        "file": "client\\app\\(tabs)\\statistics.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "getAchievementBackgroundColor",
+        "file": "client\\app\\(tabs)\\statistics.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "getRarityColor",
+        "file": "client\\app\\(tabs)\\statistics.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "StatisticsScreen",
+        "file": "client\\app\\(tabs)\\statistics.tsx",
+        "type": "declaration"
+      },
+      {
+        "name": "fetchStatistics",
+        "file": "client\\app\\(tabs)\\statistics.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "generateNutritionMetrics",
+        "file": "client\\app\\(tabs)\\statistics.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "calculateTrend",
+        "file": "client\\app\\(tabs)\\statistics.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "calculateWeeklyChange",
+        "file": "client\\app\\(tabs)\\statistics.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "generateWeeklyData",
+        "file": "client\\app\\(tabs)\\statistics.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "generateAchievements",
+        "file": "client\\app\\(tabs)\\statistics.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleRefresh",
+        "file": "client\\app\\(tabs)\\statistics.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "getStatusColor",
+        "file": "client\\app\\(tabs)\\statistics.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "getStatusIcon",
+        "file": "client\\app\\(tabs)\\statistics.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "getTrendIcon",
+        "file": "client\\app\\(tabs)\\statistics.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "calculateProgressStats",
+        "file": "client\\app\\(tabs)\\statistics.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "calculateGamificationStats",
+        "file": "client\\app\\(tabs)\\statistics.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "shouldShowWarnings",
+        "file": "client\\app\\(tabs)\\statistics.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "renderActiveChart",
+        "file": "client\\app\\(tabs)\\statistics.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "renderMetricCard",
+        "file": "client\\app\\(tabs)\\statistics.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "renderMealCompletionStatus",
+        "file": "client\\app\\(tabs)\\statistics.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "generatePdf",
+        "file": "client\\app\\(tabs)\\statistics.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "FilterModal",
+        "file": "client\\app\\(tabs)\\recommended-menus.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "MenuCard",
+        "file": "client\\app\\(tabs)\\recommended-menus.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "getDifficultyColor",
+        "file": "client\\app\\(tabs)\\recommended-menus.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "getDifficultyLabel",
+        "file": "client\\app\\(tabs)\\recommended-menus.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "ActivePlanCard",
+        "file": "client\\app\\(tabs)\\recommended-menus.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "QuickStats",
+        "file": "client\\app\\(tabs)\\recommended-menus.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "CategoryPills",
+        "file": "client\\app\\(tabs)\\recommended-menus.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "RecommendedMenusScreen",
+        "file": "client\\app\\(tabs)\\recommended-menus.tsx",
+        "type": "declaration"
+      },
+      {
+        "name": "loadRecommendedMenus",
+        "file": "client\\app\\(tabs)\\recommended-menus.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "checkForActivePlan",
+        "file": "client\\app\\(tabs)\\recommended-menus.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleStartMenu",
+        "file": "client\\app\\(tabs)\\recommended-menus.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "activateMenuPlan",
+        "file": "client\\app\\(tabs)\\recommended-menus.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleCreateEnhancedMenu",
+        "file": "client\\app\\(tabs)\\recommended-menus.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "resetEnhancedForm",
+        "file": "client\\app\\(tabs)\\recommended-menus.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleFeedbackSubmit",
+        "file": "client\\app\\(tabs)\\recommended-menus.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "renderEnhancedCreationModal",
+        "file": "client\\app\\(tabs)\\recommended-menus.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "renderFeedbackModal",
+        "file": "client\\app\\(tabs)\\recommended-menus.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "ProfileScreen",
+        "file": "client\\app\\(tabs)\\profile.tsx",
+        "type": "declaration"
+      },
+      {
+        "name": "handleSignOut",
+        "file": "client\\app\\(tabs)\\profile.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleChangePlan",
+        "file": "client\\app\\(tabs)\\profile.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleExitPlan",
+        "file": "client\\app\\(tabs)\\profile.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleNotificationToggle",
+        "file": "client\\app\\(tabs)\\profile.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleDarkModeToggle",
+        "file": "client\\app\\(tabs)\\profile.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleMenuPress",
+        "file": "client\\app\\(tabs)\\profile.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleAvatarPress",
+        "file": "client\\app\\(tabs)\\profile.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleChooseFromGallery",
+        "file": "client\\app\\(tabs)\\profile.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "uploadAvatar",
+        "file": "client\\app\\(tabs)\\profile.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "renderSectionContent",
+        "file": "client\\app\\(tabs)\\profile.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "formatDate",
+        "file": "client\\app\\(tabs)\\profile.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "getSubscriptionBadge",
+        "file": "client\\app\\(tabs)\\profile.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "toggleLanguage",
+        "file": "client\\app\\(tabs)\\index.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "showToast",
+        "file": "client\\app\\(tabs)\\index.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "setUserInState",
+        "file": "client\\app\\(tabs)\\index.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "syncWaterWithServer",
+        "file": "client\\app\\(tabs)\\index.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "optimisticWaterUpdate",
+        "file": "client\\app\\(tabs)\\index.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "retryFailedSyncs",
+        "file": "client\\app\\(tabs)\\index.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "dismissWaterErrors",
+        "file": "client\\app\\(tabs)\\index.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "getTimeBasedGreeting",
+        "file": "client\\app\\(tabs)\\index.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "GreetingWithIcon",
+        "file": "client\\app\\(tabs)\\index.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "renderGoalGauge",
+        "file": "client\\app\\(tabs)\\index.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "renderUserStats",
+        "file": "client\\app\\(tabs)\\index.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "getCurrentDate",
+        "file": "client\\app\\(tabs)\\index.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "SwipeableMealCard",
+        "file": "client\\app\\(tabs)\\history.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleRatingChange",
+        "file": "client\\app\\(tabs)\\history.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleSaveRatings",
+        "file": "client\\app\\(tabs)\\history.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "renderLeftActions",
+        "file": "client\\app\\(tabs)\\history.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "renderRightActions",
+        "file": "client\\app\\(tabs)\\history.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "renderStarRating",
+        "file": "client\\app\\(tabs)\\history.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "getIngredients",
+        "file": "client\\app\\(tabs)\\history.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleAddSingleIngredientToShopping",
+        "file": "client\\app\\(tabs)\\history.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleAddIngredientsToShopping",
+        "file": "client\\app\\(tabs)\\history.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "HistoryScreen",
+        "file": "client\\app\\(tabs)\\history.tsx",
+        "type": "declaration"
+      },
+      {
+        "name": "renderItem",
+        "file": "client\\app\\(tabs)\\history.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "FoodScannerScreen",
+        "file": "client\\app\\(tabs)\\food-scanner.tsx",
+        "type": "declaration"
+      },
+      {
+        "name": "getCameraPermissions",
+        "file": "client\\app\\(tabs)\\food-scanner.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "loadScanHistory",
+        "file": "client\\app\\(tabs)\\food-scanner.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "estimatePrice",
+        "file": "client\\app\\(tabs)\\food-scanner.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "getBasePriceByCategory",
+        "file": "client\\app\\(tabs)\\food-scanner.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleBarcodeSearch",
+        "file": "client\\app\\(tabs)\\food-scanner.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleBarcodeScan",
+        "file": "client\\app\\(tabs)\\food-scanner.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleImageScan",
+        "file": "client\\app\\(tabs)\\food-scanner.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "animateResultAppearance",
+        "file": "client\\app\\(tabs)\\food-scanner.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleAddToShoppingList",
+        "file": "client\\app\\(tabs)\\food-scanner.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleAddToMealHistory",
+        "file": "client\\app\\(tabs)\\food-scanner.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleRescan",
+        "file": "client\\app\\(tabs)\\food-scanner.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "getScoreColor",
+        "file": "client\\app\\(tabs)\\food-scanner.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "renderProductPreview",
+        "file": "client\\app\\(tabs)\\food-scanner.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "renderDetailedAnalysis",
+        "file": "client\\app\\(tabs)\\food-scanner.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "getApiBaseUrl",
+        "file": "client\\app\\(tabs)\\devices.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "DevicesScreen",
+        "file": "client\\app\\(tabs)\\devices.tsx",
+        "type": "declaration"
+      },
+      {
+        "name": "loadDeviceData",
+        "file": "client\\app\\(tabs)\\devices.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "onRefresh",
+        "file": "client\\app\\(tabs)\\devices.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleConnectDevice",
+        "file": "client\\app\\(tabs)\\devices.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleDisconnectDevice",
+        "file": "client\\app\\(tabs)\\devices.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleSyncDevice",
+        "file": "client\\app\\(tabs)\\devices.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleSyncAllDevices",
+        "file": "client\\app\\(tabs)\\devices.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "CameraScreen",
+        "file": "client\\app\\(tabs)\\camera.tsx",
+        "type": "declaration"
+      },
+      {
+        "name": "requestCameraPermission",
+        "file": "client\\app\\(tabs)\\camera.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "getNutritionValue",
+        "file": "client\\app\\(tabs)\\camera.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "getMealName",
+        "file": "client\\app\\(tabs)\\camera.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleTakePhoto",
+        "file": "client\\app\\(tabs)\\camera.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleSelectFromGallery",
+        "file": "client\\app\\(tabs)\\camera.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "resetAnalysisState",
+        "file": "client\\app\\(tabs)\\camera.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleAnalyzeImage",
+        "file": "client\\app\\(tabs)\\camera.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleScanComplete",
+        "file": "client\\app\\(tabs)\\camera.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleReAnalyze",
+        "file": "client\\app\\(tabs)\\camera.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleSaveMeal",
+        "file": "client\\app\\(tabs)\\camera.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleDeleteMeal",
+        "file": "client\\app\\(tabs)\\camera.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "confirmDeleteMeal",
+        "file": "client\\app\\(tabs)\\camera.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleEditIngredient",
+        "file": "client\\app\\(tabs)\\camera.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleAddIngredient",
+        "file": "client\\app\\(tabs)\\camera.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleRemoveIngredient",
+        "file": "client\\app\\(tabs)\\camera.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleSaveIngredient",
+        "file": "client\\app\\(tabs)\\camera.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "calculateTotalNutrition",
+        "file": "client\\app\\(tabs)\\camera.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "renderAnalysisResults",
+        "file": "client\\app\\(tabs)\\camera.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "renderEditModal",
+        "file": "client\\app\\(tabs)\\camera.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "renderDeleteConfirmModal",
+        "file": "client\\app\\(tabs)\\camera.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "processImage",
+        "file": "client\\app\\(tabs)\\camera.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "CalendarScreen",
+        "file": "client\\app\\(tabs)\\calendar.tsx",
+        "type": "declaration"
+      },
+      {
+        "name": "loadCalendarData",
+        "file": "client\\app\\(tabs)\\calendar.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "getDaysInMonth",
+        "file": "client\\app\\(tabs)\\calendar.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "getProgressPercentage",
+        "file": "client\\app\\(tabs)\\calendar.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "getDayColor",
+        "file": "client\\app\\(tabs)\\calendar.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "getProgressLabel",
+        "file": "client\\app\\(tabs)\\calendar.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "getDayStatus",
+        "file": "client\\app\\(tabs)\\calendar.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "navigateMonth",
+        "file": "client\\app\\(tabs)\\calendar.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleMonthSelect",
+        "file": "client\\app\\(tabs)\\calendar.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleYearSelect",
+        "file": "client\\app\\(tabs)\\calendar.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "generateYearRange",
+        "file": "client\\app\\(tabs)\\calendar.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleDayPress",
+        "file": "client\\app\\(tabs)\\calendar.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleAddEvent",
+        "file": "client\\app\\(tabs)\\calendar.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleEventPress",
+        "file": "client\\app\\(tabs)\\calendar.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleEditEvent",
+        "file": "client\\app\\(tabs)\\calendar.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleViewEvent",
+        "file": "client\\app\\(tabs)\\calendar.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "submitEvent",
+        "file": "client\\app\\(tabs)\\calendar.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleDeleteEvent",
+        "file": "client\\app\\(tabs)\\calendar.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "calculateMonthStats",
+        "file": "client\\app\\(tabs)\\calendar.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "renderDay",
+        "file": "client\\app\\(tabs)\\calendar.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "renderWeekDays",
+        "file": "client\\app\\(tabs)\\calendar.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "renderGamificationSection",
+        "file": "client\\app\\(tabs)\\calendar.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "renderStatistics",
+        "file": "client\\app\\(tabs)\\calendar.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "AIChatScreen",
+        "file": "client\\app\\(tabs)\\ai-chat.tsx",
+        "type": "declaration"
+      },
+      {
+        "name": "loadUserProfile",
+        "file": "client\\app\\(tabs)\\ai-chat.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "loadChatHistory",
+        "file": "client\\app\\(tabs)\\ai-chat.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "checkForAllergens",
+        "file": "client\\app\\(tabs)\\ai-chat.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "sendMessage",
+        "file": "client\\app\\(tabs)\\ai-chat.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "clearChat",
+        "file": "client\\app\\(tabs)\\ai-chat.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "selectSuggestion",
+        "file": "client\\app\\(tabs)\\ai-chat.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "renderMessage",
+        "file": "client\\app\\(tabs)\\ai-chat.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "AuthLayout",
+        "file": "client\\app\\(auth)\\_layout.tsx",
+        "type": "declaration"
+      },
+      {
+        "name": "SignUpScreen",
+        "file": "client\\app\\(auth)\\signup.tsx",
+        "type": "declaration"
+      },
+      {
+        "name": "validateEmail",
+        "file": "client\\app\\(auth)\\signup.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleSignUp",
+        "file": "client\\app\\(auth)\\signup.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleGoogleSignUp",
+        "file": "client\\app\\(auth)\\signup.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleFacebookSignUp",
+        "file": "client\\app\\(auth)\\signup.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleTwitterSignUp",
+        "file": "client\\app\\(auth)\\signup.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "SignInScreen",
+        "file": "client\\app\\(auth)\\signin.tsx",
+        "type": "declaration"
+      },
+      {
+        "name": "handleSignIn",
+        "file": "client\\app\\(auth)\\signin.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "ResetPasswordScreen",
+        "file": "client\\app\\(auth)\\resetPassword.tsx",
+        "type": "declaration"
+      },
+      {
+        "name": "validatePassword",
+        "file": "client\\app\\(auth)\\resetPassword.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleResetPassword",
+        "file": "client\\app\\(auth)\\resetPassword.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "isFormValid",
+        "file": "client\\app\\(auth)\\resetPassword.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "ResetPasswordVerifyScreen",
+        "file": "client\\app\\(auth)\\reset-password-verify.tsx",
+        "type": "declaration"
+      },
+      {
+        "name": "formatTime",
+        "file": "client\\app\\(auth)\\reset-password-verify.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleCodeChange",
+        "file": "client\\app\\(auth)\\reset-password-verify.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleKeyPress",
+        "file": "client\\app\\(auth)\\reset-password-verify.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "ForgotPasswordScreen",
+        "file": "client\\app\\(auth)\\forgotPassword.tsx",
+        "type": "declaration"
+      },
+      {
+        "name": "handleSendResetCode",
+        "file": "client\\app\\(auth)\\forgotPassword.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "EmailVerificationScreen",
+        "file": "client\\app\\(auth)\\email-verification.tsx",
+        "type": "declaration"
+      },
+      {
+        "name": "handleVerifyCode",
+        "file": "client\\app\\(auth)\\email-verification.tsx",
+        "type": "expression"
+      },
+      {
+        "name": "handleResendCode",
+        "file": "client\\app\\(auth)\\email-verification.tsx",
+        "type": "expression"
+      }
+    ],
+    "unusedVariables": [
+      {
+        "name": "throttledCallback",
+        "file": "client\\src\\utils\\performance.ts"
+      },
+      {
+        "name": "LayoutUtils",
+        "file": "client\\src\\utils\\performance.ts"
+      },
+      {
+        "name": "AnimationUtils",
+        "file": "client\\src\\utils\\performance.ts"
+      },
+      {
+        "name": "MemoryUtils",
+        "file": "client\\src\\utils\\performance.ts"
+      },
+      {
+        "name": "NetworkUtils",
+        "file": "client\\src\\utils\\performance.ts"
+      },
+      {
+        "name": "KeyboardUtils",
+        "file": "client\\src\\utils\\layout.ts"
+      },
+      {
+        "name": "ColorUtils",
+        "file": "client\\src\\utils\\layout.ts"
+      },
+      {
+        "name": "AchievementIcons",
+        "file": "client\\src\\utils\\iconHelper.ts"
+      },
+      {
+        "name": "StatusIcons",
+        "file": "client\\src\\utils\\iconHelper.ts"
+      },
+      {
+        "name": "GlobalStyles",
+        "file": "client\\src\\styles\\globalStyles.ts"
+      },
+      {
+        "name": "Spacing",
+        "file": "client\\src\\styles\\globalStyles.ts"
+      },
+      {
+        "name": "Typography",
+        "file": "client\\src\\styles\\globalStyles.ts"
+      },
+      {
+        "name": "deleteMeal",
+        "file": "client\\src\\store\\mealSlice.ts"
+      },
+      {
+        "name": "ValidationRules",
+        "file": "client\\src\\services\\errorHandler.ts"
+      },
+      {
+        "name": "backgroundSyncService",
+        "file": "client\\src\\services\\backgroundSync.ts"
+      },
+      {
+        "name": "mealAPI",
+        "file": "client\\src\\services\\api.ts"
+      },
+      {
+        "name": "STALE_TIME",
+        "file": "client\\hooks\\useQueries.ts"
+      },
+      {
+        "name": "CACHE_TIME",
+        "file": "client\\hooks\\useQueries.ts"
+      },
+      {
+        "name": "RETRY_DELAY",
+        "file": "client\\hooks\\useQueries.ts"
+      },
+      {
+        "name": "THROTTLE_DELAY",
+        "file": "client\\hooks\\useQueries.ts"
+      },
+      {
+        "name": "AnimatedTouchableOpacity",
+        "file": "client\\components\\ToolBar.tsx"
+      },
+      {
+        "name": "SCREEN_WIDTH",
+        "file": "client\\components\\ScrollableTabBar.tsx"
+      },
+      {
+        "name": "CurrentIcon",
+        "file": "client\\components\\LoadingScreen.tsx"
+      },
+      {
+        "name": "needsPayment",
+        "file": "client\\components\\AuthRouteGuard.tsx"
+      },
+      {
+        "name": "AnimatedTouchableOpacity",
+        "file": "client\\components\\questionnaire\\OptionCard.tsx"
+      },
+      {
+        "name": "AnimatedTouchableOpacity",
+        "file": "client\\components\\questionnaire\\DynamicListInput.tsx"
+      },
+      {
+        "name": "AnimatedTouchableOpacity",
+        "file": "client\\components\\questionnaire\\CheckBoxGroup.tsx"
+      },
+      {
+        "name": "remainingCalories",
+        "file": "client\\components\\index\\CircularCaloriesProgress.tsx"
+      },
+      {
+        "name": "CurrentIcon",
+        "file": "client\\components\\camera\\ScanningAnimation.tsx"
+      },
+      {
+        "name": "IconComponent",
+        "file": "client\\components\\camera\\NutritionOverview.tsx"
+      },
+      {
+        "name": "LoadingScreen",
+        "file": "client\\app\\_layout.tsx"
+      },
+      {
+        "name": "StackScreens",
+        "file": "client\\app\\_layout.tsx"
+      },
+      {
+        "name": "AppContent",
+        "file": "client\\app\\_layout.tsx"
+      },
+      {
+        "name": "MainApp",
+        "file": "client\\app\\_layout.tsx"
+      },
+      {
+        "name": "IconComponent",
+        "file": "client\\app\\payment-plan.tsx"
+      },
+      {
+        "name": "insets",
+        "file": "client\\app\\(tabs)\\_layout.tsx"
+      },
+      {
+        "name": "fileName",
+        "file": "client\\app\\(tabs)\\statistics.tsx"
+      },
+      {
+        "name": "IconComponent",
+        "file": "client\\app\\(tabs)\\recommended-menus.tsx"
+      },
+      {
+        "name": "IconComponent",
+        "file": "client\\app\\(tabs)\\index.tsx"
+      },
+      {
+        "name": "hoursLeft",
+        "file": "client\\app\\(tabs)\\index.tsx"
+      },
+      {
+        "name": "calorieStatus",
+        "file": "client\\app\\(tabs)\\index.tsx"
+      },
+      {
+        "name": "IconComponent",
+        "file": "client\\app\\(tabs)\\history.tsx"
+      },
+      {
+        "name": "months",
+        "file": "client\\app\\(tabs)\\calendar.tsx"
+      }
+    ],
+    "unusedImports": [
+      {
+        "name": "AuthResponse",
+        "importedName": "AuthResponse",
+        "source": "../types",
+        "file": "client\\src\\store\\authSlice.ts"
+      },
+      {
+        "name": "AxiosResponse",
+        "importedName": "AxiosResponse",
+        "source": "axios",
+        "file": "client\\src\\services\\api.ts"
+      },
+      {
+        "name": "QueryClientProvider",
+        "importedName": "QueryClientProvider",
+        "source": "@tanstack/react-query",
+        "file": "client\\src\\providers\\QueryProvider.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\components\\XPNotification.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\components\\XPNotification.tsx"
+      },
+      {
+        "name": "Trophy",
+        "importedName": "Trophy",
+        "source": "lucide-react-native",
+        "file": "client\\components\\XPNotification.tsx"
+      },
+      {
+        "name": "Award",
+        "importedName": "Award",
+        "source": "lucide-react-native",
+        "file": "client\\components\\XPNotification.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\components\\ToolBar.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\components\\ToolBar.tsx"
+      },
+      {
+        "name": "Modal",
+        "importedName": "Modal",
+        "source": "react-native",
+        "file": "client\\components\\ToolBar.tsx"
+      },
+      {
+        "name": "BlurView",
+        "importedName": "BlurView",
+        "source": "expo-blur",
+        "file": "client\\components\\ToolBar.tsx"
+      },
+      {
+        "name": "LinearGradient",
+        "importedName": "LinearGradient",
+        "source": "expo-linear-gradient",
+        "file": "client\\components\\ToolBar.tsx"
+      },
+      {
+        "name": "Settings",
+        "importedName": "Settings",
+        "source": "lucide-react-native",
+        "file": "client\\components\\ToolBar.tsx"
+      },
+      {
+        "name": "Globe",
+        "importedName": "Globe",
+        "source": "lucide-react-native",
+        "file": "client\\components\\ToolBar.tsx"
+      },
+      {
+        "name": "HelpCircle",
+        "importedName": "CircleHelp",
+        "source": "lucide-react-native",
+        "file": "client\\components\\ToolBar.tsx"
+      },
+      {
+        "name": "X",
+        "importedName": "X",
+        "source": "lucide-react-native",
+        "file": "client\\components\\ToolBar.tsx"
+      },
+      {
+        "name": "Toast",
+        "importedName": "default",
+        "source": "react-native-toast-message",
+        "file": "client\\components\\ToastWrapper.tsx"
+      },
+      {
+        "name": "BaseToast",
+        "importedName": "BaseToast",
+        "source": "react-native-toast-message",
+        "file": "client\\components\\ToastWrapper.tsx"
+      },
+      {
+        "name": "ErrorToast",
+        "importedName": "ErrorToast",
+        "source": "react-native-toast-message",
+        "file": "client\\components\\ToastWrapper.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\components\\ThemedView.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\components\\ThemedText.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\components\\ShoppingList.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\components\\ShoppingList.tsx"
+      },
+      {
+        "name": "Modal",
+        "importedName": "Modal",
+        "source": "react-native",
+        "file": "client\\components\\ShoppingList.tsx"
+      },
+      {
+        "name": "ActivityIndicator",
+        "importedName": "ActivityIndicator",
+        "source": "react-native",
+        "file": "client\\components\\ShoppingList.tsx"
+      },
+      {
+        "name": "ShoppingCart",
+        "importedName": "ShoppingCart",
+        "source": "lucide-react-native",
+        "file": "client\\components\\ShoppingList.tsx"
+      },
+      {
+        "name": "Plus",
+        "importedName": "Plus",
+        "source": "lucide-react-native",
+        "file": "client\\components\\ShoppingList.tsx"
+      },
+      {
+        "name": "Trash2",
+        "importedName": "Trash2",
+        "source": "lucide-react-native",
+        "file": "client\\components\\ShoppingList.tsx"
+      },
+      {
+        "name": "X",
+        "importedName": "X",
+        "source": "lucide-react-native",
+        "file": "client\\components\\ShoppingList.tsx"
+      },
+      {
+        "name": "Edit3",
+        "importedName": "Edit3",
+        "source": "lucide-react-native",
+        "file": "client\\components\\ShoppingList.tsx"
+      },
+      {
+        "name": "Save",
+        "importedName": "Save",
+        "source": "lucide-react-native",
+        "file": "client\\components\\ShoppingList.tsx"
+      },
+      {
+        "name": "Tabs",
+        "importedName": "Tabs",
+        "source": "expo-router",
+        "file": "client\\components\\ScrollableTabBar.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\components\\ScrollableTabBar.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\components\\ScrollableTabBar.tsx"
+      },
+      {
+        "name": "LinearGradient",
+        "importedName": "LinearGradient",
+        "source": "expo-linear-gradient",
+        "file": "client\\components\\ScrollableTabBar.tsx"
+      },
+      {
+        "name": "SafeAreaView",
+        "importedName": "SafeAreaView",
+        "source": "react-native-safe-area-context",
+        "file": "client\\components\\ScrollableTabBar.tsx"
+      },
+      {
+        "name": "interpolateColor",
+        "importedName": "interpolateColor",
+        "source": "react-native-reanimated",
+        "file": "client\\components\\ScrollableTabBar.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\components\\ScreenWrapper.tsx"
+      },
+      {
+        "name": "RefreshControl",
+        "importedName": "RefreshControl",
+        "source": "react-native",
+        "file": "client\\components\\ScreenWrapper.tsx"
+      },
+      {
+        "name": "SafeAreaView",
+        "importedName": "SafeAreaView",
+        "source": "react-native-safe-area-context",
+        "file": "client\\components\\ScreenWrapper.tsx"
+      },
+      {
+        "name": "LoadingScreen",
+        "importedName": "default",
+        "source": "./LoadingScreen",
+        "file": "client\\components\\ScreenWrapper.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\components\\ProtectedRoutes.tsx"
+      },
+      {
+        "name": "ActivityIndicator",
+        "importedName": "ActivityIndicator",
+        "source": "react-native",
+        "file": "client\\components\\ProtectedRoutes.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\components\\ProtectedRoutes.tsx"
+      },
+      {
+        "name": "useTokenValidation",
+        "importedName": "useTokenValidation",
+        "source": "@/hooks/useTokenValidation",
+        "file": "client\\components\\ProtectedRoutes.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\components\\PrivacySettings.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\components\\PrivacySettings.tsx"
+      },
+      {
+        "name": "Switch",
+        "importedName": "Switch",
+        "source": "react-native",
+        "file": "client\\components\\PrivacySettings.tsx"
+      },
+      {
+        "name": "ThemedView",
+        "importedName": "ThemedView",
+        "source": "@/components/ThemedView",
+        "file": "client\\components\\ParallaxScrollView.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\components\\NotificationSettings.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\components\\NotificationSettings.tsx"
+      },
+      {
+        "name": "Switch",
+        "importedName": "Switch",
+        "source": "react-native",
+        "file": "client\\components\\NotificationSettings.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\components\\NoteficationSettings.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\components\\NoteficationSettings.tsx"
+      },
+      {
+        "name": "Switch",
+        "importedName": "Switch",
+        "source": "react-native",
+        "file": "client\\components\\NoteficationSettings.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\components\\MenuCard.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\components\\MenuCard.tsx"
+      },
+      {
+        "name": "LinearGradient",
+        "importedName": "LinearGradient",
+        "source": "expo-linear-gradient",
+        "file": "client\\components\\MenuCard.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\components\\LocalizedText.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\components\\LoadingScreen.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\components\\LoadingScreen.tsx"
+      },
+      {
+        "name": "Svg",
+        "importedName": "default",
+        "source": "react-native-svg",
+        "file": "client\\components\\LoadingScreen.tsx"
+      },
+      {
+        "name": "Path",
+        "importedName": "Path",
+        "source": "react-native-svg",
+        "file": "client\\components\\LoadingScreen.tsx"
+      },
+      {
+        "name": "Circle",
+        "importedName": "Circle",
+        "source": "react-native-svg",
+        "file": "client\\components\\LoadingScreen.tsx"
+      },
+      {
+        "name": "Ellipse",
+        "importedName": "Ellipse",
+        "source": "react-native-svg",
+        "file": "client\\components\\LoadingScreen.tsx"
+      },
+      {
+        "name": "Defs",
+        "importedName": "Defs",
+        "source": "react-native-svg",
+        "file": "client\\components\\LoadingScreen.tsx"
+      },
+      {
+        "name": "SvgLinearGradient",
+        "importedName": "LinearGradient",
+        "source": "react-native-svg",
+        "file": "client\\components\\LoadingScreen.tsx"
+      },
+      {
+        "name": "Stop",
+        "importedName": "Stop",
+        "source": "react-native-svg",
+        "file": "client\\components\\LoadingScreen.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\components\\LanguageSelector.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\components\\LanguageSelector.tsx"
+      },
+      {
+        "name": "Modal",
+        "importedName": "Modal",
+        "source": "react-native",
+        "file": "client\\components\\LanguageSelector.tsx"
+      },
+      {
+        "name": "Pressable",
+        "importedName": "Pressable",
+        "source": "react-native",
+        "file": "client\\components\\LanguageSelector.tsx"
+      },
+      {
+        "name": "LinearGradient",
+        "importedName": "LinearGradient",
+        "source": "expo-linear-gradient",
+        "file": "client\\components\\LanguageSelector.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\components\\FloatingChatButton.tsx"
+      },
+      {
+        "name": "Modal",
+        "importedName": "Modal",
+        "source": "react-native",
+        "file": "client\\components\\FloatingChatButton.tsx"
+      },
+      {
+        "name": "StatusBar",
+        "importedName": "StatusBar",
+        "source": "react-native",
+        "file": "client\\components\\FloatingChatButton.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\components\\FloatingChatButton.tsx"
+      },
+      {
+        "name": "SafeAreaView",
+        "importedName": "SafeAreaView",
+        "source": "react-native-safe-area-context",
+        "file": "client\\components\\FloatingChatButton.tsx"
+      },
+      {
+        "name": "Minus",
+        "importedName": "Minus",
+        "source": "lucide-react-native",
+        "file": "client\\components\\FloatingChatButton.tsx"
+      },
+      {
+        "name": "X",
+        "importedName": "X",
+        "source": "lucide-react-native",
+        "file": "client\\components\\FloatingChatButton.tsx"
+      },
+      {
+        "name": "AIChatScreen",
+        "importedName": "default",
+        "source": "../app/(tabs)/ai-chat",
+        "file": "client\\components\\FloatingChatButton.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\components\\ErrorDisplay.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\components\\ErrorDisplay.tsx"
+      },
+      {
+        "name": "AlertTriangle",
+        "importedName": "AlertTriangle",
+        "source": "lucide-react-native",
+        "file": "client\\components\\ErrorDisplay.tsx"
+      },
+      {
+        "name": "RefreshCw",
+        "importedName": "RefreshCw",
+        "source": "lucide-react-native",
+        "file": "client\\components\\ErrorDisplay.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\components\\ErrorBoundary.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\components\\ErrorBoundary.tsx"
+      },
+      {
+        "name": "AlertTriangle",
+        "importedName": "AlertTriangle",
+        "source": "lucide-react-native",
+        "file": "client\\components\\ErrorBoundary.tsx"
+      },
+      {
+        "name": "RefreshCw",
+        "importedName": "RefreshCw",
+        "source": "lucide-react-native",
+        "file": "client\\components\\ErrorBoundary.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\components\\ElementLoader.tsx"
+      },
+      {
+        "name": "ActivityIndicator",
+        "importedName": "ActivityIndicator",
+        "source": "react-native",
+        "file": "client\\components\\ElementLoader.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\components\\ElementLoader.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\components\\EditProfile.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\components\\EditProfile.tsx"
+      },
+      {
+        "name": "Image",
+        "importedName": "Image",
+        "source": "react-native",
+        "file": "client\\components\\EditProfile.tsx"
+      },
+      {
+        "name": "DateTimePicker",
+        "importedName": "default",
+        "source": "@react-native-community/datetimepicker",
+        "file": "client\\components\\EditProfile.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\components\\DynamicListInputs.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\components\\DynamicListInputs.tsx"
+      },
+      {
+        "name": "ThemedText",
+        "importedName": "ThemedText",
+        "source": "@/components/ThemedText",
+        "file": "client\\components\\Collapsible.tsx"
+      },
+      {
+        "name": "ThemedView",
+        "importedName": "ThemedView",
+        "source": "@/components/ThemedView",
+        "file": "client\\components\\Collapsible.tsx"
+      },
+      {
+        "name": "IconSymbol",
+        "importedName": "IconSymbol",
+        "source": "@/components/ui/IconSymbol",
+        "file": "client\\components\\Collapsible.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\components\\ChatInterface.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\components\\ChatInterface.tsx"
+      },
+      {
+        "name": "KeyboardAvoidingView",
+        "importedName": "KeyboardAvoidingView",
+        "source": "react-native",
+        "file": "client\\components\\ChatInterface.tsx"
+      },
+      {
+        "name": "SafeAreaView",
+        "importedName": "SafeAreaView",
+        "source": "react-native-safe-area-context",
+        "file": "client\\components\\ChatInterface.tsx"
+      },
+      {
+        "name": "LinearGradient",
+        "importedName": "LinearGradient",
+        "source": "expo-linear-gradient",
+        "file": "client\\components\\ChatInterface.tsx"
+      },
+      {
+        "name": "Send",
+        "importedName": "Send",
+        "source": "lucide-react-native",
+        "file": "client\\components\\ChatInterface.tsx"
+      },
+      {
+        "name": "X",
+        "importedName": "X",
+        "source": "lucide-react-native",
+        "file": "client\\components\\ChatInterface.tsx"
+      },
+      {
+        "name": "Apple",
+        "importedName": "Apple",
+        "source": "lucide-react-native",
+        "file": "client\\components\\ChatInterface.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\components\\CardLoader.tsx"
+      },
+      {
+        "name": "ElementLoader",
+        "importedName": "default",
+        "source": "./ElementLoader",
+        "file": "client\\components\\CardLoader.tsx"
+      },
+      {
+        "name": "ActivityIndicator",
+        "importedName": "ActivityIndicator",
+        "source": "react-native",
+        "file": "client\\components\\ButtonLoader.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\components\\ButtonLoader.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\components\\AccessibilityButton.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\components\\AccessibilityButton.tsx"
+      },
+      {
+        "name": "LinearGradient",
+        "importedName": "LinearGradient",
+        "source": "expo-linear-gradient",
+        "file": "client\\components\\AccessibilityButton.tsx"
+      },
+      {
+        "name": "EyeOff",
+        "importedName": "EyeOff",
+        "source": "lucide-react-native",
+        "file": "client\\components\\AccessibilityButton.tsx"
+      },
+      {
+        "name": "Volume2",
+        "importedName": "Volume2",
+        "source": "lucide-react-native",
+        "file": "client\\components\\AccessibilityButton.tsx"
+      },
+      {
+        "name": "VolumeX",
+        "importedName": "VolumeX",
+        "source": "lucide-react-native",
+        "file": "client\\components\\AccessibilityButton.tsx"
+      },
+      {
+        "name": "Type",
+        "importedName": "Type",
+        "source": "lucide-react-native",
+        "file": "client\\components\\AccessibilityButton.tsx"
+      },
+      {
+        "name": "X",
+        "importedName": "X",
+        "source": "lucide-react-native",
+        "file": "client\\components\\AccessibilityButton.tsx"
+      },
+      {
+        "name": "Accessibility",
+        "importedName": "Accessibility",
+        "source": "lucide-react-native",
+        "file": "client\\components\\AccessibilityButton.tsx"
+      },
+      {
+        "name": "BlurView",
+        "importedName": "BlurView",
+        "source": "expo-blur",
+        "file": "client\\components\\ui\\TabBarBackground.ios.tsx"
+      },
+      {
+        "name": "SymbolView",
+        "importedName": "SymbolView",
+        "source": "expo-symbols",
+        "file": "client\\components\\ui\\IconSymbol.ios.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\components\\statistics\\TimePeriodFilter.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\components\\statistics\\TimePeriodFilter.tsx"
+      },
+      {
+        "name": "LinearGradient",
+        "importedName": "LinearGradient",
+        "source": "expo-linear-gradient",
+        "file": "client\\components\\statistics\\TimePeriodFilter.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\components\\statistics\\StatisticsHeaders.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\components\\statistics\\StatisticsHeaders.tsx"
+      },
+      {
+        "name": "LinearGradient",
+        "importedName": "LinearGradient",
+        "source": "expo-linear-gradient",
+        "file": "client\\components\\statistics\\StatisticsHeaders.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\components\\statistics\\MetricCard.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\components\\statistics\\MetricCard.tsx"
+      },
+      {
+        "name": "LinearGradient",
+        "importedName": "LinearGradient",
+        "source": "expo-linear-gradient",
+        "file": "client\\components\\statistics\\MetricCard.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\components\\statistics\\GamificationDashboard.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\components\\statistics\\GamificationDashboard.tsx"
+      },
+      {
+        "name": "LinearGradient",
+        "importedName": "LinearGradient",
+        "source": "expo-linear-gradient",
+        "file": "client\\components\\statistics\\GamificationDashboard.tsx"
+      },
+      {
+        "name": "Trophy",
+        "importedName": "Trophy",
+        "source": "lucide-react-native",
+        "file": "client\\components\\statistics\\GamificationDashboard.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\components\\questionnaire\\WeightScale.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\components\\questionnaire\\WeightScale.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\components\\questionnaire\\StepContainer.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\components\\questionnaire\\StepContainer.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\components\\questionnaire\\ProgressIndicator.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\components\\questionnaire\\ProgressIndicator.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\components\\questionnaire\\OptionGroup.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\components\\questionnaire\\OptionGroup.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\components\\questionnaire\\OptionCard.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\components\\questionnaire\\OptionCard.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\components\\questionnaire\\DynamicListInput.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\components\\questionnaire\\DynamicListInput.tsx"
+      },
+      {
+        "name": "Plus",
+        "importedName": "Plus",
+        "source": "lucide-react-native",
+        "file": "client\\components\\questionnaire\\DynamicListInput.tsx"
+      },
+      {
+        "name": "X",
+        "importedName": "X",
+        "source": "lucide-react-native",
+        "file": "client\\components\\questionnaire\\DynamicListInput.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\components\\questionnaire\\CustomTextInput.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\components\\questionnaire\\CustomTextInput.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\components\\questionnaire\\CustomSwitch.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\components\\questionnaire\\CustomSwitch.tsx"
+      },
+      {
+        "name": "Switch",
+        "importedName": "Switch",
+        "source": "react-native",
+        "file": "client\\components\\questionnaire\\CustomSwitch.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\components\\questionnaire\\CheckBoxGroup.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\components\\questionnaire\\CheckBoxGroup.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\components\\menu\\MenuCreator.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\components\\menu\\MenuCreator.tsx"
+      },
+      {
+        "name": "TouchableOpacity",
+        "importedName": "TouchableOpacity",
+        "source": "react-native",
+        "file": "client\\components\\menu\\MenuCreator.tsx"
+      },
+      {
+        "name": "Image",
+        "importedName": "Image",
+        "source": "react-native",
+        "file": "client\\components\\menu\\MenuCreator.tsx"
+      },
+      {
+        "name": "FlatList",
+        "importedName": "FlatList",
+        "source": "react-native",
+        "file": "client\\components\\menu\\MenuCreator.tsx"
+      },
+      {
+        "name": "Plus",
+        "importedName": "Plus",
+        "source": "lucide-react-native",
+        "file": "client\\components\\menu\\MenuCreator.tsx"
+      },
+      {
+        "name": "LinearGradient",
+        "importedName": "LinearGradient",
+        "source": "expo-linear-gradient",
+        "file": "client\\components\\menu\\MenuCreator.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\components\\menu\\MealsListView.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\components\\menu\\MealsListView.tsx"
+      },
+      {
+        "name": "TouchableOpacity",
+        "importedName": "TouchableOpacity",
+        "source": "react-native",
+        "file": "client\\components\\menu\\MealsListView.tsx"
+      },
+      {
+        "name": "FlatList",
+        "importedName": "FlatList",
+        "source": "react-native",
+        "file": "client\\components\\menu\\MealsListView.tsx"
+      },
+      {
+        "name": "Image",
+        "importedName": "Image",
+        "source": "react-native",
+        "file": "client\\components\\menu\\MealsListView.tsx"
+      },
+      {
+        "name": "Star",
+        "importedName": "Star",
+        "source": "lucide-react-native",
+        "file": "client\\components\\menu\\MealsListView.tsx"
+      },
+      {
+        "name": "Plus",
+        "importedName": "Plus",
+        "source": "lucide-react-native",
+        "file": "client\\components\\menu\\MealsListView.tsx"
+      },
+      {
+        "name": "ArrowRight",
+        "importedName": "ArrowRight",
+        "source": "lucide-react-native",
+        "file": "client\\components\\menu\\MealsListView.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\components\\menu\\MealDetailView.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\components\\menu\\MealDetailView.tsx"
+      },
+      {
+        "name": "TouchableOpacity",
+        "importedName": "TouchableOpacity",
+        "source": "react-native",
+        "file": "client\\components\\menu\\MealDetailView.tsx"
+      },
+      {
+        "name": "Image",
+        "importedName": "Image",
+        "source": "react-native",
+        "file": "client\\components\\menu\\MealDetailView.tsx"
+      },
+      {
+        "name": "X",
+        "importedName": "X",
+        "source": "lucide-react-native",
+        "file": "client\\components\\menu\\MealDetailView.tsx"
+      },
+      {
+        "name": "Star",
+        "importedName": "Star",
+        "source": "lucide-react-native",
+        "file": "client\\components\\menu\\MealDetailView.tsx"
+      },
+      {
+        "name": "Users",
+        "importedName": "Users",
+        "source": "lucide-react-native",
+        "file": "client\\components\\menu\\MealDetailView.tsx"
+      },
+      {
+        "name": "Share2",
+        "importedName": "Share2",
+        "source": "lucide-react-native",
+        "file": "client\\components\\menu\\MealDetailView.tsx"
+      },
+      {
+        "name": "LinearGradient",
+        "importedName": "LinearGradient",
+        "source": "expo-linear-gradient",
+        "file": "client\\components\\menu\\MealDetailView.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\components\\index\\CircularCaloriesProgress.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\components\\index\\CircularCaloriesProgress.tsx"
+      },
+      {
+        "name": "Svg",
+        "importedName": "default",
+        "source": "react-native-svg",
+        "file": "client\\components\\index\\CircularCaloriesProgress.tsx"
+      },
+      {
+        "name": "Path",
+        "importedName": "Path",
+        "source": "react-native-svg",
+        "file": "client\\components\\index\\CircularCaloriesProgress.tsx"
+      },
+      {
+        "name": "Defs",
+        "importedName": "Defs",
+        "source": "react-native-svg",
+        "file": "client\\components\\index\\CircularCaloriesProgress.tsx"
+      },
+      {
+        "name": "LinearGradient",
+        "importedName": "LinearGradient",
+        "source": "react-native-svg",
+        "file": "client\\components\\index\\CircularCaloriesProgress.tsx"
+      },
+      {
+        "name": "Stop",
+        "importedName": "Stop",
+        "source": "react-native-svg",
+        "file": "client\\components\\index\\CircularCaloriesProgress.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\components\\camera\\SelectedImage.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\components\\camera\\SelectedImage.tsx"
+      },
+      {
+        "name": "TouchableOpacity",
+        "importedName": "TouchableOpacity",
+        "source": "react-native",
+        "file": "client\\components\\camera\\SelectedImage.tsx"
+      },
+      {
+        "name": "Image",
+        "importedName": "Image",
+        "source": "react-native",
+        "file": "client\\components\\camera\\SelectedImage.tsx"
+      },
+      {
+        "name": "X",
+        "importedName": "X",
+        "source": "lucide-react-native",
+        "file": "client\\components\\camera\\SelectedImage.tsx"
+      },
+      {
+        "name": "RotateCcw",
+        "importedName": "RotateCcw",
+        "source": "lucide-react-native",
+        "file": "client\\components\\camera\\SelectedImage.tsx"
+      },
+      {
+        "name": "LinearGradient",
+        "importedName": "LinearGradient",
+        "source": "expo-linear-gradient",
+        "file": "client\\components\\camera\\SelectedImage.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\components\\camera\\ScanningAnimation.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\components\\camera\\ScanningAnimation.tsx"
+      },
+      {
+        "name": "Modal",
+        "importedName": "Modal",
+        "source": "react-native",
+        "file": "client\\components\\camera\\ScanningAnimation.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\components\\camera\\PieChart.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\components\\camera\\PieChart.tsx"
+      },
+      {
+        "name": "Svg",
+        "importedName": "default",
+        "source": "react-native-svg",
+        "file": "client\\components\\camera\\PieChart.tsx"
+      },
+      {
+        "name": "Circle",
+        "importedName": "Circle",
+        "source": "react-native-svg",
+        "file": "client\\components\\camera\\PieChart.tsx"
+      },
+      {
+        "name": "Path",
+        "importedName": "Path",
+        "source": "react-native-svg",
+        "file": "client\\components\\camera\\PieChart.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\components\\camera\\NutritionOverview.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\components\\camera\\NutritionOverview.tsx"
+      },
+      {
+        "name": "PieChart",
+        "importedName": "PieChart",
+        "source": "./PieChart",
+        "file": "client\\components\\camera\\NutritionOverview.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\components\\camera\\IngredientsList.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\components\\camera\\IngredientsList.tsx"
+      },
+      {
+        "name": "TouchableOpacity",
+        "importedName": "TouchableOpacity",
+        "source": "react-native",
+        "file": "client\\components\\camera\\IngredientsList.tsx"
+      },
+      {
+        "name": "Plus",
+        "importedName": "Plus",
+        "source": "lucide-react-native",
+        "file": "client\\components\\camera\\IngredientsList.tsx"
+      },
+      {
+        "name": "Edit3",
+        "importedName": "Edit3",
+        "source": "lucide-react-native",
+        "file": "client\\components\\camera\\IngredientsList.tsx"
+      },
+      {
+        "name": "Trash2",
+        "importedName": "Trash2",
+        "source": "lucide-react-native",
+        "file": "client\\components\\camera\\IngredientsList.tsx"
+      },
+      {
+        "name": "ShoppingCart",
+        "importedName": "ShoppingCart",
+        "source": "lucide-react-native",
+        "file": "client\\components\\camera\\IngredientsList.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\components\\camera\\ImageSelector.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\components\\camera\\ImageSelector.tsx"
+      },
+      {
+        "name": "TouchableOpacity",
+        "importedName": "TouchableOpacity",
+        "source": "react-native",
+        "file": "client\\components\\camera\\ImageSelector.tsx"
+      },
+      {
+        "name": "ImageIcon",
+        "importedName": "Image",
+        "source": "lucide-react-native",
+        "file": "client\\components\\camera\\ImageSelector.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\components\\camera\\HealthInsights.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\components\\camera\\HealthInsights.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\components\\camera\\ActionButtons.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\components\\camera\\ActionButtons.tsx"
+      },
+      {
+        "name": "TouchableOpacity",
+        "importedName": "TouchableOpacity",
+        "source": "react-native",
+        "file": "client\\components\\camera\\ActionButtons.tsx"
+      },
+      {
+        "name": "ActivityIndicator",
+        "importedName": "ActivityIndicator",
+        "source": "react-native",
+        "file": "client\\components\\camera\\ActionButtons.tsx"
+      },
+      {
+        "name": "Trash2",
+        "importedName": "Trash2",
+        "source": "lucide-react-native",
+        "file": "client\\components\\camera\\ActionButtons.tsx"
+      },
+      {
+        "name": "RefreshCw",
+        "importedName": "RefreshCw",
+        "source": "lucide-react-native",
+        "file": "client\\components\\camera\\ActionButtons.tsx"
+      },
+      {
+        "name": "Save",
+        "importedName": "Save",
+        "source": "lucide-react-native",
+        "file": "client\\components\\camera\\ActionButtons.tsx"
+      },
+      {
+        "name": "Stack",
+        "importedName": "Stack",
+        "source": "expo-router",
+        "file": "client\\app\\_layout.tsx"
+      },
+      {
+        "name": "Provider",
+        "importedName": "Provider",
+        "source": "react-redux",
+        "file": "client\\app\\_layout.tsx"
+      },
+      {
+        "name": "PersistGate",
+        "importedName": "PersistGate",
+        "source": "redux-persist/integration/react",
+        "file": "client\\app\\_layout.tsx"
+      },
+      {
+        "name": "StatusBar",
+        "importedName": "StatusBar",
+        "source": "expo-status-bar",
+        "file": "client\\app\\_layout.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\app\\_layout.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\app\\_layout.tsx"
+      },
+      {
+        "name": "ActivityIndicator",
+        "importedName": "ActivityIndicator",
+        "source": "react-native",
+        "file": "client\\app\\_layout.tsx"
+      },
+      {
+        "name": "QueryClientProvider",
+        "importedName": "QueryClientProvider",
+        "source": "@tanstack/react-query",
+        "file": "client\\app\\_layout.tsx"
+      },
+      {
+        "name": "SafeAreaProvider",
+        "importedName": "SafeAreaProvider",
+        "source": "react-native-safe-area-context",
+        "file": "client\\app\\_layout.tsx"
+      },
+      {
+        "name": "ThemeProvider",
+        "importedName": "ThemeProvider",
+        "source": "@/src/context/ThemeContext",
+        "file": "client\\app\\_layout.tsx"
+      },
+      {
+        "name": "GestureHandlerRootView",
+        "importedName": "GestureHandlerRootView",
+        "source": "react-native-gesture-handler",
+        "file": "client\\app\\_layout.tsx"
+      },
+      {
+        "name": "LanguageProvider",
+        "importedName": "LanguageProvider",
+        "source": "@/src/i18n/context/LanguageContext",
+        "file": "client\\app\\_layout.tsx"
+      },
+      {
+        "name": "I18nextProvider",
+        "importedName": "I18nextProvider",
+        "source": "react-i18next",
+        "file": "client\\app\\_layout.tsx"
+      },
+      {
+        "name": "LanguageToolbar",
+        "importedName": "default",
+        "source": "@/components/ToolBar",
+        "file": "client\\app\\_layout.tsx"
+      },
+      {
+        "name": "ErrorHandler",
+        "importedName": "ErrorHandler",
+        "source": "@/src/utils/errorHandler",
+        "file": "client\\app\\_layout.tsx"
+      },
+      {
+        "name": "Toast",
+        "importedName": "default",
+        "source": "react-native-toast-message",
+        "file": "client\\app\\_layout.tsx"
+      },
+      {
+        "name": "ToastWrapper",
+        "importedName": "default",
+        "source": "@/components/ToastWrapper",
+        "file": "client\\app\\_layout.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\app\\questionnaire.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\app\\questionnaire.tsx"
+      },
+      {
+        "name": "TouchableOpacity",
+        "importedName": "TouchableOpacity",
+        "source": "react-native",
+        "file": "client\\app\\questionnaire.tsx"
+      },
+      {
+        "name": "ActivityIndicator",
+        "importedName": "ActivityIndicator",
+        "source": "react-native",
+        "file": "client\\app\\questionnaire.tsx"
+      },
+      {
+        "name": "Modal",
+        "importedName": "Modal",
+        "source": "react-native",
+        "file": "client\\app\\questionnaire.tsx"
+      },
+      {
+        "name": "StatusBar",
+        "importedName": "StatusBar",
+        "source": "react-native",
+        "file": "client\\app\\questionnaire.tsx"
+      },
+      {
+        "name": "ChevronLeft",
+        "importedName": "ChevronLeft",
+        "source": "lucide-react-native",
+        "file": "client\\app\\questionnaire.tsx"
+      },
+      {
+        "name": "Leaf",
+        "importedName": "Leaf",
+        "source": "lucide-react-native",
+        "file": "client\\app\\questionnaire.tsx"
+      },
+      {
+        "name": "Settings",
+        "importedName": "Settings",
+        "source": "lucide-react-native",
+        "file": "client\\app\\questionnaire.tsx"
+      },
+      {
+        "name": "LinearGradient",
+        "importedName": "LinearGradient",
+        "source": "expo-linear-gradient",
+        "file": "client\\app\\questionnaire.tsx"
+      },
+      {
+        "name": "ProgressIndicator",
+        "importedName": "default",
+        "source": "@/components/questionnaire/ProgressIndicator",
+        "file": "client\\app\\questionnaire.tsx"
+      },
+      {
+        "name": "StepContainer",
+        "importedName": "default",
+        "source": "@/components/questionnaire/StepContainer",
+        "file": "client\\app\\questionnaire.tsx"
+      },
+      {
+        "name": "OptionGroup",
+        "importedName": "default",
+        "source": "@/components/questionnaire/OptionGroup",
+        "file": "client\\app\\questionnaire.tsx"
+      },
+      {
+        "name": "CustomTextInput",
+        "importedName": "default",
+        "source": "@/components/questionnaire/CustomTextInput",
+        "file": "client\\app\\questionnaire.tsx"
+      },
+      {
+        "name": "WeightScale",
+        "importedName": "default",
+        "source": "@/components/questionnaire/WeightScale",
+        "file": "client\\app\\questionnaire.tsx"
+      },
+      {
+        "name": "DynamicListInput",
+        "importedName": "default",
+        "source": "@/components/questionnaire/DynamicListInput",
+        "file": "client\\app\\questionnaire.tsx"
+      },
+      {
+        "name": "CheckboxGroup",
+        "importedName": "default",
+        "source": "@/components/questionnaire/CheckBoxGroup",
+        "file": "client\\app\\questionnaire.tsx"
+      },
+      {
+        "name": "CustomSwitch",
+        "importedName": "default",
+        "source": "@/components/questionnaire/CustomSwitch",
+        "file": "client\\app\\questionnaire.tsx"
+      },
+      {
+        "name": "LoadingScreen",
+        "importedName": "default",
+        "source": "@/components/LoadingScreen",
+        "file": "client\\app\\questionnaire.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\app\\privacy-policy.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\app\\privacy-policy.tsx"
+      },
+      {
+        "name": "TouchableOpacity",
+        "importedName": "TouchableOpacity",
+        "source": "react-native",
+        "file": "client\\app\\privacy-policy.tsx"
+      },
+      {
+        "name": "SafeAreaView",
+        "importedName": "SafeAreaView",
+        "source": "react-native",
+        "file": "client\\app\\privacy-policy.tsx"
+      },
+      {
+        "name": "Colors",
+        "importedName": "Colors",
+        "source": "@/constants/Colors",
+        "file": "client\\app\\privacy-policy.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\app\\payment.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\app\\payment.tsx"
+      },
+      {
+        "name": "TouchableOpacity",
+        "importedName": "TouchableOpacity",
+        "source": "react-native",
+        "file": "client\\app\\payment.tsx"
+      },
+      {
+        "name": "ActivityIndicator",
+        "importedName": "ActivityIndicator",
+        "source": "react-native",
+        "file": "client\\app\\payment.tsx"
+      },
+      {
+        "name": "LinearGradient",
+        "importedName": "LinearGradient",
+        "source": "expo-linear-gradient",
+        "file": "client\\app\\payment.tsx"
+      },
+      {
+        "name": "CreditCard",
+        "importedName": "CreditCard",
+        "source": "lucide-react-native",
+        "file": "client\\app\\payment.tsx"
+      },
+      {
+        "name": "Lock",
+        "importedName": "Lock",
+        "source": "lucide-react-native",
+        "file": "client\\app\\payment.tsx"
+      },
+      {
+        "name": "CheckCircle",
+        "importedName": "CheckCircle",
+        "source": "lucide-react-native",
+        "file": "client\\app\\payment.tsx"
+      },
+      {
+        "name": "ArrowLeft",
+        "importedName": "ArrowLeft",
+        "source": "lucide-react-native",
+        "file": "client\\app\\payment.tsx"
+      },
+      {
+        "name": "Shield",
+        "importedName": "Shield",
+        "source": "lucide-react-native",
+        "file": "client\\app\\payment.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\app\\payment-plan.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\app\\payment-plan.tsx"
+      },
+      {
+        "name": "TouchableOpacity",
+        "importedName": "TouchableOpacity",
+        "source": "react-native",
+        "file": "client\\app\\payment-plan.tsx"
+      },
+      {
+        "name": "ActivityIndicator",
+        "importedName": "ActivityIndicator",
+        "source": "react-native",
+        "file": "client\\app\\payment-plan.tsx"
+      },
+      {
+        "name": "Modal",
+        "importedName": "Modal",
+        "source": "react-native",
+        "file": "client\\app\\payment-plan.tsx"
+      },
+      {
+        "name": "CreditCard",
+        "importedName": "CreditCard",
+        "source": "lucide-react-native",
+        "file": "client\\app\\payment-plan.tsx"
+      },
+      {
+        "name": "Lock",
+        "importedName": "Lock",
+        "source": "lucide-react-native",
+        "file": "client\\app\\payment-plan.tsx"
+      },
+      {
+        "name": "X",
+        "importedName": "X",
+        "source": "lucide-react-native",
+        "file": "client\\app\\payment-plan.tsx"
+      },
+      {
+        "name": "Star",
+        "importedName": "Star",
+        "source": "lucide-react-native",
+        "file": "client\\app\\payment-plan.tsx"
+      },
+      {
+        "name": "LinearGradient",
+        "importedName": "LinearGradient",
+        "source": "expo-linear-gradient",
+        "file": "client\\app\\payment-plan.tsx"
+      },
+      {
+        "name": "Redirect",
+        "importedName": "Redirect",
+        "source": "expo-router",
+        "file": "client\\app\\index.tsx"
+      },
+      {
+        "name": "Link",
+        "importedName": "Link",
+        "source": "expo-router",
+        "file": "client\\app\\+not-found.tsx"
+      },
+      {
+        "name": "Stack",
+        "importedName": "Stack",
+        "source": "expo-router",
+        "file": "client\\app\\+not-found.tsx"
+      },
+      {
+        "name": "TouchableOpacity",
+        "importedName": "TouchableOpacity",
+        "source": "react-native",
+        "file": "client\\app\\+not-found.tsx"
+      },
+      {
+        "name": "SafeAreaView",
+        "importedName": "SafeAreaView",
+        "source": "react-native",
+        "file": "client\\app\\+not-found.tsx"
+      },
+      {
+        "name": "ThemedText",
+        "importedName": "ThemedText",
+        "source": "@/components/ThemedText",
+        "file": "client\\app\\+not-found.tsx"
+      },
+      {
+        "name": "ThemedView",
+        "importedName": "ThemedView",
+        "source": "@/components/ThemedView",
+        "file": "client\\app\\+not-found.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\app\\menu\\[id].tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\app\\menu\\[id].tsx"
+      },
+      {
+        "name": "TouchableOpacity",
+        "importedName": "TouchableOpacity",
+        "source": "react-native",
+        "file": "client\\app\\menu\\[id].tsx"
+      },
+      {
+        "name": "ActivityIndicator",
+        "importedName": "ActivityIndicator",
+        "source": "react-native",
+        "file": "client\\app\\menu\\[id].tsx"
+      },
+      {
+        "name": "RefreshControl",
+        "importedName": "RefreshControl",
+        "source": "react-native",
+        "file": "client\\app\\menu\\[id].tsx"
+      },
+      {
+        "name": "Modal",
+        "importedName": "Modal",
+        "source": "react-native",
+        "file": "client\\app\\menu\\[id].tsx"
+      },
+      {
+        "name": "SafeAreaView",
+        "importedName": "SafeAreaView",
+        "source": "react-native-safe-area-context",
+        "file": "client\\app\\menu\\[id].tsx"
+      },
+      {
+        "name": "ArrowLeft",
+        "importedName": "ArrowLeft",
+        "source": "lucide-react-native",
+        "file": "client\\app\\menu\\[id].tsx"
+      },
+      {
+        "name": "Star",
+        "importedName": "Star",
+        "source": "lucide-react-native",
+        "file": "client\\app\\menu\\[id].tsx"
+      },
+      {
+        "name": "Play",
+        "importedName": "Play",
+        "source": "lucide-react-native",
+        "file": "client\\app\\menu\\[id].tsx"
+      },
+      {
+        "name": "Eye",
+        "importedName": "Eye",
+        "source": "lucide-react-native",
+        "file": "client\\app\\menu\\[id].tsx"
+      },
+      {
+        "name": "Share2",
+        "importedName": "Share2",
+        "source": "lucide-react-native",
+        "file": "client\\app\\menu\\[id].tsx"
+      },
+      {
+        "name": "ChevronDown",
+        "importedName": "ChevronDown",
+        "source": "lucide-react-native",
+        "file": "client\\app\\menu\\[id].tsx"
+      },
+      {
+        "name": "ChevronUp",
+        "importedName": "ChevronUp",
+        "source": "lucide-react-native",
+        "file": "client\\app\\menu\\[id].tsx"
+      },
+      {
+        "name": "X",
+        "importedName": "X",
+        "source": "lucide-react-native",
+        "file": "client\\app\\menu\\[id].tsx"
+      },
+      {
+        "name": "Award",
+        "importedName": "Award",
+        "source": "lucide-react-native",
+        "file": "client\\app\\menu\\[id].tsx"
+      },
+      {
+        "name": "Plus",
+        "importedName": "Plus",
+        "source": "lucide-react-native",
+        "file": "client\\app\\menu\\[id].tsx"
+      },
+      {
+        "name": "Send",
+        "importedName": "Send",
+        "source": "lucide-react-native",
+        "file": "client\\app\\menu\\[id].tsx"
+      },
+      {
+        "name": "RefreshCw",
+        "importedName": "RefreshCw",
+        "source": "lucide-react-native",
+        "file": "client\\app\\menu\\[id].tsx"
+      },
+      {
+        "name": "LoadingScreen",
+        "importedName": "default",
+        "source": "@/components/LoadingScreen",
+        "file": "client\\app\\menu\\[id].tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\app\\menu\\activeMenu.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\app\\menu\\activeMenu.tsx"
+      },
+      {
+        "name": "TouchableOpacity",
+        "importedName": "TouchableOpacity",
+        "source": "react-native",
+        "file": "client\\app\\menu\\activeMenu.tsx"
+      },
+      {
+        "name": "ActivityIndicator",
+        "importedName": "ActivityIndicator",
+        "source": "react-native",
+        "file": "client\\app\\menu\\activeMenu.tsx"
+      },
+      {
+        "name": "RefreshControl",
+        "importedName": "RefreshControl",
+        "source": "react-native",
+        "file": "client\\app\\menu\\activeMenu.tsx"
+      },
+      {
+        "name": "Modal",
+        "importedName": "Modal",
+        "source": "react-native",
+        "file": "client\\app\\menu\\activeMenu.tsx"
+      },
+      {
+        "name": "FlatList",
+        "importedName": "FlatList",
+        "source": "react-native",
+        "file": "client\\app\\menu\\activeMenu.tsx"
+      },
+      {
+        "name": "SafeAreaView",
+        "importedName": "SafeAreaView",
+        "source": "react-native-safe-area-context",
+        "file": "client\\app\\menu\\activeMenu.tsx"
+      },
+      {
+        "name": "LinearGradient",
+        "importedName": "LinearGradient",
+        "source": "expo-linear-gradient",
+        "file": "client\\app\\menu\\activeMenu.tsx"
+      },
+      {
+        "name": "Star",
+        "importedName": "Star",
+        "source": "lucide-react-native",
+        "file": "client\\app\\menu\\activeMenu.tsx"
+      },
+      {
+        "name": "MessageSquare",
+        "importedName": "MessageSquare",
+        "source": "lucide-react-native",
+        "file": "client\\app\\menu\\activeMenu.tsx"
+      },
+      {
+        "name": "ArrowLeft",
+        "importedName": "ArrowLeft",
+        "source": "lucide-react-native",
+        "file": "client\\app\\menu\\activeMenu.tsx"
+      },
+      {
+        "name": "Filter",
+        "importedName": "Filter",
+        "source": "lucide-react-native",
+        "file": "client\\app\\menu\\activeMenu.tsx"
+      },
+      {
+        "name": "RefreshCw",
+        "importedName": "RefreshCw",
+        "source": "lucide-react-native",
+        "file": "client\\app\\menu\\activeMenu.tsx"
+      },
+      {
+        "name": "HeartOff",
+        "importedName": "HeartOff",
+        "source": "lucide-react-native",
+        "file": "client\\app\\menu\\activeMenu.tsx"
+      },
+      {
+        "name": "X",
+        "importedName": "X",
+        "source": "lucide-react-native",
+        "file": "client\\app\\menu\\activeMenu.tsx"
+      },
+      {
+        "name": "Check",
+        "importedName": "Check",
+        "source": "lucide-react-native",
+        "file": "client\\app\\menu\\activeMenu.tsx"
+      },
+      {
+        "name": "AlertCircle",
+        "importedName": "AlertCircle",
+        "source": "lucide-react-native",
+        "file": "client\\app\\menu\\activeMenu.tsx"
+      },
+      {
+        "name": "ChevronLeft",
+        "importedName": "ChevronLeft",
+        "source": "lucide-react-native",
+        "file": "client\\app\\menu\\activeMenu.tsx"
+      },
+      {
+        "name": "ChevronRight",
+        "importedName": "ChevronRight",
+        "source": "lucide-react-native",
+        "file": "client\\app\\menu\\activeMenu.tsx"
+      },
+      {
+        "name": "Award",
+        "importedName": "Award",
+        "source": "lucide-react-native",
+        "file": "client\\app\\menu\\activeMenu.tsx"
+      },
+      {
+        "name": "Plus",
+        "importedName": "Plus",
+        "source": "lucide-react-native",
+        "file": "client\\app\\menu\\activeMenu.tsx"
+      },
+      {
+        "name": "Minus",
+        "importedName": "Minus",
+        "source": "lucide-react-native",
+        "file": "client\\app\\menu\\activeMenu.tsx"
+      },
+      {
+        "name": "LoadingScreen",
+        "importedName": "default",
+        "source": "@/components/LoadingScreen",
+        "file": "client\\app\\menu\\activeMenu.tsx"
+      },
+      {
+        "name": "Tabs",
+        "importedName": "Tabs",
+        "source": "expo-router",
+        "file": "client\\app\\(tabs)\\_layout.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\_layout.tsx"
+      },
+      {
+        "name": "ProtectedRoute",
+        "importedName": "ProtectedRoute",
+        "source": "@/components/ProtectedRoutes",
+        "file": "client\\app\\(tabs)\\_layout.tsx"
+      },
+      {
+        "name": "IconSymbol",
+        "importedName": "IconSymbol",
+        "source": "@/components/ui/IconSymbol",
+        "file": "client\\app\\(tabs)\\_layout.tsx"
+      },
+      {
+        "name": "ScrollableTabBar",
+        "importedName": "ScrollableTabBar",
+        "source": "@/components/ScrollableTabBar",
+        "file": "client\\app\\(tabs)\\_layout.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\statistics.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\statistics.tsx"
+      },
+      {
+        "name": "TouchableOpacity",
+        "importedName": "TouchableOpacity",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\statistics.tsx"
+      },
+      {
+        "name": "Modal",
+        "importedName": "Modal",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\statistics.tsx"
+      },
+      {
+        "name": "RefreshControl",
+        "importedName": "RefreshControl",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\statistics.tsx"
+      },
+      {
+        "name": "SafeAreaView",
+        "importedName": "SafeAreaView",
+        "source": "react-native-safe-area-context",
+        "file": "client\\app\\(tabs)\\statistics.tsx"
+      },
+      {
+        "name": "LinearGradient",
+        "importedName": "LinearGradient",
+        "source": "expo-linear-gradient",
+        "file": "client\\app\\(tabs)\\statistics.tsx"
+      },
+      {
+        "name": "Svg",
+        "importedName": "default",
+        "source": "react-native-svg",
+        "file": "client\\app\\(tabs)\\statistics.tsx"
+      },
+      {
+        "name": "Circle",
+        "importedName": "Circle",
+        "source": "react-native-svg",
+        "file": "client\\app\\(tabs)\\statistics.tsx"
+      },
+      {
+        "name": "Path",
+        "importedName": "Path",
+        "source": "react-native-svg",
+        "file": "client\\app\\(tabs)\\statistics.tsx"
+      },
+      {
+        "name": "SvgText",
+        "importedName": "Text",
+        "source": "react-native-svg",
+        "file": "client\\app\\(tabs)\\statistics.tsx"
+      },
+      {
+        "name": "Line",
+        "importedName": "Line",
+        "source": "react-native-svg",
+        "file": "client\\app\\(tabs)\\statistics.tsx"
+      },
+      {
+        "name": "Rect",
+        "importedName": "Rect",
+        "source": "react-native-svg",
+        "file": "client\\app\\(tabs)\\statistics.tsx"
+      },
+      {
+        "name": "BarChart3",
+        "importedName": "ChartBar",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\statistics.tsx"
+      },
+      {
+        "name": "TrendingDown",
+        "importedName": "TrendingDown",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\statistics.tsx"
+      },
+      {
+        "name": "AlertTriangle",
+        "importedName": "TriangleAlert",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\statistics.tsx"
+      },
+      {
+        "name": "CheckCircle",
+        "importedName": "CircleCheck",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\statistics.tsx"
+      },
+      {
+        "name": "Shield",
+        "importedName": "Shield",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\statistics.tsx"
+      },
+      {
+        "name": "Leaf",
+        "importedName": "Leaf",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\statistics.tsx"
+      },
+      {
+        "name": "Apple",
+        "importedName": "Apple",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\statistics.tsx"
+      },
+      {
+        "name": "Fish",
+        "importedName": "Fish",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\statistics.tsx"
+      },
+      {
+        "name": "Sparkles",
+        "importedName": "Sparkles",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\statistics.tsx"
+      },
+      {
+        "name": "Scale",
+        "importedName": "Scale",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\statistics.tsx"
+      },
+      {
+        "name": "Award",
+        "importedName": "Award",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\statistics.tsx"
+      },
+      {
+        "name": "Trophy",
+        "importedName": "Trophy",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\statistics.tsx"
+      },
+      {
+        "name": "Star",
+        "importedName": "Star",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\statistics.tsx"
+      },
+      {
+        "name": "Crown",
+        "importedName": "Crown",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\statistics.tsx"
+      },
+      {
+        "name": "X",
+        "importedName": "X",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\statistics.tsx"
+      },
+      {
+        "name": "Medal",
+        "importedName": "Medal",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\statistics.tsx"
+      },
+      {
+        "name": "Waves",
+        "importedName": "Waves",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\statistics.tsx"
+      },
+      {
+        "name": "Mountain",
+        "importedName": "Mountain",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\statistics.tsx"
+      },
+      {
+        "name": "Gem",
+        "importedName": "Gem",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\statistics.tsx"
+      },
+      {
+        "name": "PieChart",
+        "importedName": "ChartPie",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\statistics.tsx"
+      },
+      {
+        "name": "Download",
+        "importedName": "Download",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\statistics.tsx"
+      },
+      {
+        "name": "ChevronLeft",
+        "importedName": "ChevronLeft",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\statistics.tsx"
+      },
+      {
+        "name": "ChevronRight",
+        "importedName": "ChevronRight",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\statistics.tsx"
+      },
+      {
+        "name": "LoadingScreen",
+        "importedName": "default",
+        "source": "@/components/LoadingScreen",
+        "file": "client\\app\\(tabs)\\statistics.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\recommended-menus.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\recommended-menus.tsx"
+      },
+      {
+        "name": "TouchableOpacity",
+        "importedName": "TouchableOpacity",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\recommended-menus.tsx"
+      },
+      {
+        "name": "ActivityIndicator",
+        "importedName": "ActivityIndicator",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\recommended-menus.tsx"
+      },
+      {
+        "name": "RefreshControl",
+        "importedName": "RefreshControl",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\recommended-menus.tsx"
+      },
+      {
+        "name": "Modal",
+        "importedName": "Modal",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\recommended-menus.tsx"
+      },
+      {
+        "name": "FlatList",
+        "importedName": "FlatList",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\recommended-menus.tsx"
+      },
+      {
+        "name": "SafeAreaView",
+        "importedName": "SafeAreaView",
+        "source": "react-native-safe-area-context",
+        "file": "client\\app\\(tabs)\\recommended-menus.tsx"
+      },
+      {
+        "name": "Plus",
+        "importedName": "Plus",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\recommended-menus.tsx"
+      },
+      {
+        "name": "Star",
+        "importedName": "Star",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\recommended-menus.tsx"
+      },
+      {
+        "name": "Eye",
+        "importedName": "Eye",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\recommended-menus.tsx"
+      },
+      {
+        "name": "Play",
+        "importedName": "Play",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\recommended-menus.tsx"
+      },
+      {
+        "name": "X",
+        "importedName": "X",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\recommended-menus.tsx"
+      },
+      {
+        "name": "Send",
+        "importedName": "Send",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\recommended-menus.tsx"
+      },
+      {
+        "name": "Filter",
+        "importedName": "Filter",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\recommended-menus.tsx"
+      },
+      {
+        "name": "Search",
+        "importedName": "Search",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\recommended-menus.tsx"
+      },
+      {
+        "name": "CheckCircle",
+        "importedName": "CircleCheck",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\recommended-menus.tsx"
+      },
+      {
+        "name": "ArrowRight",
+        "importedName": "ArrowRight",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\recommended-menus.tsx"
+      },
+      {
+        "name": "Award",
+        "importedName": "Award",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\recommended-menus.tsx"
+      },
+      {
+        "name": "ShoppingList",
+        "importedName": "default",
+        "source": "@/components/ShoppingList",
+        "file": "client\\app\\(tabs)\\recommended-menus.tsx"
+      },
+      {
+        "name": "LoadingScreen",
+        "importedName": "default",
+        "source": "@/components/LoadingScreen",
+        "file": "client\\app\\(tabs)\\recommended-menus.tsx"
+      },
+      {
+        "name": "MenuCreator",
+        "importedName": "MenuCreator",
+        "source": "@/components/menu",
+        "file": "client\\app\\(tabs)\\recommended-menus.tsx"
+      },
+      {
+        "name": "MealDetailView",
+        "importedName": "MealDetailView",
+        "source": "@/components/menu",
+        "file": "client\\app\\(tabs)\\recommended-menus.tsx"
+      },
+      {
+        "name": "MealsListView",
+        "importedName": "MealsListView",
+        "source": "@/components/menu",
+        "file": "client\\app\\(tabs)\\recommended-menus.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\profile.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\profile.tsx"
+      },
+      {
+        "name": "TouchableOpacity",
+        "importedName": "TouchableOpacity",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\profile.tsx"
+      },
+      {
+        "name": "Image",
+        "importedName": "Image",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\profile.tsx"
+      },
+      {
+        "name": "StatusBar",
+        "importedName": "StatusBar",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\profile.tsx"
+      },
+      {
+        "name": "Switch",
+        "importedName": "Switch",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\profile.tsx"
+      },
+      {
+        "name": "ActivityIndicator",
+        "importedName": "ActivityIndicator",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\profile.tsx"
+      },
+      {
+        "name": "SafeAreaView",
+        "importedName": "SafeAreaView",
+        "source": "react-native-safe-area-context",
+        "file": "client\\app\\(tabs)\\profile.tsx"
+      },
+      {
+        "name": "LinearGradient",
+        "importedName": "LinearGradient",
+        "source": "expo-linear-gradient",
+        "file": "client\\app\\(tabs)\\profile.tsx"
+      },
+      {
+        "name": "User",
+        "importedName": "User",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\profile.tsx"
+      },
+      {
+        "name": "Bell",
+        "importedName": "Bell",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\profile.tsx"
+      },
+      {
+        "name": "Shield",
+        "importedName": "Shield",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\profile.tsx"
+      },
+      {
+        "name": "HelpCircle",
+        "importedName": "CircleHelp",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\profile.tsx"
+      },
+      {
+        "name": "LogOut",
+        "importedName": "LogOut",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\profile.tsx"
+      },
+      {
+        "name": "ChevronLeft",
+        "importedName": "ChevronLeft",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\profile.tsx"
+      },
+      {
+        "name": "Edit",
+        "importedName": "CreditCard",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\profile.tsx"
+      },
+      {
+        "name": "Scale",
+        "importedName": "Scale",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\profile.tsx"
+      },
+      {
+        "name": "Globe",
+        "importedName": "Globe",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\profile.tsx"
+      },
+      {
+        "name": "ChevronRight",
+        "importedName": "ChevronRight",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\profile.tsx"
+      },
+      {
+        "name": "ImageIcon",
+        "importedName": "Image",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\profile.tsx"
+      },
+      {
+        "name": "EditProfile",
+        "importedName": "default",
+        "source": "@/components/EditProfile",
+        "file": "client\\app\\(tabs)\\profile.tsx"
+      },
+      {
+        "name": "NotificationSettings",
+        "importedName": "default",
+        "source": "@/components/NotificationSettings",
+        "file": "client\\app\\(tabs)\\profile.tsx"
+      },
+      {
+        "name": "PrivacySettings",
+        "importedName": "default",
+        "source": "@/components/PrivacySettings",
+        "file": "client\\app\\(tabs)\\profile.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\index.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\index.tsx"
+      },
+      {
+        "name": "TouchableOpacity",
+        "importedName": "TouchableOpacity",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\index.tsx"
+      },
+      {
+        "name": "RefreshControl",
+        "importedName": "RefreshControl",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\index.tsx"
+      },
+      {
+        "name": "ActivityIndicator",
+        "importedName": "ActivityIndicator",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\index.tsx"
+      },
+      {
+        "name": "Image",
+        "importedName": "Image",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\index.tsx"
+      },
+      {
+        "name": "StatusBar",
+        "importedName": "StatusBar",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\index.tsx"
+      },
+      {
+        "name": "SafeAreaView",
+        "importedName": "SafeAreaView",
+        "source": "react-native-safe-area-context",
+        "file": "client\\app\\(tabs)\\index.tsx"
+      },
+      {
+        "name": "LinearGradient",
+        "importedName": "LinearGradient",
+        "source": "expo-linear-gradient",
+        "file": "client\\app\\(tabs)\\index.tsx"
+      },
+      {
+        "name": "Zap",
+        "importedName": "Zap",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\index.tsx"
+      },
+      {
+        "name": "ChevronRight",
+        "importedName": "ChevronRight",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\index.tsx"
+      },
+      {
+        "name": "TrendingUp",
+        "importedName": "TrendingUp",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\index.tsx"
+      },
+      {
+        "name": "Award",
+        "importedName": "Award",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\index.tsx"
+      },
+      {
+        "name": "Plus",
+        "importedName": "Plus",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\index.tsx"
+      },
+      {
+        "name": "BarChart3",
+        "importedName": "ChartBar",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\index.tsx"
+      },
+      {
+        "name": "Check",
+        "importedName": "Check",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\index.tsx"
+      },
+      {
+        "name": "Trophy",
+        "importedName": "Trophy",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\index.tsx"
+      },
+      {
+        "name": "Star",
+        "importedName": "Star",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\index.tsx"
+      },
+      {
+        "name": "Menu",
+        "importedName": "Menu",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\index.tsx"
+      },
+      {
+        "name": "Minus",
+        "importedName": "Minus",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\index.tsx"
+      },
+      {
+        "name": "LoadingScreen",
+        "importedName": "default",
+        "source": "@/components/LoadingScreen",
+        "file": "client\\app\\(tabs)\\index.tsx"
+      },
+      {
+        "name": "ErrorBoundary",
+        "importedName": "default",
+        "source": "@/components/ErrorBoundary",
+        "file": "client\\app\\(tabs)\\index.tsx"
+      },
+      {
+        "name": "XPNotification",
+        "importedName": "default",
+        "source": "@/components/XPNotification",
+        "file": "client\\app\\(tabs)\\index.tsx"
+      },
+      {
+        "name": "Colors",
+        "importedName": "Colors",
+        "source": "@/constants/Colors",
+        "file": "client\\app\\(tabs)\\index.tsx"
+      },
+      {
+        "name": "EmeraldSpectrum",
+        "importedName": "EmeraldSpectrum",
+        "source": "@/constants/Colors",
+        "file": "client\\app\\(tabs)\\index.tsx"
+      },
+      {
+        "name": "CircularCaloriesProgress",
+        "importedName": "default",
+        "source": "@/components/index/CircularCaloriesProgress",
+        "file": "client\\app\\(tabs)\\index.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\history.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\history.tsx"
+      },
+      {
+        "name": "FlatList",
+        "importedName": "FlatList",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\history.tsx"
+      },
+      {
+        "name": "TouchableOpacity",
+        "importedName": "TouchableOpacity",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\history.tsx"
+      },
+      {
+        "name": "Image",
+        "importedName": "Image",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\history.tsx"
+      },
+      {
+        "name": "Modal",
+        "importedName": "Modal",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\history.tsx"
+      },
+      {
+        "name": "ActivityIndicator",
+        "importedName": "ActivityIndicator",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\history.tsx"
+      },
+      {
+        "name": "RefreshControl",
+        "importedName": "RefreshControl",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\history.tsx"
+      },
+      {
+        "name": "Pressable",
+        "importedName": "Pressable",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\history.tsx"
+      },
+      {
+        "name": "SafeAreaView",
+        "importedName": "SafeAreaView",
+        "source": "react-native-safe-area-context",
+        "file": "client\\app\\(tabs)\\history.tsx"
+      },
+      {
+        "name": "LinearGradient",
+        "importedName": "LinearGradient",
+        "source": "expo-linear-gradient",
+        "file": "client\\app\\(tabs)\\history.tsx"
+      },
+      {
+        "name": "BlurView",
+        "importedName": "BlurView",
+        "source": "expo-blur",
+        "file": "client\\app\\(tabs)\\history.tsx"
+      },
+      {
+        "name": "Search",
+        "importedName": "Search",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\history.tsx"
+      },
+      {
+        "name": "Filter",
+        "importedName": "Filter",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\history.tsx"
+      },
+      {
+        "name": "Heart",
+        "importedName": "Heart",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\history.tsx"
+      },
+      {
+        "name": "Star",
+        "importedName": "Star",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\history.tsx"
+      },
+      {
+        "name": "Copy",
+        "importedName": "Copy",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\history.tsx"
+      },
+      {
+        "name": "Zap",
+        "importedName": "Zap",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\history.tsx"
+      },
+      {
+        "name": "TrendingUp",
+        "importedName": "TrendingUp",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\history.tsx"
+      },
+      {
+        "name": "ChevronDown",
+        "importedName": "ChevronDown",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\history.tsx"
+      },
+      {
+        "name": "ChevronUp",
+        "importedName": "ChevronUp",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\history.tsx"
+      },
+      {
+        "name": "X",
+        "importedName": "X",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\history.tsx"
+      },
+      {
+        "name": "Trash2",
+        "importedName": "Trash2",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\history.tsx"
+      },
+      {
+        "name": "MoreHorizontal",
+        "importedName": "MoreHorizontal",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\history.tsx"
+      },
+      {
+        "name": "Apple",
+        "importedName": "Apple",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\history.tsx"
+      },
+      {
+        "name": "Award",
+        "importedName": "Award",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\history.tsx"
+      },
+      {
+        "name": "ShoppingCart",
+        "importedName": "ShoppingCart",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\history.tsx"
+      },
+      {
+        "name": "Plus",
+        "importedName": "Plus",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\history.tsx"
+      },
+      {
+        "name": "User",
+        "importedName": "User",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\history.tsx"
+      },
+      {
+        "name": "Bell",
+        "importedName": "Bell",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\history.tsx"
+      },
+      {
+        "name": "BarChart3",
+        "importedName": "BarChart3",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\history.tsx"
+      },
+      {
+        "name": "PieChart",
+        "importedName": "PieChart",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\history.tsx"
+      },
+      {
+        "name": "List",
+        "importedName": "List",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\history.tsx"
+      },
+      {
+        "name": "Settings",
+        "importedName": "Settings",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\history.tsx"
+      },
+      {
+        "name": "LoadingScreen",
+        "importedName": "default",
+        "source": "@/components/LoadingScreen",
+        "file": "client\\app\\(tabs)\\history.tsx"
+      },
+      {
+        "name": "GestureHandlerRootView",
+        "importedName": "GestureHandlerRootView",
+        "source": "react-native-gesture-handler",
+        "file": "client\\app\\(tabs)\\history.tsx"
+      },
+      {
+        "name": "Swipeable",
+        "importedName": "default",
+        "source": "react-native-gesture-handler/Swipeable",
+        "file": "client\\app\\(tabs)\\history.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\food-scanner.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\food-scanner.tsx"
+      },
+      {
+        "name": "TouchableOpacity",
+        "importedName": "TouchableOpacity",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\food-scanner.tsx"
+      },
+      {
+        "name": "ActivityIndicator",
+        "importedName": "ActivityIndicator",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\food-scanner.tsx"
+      },
+      {
+        "name": "Modal",
+        "importedName": "Modal",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\food-scanner.tsx"
+      },
+      {
+        "name": "Image",
+        "importedName": "Image",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\food-scanner.tsx"
+      },
+      {
+        "name": "Switch",
+        "importedName": "Switch",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\food-scanner.tsx"
+      },
+      {
+        "name": "SafeAreaView",
+        "importedName": "SafeAreaView",
+        "source": "react-native-safe-area-context",
+        "file": "client\\app\\(tabs)\\food-scanner.tsx"
+      },
+      {
+        "name": "LinearGradient",
+        "importedName": "LinearGradient",
+        "source": "expo-linear-gradient",
+        "file": "client\\app\\(tabs)\\food-scanner.tsx"
+      },
+      {
+        "name": "BlurView",
+        "importedName": "BlurView",
+        "source": "expo-blur",
+        "file": "client\\app\\(tabs)\\food-scanner.tsx"
+      },
+      {
+        "name": "CameraType",
+        "importedName": "CameraType",
+        "source": "expo-camera",
+        "file": "client\\app\\(tabs)\\food-scanner.tsx"
+      },
+      {
+        "name": "CameraView",
+        "importedName": "CameraView",
+        "source": "expo-camera",
+        "file": "client\\app\\(tabs)\\food-scanner.tsx"
+      },
+      {
+        "name": "QrCode",
+        "importedName": "QrCode",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\food-scanner.tsx"
+      },
+      {
+        "name": "CameraIcon",
+        "importedName": "Camera",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\food-scanner.tsx"
+      },
+      {
+        "name": "Sparkles",
+        "importedName": "Sparkles",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\food-scanner.tsx"
+      },
+      {
+        "name": "Plus",
+        "importedName": "Plus",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\food-scanner.tsx"
+      },
+      {
+        "name": "Check",
+        "importedName": "Check",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\food-scanner.tsx"
+      },
+      {
+        "name": "X",
+        "importedName": "X",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\food-scanner.tsx"
+      },
+      {
+        "name": "AlertTriangle",
+        "importedName": "AlertTriangle",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\food-scanner.tsx"
+      },
+      {
+        "name": "Shield",
+        "importedName": "Shield",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\food-scanner.tsx"
+      },
+      {
+        "name": "Heart",
+        "importedName": "Heart",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\food-scanner.tsx"
+      },
+      {
+        "name": "Leaf",
+        "importedName": "Leaf",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\food-scanner.tsx"
+      },
+      {
+        "name": "Zap",
+        "importedName": "Zap",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\food-scanner.tsx"
+      },
+      {
+        "name": "Apple",
+        "importedName": "Apple",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\food-scanner.tsx"
+      },
+      {
+        "name": "Clock",
+        "importedName": "Clock",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\food-scanner.tsx"
+      },
+      {
+        "name": "BarChart3",
+        "importedName": "BarChart3",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\food-scanner.tsx"
+      },
+      {
+        "name": "Info",
+        "importedName": "Info",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\food-scanner.tsx"
+      },
+      {
+        "name": "Star",
+        "importedName": "Star",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\food-scanner.tsx"
+      },
+      {
+        "name": "Trash2",
+        "importedName": "Trash2",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\food-scanner.tsx"
+      },
+      {
+        "name": "History",
+        "importedName": "History",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\food-scanner.tsx"
+      },
+      {
+        "name": "Wheat",
+        "importedName": "Wheat",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\food-scanner.tsx"
+      },
+      {
+        "name": "Droplet",
+        "importedName": "Droplet",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\food-scanner.tsx"
+      },
+      {
+        "name": "CircleDot",
+        "importedName": "CircleDot",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\food-scanner.tsx"
+      },
+      {
+        "name": "ShoppingCart",
+        "importedName": "ShoppingCart",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\food-scanner.tsx"
+      },
+      {
+        "name": "Scale",
+        "importedName": "Scale",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\food-scanner.tsx"
+      },
+      {
+        "name": "DollarSign",
+        "importedName": "DollarSign",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\food-scanner.tsx"
+      },
+      {
+        "name": "Package",
+        "importedName": "Package",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\food-scanner.tsx"
+      },
+      {
+        "name": "Utensils",
+        "importedName": "Utensils",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\food-scanner.tsx"
+      },
+      {
+        "name": "Eye",
+        "importedName": "Eye",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\food-scanner.tsx"
+      },
+      {
+        "name": "RotateCcw",
+        "importedName": "RotateCcw",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\food-scanner.tsx"
+      },
+      {
+        "name": "LoadingScreen",
+        "importedName": "default",
+        "source": "@/components/LoadingScreen",
+        "file": "client\\app\\(tabs)\\food-scanner.tsx"
+      },
+      {
+        "name": "ElementLoader",
+        "importedName": "default",
+        "source": "@/components/ElementLoader",
+        "file": "client\\app\\(tabs)\\food-scanner.tsx"
+      },
+      {
+        "name": "ButtonLoader",
+        "importedName": "default",
+        "source": "@/components/ButtonLoader",
+        "file": "client\\app\\(tabs)\\food-scanner.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\devices.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\devices.tsx"
+      },
+      {
+        "name": "TouchableOpacity",
+        "importedName": "TouchableOpacity",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\devices.tsx"
+      },
+      {
+        "name": "ActivityIndicator",
+        "importedName": "ActivityIndicator",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\devices.tsx"
+      },
+      {
+        "name": "RefreshControl",
+        "importedName": "RefreshControl",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\devices.tsx"
+      },
+      {
+        "name": "LinearGradient",
+        "importedName": "LinearGradient",
+        "source": "expo-linear-gradient",
+        "file": "client\\app\\(tabs)\\devices.tsx"
+      },
+      {
+        "name": "LoadingScreen",
+        "importedName": "default",
+        "source": "@/components/LoadingScreen",
+        "file": "client\\app\\(tabs)\\devices.tsx"
+      },
+      {
+        "name": "ErrorBoundary",
+        "importedName": "default",
+        "source": "@/components/ErrorBoundary",
+        "file": "client\\app\\(tabs)\\devices.tsx"
+      },
+      {
+        "name": "React",
+        "importedName": "default",
+        "source": "react",
+        "file": "client\\app\\(tabs)\\camera.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\camera.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\camera.tsx"
+      },
+      {
+        "name": "TouchableOpacity",
+        "importedName": "TouchableOpacity",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\camera.tsx"
+      },
+      {
+        "name": "ActivityIndicator",
+        "importedName": "ActivityIndicator",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\camera.tsx"
+      },
+      {
+        "name": "Modal",
+        "importedName": "Modal",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\camera.tsx"
+      },
+      {
+        "name": "KeyboardAvoidingView",
+        "importedName": "KeyboardAvoidingView",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\camera.tsx"
+      },
+      {
+        "name": "StatusBar",
+        "importedName": "StatusBar",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\camera.tsx"
+      },
+      {
+        "name": "SafeAreaView",
+        "importedName": "SafeAreaView",
+        "source": "react-native-safe-area-context",
+        "file": "client\\app\\(tabs)\\camera.tsx"
+      },
+      {
+        "name": "updateMeal",
+        "importedName": "updateMeal",
+        "source": "@/src/store/mealSlice",
+        "file": "client\\app\\(tabs)\\camera.tsx"
+      },
+      {
+        "name": "Camera",
+        "importedName": "Camera",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\camera.tsx"
+      },
+      {
+        "name": "Send",
+        "importedName": "Send",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\camera.tsx"
+      },
+      {
+        "name": "Edit3",
+        "importedName": "CreditCard",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\camera.tsx"
+      },
+      {
+        "name": "Trash2",
+        "importedName": "Trash2",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\camera.tsx"
+      },
+      {
+        "name": "Plus",
+        "importedName": "Plus",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\camera.tsx"
+      },
+      {
+        "name": "RotateCcw",
+        "importedName": "RotateCcw",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\camera.tsx"
+      },
+      {
+        "name": "AlertTriangle",
+        "importedName": "TriangleAlert",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\camera.tsx"
+      },
+      {
+        "name": "X",
+        "importedName": "X",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\camera.tsx"
+      },
+      {
+        "name": "ChevronLeft",
+        "importedName": "ChevronLeft",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\camera.tsx"
+      },
+      {
+        "name": "ImageSelector",
+        "importedName": "ImageSelector",
+        "source": "@/components/camera",
+        "file": "client\\app\\(tabs)\\camera.tsx"
+      },
+      {
+        "name": "SelectedImage",
+        "importedName": "SelectedImage",
+        "source": "@/components/camera",
+        "file": "client\\app\\(tabs)\\camera.tsx"
+      },
+      {
+        "name": "NutritionOverview",
+        "importedName": "NutritionOverview",
+        "source": "@/components/camera",
+        "file": "client\\app\\(tabs)\\camera.tsx"
+      },
+      {
+        "name": "IngredientsList",
+        "importedName": "IngredientsList",
+        "source": "@/components/camera",
+        "file": "client\\app\\(tabs)\\camera.tsx"
+      },
+      {
+        "name": "ActionButtons",
+        "importedName": "ActionButtons",
+        "source": "@/components/camera",
+        "file": "client\\app\\(tabs)\\camera.tsx"
+      },
+      {
+        "name": "HealthInsights",
+        "importedName": "HealthInsights",
+        "source": "@/components/camera",
+        "file": "client\\app\\(tabs)\\camera.tsx"
+      },
+      {
+        "name": "ScanningAnimation",
+        "importedName": "ScanningAnimation",
+        "source": "@/components/camera",
+        "file": "client\\app\\(tabs)\\camera.tsx"
+      },
+      {
+        "name": "React",
+        "importedName": "default",
+        "source": "react",
+        "file": "client\\app\\(tabs)\\calendar.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\calendar.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\calendar.tsx"
+      },
+      {
+        "name": "TouchableOpacity",
+        "importedName": "TouchableOpacity",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\calendar.tsx"
+      },
+      {
+        "name": "Modal",
+        "importedName": "Modal",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\calendar.tsx"
+      },
+      {
+        "name": "ActivityIndicator",
+        "importedName": "ActivityIndicator",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\calendar.tsx"
+      },
+      {
+        "name": "SafeAreaView",
+        "importedName": "SafeAreaView",
+        "source": "react-native-safe-area-context",
+        "file": "client\\app\\(tabs)\\calendar.tsx"
+      },
+      {
+        "name": "LinearGradient",
+        "importedName": "LinearGradient",
+        "source": "expo-linear-gradient",
+        "file": "client\\app\\(tabs)\\calendar.tsx"
+      },
+      {
+        "name": "Ionicons",
+        "importedName": "Ionicons",
+        "source": "@expo/vector-icons",
+        "file": "client\\app\\(tabs)\\calendar.tsx"
+      },
+      {
+        "name": "CalendarIcon",
+        "importedName": "Calendar",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\calendar.tsx"
+      },
+      {
+        "name": "ChevronLeft",
+        "importedName": "ChevronLeft",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\calendar.tsx"
+      },
+      {
+        "name": "ChevronRight",
+        "importedName": "ChevronRight",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\calendar.tsx"
+      },
+      {
+        "name": "Target",
+        "importedName": "Target",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\calendar.tsx"
+      },
+      {
+        "name": "TrendingUp",
+        "importedName": "TrendingUp",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\calendar.tsx"
+      },
+      {
+        "name": "TrendingDown",
+        "importedName": "TrendingDown",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\calendar.tsx"
+      },
+      {
+        "name": "CheckCircle",
+        "importedName": "CircleCheck",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\calendar.tsx"
+      },
+      {
+        "name": "XCircle",
+        "importedName": "Circle",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\calendar.tsx"
+      },
+      {
+        "name": "Award",
+        "importedName": "Award",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\calendar.tsx"
+      },
+      {
+        "name": "Flame",
+        "importedName": "Flame",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\calendar.tsx"
+      },
+      {
+        "name": "Edit",
+        "importedName": "Edit",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\calendar.tsx"
+      },
+      {
+        "name": "Eye",
+        "importedName": "Eye",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\calendar.tsx"
+      },
+      {
+        "name": "LoadingScreen",
+        "importedName": "default",
+        "source": "@/components/LoadingScreen",
+        "file": "client\\app\\(tabs)\\calendar.tsx"
+      },
+      {
+        "name": "React",
+        "importedName": "default",
+        "source": "react",
+        "file": "client\\app\\(tabs)\\ai-chat.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\ai-chat.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\ai-chat.tsx"
+      },
+      {
+        "name": "TouchableOpacity",
+        "importedName": "TouchableOpacity",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\ai-chat.tsx"
+      },
+      {
+        "name": "ActivityIndicator",
+        "importedName": "ActivityIndicator",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\ai-chat.tsx"
+      },
+      {
+        "name": "KeyboardAvoidingView",
+        "importedName": "KeyboardAvoidingView",
+        "source": "react-native",
+        "file": "client\\app\\(tabs)\\ai-chat.tsx"
+      },
+      {
+        "name": "SafeAreaView",
+        "importedName": "SafeAreaView",
+        "source": "react-native-safe-area-context",
+        "file": "client\\app\\(tabs)\\ai-chat.tsx"
+      },
+      {
+        "name": "LinearGradient",
+        "importedName": "LinearGradient",
+        "source": "expo-linear-gradient",
+        "file": "client\\app\\(tabs)\\ai-chat.tsx"
+      },
+      {
+        "name": "Send",
+        "importedName": "Send",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\ai-chat.tsx"
+      },
+      {
+        "name": "Bot",
+        "importedName": "Bot",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\ai-chat.tsx"
+      },
+      {
+        "name": "User",
+        "importedName": "User",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\ai-chat.tsx"
+      },
+      {
+        "name": "AlertTriangle",
+        "importedName": "AlertTriangle",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\ai-chat.tsx"
+      },
+      {
+        "name": "Shield",
+        "importedName": "Shield",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\ai-chat.tsx"
+      },
+      {
+        "name": "Trash2",
+        "importedName": "Trash2",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\ai-chat.tsx"
+      },
+      {
+        "name": "Minus",
+        "importedName": "Minus",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\ai-chat.tsx"
+      },
+      {
+        "name": "X",
+        "importedName": "X",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(tabs)\\ai-chat.tsx"
+      },
+      {
+        "name": "LoadingScreen",
+        "importedName": "default",
+        "source": "@/components/LoadingScreen",
+        "file": "client\\app\\(tabs)\\ai-chat.tsx"
+      },
+      {
+        "name": "Stack",
+        "importedName": "Stack",
+        "source": "expo-router",
+        "file": "client\\app\\(auth)\\_layout.tsx"
+      },
+      {
+        "name": "React",
+        "importedName": "default",
+        "source": "react",
+        "file": "client\\app\\(auth)\\_layout.tsx"
+      },
+      {
+        "name": "React",
+        "importedName": "default",
+        "source": "react",
+        "file": "client\\app\\(auth)\\signup.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\app\\(auth)\\signup.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\app\\(auth)\\signup.tsx"
+      },
+      {
+        "name": "TouchableOpacity",
+        "importedName": "TouchableOpacity",
+        "source": "react-native",
+        "file": "client\\app\\(auth)\\signup.tsx"
+      },
+      {
+        "name": "ScrollView",
+        "importedName": "ScrollView",
+        "source": "react-native",
+        "file": "client\\app\\(auth)\\signup.tsx"
+      },
+      {
+        "name": "ActivityIndicator",
+        "importedName": "ActivityIndicator",
+        "source": "react-native",
+        "file": "client\\app\\(auth)\\signup.tsx"
+      },
+      {
+        "name": "Link",
+        "importedName": "Link",
+        "source": "expo-router",
+        "file": "client\\app\\(auth)\\signup.tsx"
+      },
+      {
+        "name": "LanguageSelector",
+        "importedName": "default",
+        "source": "@/components/LanguageSelector",
+        "file": "client\\app\\(auth)\\signup.tsx"
+      },
+      {
+        "name": "Toast",
+        "importedName": "default",
+        "source": "react-native-toast-message",
+        "file": "client\\app\\(auth)\\signup.tsx"
+      },
+      {
+        "name": "React",
+        "importedName": "default",
+        "source": "react",
+        "file": "client\\app\\(auth)\\signin.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\app\\(auth)\\signin.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\app\\(auth)\\signin.tsx"
+      },
+      {
+        "name": "TouchableOpacity",
+        "importedName": "TouchableOpacity",
+        "source": "react-native",
+        "file": "client\\app\\(auth)\\signin.tsx"
+      },
+      {
+        "name": "ActivityIndicator",
+        "importedName": "ActivityIndicator",
+        "source": "react-native",
+        "file": "client\\app\\(auth)\\signin.tsx"
+      },
+      {
+        "name": "Link",
+        "importedName": "Link",
+        "source": "expo-router",
+        "file": "client\\app\\(auth)\\signin.tsx"
+      },
+      {
+        "name": "React",
+        "importedName": "default",
+        "source": "react",
+        "file": "client\\app\\(auth)\\resetPassword.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\app\\(auth)\\resetPassword.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\app\\(auth)\\resetPassword.tsx"
+      },
+      {
+        "name": "TouchableOpacity",
+        "importedName": "TouchableOpacity",
+        "source": "react-native",
+        "file": "client\\app\\(auth)\\resetPassword.tsx"
+      },
+      {
+        "name": "ActivityIndicator",
+        "importedName": "ActivityIndicator",
+        "source": "react-native",
+        "file": "client\\app\\(auth)\\resetPassword.tsx"
+      },
+      {
+        "name": "Lock",
+        "importedName": "Lock",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(auth)\\resetPassword.tsx"
+      },
+      {
+        "name": "ArrowLeft",
+        "importedName": "ArrowLeft",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(auth)\\resetPassword.tsx"
+      },
+      {
+        "name": "Eye",
+        "importedName": "Eye",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(auth)\\resetPassword.tsx"
+      },
+      {
+        "name": "EyeOff",
+        "importedName": "EyeOff",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(auth)\\resetPassword.tsx"
+      },
+      {
+        "name": "React",
+        "importedName": "default",
+        "source": "react",
+        "file": "client\\app\\(auth)\\reset-password-verify.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\app\\(auth)\\reset-password-verify.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\app\\(auth)\\reset-password-verify.tsx"
+      },
+      {
+        "name": "TouchableOpacity",
+        "importedName": "TouchableOpacity",
+        "source": "react-native",
+        "file": "client\\app\\(auth)\\reset-password-verify.tsx"
+      },
+      {
+        "name": "ActivityIndicator",
+        "importedName": "ActivityIndicator",
+        "source": "react-native",
+        "file": "client\\app\\(auth)\\reset-password-verify.tsx"
+      },
+      {
+        "name": "Shield",
+        "importedName": "Shield",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(auth)\\reset-password-verify.tsx"
+      },
+      {
+        "name": "ArrowLeft",
+        "importedName": "ArrowLeft",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(auth)\\reset-password-verify.tsx"
+      },
+      {
+        "name": "RefreshCw",
+        "importedName": "RefreshCw",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(auth)\\reset-password-verify.tsx"
+      },
+      {
+        "name": "React",
+        "importedName": "default",
+        "source": "react",
+        "file": "client\\app\\(auth)\\forgotPassword.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\app\\(auth)\\forgotPassword.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\app\\(auth)\\forgotPassword.tsx"
+      },
+      {
+        "name": "TextInput",
+        "importedName": "TextInput",
+        "source": "react-native",
+        "file": "client\\app\\(auth)\\forgotPassword.tsx"
+      },
+      {
+        "name": "TouchableOpacity",
+        "importedName": "TouchableOpacity",
+        "source": "react-native",
+        "file": "client\\app\\(auth)\\forgotPassword.tsx"
+      },
+      {
+        "name": "ActivityIndicator",
+        "importedName": "ActivityIndicator",
+        "source": "react-native",
+        "file": "client\\app\\(auth)\\forgotPassword.tsx"
+      },
+      {
+        "name": "Mail",
+        "importedName": "Mail",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(auth)\\forgotPassword.tsx"
+      },
+      {
+        "name": "ArrowLeft",
+        "importedName": "ArrowLeft",
+        "source": "lucide-react-native",
+        "file": "client\\app\\(auth)\\forgotPassword.tsx"
+      },
+      {
+        "name": "React",
+        "importedName": "default",
+        "source": "react",
+        "file": "client\\app\\(auth)\\email-verification.tsx"
+      },
+      {
+        "name": "View",
+        "importedName": "View",
+        "source": "react-native",
+        "file": "client\\app\\(auth)\\email-verification.tsx"
+      },
+      {
+        "name": "Text",
+        "importedName": "Text",
+        "source": "react-native",
+        "file": "client\\app\\(auth)\\email-verification.tsx"
+      },
+      {
+        "name": "TextInput",
+        "importedName": "TextInput",
+        "source": "react-native",
+        "file": "client\\app\\(auth)\\email-verification.tsx"
+      },
+      {
+        "name": "TouchableOpacity",
+        "importedName": "TouchableOpacity",
+        "source": "react-native",
+        "file": "client\\app\\(auth)\\email-verification.tsx"
+      },
+      {
+        "name": "KeyboardAvoidingView",
+        "importedName": "KeyboardAvoidingView",
+        "source": "react-native",
+        "file": "client\\app\\(auth)\\email-verification.tsx"
+      },
+      {
+        "name": "SafeAreaView",
+        "importedName": "SafeAreaView",
+        "source": "react-native",
+        "file": "client\\app\\(auth)\\email-verification.tsx"
+      },
+      {
+        "name": "LinearGradient",
+        "importedName": "LinearGradient",
+        "source": "expo-linear-gradient",
+        "file": "client\\app\\(auth)\\email-verification.tsx"
+      },
+      {
+        "name": "Ionicons",
+        "importedName": "Ionicons",
+        "source": "@expo/vector-icons",
+        "file": "client\\app\\(auth)\\email-verification.tsx"
+      }
+    ]
+  },
+  "server": {
+    "unusedFiles": [
+      "server\\src\\types\\express.d.ts"
+    ],
+    "unusedFunctions": [
+      {
+        "name": "logStartup",
+        "file": "server\\src\\index.ts",
+        "type": "expression"
+      },
+      {
+        "name": "gracefulShutdown",
+        "file": "server\\src\\index.ts",
+        "type": "expression"
+      },
+      {
+        "name": "startServer",
+        "file": "server\\src\\index.ts",
+        "type": "declaration"
+      },
+      {
+        "name": "parseNumber",
+        "file": "server\\src\\utils\\nutrition.ts",
+        "type": "expression"
+      },
+      {
+        "name": "parseJSONField",
+        "file": "server\\src\\utils\\nutrition.ts",
+        "type": "declaration"
+      },
+      {
+        "name": "validateAndCleanBase64",
+        "file": "server\\src\\services\\openai.ts",
+        "type": "declaration"
+      },
+      {
+        "name": "extractValue",
+        "file": "server\\src\\services\\openai.ts",
+        "type": "expression"
+      },
+      {
+        "name": "transformMealForClient",
+        "file": "server\\src\\services\\nutrition.ts",
+        "type": "declaration"
+      },
+      {
+        "name": "mapMealDataToPrismaFields",
+        "file": "server\\src\\services\\nutrition.ts",
+        "type": "declaration"
+      },
+      {
+        "name": "validateArray",
+        "file": "server\\src\\services\\mealPlans.ts",
+        "type": "declaration"
+      },
+      {
+        "name": "isValidMealPlanType",
+        "file": "server\\src\\services\\mealPlans.ts",
+        "type": "declaration"
+      },
+      {
+        "name": "validateEnum",
+        "file": "server\\src\\services\\mealPlans.ts",
+        "type": "declaration"
+      },
+      {
+        "name": "generatePasswordResetToken",
+        "file": "server\\src\\services\\auth.ts",
+        "type": "declaration"
+      },
+      {
+        "name": "verifyPasswordResetToken",
+        "file": "server\\src\\services\\auth.ts",
+        "type": "declaration"
+      },
+      {
+        "name": "generateToken",
+        "file": "server\\src\\services\\auth.ts",
+        "type": "declaration"
+      },
+      {
+        "name": "getSessionExpiryDate",
+        "file": "server\\src\\services\\auth.ts",
+        "type": "declaration"
+      },
+      {
+        "name": "validateShoppingItem",
+        "file": "server\\src\\routes\\shoppingLists.ts",
+        "type": "expression"
+      },
+      {
+        "name": "sanitizeFloat",
+        "file": "server\\src\\routes\\questionnaire.ts",
+        "type": "expression"
+      },
+      {
+        "name": "sanitizeInt",
+        "file": "server\\src\\routes\\questionnaire.ts",
+        "type": "expression"
+      },
+      {
+        "name": "sanitizeString",
+        "file": "server\\src\\routes\\questionnaire.ts",
+        "type": "expression"
+      },
+      {
+        "name": "sanitizeBoolean",
+        "file": "server\\src\\routes\\questionnaire.ts",
+        "type": "expression"
+      },
+      {
+        "name": "sanitizeArray",
+        "file": "server\\src\\routes\\questionnaire.ts",
+        "type": "expression"
+      },
+      {
+        "name": "sanitizeStringArray",
+        "file": "server\\src\\routes\\questionnaire.ts",
+        "type": "expression"
+      },
+      {
+        "name": "normalizeEnum",
+        "file": "server\\src\\routes\\questionnaire.ts",
+        "type": "expression"
+      },
+      {
+        "name": "calculateDefaultCalories",
+        "file": "server\\src\\routes\\mealPlans.ts",
+        "type": "expression"
+      },
+      {
+        "name": "getDatabaseUrl",
+        "file": "server\\src\\lib\\database.ts",
+        "type": "expression"
+      }
+    ],
+    "unusedVariables": [
+      {
+        "name": "updateSubscriptionSchema",
+        "file": "server\\src\\types\\auth.ts"
+      },
+      {
+        "name": "dayGoal",
+        "file": "server\\src\\services\\statistics.ts"
+      },
+      {
+        "name": "customizedMeals",
+        "file": "server\\src\\services\\recommendedMenu.ts"
+      },
+      {
+        "name": "userPrompt",
+        "file": "server\\src\\services\\openai.ts"
+      },
+      {
+        "name": "userProfile",
+        "file": "server\\src\\services\\mealPlans.ts"
+      },
+      {
+        "name": "planName",
+        "file": "server\\src\\routes\\mealPlans.ts"
+      },
+      {
+        "name": "daysCount",
+        "file": "server\\src\\routes\\mealPlans.ts"
+      }
+    ],
+    "unusedImports": [
+      {
+        "name": "healthRoutes",
+        "importedName": "healthRoutes",
+        "source": "./routes/health",
+        "file": "server\\src\\index.ts"
+      },
+      {
+        "name": "MealUpdateInput",
+        "importedName": "MealUpdateInput",
+        "source": "../types/nutrition",
+        "file": "server\\src\\services\\nutrition.ts"
+      },
+      {
+        "name": "CalendarEvent",
+        "importedName": "CalendarEvent",
+        "source": "../types/calendar",
+        "file": "server\\src\\services\\calendar.ts"
+      },
+      {
+        "name": "GamificationBadge",
+        "importedName": "GamificationBadge",
+        "source": "../types/calendar",
+        "file": "server\\src\\services\\calendar.ts"
+      },
+      {
+        "name": "StatisticsService",
+        "importedName": "StatisticsService",
+        "source": "../services/statistics",
+        "file": "server\\src\\routes\\nutrition.ts"
+      }
+    ],
+    "prismaIssues": []
+  },
+  "metadata": {
+    "generatedAt": "2025-09-07T11:10:24.968Z",
+    "totalFiles": 193,
+    "entryPoints": [
+      "client\\eslint.config.js",
+      "client\\scripts\\reset-project.js"
+    ],
+    "reachableFiles": 156,
+    "analysis": {
+      "client": {
+        "unusedFiles": 36,
+        "unusedFunctions": 372,
+        "unusedVariables": 43,
+        "unusedImports": 658,
+        "total": 1109
+      },
+      "server": {
+        "unusedFiles": 1,
+        "unusedFunctions": 26,
+        "unusedVariables": 7,
+        "unusedImports": 5,
+        "total": 39
+      }
+    }
+  }
+}
