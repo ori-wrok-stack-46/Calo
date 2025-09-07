@@ -2,6 +2,7 @@ import { Tabs } from "expo-router";
 import React from "react";
 import { View, I18nManager } from "react-native";
 import { useTranslation } from "react-i18next";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { ProtectedRoute } from "@/components/ProtectedRoutes";
 import { IconSymbol } from "@/components/ui/IconSymbol";
 import { ScrollableTabBar } from "@/components/ScrollableTabBar";
@@ -13,6 +14,17 @@ I18nManager.allowRTL(true);
 export default function TabLayout() {
   const { t } = useTranslation();
   const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
+
+  // Since your tab bar is floating, calculate the space it occupies
+  // From your ScrollableTabBar config:
+  const TAB_BAR_HEIGHT = 30; // TAB_CONFIG.barHeight
+  const FLOATING_MARGIN = 16; // TAB_CONFIG.floatingMargin (bottom margin from screen edge)
+  const SAFE_AREA_PADDING = 10; // Extra padding to ensure no overlap
+
+  // Total bottom space needed for floating tab bar
+  const totalBottomSpace =
+    TAB_BAR_HEIGHT + FLOATING_MARGIN * 2 + SAFE_AREA_PADDING;
 
   return (
     <ProtectedRoute>
@@ -26,6 +38,19 @@ export default function TabLayout() {
           screenOptions={{
             headerShown: false,
             tabBarHideOnKeyboard: true,
+
+            // Add bottom padding to prevent content from going behind floating tab bar
+            sceneStyle: {
+              paddingBottom: totalBottomSpace,
+              // Ensure the scene background matches your theme
+              backgroundColor: colors.background,
+            },
+
+            // Alternative: if sceneStyle doesn't work, try contentStyle
+            // contentStyle: {
+            //   paddingBottom: totalBottomSpace,
+            //   backgroundColor: colors.background,
+            // },
           }}
           tabBar={(props) => <ScrollableTabBar {...props} />}
         >
@@ -129,6 +154,19 @@ export default function TabLayout() {
             }}
           />
         </Tabs>
+
+        {/* Optional: Add a background fill for the bottom area if needed */}
+        <View
+          style={{
+            position: "absolute",
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: totalBottomSpace,
+            backgroundColor: colors.background,
+            zIndex: -1, // Behind everything else
+          }}
+        />
       </View>
     </ProtectedRoute>
   );

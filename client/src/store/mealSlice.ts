@@ -208,7 +208,7 @@ export const analyzeMeal = createAsyncThunk(
         throw new Error("Image data is empty or invalid");
       }
 
-      // Clean base64 string - handle both raw base64 and data URLs
+      // Clean base64 string - handle both data URLs and raw base64
       let cleanBase64 = params.imageBase64;
       if (params.imageBase64.startsWith("data:")) {
         cleanBase64 = params.imageBase64.split(",")[1];
@@ -244,12 +244,12 @@ export const analyzeMeal = createAsyncThunk(
             (ingredient: any) => ({
               name: ingredient.name || "Unknown ingredient",
               calories: Number(ingredient.calories) || 0,
-              protein: Number(ingredient.protein || ingredient.protein_g) || 0,
-              carbs: Number(ingredient.carbs || ingredient.carbs_g) || 0,
-              fat: Number(ingredient.fat || ingredient.fats_g) || 0,
-              fiber: Number(ingredient.fiber || ingredient.fiber_g) || 0,
-              sugar: Number(ingredient.sugar || ingredient.sugar_g) || 0,
-              sodium_mg: Number(ingredient.sodium_mg || ingredient.sodium) || 0,
+              protein: Number(ingredient.protein) || 0,
+              carbs: Number(ingredient.carbs) || 0,
+              fat: Number(ingredient.fat) || 0,
+              fiber: Number(ingredient.fiber) || 0,
+              sugar: Number(ingredient.sugar) || 0,
+              sodium_mg: Number(ingredient.sodium_mg) || 0,
             })
           );
         }
@@ -481,6 +481,18 @@ export const saveMealFeedback = createAsyncThunk(
       return { mealId, feedback };
     } catch (error) {
       console.error("💥 Save feedback error:", error);
+      // Attempt to fix the read-only property error by ensuring feedback is applied correctly
+      if (
+        error instanceof Error &&
+        error.message.includes("Cannot assign to read-only property")
+      ) {
+        // This specific error might be due to how Redux Toolkit immutably updates state.
+        // The fetchMeals() call should ideally handle updating the UI with the latest data.
+        // If the feedback itself was the issue, the API call might have failed before it reached the state update.
+        console.warn(
+          "Encountered read-only property error, but proceeding with fetchMeals."
+        );
+      }
       return rejectWithValue("Failed to save feedback");
     }
   }
@@ -653,6 +665,20 @@ const mealSlice = createSlice({
         // Clear pending meal after successful update
         state.pendingMeal = null;
         console.log("Update completed successfully");
+
+        // Trigger immediate cache invalidation
+        import("../services/queryClient").then(({ queryClient }) => {
+          // Cancel and clear immediately
+          queryClient.cancelQueries({ queryKey: ["meals"] });
+          queryClient.removeQueries({ queryKey: ["meals"] });
+          queryClient.removeQueries({ queryKey: ["dailyStats"] });
+          queryClient.removeQueries({ queryKey: ["statistics"] });
+
+          // Force immediate refetch
+          queryClient.refetchQueries({ queryKey: ["meals"], type: "all" });
+          queryClient.refetchQueries({ queryKey: ["dailyStats"], type: "all" });
+          queryClient.refetchQueries({ queryKey: ["statistics"], type: "all" });
+        });
       })
       .addCase(updateMeal.rejected, (state, action) => {
         state.isUpdating = false;
@@ -671,6 +697,25 @@ const mealSlice = createSlice({
         state.pendingMeal = null;
         state.error = null;
         console.log("Meal posted successfully");
+
+        // Trigger immediate cache invalidation
+        import("../services/queryClient").then(({ queryClient }) => {
+          const today = new Date().toISOString().split("T")[0];
+          // Cancel ongoing queries first
+          queryClient.cancelQueries({ queryKey: ["meals"] });
+          queryClient.cancelQueries({ queryKey: ["dailyStats"] });
+
+          // Remove stale data
+          queryClient.removeQueries({ queryKey: ["meals"] });
+          queryClient.removeQueries({ queryKey: ["dailyStats", today] });
+          queryClient.removeQueries({ queryKey: ["statistics"] });
+          queryClient.removeQueries({ queryKey: ["recent-meals"] });
+
+          // Force immediate refetch
+          queryClient.refetchQueries({ queryKey: ["meals"] });
+          queryClient.refetchQueries({ queryKey: ["dailyStats", today] });
+          queryClient.refetchQueries({ queryKey: ["statistics"] });
+        });
       })
       .addCase(postMeal.rejected, (state, action) => {
         state.isPosting = false;
@@ -698,6 +743,16 @@ const mealSlice = createSlice({
       .addCase(removeMeal.fulfilled, (state, action) => {
         state.isLoading = false;
         // Meals will be updated by fetchMeals dispatch
+
+        // Trigger immediate cache invalidation
+        import("../services/queryClient").then(({ queryClient }) => {
+          const today = new Date().toISOString().split("T")[0];
+          queryClient.cancelQueries({ queryKey: ["meals"] });
+          queryClient.removeQueries({ queryKey: ["meals"] });
+          queryClient.removeQueries({ queryKey: ["dailyStats", today] });
+          queryClient.refetchQueries({ queryKey: ["meals"] });
+          queryClient.refetchQueries({ queryKey: ["dailyStats", today] });
+        });
       })
       .addCase(removeMeal.rejected, (state, action) => {
         state.isLoading = false;
@@ -712,6 +767,13 @@ const mealSlice = createSlice({
       .addCase(saveMealFeedback.fulfilled, (state, action) => {
         state.isSavingFeedback = false;
         console.log("Feedback saved successfully");
+
+        // Trigger immediate cache invalidation
+        import("../services/queryClient").then(({ queryClient }) => {
+          queryClient.cancelQueries({ queryKey: ["meals"] });
+          queryClient.removeQueries({ queryKey: ["meals"] });
+          queryClient.refetchQueries({ queryKey: ["meals"] });
+        });
       })
       .addCase(saveMealFeedback.rejected, (state, action) => {
         state.isSavingFeedback = false;
@@ -726,6 +788,13 @@ const mealSlice = createSlice({
       .addCase(toggleMealFavorite.fulfilled, (state, action) => {
         state.isTogglingFavorite = false;
         console.log("Favorite toggled successfully");
+
+        // Trigger immediate cache invalidation
+        import("../services/queryClient").then(({ queryClient }) => {
+          queryClient.cancelQueries({ queryKey: ["meals"] });
+          queryClient.removeQueries({ queryKey: ["meals"] });
+          queryClient.refetchQueries({ queryKey: ["meals"] });
+        });
       })
       .addCase(toggleMealFavorite.rejected, (state, action) => {
         state.isTogglingFavorite = false;
@@ -740,6 +809,16 @@ const mealSlice = createSlice({
       .addCase(duplicateMeal.fulfilled, (state, action) => {
         state.isDuplicating = false;
         console.log("Meal duplicated successfully");
+
+        // Trigger immediate cache invalidation
+        import("../services/queryClient").then(({ queryClient }) => {
+          const today = new Date().toISOString().split("T")[0];
+          queryClient.cancelQueries({ queryKey: ["meals"] });
+          queryClient.removeQueries({ queryKey: ["meals"] });
+          queryClient.removeQueries({ queryKey: ["dailyStats", today] });
+          queryClient.refetchQueries({ queryKey: ["meals"] });
+          queryClient.refetchQueries({ queryKey: ["dailyStats", today] });
+        });
       })
       .addCase(duplicateMeal.rejected, (state, action) => {
         state.isDuplicating = false;

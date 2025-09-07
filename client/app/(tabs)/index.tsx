@@ -823,7 +823,6 @@ const HomeScreen = React.memo(() => {
               tintColor="#10B981"
             />
           }
-          contentContainerStyle={styles.scrollContent}
         >
           {/* Header */}
           <View style={styles.header}>
@@ -1095,9 +1094,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#FFFFFF",
-  },
-  scrollContent: {
-    paddingBottom: 100,
   },
   header: {
     flexDirection: "row",

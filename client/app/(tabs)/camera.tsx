@@ -24,12 +24,12 @@ import {
   postMeal,
   clearPendingMeal,
   clearError,
-  processImage,
 } from "@/src/store/mealSlice";
 import { useTranslation } from "react-i18next";
 import { useLanguage } from "@/src/i18n/context/LanguageContext";
 import { router } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
+import * as FileSystem from "expo-file-system";
 import {
   Camera,
   Send,
@@ -114,7 +114,8 @@ export default function CameraScreen() {
   const { t } = useTranslation();
   const { isRTL } = useLanguage();
   const dispatch = useDispatch<AppDispatch>();
-  const { refreshAllMealData } = useMealDataRefresh();
+  const { refreshAllMealData, refreshMealData, immediateRefresh } =
+    useMealDataRefresh();
   const { colors, isDark } = useTheme();
 
   const { pendingMeal, isAnalyzing, isPosting, isUpdating, error } =
@@ -391,8 +392,12 @@ export default function CameraScreen() {
     setShowScanAnimation(true);
 
     try {
+      // Trigger immediate cache refresh first
+      await immediateRefresh();
+
       const base64Image = await processImage(selectedImage);
       if (!base64Image) {
+        setShowScanAnimation(false);
         Alert.alert(
           t("common.error") || "Error",
           "Could not process image for re-analysis."
@@ -422,28 +427,33 @@ export default function CameraScreen() {
         updateText: updateText,
       };
 
-      const result = await dispatch(analyzeMeal(reAnalysisParams));
+      console.log("🔄 Starting re-analysis...");
+      const result = await dispatch(analyzeMeal(reAnalysisParams)).unwrap();
 
-      if (analyzeMeal.fulfilled.match(result)) {
-        // Animation will be hidden by onScanComplete
-        Alert.alert(
-          t("common.success") || "Success",
-          "Meal re-analyzed successfully with your edits!"
-        );
-        scrollViewRef.current?.scrollTo({ y: 0, animated: true });
-      } else {
-        setShowScanAnimation(false);
-        Alert.alert(
-          "Re-analysis Failed",
-          typeof result.payload === "string"
-            ? result.payload
-            : "Failed to re-analyze meal. Please try again."
-        );
-      }
+      console.log("Re-analysis completed:", result);
+
+      // Update local state immediately
+      setAnalysisData(result.analysis);
+      setEditedIngredients(result.analysis?.ingredients || []);
+      setHasBeenAnalyzed(true);
+
+      // Force complete cache invalidation and refresh
+      await refreshAllMealData();
+
+      // Hide scanning animation after successful completion
+      setShowScanAnimation(false);
+
+      console.log("✅ Re-analysis and cache refresh completed");
+
+      Alert.alert(
+        t("common.success") || "Success",
+        t("camera.reAnalysisSuccess") || "Meal re-analyzed successfully!"
+      );
     } catch (error) {
       setShowScanAnimation(false);
+      console.error("❌ Re-analysis error:", error);
       Alert.alert(
-        "Re-analysis Failed",
+        t("common.error") || "Error",
         error instanceof Error ? error.message : "Re-analysis failed"
       );
     }
@@ -1083,6 +1093,62 @@ export default function CameraScreen() {
     </SafeAreaView>
   );
 }
+
+// Process image with optimization and validation
+const processImage = async (imageUri: string): Promise<string | null> => {
+  try {
+    console.log("Processing native image:", imageUri);
+
+    if (!imageUri || imageUri.trim() === "") {
+      console.error("Invalid image URI provided");
+      return null;
+    }
+
+    // Get file info first
+    const fileInfo = await FileSystem.getInfoAsync(imageUri);
+    if (!fileInfo.exists) {
+      console.error("Image file does not exist");
+      return null;
+    }
+
+    console.log("Image file size:", fileInfo.size);
+
+    // Check if file is too small or too large
+    if (fileInfo.size && fileInfo.size < 1000) {
+      console.error("Image file is too small");
+      return null;
+    }
+
+    if (fileInfo.size && fileInfo.size > 10 * 1024 * 1024) {
+      // 10MB limit
+      console.error("Image file is too large");
+      return null;
+    }
+
+    // Read as base64
+    const base64 = await FileSystem.readAsStringAsync(imageUri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+
+    if (!base64 || base64.length < 100) {
+      console.error("Failed to read image or image too small");
+      return null;
+    }
+
+    // Validate base64 format
+    const base64Regex = /^[A-Za-z0-9+/]*={0,2}$/;
+    if (!base64Regex.test(base64)) {
+      console.error("Invalid base64 format generated");
+      return null;
+    }
+
+    console.log("Native image processed, base64 length:", base64.length);
+    return base64;
+  } catch (error) {
+    console.error("Error processing image:", error);
+    return null;
+  }
+};
 
 const styles = StyleSheet.create({
   container: {

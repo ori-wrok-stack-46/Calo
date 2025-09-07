@@ -48,13 +48,13 @@ const queryClient = new QueryClient({
       },
       retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
 
-      // Cache configuration
-      staleTime: 5 * 60 * 1000, // 5 minutes - data is considered fresh
-      gcTime: 15 * 60 * 1000, // 15 minutes - cache garbage collection
+      // Cache configuration - very aggressive for immediate updates
+      staleTime: 0, // Always consider data stale for immediate updates
+      gcTime: 2 * 60 * 1000, // 2 minutes - shorter cache garbage collection
 
-      // Refetch configuration
-      refetchOnWindowFocus: false,
-      refetchOnMount: true, // Refetch on mount if data is stale
+      // Refetch configuration - very aggressive for real-time feel
+      refetchOnWindowFocus: true,
+      refetchOnMount: "always", // Always refetch on mount
       refetchOnReconnect: "always",
       refetchInterval: false,
 
@@ -67,6 +67,32 @@ const queryClient = new QueryClient({
     mutations: {
       retry: 1,
       networkMode: "online",
+      // Add onSuccess callback for automatic invalidation
+      onSuccess: async (data, variables, context) => {
+        console.log("🔄 Mutation successful, triggering cache refresh");
+
+        // Invalidate all relevant queries immediately
+        await Promise.allSettled([
+          queryClient.invalidateQueries({ queryKey: ["meals"] }),
+          queryClient.invalidateQueries({ queryKey: ["dailyStats"] }),
+          queryClient.invalidateQueries({ queryKey: ["statistics"] }),
+          queryClient.invalidateQueries({ queryKey: ["calendar"] }),
+          queryClient.invalidateQueries({ queryKey: ["recent-meals"] }),
+          queryClient.invalidateQueries({ queryKey: ["globalStats"] }),
+          queryClient.invalidateQueries({ queryKey: ["shoppingList"] }),
+        ]);
+
+        // Force immediate refetch of critical data
+        await Promise.allSettled([
+          queryClient.refetchQueries({ queryKey: ["meals"], type: "all" }),
+          queryClient.refetchQueries({
+            queryKey: ["shoppingList"],
+            type: "all",
+          }),
+        ]);
+
+        console.log("✅ Cache invalidation and refetch completed");
+      },
     },
   },
 });
