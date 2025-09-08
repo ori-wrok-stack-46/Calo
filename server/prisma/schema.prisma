@@ -61,10 +61,11 @@ model User {
 
   Session Session[]
 
-  badges       UserBadge[]
-  achievements UserAchievement[]
-  dailyGoals   DailyGoal[]
-  WaterIntake  WaterIntake[]
+  badges          UserBadge[]
+  achievements    UserAchievement[]
+  dailyGoals      DailyGoal[]
+  WaterIntake     WaterIntake[]
+  mealCompletions MealCompletion[]
 
   active_meal_plan_id String?
   active_menu_id      String?
@@ -352,6 +353,10 @@ model UserMealPlan {
   start_date              DateTime?
   end_date                DateTime?
   is_active               Boolean   @default(false)
+  status                  String    @default("not_started") // not_started, active, completed, paused
+  progress_percentage     Float     @default(0)
+  meals_completed         Int       @default(0)
+  total_meals             Int       @default(0)
   completed_at            DateTime?
   rating                  Int?
   feedback_liked          String?
@@ -419,7 +424,7 @@ model ShoppingList {
   category       String?  @default("Other")
   is_purchased   Boolean  @default(false)
   added_from     String?  @default("manual") // 'menu', 'scanner', 'manual'
-  estimated_cost Float?
+  estimated_cost Float?   @default(0)
   metadata       Json? // For storing additional data like barcode, etc.
   created_at     DateTime @default(now())
   updated_at     DateTime @updatedAt
@@ -662,6 +667,32 @@ model DailyGoal {
 
   @@unique([user_id, date])
   @@index([user_id, date])
+}
+
+model MealCompletion {
+  id               String   @id @default(cuid())
+  user_id          String
+  plan_id          String?
+  menu_id          String?
+  meal_name        String
+  meal_type        String
+  day_number       Int
+  completed_date   DateTime
+  calories         Float?
+  protein_g        Float?
+  carbs_g          Float?
+  fats_g           Float?
+  rating           Int?
+  notes            String?
+  prep_time_actual Int?
+  created_at       DateTime @default(now())
+
+  user User @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+
+  @@index([user_id, completed_date])
+  @@index([plan_id])
+  @@index([menu_id])
+  @@map("meal_completions")
 }
 
 // Add the missing relation in User model

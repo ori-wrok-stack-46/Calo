@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   Modal,
   TextInput,
   ActivityIndicator,
+  RefreshControl,
 } from "react-native";
 import {
   ShoppingCart,
@@ -32,6 +33,7 @@ interface ShoppingListItem {
   category?: string;
   is_purchased: boolean;
   added_from?: string; // 'menu', 'scanner', 'manual'
+  estimated_cost?: number; // Added for price integration
 }
 
 interface ShoppingListProps {
@@ -52,6 +54,12 @@ export default function ShoppingList({
 }: ShoppingListProps) {
   const { colors } = useTheme();
   const { t } = useLanguage();
+
+  // Ensure modal can be closed properly
+  const handleModalClose = useCallback(() => {
+    console.log("ShoppingList modal closing");
+    onClose();
+  }, [onClose]);
 
   const {
     shoppingList,
@@ -76,6 +84,7 @@ export default function ShoppingList({
     quantity: 1,
     unit: "pieces",
     category: "Manual",
+    estimated_cost: 0, // Initialize estimated_cost
   });
   const [refreshing, setRefreshing] = useState(false);
 
@@ -88,6 +97,7 @@ export default function ShoppingList({
         unit: item.unit || "pieces",
         category: item.category || "From Meal",
         added_from: "meal",
+        estimated_cost: 0, // Initialize estimated_cost for initial items
       }));
 
       if (itemsToAdd.length === 1) {
@@ -125,6 +135,7 @@ export default function ShoppingList({
       quantity: 1,
       unit: "pieces",
       category: "Manual",
+      estimated_cost: 0, // Reset estimated_cost
     });
     setShowAddModal(false);
   };
@@ -141,6 +152,7 @@ export default function ShoppingList({
       quantity: editingItem.quantity,
       unit: editingItem.unit,
       category: editingItem.category,
+      estimated_cost: editingItem.estimated_cost || 0, // Ensure estimated_cost is passed
     });
 
     setEditingItem(null);
@@ -233,6 +245,22 @@ export default function ShoppingList({
                 placeholderTextColor={colors.icon}
               />
             </View>
+            <TextInput
+              style={[
+                styles.editInput,
+                { color: colors.text, borderColor: colors.border },
+              ]}
+              value={String(editingItem.estimated_cost)}
+              onChangeText={(text) =>
+                setEditingItem({
+                  ...editingItem,
+                  estimated_cost: parseFloat(text) || 0,
+                })
+              }
+              keyboardType="numeric"
+              placeholder="Estimated Cost"
+              placeholderTextColor={colors.icon}
+            />
           </View>
         ) : (
           <View>
@@ -253,6 +281,9 @@ export default function ShoppingList({
               {item.quantity} {item.unit}
               {item.category && ` • ${item.category}`}
               {item.added_from && ` • from ${item.added_from}`}
+              {item.estimated_cost !== undefined &&
+                item.estimated_cost > 0 &&
+                ` • $${item.estimated_cost.toFixed(2)}`}
             </Text>
           </View>
         )}
@@ -306,16 +337,10 @@ export default function ShoppingList({
         {
           text: "Clear",
           onPress: async () => {
-            // Assuming you have a way to clear purchased items via the hook
-            // For example: await clearPurchasedItems();
-            // If not, implement it in useShoppingList hook
-            console.log("Clearing purchased items...");
-            // Placeholder for actual clearing logic
-            // For now, we'll just filter them out locally to simulate
             const purchasedIds = shoppingList
               .filter((item: { is_purchased: any }) => item.is_purchased)
               .map((item: { id: any }) => item.id);
-            purchasedIds.forEach((id: any) => deleteItem(id)); // Simulate deletion if no specific clear endpoint
+            purchasedIds.forEach((id: any) => deleteItem(id));
           },
         },
       ]
@@ -327,7 +352,7 @@ export default function ShoppingList({
       visible={visible}
       animationType="slide"
       transparent={true}
-      onRequestClose={onClose}
+      onRequestClose={handleModalClose}
     >
       <View style={styles.modalOverlay}>
         <View
@@ -347,7 +372,11 @@ export default function ShoppingList({
                 items)
               </Text>
             </View>
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+            <TouchableOpacity
+              onPress={handleModalClose}
+              style={styles.closeButton}
+              activeOpacity={0.7}
+            >
               <X size={24} color={colors.icon} />
             </TouchableOpacity>
           </View>
@@ -356,14 +385,17 @@ export default function ShoppingList({
           <ScrollView
             style={styles.content}
             showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            bounces={true}
+            scrollEventThrottle={16}
             refreshControl={
-              <ActivityIndicator
-                animating={refreshing}
-                color={colors.emerald500}
+              <RefreshControl
+                refreshing={refreshing}
+                onRefresh={handleRefresh}
+                colors={[colors.emerald500]}
+                tintColor={colors.emerald500}
               />
             }
-            onRefresh={handleRefresh}
-            refreshable
           >
             {isLoading ? (
               <View style={styles.loadingContainer}>
@@ -441,6 +473,22 @@ export default function ShoppingList({
                     placeholderTextColor={colors.icon}
                   />
                 </View>
+                <TextInput
+                  style={[
+                    styles.input,
+                    { color: colors.text, borderColor: colors.border },
+                  ]}
+                  value={String(newItem.estimated_cost)}
+                  onChangeText={(text) =>
+                    setNewItem({
+                      ...newItem,
+                      estimated_cost: parseFloat(text) || 0,
+                    })
+                  }
+                  keyboardType="numeric"
+                  placeholder="Estimated Cost"
+                  placeholderTextColor={colors.icon}
+                />
                 <View style={styles.formActions}>
                   <TouchableOpacity
                     style={[

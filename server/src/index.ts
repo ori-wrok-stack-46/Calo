@@ -15,7 +15,7 @@ import { questionnaireRoutes } from "./routes/questionnaire";
 import chatRoutes from "./routes/chat";
 import { deviceRoutes } from "./routes/devices";
 import { mealPlansRoutes } from "./routes/mealPlans";
-import { recommendedMenuRoutes } from "./routes/recommendedMenu";
+import recommendedMenuRoutes  from "./routes/recommendedMenu";
 import { calendarRoutes } from "./routes/calendar";
 import statisticsRoutes from "./routes/statistics";
 import foodScannerRoutes from "./routes/foodScanner";
@@ -26,6 +26,7 @@ import "./services/cron";
 import { dailyGoalsRoutes } from "./routes/dailyGoal";
 import achievementsRouter from "./routes/achievements";
 import shoppingListRoutes from "./routes/shoppingLists";
+import mealCompletionRouter from "./routes/mealCompletion";
 
 // Load environment variables
 dotenv.config();
@@ -181,6 +182,7 @@ apiRouter.use("/shopping-lists", shoppingListRoutes);
 apiRouter.use("/", statisticsRoutes);
 apiRouter.use("/daily-goals", dailyGoalsRoutes);
 apiRouter.use("/", achievementsRouter);
+apiRouter.use("/meal-completions", mealCompletionRouter);
 
 app.use("/api", apiRouter);
 

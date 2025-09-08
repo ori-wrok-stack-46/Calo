@@ -290,11 +290,32 @@ const AppContent = React.memo(() => {
         user.subscription_type === "GOLD";
 
       // Step 5: All checks passed - ensure user is in main app
-      const exemptRoutes = ["payment", "privacy-policy"];
-      const shouldBeInMainApp = !exemptRoutes.some((route) =>
+      const exemptRoutes = [
+        "payment",
+        "privacy-policy",
+        "menu/activeMenu",
+        "activeMenu",
+      ];
+      const isExemptRoute = exemptRoutes.some((route) =>
         currentPath.includes(route)
       );
+      const shouldBeInMainApp = !isExemptRoute;
 
+      console.log("🚦 Route analysis:", {
+        currentPath,
+        isExemptRoute,
+        shouldBeInMainApp,
+        isInTabs: currentPath.includes("(tabs)"),
+        isInMenu: currentPath.includes("menu/"),
+      });
+
+      // Allow user to stay in menu routes and main app - completely skip redirect for menu routes
+      if (currentPath.includes("menu/")) {
+        console.log("🚦 User is in menu route - allowing to stay");
+        return;
+      }
+
+      // Allow user to stay in main app
       if (
         shouldBeInMainApp &&
         !currentPath.includes("(tabs)") &&

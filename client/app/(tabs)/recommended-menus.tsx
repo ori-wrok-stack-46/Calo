@@ -48,7 +48,12 @@ import LoadingScreen from "@/components/LoadingScreen";
 import { router, useFocusEffect } from "expo-router";
 import { useSelector } from "react-redux";
 import { RootState } from "@/src/store";
-import { MenuCreator, MealDetailView, MealsListView } from "@/components/menu";
+import {
+  MenuCreator,
+  MealDetailView,
+  MealsListView,
+  EnhancedMenuCreator,
+} from "@/components/menu";
 import { ToastService } from "@/src/services/totastService";
 
 interface RecommendedMenu {
@@ -690,8 +695,13 @@ export default function RecommendedMenusScreen() {
           [
             {
               text: language === "he" ? "אישור" : "OK",
-              onPress: () =>
-                router.push(`/menu/activeMenu?planId=${newPlan.plan_id}`),
+              onPress: () => {
+                console.log(
+                  "🔗 Navigating to activeMenu with planId:",
+                  newPlan.plan_id
+                );
+                router.push(`/menu/activeMenu?planId=${newPlan.plan_id}`);
+              },
             },
           ]
         );
@@ -863,251 +873,23 @@ export default function RecommendedMenusScreen() {
   }, [menus, searchQuery, selectedFilter, hasActivePlan, activePlanData]);
 
   // Enhanced creation modal
-  const renderEnhancedCreationModal = () => (
-    <Modal
-      visible={showEnhancedCreation}
-      transparent
-      animationType="slide"
-      onRequestClose={() => setShowEnhancedCreation(false)}
-    >
-      <View style={styles.modalOverlay}>
-        <View
-          style={[
-            styles.enhancedModalContainer,
-            { backgroundColor: colors.card },
-          ]}
-        >
-          <View style={styles.modalHeader}>
-            <TouchableOpacity
-              onPress={() => setShowEnhancedCreation(false)}
-              style={styles.modalCloseButton}
-            >
-              <X size={24} color={colors.icon} />
-            </TouchableOpacity>
-            <Text style={[styles.modalTitle, { color: colors.text }]}>
-              {language === "he" ? "יצירת תפריט מותאם" : "Create Custom Menu"}
-            </Text>
-            <View style={{ width: 40 }} />
-          </View>
+  const renderEnhancedCreationModal = () => {
+    if (!showEnhancedCreation) return null;
 
-          <ScrollView
-            style={styles.modalScrollContent}
-            showsVerticalScrollIndicator={false}
-            contentContainerStyle={styles.modalContentContainer}
-          >
-            {/* Menu Name */}
-            <View style={styles.inputSection}>
-              <Text style={[styles.inputLabel, { color: colors.text }]}>
-                {language === "he" ? "שם התפריט" : "Menu Name"} *
-              </Text>
-              <TextInput
-                style={[
-                  styles.textInput,
-                  {
-                    backgroundColor: colors.surface,
-                    borderColor: colors.border,
-                    color: colors.text,
-                  },
-                ]}
-                value={menuName}
-                onChangeText={setMenuName}
-                placeholder={
-                  language === "he" ? "הכנס שם לתפריט..." : "Enter menu name..."
-                }
-                placeholderTextColor={colors.icon}
-              />
-            </View>
-
-            {/* Days Selection */}
-            <View style={styles.inputSection}>
-              <Text style={[styles.inputLabel, { color: colors.text }]}>
-                {language === "he" ? "מספר ימים" : "Number of Days"}
-              </Text>
-              <View style={styles.chipContainer}>
-                {[3, 5, 7, 14].map((days) => (
-                  <TouchableOpacity
-                    key={days}
-                    style={[
-                      styles.chip,
-                      {
-                        backgroundColor:
-                          selectedDays === days
-                            ? colors.emerald500
-                            : colors.surface,
-                        borderColor:
-                          selectedDays === days
-                            ? colors.emerald500
-                            : colors.border,
-                      },
-                    ]}
-                    onPress={() => setSelectedDays(days)}
-                  >
-                    <Text
-                      style={[
-                        styles.chipText,
-                        {
-                          color:
-                            selectedDays === days ? "#ffffff" : colors.text,
-                        },
-                      ]}
-                    >
-                      {days} {language === "he" ? "ימים" : "days"}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            {/* Dietary Preferences */}
-            <View style={styles.inputSection}>
-              <Text style={[styles.inputLabel, { color: colors.text }]}>
-                {language === "he" ? "העדפה תזונתית" : "Dietary Preference"}
-              </Text>
-              <View style={styles.chipContainer}>
-                {[
-                  { key: "balanced", label: "Balanced" },
-                  { key: "vegetarian", label: "Vegetarian" },
-                  { key: "vegan", label: "Vegan" },
-                  { key: "keto", label: "Keto" },
-                  { key: "low_carb", label: "Low Carb" },
-                  { key: "high_protein", label: "High Protein" },
-                ].map((pref) => (
-                  <TouchableOpacity
-                    key={pref.key}
-                    style={[
-                      styles.chip,
-                      {
-                        backgroundColor:
-                          selectedDietaryPreference === pref.key
-                            ? colors.emerald500
-                            : colors.surface,
-                        borderColor:
-                          selectedDietaryPreference === pref.key
-                            ? colors.emerald500
-                            : colors.border,
-                      },
-                    ]}
-                    onPress={() => setSelectedDietaryPreference(pref.key)}
-                  >
-                    <Text
-                      style={[
-                        styles.chipText,
-                        {
-                          color:
-                            selectedDietaryPreference === pref.key
-                              ? "#ffffff"
-                              : colors.text,
-                        },
-                      ]}
-                    >
-                      {pref.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            {/* Target Calories */}
-            <View style={styles.inputSection}>
-              <Text style={[styles.inputLabel, { color: colors.text }]}>
-                {language === "he"
-                  ? "יעד קלוריות יומי"
-                  : "Daily Calorie Target"}
-              </Text>
-              <TextInput
-                style={[
-                  styles.textInput,
-                  {
-                    backgroundColor: colors.surface,
-                    borderColor: colors.border,
-                    color: colors.text,
-                  },
-                ]}
-                value={targetCalories}
-                onChangeText={setTargetCalories}
-                placeholder="2000"
-                placeholderTextColor={colors.icon}
-                keyboardType="numeric"
-              />
-            </View>
-
-            {/* Budget */}
-            <View style={styles.inputSection}>
-              <Text style={[styles.inputLabel, { color: colors.text }]}>
-                {language === "he" ? "תקציב (₪)" : "Budget (₪)"}
-              </Text>
-              <TextInput
-                style={[
-                  styles.textInput,
-                  {
-                    backgroundColor: colors.surface,
-                    borderColor: colors.border,
-                    color: colors.text,
-                  },
-                ]}
-                value={budget}
-                onChangeText={setBudget}
-                placeholder="300"
-                placeholderTextColor={colors.icon}
-                keyboardType="numeric"
-              />
-            </View>
-
-            {/* Special Requests */}
-            <View style={styles.inputSection}>
-              <Text style={[styles.inputLabel, { color: colors.text }]}>
-                {language === "he" ? "בקשות מיוחדות" : "Special Requests"}
-              </Text>
-              <TextInput
-                style={[
-                  styles.textArea,
-                  {
-                    backgroundColor: colors.surface,
-                    borderColor: colors.border,
-                    color: colors.text,
-                  },
-                ]}
-                value={specialRequests}
-                onChangeText={setSpecialRequests}
-                placeholder={
-                  language === "he"
-                    ? "כל בקשה מיוחדת..."
-                    : "Any special requests..."
-                }
-                placeholderTextColor={colors.icon}
-                multiline
-                numberOfLines={3}
-                textAlignVertical="top"
-              />
-            </View>
-
-            {/* Submit Button */}
-            <TouchableOpacity
-              style={[
-                styles.submitButton,
-                {
-                  backgroundColor: menuName.trim()
-                    ? colors.emerald500
-                    : colors.border,
-                },
-              ]}
-              onPress={handleCreateEnhancedMenu}
-              disabled={!menuName.trim() || isGenerating}
-            >
-              {isGenerating ? (
-                <ActivityIndicator size="small" color="#ffffff" />
-              ) : (
-                <ChefHat size={18} color="#ffffff" />
-              )}
-              <Text style={styles.submitButtonText}>
-                {language === "he" ? "צור תפריט מותאם" : "Create Custom Menu"}
-              </Text>
-            </TouchableOpacity>
-          </ScrollView>
-        </View>
-      </View>
-    </Modal>
-  );
+    return (
+      <EnhancedMenuCreator
+        onCreateMenu={async (menuData: any) => {
+          try {
+            setShowEnhancedCreation(false);
+            await loadRecommendedMenus();
+          } catch (error) {
+            console.error("Error handling menu creation:", error);
+          }
+        }}
+        onClose={() => setShowEnhancedCreation(false)}
+      />
+    );
+  };
 
   // Feedback modal
   const renderFeedbackModal = () => (
@@ -1320,9 +1102,15 @@ export default function RecommendedMenusScreen() {
               plan={activePlanData}
               colors={colors}
               language={language}
-              onContinue={() =>
-                router.push(`/menu/activeMenu?planId=${activePlanData.plan_id}`)
-              }
+              onContinue={() => {
+                console.log(
+                  "🔗 Navigating to activeMenu with planId:",
+                  activePlanData.plan_id
+                );
+                router.push(
+                  `/menu/activeMenu?planId=${activePlanData.plan_id}`
+                );
+              }}
             />
           )}
 

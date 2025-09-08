@@ -47,6 +47,7 @@ import {
   Moon,
   Coffee,
   Utensils,
+  ShoppingCart,
 } from "lucide-react-native";
 import { api, APIError } from "@/src/services/api";
 import { fetchMeals } from "../../src/store/mealSlice";
@@ -62,6 +63,7 @@ import { useOptimizedSelector } from "../../src/utils/useOptimizedSelector";
 import { useDispatch } from "react-redux";
 import { AppDispatch, RootState } from "@/src/store";
 import CircularCaloriesProgress from "@/components/index/CircularCaloriesProgress";
+import ShoppingList from "@/components/ShoppingList";
 
 // Enable RTL support
 I18nManager.allowRTL(true);
@@ -162,6 +164,19 @@ const HomeScreen = React.memo(() => {
     newLevel?: number;
     newAchievements?: any[];
   }>({ xpGained: 0 });
+
+  // Shopping List State
+  const [showShoppingList, setShowShoppingList] = useState(false);
+
+  const handleOpenShoppingList = useCallback(() => {
+    console.log("Opening shopping list modal");
+    setShowShoppingList(true);
+  }, []);
+
+  const handleCloseShoppingList = useCallback(() => {
+    console.log("Closing shopping list modal");
+    setShowShoppingList(false);
+  }, []);
 
   const { t } = useTranslation();
   const { isRTL } = useLanguage();
@@ -974,6 +989,19 @@ const HomeScreen = React.memo(() => {
 
               <TouchableOpacity
                 style={styles.quickActionButton}
+                onPress={handleOpenShoppingList}
+                activeOpacity={0.7}
+              >
+                <View style={styles.quickActionContent}>
+                  <View style={styles.quickActionIconContainer}>
+                    <ShoppingCart size={24} color="#10B981" />
+                  </View>
+                  <Text style={styles.quickActionText}>Shopping List</Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.quickActionButton}
                 onPress={() => router.push("/(tabs)/food-scanner")}
               >
                 <View style={styles.quickActionContent}>
@@ -1083,6 +1111,12 @@ const HomeScreen = React.memo(() => {
           {/* Bottom Spacing for Navigation */}
           <View style={styles.bottomSpacing} />
         </ScrollView>
+
+        {/* Shopping List Modal */}
+        <ShoppingList
+          visible={showShoppingList}
+          onClose={handleCloseShoppingList}
+        />
       </SafeAreaView>
     </ErrorBoundary>
   );

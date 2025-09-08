@@ -5,6 +5,11 @@ import { prisma } from "../lib/database";
 import { Response } from "express";
 import { $Enums } from "@prisma/client";
 import { JsonValue } from "@prisma/client/runtime/library";
+import OpenAI from "openai";
+
+const openai = new OpenAI({
+  apiKey: process.env.OPENAI_API_KEY,
+});
 
 const router = Router();
 
@@ -105,76 +110,80 @@ router.get(
 );
 
 // GET /api/recommended-menus/debug - Debug endpoint to check menu data
-router.get("/debug", authenticateToken, async (req: AuthRequest, res) => {
-  try {
-    const userId = req.user.user_id;
-    console.log("🐛 Debug: Checking menus for user:", userId);
+router.get(
+  "/debug",
+  authenticateToken,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const userId = req.user.user_id;
+      console.log("🐛 Debug: Checking menus for user:", userId);
 
-    // Get raw menu count
-    const menuCount = await prisma.recommendedMenu.count({
-      where: { user_id: userId },
-    });
+      // Get raw menu count
+      const menuCount = await prisma.recommendedMenu.count({
+        where: { user_id: userId },
+      });
 
-    // Get detailed menu data
-    const menus = await prisma.recommendedMenu.findMany({
-      where: { user_id: userId },
-      include: {
-        meals: {
-          include: {
-            ingredients: true,
+      // Get detailed menu data
+      const menus = await prisma.recommendedMenu.findMany({
+        where: { user_id: userId },
+        include: {
+          meals: {
+            include: {
+              ingredients: true,
+            },
           },
         },
-      },
-      orderBy: { created_at: "desc" },
-    });
+        orderBy: { created_at: "desc" },
+      });
 
-    const debugInfo = {
-      user_id: userId,
-      menu_count: menuCount,
-      menus: menus.map(
-        (menu: {
-          menu_id: any;
-          title: any;
-          created_at: any;
-          meals: any[];
-        }) => ({
-          menu_id: menu.menu_id,
-          title: menu.title,
-          created_at: menu.created_at,
-          meals_count: menu.meals.length,
-          total_ingredients: menu.meals.reduce(
-            (total, meal) => total + meal.ingredients.length,
-            0
-          ),
-          sample_meals: menu.meals.slice(0, 2).map((meal) => ({
-            meal_id: meal.meal_id,
-            name: meal.name,
-            meal_type: meal.meal_type,
-            ingredients_count: meal.ingredients.length,
-          })),
-        })
-      ),
-    };
+      const debugInfo = {
+        user_id: userId,
+        menu_count: menuCount,
+        menus: menus.map(
+          (menu: {
+            menu_id: any;
+            title: any;
+            created_at: any;
+            meals: any[];
+          }) => ({
+            menu_id: menu.menu_id,
+            title: menu.title,
+            created_at: menu.created_at,
+            meals_count: menu.meals.length,
+            total_ingredients: menu.meals.reduce(
+              (total, meal) => total + meal.ingredients.length,
+              0
+            ),
+            sample_meals: menu.meals.slice(0, 2).map((meal) => ({
+              meal_id: meal.meal_id,
+              name: meal.name,
+              meal_type: meal.meal_type,
+              ingredients_count: meal.ingredients.length,
+            })),
+          })
+        ),
+      };
 
-    res.json({
-      success: true,
-      debug_info: debugInfo,
-    });
-  } catch (error) {
-    console.error("💥 Debug error:", error);
-    res.status(500).json({
-      success: false,
-      error: "Debug failed",
-      details: error instanceof Error ? error.message : "Unknown error",
-    });
+      res.json({
+        success: true,
+        debug_info: debugInfo,
+      });
+    } catch (error) {
+      console.error("💥 Debug error:", error);
+      res.status(500).json({
+        success: false,
+        error: "Debug failed",
+        details: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
   }
-});
+);
 
 // POST /api/recommended-menus/generate-custom - Generate custom menu based on user description
 router.post(
   "/generate-custom",
   authenticateToken,
-  async (req: AuthRequest, res) => {
+  async (req: AuthRequest, res: Response) => {
     try {
       const userId = req.user.user_id;
       console.log("🎨 Generating custom menu for user:", userId);
@@ -278,123 +287,131 @@ router.post(
 );
 
 // POST /api/recommended-menus/generate - Generate new menu with preferences
-router.post("/generate", authenticateToken, async (req: AuthRequest, res) => {
-  try {
-    const userId = req.user.user_id;
-    console.log("🎯 Generating menu for user:", userId);
-    console.log("📋 Request body:", req.body);
+router.post(
+  "/generate",
+  authenticateToken,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const userId = req.user.user_id;
+      console.log("🎯 Generating menu for user:", userId);
+      console.log("📋 Request body:", req.body);
 
-    const {
-      days = 7,
-      mealsPerDay = "3_main", // "3_main", "3_plus_2_snacks", "2_plus_1_intermediate"
-      mealChangeFrequency = "daily", // "daily", "every_3_days", "weekly", "automatic"
-      includeLeftovers = false,
-      sameMealTimes = true,
-      targetCalories,
-      dietaryPreferences,
-      excludedIngredients,
-      budget,
-    } = req.body;
+      const {
+        days = 7,
+        mealsPerDay = "3_main", // "3_main", "3_plus_2_snacks", "2_plus_1_intermediate"
+        mealChangeFrequency = "daily", // "daily", "every_3_days", "weekly", "automatic"
+        includeLeftovers = false,
+        sameMealTimes = true,
+        targetCalories,
+        dietaryPreferences,
+        excludedIngredients,
+        budget,
+      } = req.body;
 
-    // Validate input parameters
-    if (days < 1 || days > 30) {
-      return res.status(400).json({
-        success: false,
-        error: "Days must be between 1 and 30",
-      });
-    }
-
-    if (
-      !["3_main", "3_plus_2_snacks", "2_plus_1_intermediate"].includes(
-        mealsPerDay
-      )
-    ) {
-      return res.status(400).json({
-        success: false,
-        error: "Invalid meals per day option",
-      });
-    }
-
-    console.log("✅ Input validation passed, generating menu...");
-
-    const menu = await RecommendedMenuService.generatePersonalizedMenu({
-      userId,
-      days,
-      mealsPerDay,
-      mealChangeFrequency,
-      includeLeftovers,
-      sameMealTimes,
-      targetCalories,
-      dietaryPreferences,
-      excludedIngredients,
-      budget,
-    });
-
-    if (!menu) {
-      throw new Error("Menu generation returned null");
-    }
-
-    console.log("🎉 Menu generated successfully!");
-    console.log("📊 Menu stats:", {
-      menu_id: menu?.menu_id,
-      title: menu?.title,
-      meals_count: menu?.meals?.length || 0,
-      total_calories: menu?.total_calories,
-    });
-
-    // Ensure the response has the expected structure
-    const responseData = {
-      ...menu,
-      // Ensure we have at least these fields for the client
-      menu_id: menu.menu_id,
-      title: menu.title,
-      description: menu.description,
-      meals: menu.meals || [],
-      days_count: menu.days_count,
-      total_calories: menu.total_calories,
-      estimated_cost: menu.estimated_cost,
-    };
-
-    console.log("📤 Sending response with", responseData.meals.length, "meals");
-
-    res.json({
-      success: true,
-      message: "Menu generated successfully",
-      data: responseData,
-    });
-  } catch (error) {
-    console.error("💥 Error generating menu:", error);
-
-    // Provide more specific error messages
-    let errorMessage = "Failed to generate menu";
-    let statusCode = 500;
-
-    if (error instanceof Error) {
-      if (error.message.includes("questionnaire not found")) {
-        errorMessage =
-          "Please complete your questionnaire first before generating a menu";
-        statusCode = 400;
-      } else if (error.message.includes("budget")) {
-        errorMessage = "Please set a daily food budget in your questionnaire";
-        statusCode = 400;
-      } else {
-        errorMessage = error.message;
+      // Validate input parameters
+      if (days < 1 || days > 30) {
+        return res.status(400).json({
+          success: false,
+          error: "Days must be between 1 and 30",
+        });
       }
-    }
 
-    res.status(statusCode).json({
-      success: false,
-      error: errorMessage,
-      details: error instanceof Error ? error.message : "Unknown error",
-    });
+      if (
+        !["3_main", "3_plus_2_snacks", "2_plus_1_intermediate"].includes(
+          mealsPerDay
+        )
+      ) {
+        return res.status(400).json({
+          success: false,
+          error: "Invalid meals per day option",
+        });
+      }
+
+      console.log("✅ Input validation passed, generating menu...");
+
+      const menu = await RecommendedMenuService.generatePersonalizedMenu({
+        userId,
+        days,
+        mealsPerDay,
+        mealChangeFrequency,
+        includeLeftovers,
+        sameMealTimes,
+        targetCalories,
+        dietaryPreferences,
+        excludedIngredients,
+        budget,
+      });
+
+      if (!menu) {
+        throw new Error("Menu generation returned null");
+      }
+
+      console.log("🎉 Menu generated successfully!");
+      console.log("📊 Menu stats:", {
+        menu_id: menu?.menu_id,
+        title: menu?.title,
+        meals_count: menu?.meals?.length || 0,
+        total_calories: menu?.total_calories,
+      });
+
+      // Ensure the response has the expected structure
+      const responseData = {
+        ...menu,
+        // Ensure we have at least these fields for the client
+        menu_id: menu.menu_id,
+        title: menu.title,
+        description: menu.description,
+        meals: menu.meals || [],
+        days_count: menu.days_count,
+        total_calories: menu.total_calories,
+        estimated_cost: menu.estimated_cost,
+      };
+
+      console.log(
+        "📤 Sending response with",
+        responseData.meals.length,
+        "meals"
+      );
+
+      res.json({
+        success: true,
+        message: "Menu generated successfully",
+        data: responseData,
+      });
+    } catch (error) {
+      console.error("💥 Error generating menu:", error);
+
+      // Provide more specific error messages
+      let errorMessage = "Failed to generate menu";
+      let statusCode = 500;
+
+      if (error instanceof Error) {
+        if (error.message.includes("questionnaire not found")) {
+          errorMessage =
+            "Please complete your questionnaire first before generating a menu";
+          statusCode = 400;
+        } else if (error.message.includes("budget")) {
+          errorMessage = "Please set a daily food budget in your questionnaire";
+          statusCode = 400;
+        } else {
+          errorMessage = error.message;
+        }
+      }
+
+      res.status(statusCode).json({
+        success: false,
+        error: errorMessage,
+        details: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
   }
-});
+);
 
 // POST /api/recommended-menus/:menuId/replace-meal - Replace a specific meal
 router.post(
   "/:menuId/replace-meal",
   authenticateToken,
-  async (req: AuthRequest, res) => {
+  async (req: AuthRequest, res: Response) => {
     try {
       const userId = req.user.user_id;
       const { menuId } = req.params;
@@ -426,7 +443,7 @@ router.post(
 router.post(
   "/:menuId/favorite-meal",
   authenticateToken,
-  async (req: AuthRequest, res) => {
+  async (req: AuthRequest, res: Response) => {
     try {
       const userId = req.user.user_id;
       const { menuId } = req.params;
@@ -460,7 +477,7 @@ router.post(
 router.post(
   "/:menuId/meal-feedback",
   authenticateToken,
-  async (req: AuthRequest, res) => {
+  async (req: AuthRequest, res: Response) => {
     try {
       const userId = req.user.user_id;
       const { menuId } = req.params;
@@ -492,7 +509,7 @@ router.post(
 router.get(
   "/:menuId/shopping-list",
   authenticateToken,
-  async (req: AuthRequest, res) => {
+  async (req: AuthRequest, res: Response) => {
     try {
       const userId = req.user.user_id;
       const { menuId } = req.params;
@@ -521,7 +538,7 @@ router.get(
 router.post(
   "/:menuId/start-today",
   authenticateToken,
-  async (req: AuthRequest, res) => {
+  async (req: AuthRequest, res: Response) => {
     try {
       const userId = req.user.user_id;
       const { menuId } = req.params;
@@ -589,7 +606,7 @@ router.post(
 router.post(
   "/generate-comprehensive",
   authenticateToken,
-  async (req: AuthRequest, res) => {
+  async (req: AuthRequest, res: Response) => {
     try {
       const userId = req.user.user_id;
       console.log("🎯 Generating comprehensive menu for user:", userId);
@@ -711,7 +728,7 @@ router.post(
 router.post(
   "/:menuId/start-today",
   authenticateToken,
-  async (req: AuthRequest, res) => {
+  async (req: AuthRequest, res: Response) => {
     try {
       const userId = req.user.user_id;
       const { menuId } = req.params;
@@ -971,4 +988,230 @@ router.post(
   }
 );
 
-export { router as recommendedMenuRoutes };
+// Generate menu with user ingredients
+router.post(
+  "/generate-with-ingredients",
+  authenticateToken,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const userId = req.user?.user_id;
+      if (!userId) {
+        return res.status(401).json({
+          success: false,
+          error: "User not authenticated",
+        });
+      }
+
+      const { preferences, ingredients, user_ingredients } = req.body;
+
+      if (
+        !ingredients ||
+        !Array.isArray(ingredients) ||
+        ingredients.length === 0
+      ) {
+        return res.status(400).json({
+          success: false,
+          error: "At least one ingredient is required",
+        });
+      }
+
+      console.log("🍽️ Generating menu with user ingredients:", {
+        userId,
+        ingredientCount: ingredients.length,
+        preferences,
+      });
+
+      // Get user questionnaire for personalization
+      const userQuestionnaire = await prisma.userQuestionnaire.findFirst({
+        where: { user_id: userId },
+        orderBy: { date_completed: "desc" },
+      });
+
+      // Create enhanced prompt with user ingredients
+      const ingredientsList = ingredients
+        .map((ing: any) => `${ing.name} (${ing.quantity} ${ing.unit})`)
+        .join(", ");
+
+      const prompt = `Create a personalized ${
+        preferences.duration_days
+      }-day meal plan using these available ingredients: ${ingredientsList}.
+
+Preferences:
+- Cuisine: ${preferences.cuisine}
+- Dietary restrictions: ${preferences.dietary_restrictions.join(", ") || "None"}
+- Meals per day: ${preferences.meal_count}
+- Cooking difficulty: ${preferences.cooking_difficulty}
+- Budget range: ${preferences.budget_range}
+
+User profile: ${
+        userQuestionnaire
+          ? `Age: ${userQuestionnaire.age}, Goal: ${userQuestionnaire.main_goal}, Activity: ${userQuestionnaire.physical_activity_level}`
+          : "Not available"
+      }
+
+Requirements:
+1. Use as many of the provided ingredients as possible
+2. Create balanced, nutritious meals
+3. Include cooking instructions and additional ingredients if needed
+4. Provide estimated prep time and difficulty level
+5. Generate a concise, appealing menu name (e.g., "Mediterranean Fresh Week")
+
+Return in this JSON format:
+{
+  "menu_name": "Short descriptive name",
+  "description": "Brief description",
+  "total_calories": number,
+  "total_protein": number,
+  "total_carbs": number,
+  "total_fat": number,
+  "days_count": ${preferences.duration_days},
+  "estimated_cost": number,
+  "meals": [
+    {
+      "name": "Meal name",
+      "meal_type": "BREAKFAST/LUNCH/DINNER",
+      "day_number": 1,
+      "calories": number,
+      "protein": number,
+      "carbs": number,
+      "fat": number,
+      "prep_time_minutes": number,
+      "cooking_method": "method",
+      "instructions": "detailed instructions",
+      "ingredients": [
+        {
+          "name": "ingredient name",
+          "quantity": number,
+          "unit": "unit",
+          "category": "category",
+          "estimated_cost": number
+        }
+      ]
+    }
+  ]
+}`;
+
+      const response = await openai.chat.completions.create({
+        model: "gpt-4",
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a professional nutritionist and chef. Create detailed, practical meal plans using available ingredients. Focus on nutrition balance, flavor, and realistic cooking instructions.",
+          },
+          { role: "user", content: prompt },
+        ],
+        max_tokens: 4000,
+        temperature: 0.8,
+      });
+
+      const aiContent = response.choices[0]?.message?.content;
+      if (!aiContent) {
+        throw new Error("No response from AI");
+      }
+
+      console.log("🤖 Raw AI Response:", aiContent);
+
+      let parsedMenu;
+      try {
+        const jsonMatch = aiContent.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          parsedMenu = JSON.parse(jsonMatch[0]);
+        } else {
+          throw new Error("No JSON found in AI response");
+        }
+      } catch (parseError) {
+        console.error("JSON parsing error:", parseError);
+        throw new Error("Failed to parse AI response");
+      }
+
+      // Validate parsed menu
+      if (
+        !parsedMenu.menu_name ||
+        !parsedMenu.meals ||
+        !Array.isArray(parsedMenu.meals)
+      ) {
+        throw new Error("Invalid menu structure from AI");
+      }
+
+      // Save menu to database
+      const savedMenu = await prisma.recommendedMenu.create({
+        data: {
+          user_id: userId,
+          title: parsedMenu.menu_name,
+          description: parsedMenu.description || "",
+          total_calories: parsedMenu.total_calories || 0,
+          total_protein: parsedMenu.total_protein || 0,
+          total_carbs: parsedMenu.total_carbs || 0,
+          total_fat: parsedMenu.total_fat || 0,
+          days_count: parsedMenu.days_count || preferences.duration_days,
+          dietary_category: preferences.cuisine.toUpperCase(),
+          estimated_cost: parsedMenu.estimated_cost || 0,
+          prep_time_minutes: Math.max(
+            ...parsedMenu.meals.map((m: any) => m.prep_time_minutes || 30)
+          ),
+          difficulty_level:
+            preferences.cooking_difficulty === "easy"
+              ? 1
+              : preferences.cooking_difficulty === "hard"
+              ? 3
+              : 2,
+        },
+      });
+
+      // Save meals
+      for (const meal of parsedMenu.meals) {
+        const savedMeal = await prisma.recommendedMeal.create({
+          data: {
+            menu_id: savedMenu.menu_id,
+            name: meal.name,
+            meal_type: meal.meal_type,
+            day_number: meal.day_number,
+            calories: meal.calories || 0,
+            protein: meal.protein || 0,
+            carbs: meal.carbs || 0,
+            fat: meal.fat || 0,
+            prep_time_minutes: meal.prep_time_minutes || 30,
+            cooking_method: meal.cooking_method || "",
+            instructions: meal.instructions || "",
+          },
+        });
+
+        // Save ingredients
+        if (meal.ingredients && Array.isArray(meal.ingredients)) {
+          for (const ingredient of meal.ingredients) {
+            await prisma.recommendedIngredient.create({
+              data: {
+                meal_id: savedMeal.meal_id,
+                name: ingredient.name,
+                quantity: ingredient.quantity || 1,
+                unit: ingredient.unit || "piece",
+                category: ingredient.category || "Other",
+                estimated_cost: ingredient.estimated_cost || 0,
+              },
+            });
+          }
+        }
+      }
+
+      res.json({
+        success: true,
+        data: {
+          menu_id: savedMenu.menu_id,
+          ...parsedMenu,
+        },
+        message: "Menu generated successfully with your ingredients!",
+      });
+    } catch (error) {
+      console.error("💥 Error generating menu with ingredients:", error);
+      res.status(500).json({
+        success: false,
+        error:
+          error instanceof Error ? error.message : "Failed to generate menu",
+        details: error instanceof Error ? error.stack : undefined,
+      });
+    }
+  }
+);
+
+export default router;
