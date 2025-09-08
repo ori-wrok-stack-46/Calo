@@ -29,6 +29,7 @@ export class ToastService {
       onPress: onRetry,
     });
   }
+
   static show(title: string, message?: string, config?: ToastConfig) {
     Toast.show({
       type: config?.type || "info",
@@ -67,8 +68,8 @@ export class ToastService {
 
   static warning(title: string, message?: string, config?: ToastConfig) {
     Toast.show({
-      type: "error", // Using error type with orange styling for warning
-      text1: `⚠️ ${title}`,
+      type: "warning",
+      text1: title,
       text2: message,
       visibilityTime: config?.duration || 3500,
       position: config?.position || "top",

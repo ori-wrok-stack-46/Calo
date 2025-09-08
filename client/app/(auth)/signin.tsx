@@ -8,19 +8,27 @@ import {
   Alert,
   ActivityIndicator,
   Dimensions,
+  KeyboardAvoidingView,
+  Platform,
+  SafeAreaView,
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
 import { Link, router } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useLanguage } from "@/src/i18n/context/LanguageContext";
+import { useTheme } from "@/src/context/ThemeContext";
 import { useDispatch, useSelector } from "react-redux";
 import { signIn } from "@/src/store/authSlice";
 import { RootState, AppDispatch } from "@/src/store";
+import { ScrollView } from "react-native-gesture-handler";
 
 const { width, height } = Dimensions.get("window");
 
 export default function SignInScreen() {
   const { t } = useTranslation();
   const { isRTL } = useLanguage();
+  const { colors } = useTheme();
   const dispatch = useDispatch<AppDispatch>();
   const { isLoading, error } = useSelector((state: RootState) => state.auth);
 
@@ -29,7 +37,7 @@ export default function SignInScreen() {
 
   const handleSignIn = async () => {
     if (!email || !password) {
-      Alert.alert(t("common.error"), "Please fill in all fields");
+      Alert.alert(t("common.error"), t("auth.errors.required_field"));
       return;
     }
 
@@ -39,233 +47,276 @@ export default function SignInScreen() {
         router.replace("/(tabs)");
       }
     } catch (error: any) {
-      Alert.alert(t("common.error"), error || "Failed to sign in");
+      Alert.alert(t("common.error"), error || t("auth.failed_sign_in"));
     }
   };
 
+  const styles = StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    backgroundContainer: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+    },
+    gradientBackground: {
+      position: "absolute",
+      left: 0,
+      right: 0,
+      top: 0,
+      height: height * 1.2,
+    },
+    // Main white cloud base - larger and positioned better
+    content: {
+      flex: 1,
+      paddingHorizontal: 24,
+      paddingTop: 60,
+      justifyContent: "center",
+      zIndex: 10,
+    },
+    header: {
+      alignItems: "center",
+      marginBottom: 50,
+    },
+    profileContainer: {
+      width: 90,
+      height: 90,
+      borderRadius: 45,
+      backgroundColor: colors.surface,
+      alignItems: "center",
+      justifyContent: "center",
+      marginBottom: 24,
+      shadowColor: colors.shadow,
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.15,
+      shadowRadius: 16,
+      elevation: 8,
+    },
+    profileIcon: {
+      width: 50,
+      height: 50,
+      borderRadius: 25,
+      backgroundColor: colors.primary,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    title: {
+      fontSize: 28,
+      fontWeight: "800",
+      color: colors.text,
+      marginBottom: 8,
+      textAlign: "center",
+    },
+    subtitle: {
+      fontSize: 16,
+      color: colors.textSecondary,
+      textAlign: "center",
+    },
+    formContainer: {
+      backgroundColor: colors.surface,
+      borderRadius: 25,
+      padding: 24,
+    },
+    inputContainer: {
+      marginBottom: 20,
+    },
+    label: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: colors.text,
+      marginBottom: 8,
+      textAlign: isRTL ? "right" : "left",
+    },
+    input: {
+      backgroundColor: colors.background,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: 16,
+      fontSize: 16,
+      color: colors.text,
+      textAlign: isRTL ? "right" : "left",
+    },
+    forgotPassword: {
+      alignSelf: isRTL ? "flex-start" : "flex-end",
+      marginTop: 8,
+      marginBottom: 24,
+    },
+    forgotPasswordText: {
+      color: colors.primary,
+      fontSize: 14,
+      fontWeight: "600",
+    },
+    signInButton: {
+      borderRadius: 12,
+      overflow: "hidden",
+      marginBottom: 20,
+    },
+    signInGradient: {
+      paddingVertical: 16,
+      alignItems: "center",
+      justifyContent: "center",
+      flexDirection: "row",
+      backgroundColor: colors.primary,
+    },
+    signInButtonText: {
+      color: colors.surface,
+      fontSize: 16,
+      fontWeight: "700",
+      marginLeft: isRTL ? 0 : 8,
+      marginRight: isRTL ? 8 : 0,
+    },
+    socialContainer: {
+      flexDirection: "row",
+      justifyContent: "center",
+      gap: 12,
+      marginVertical: 20,
+    },
+    socialButton: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: colors.background,
+      alignItems: "center",
+      justifyContent: "center",
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    footer: {
+      flexDirection: isRTL ? "row-reverse" : "row",
+      justifyContent: "center",
+      alignItems: "center",
+      paddingVertical: 20,
+    },
+    footerText: {
+      fontSize: 14,
+      color: colors.textSecondary,
+    },
+    linkText: {
+      fontSize: 14,
+      color: colors.primary,
+      fontWeight: "600",
+      marginLeft: isRTL ? 0 : 4,
+      marginRight: isRTL ? 4 : 0,
+    },
+    loadingContainer: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    loadingText: {
+      color: colors.surface,
+      fontSize: 16,
+      fontWeight: "700",
+      marginLeft: isRTL ? 0 : 8,
+      marginRight: isRTL ? 8 : 0,
+    },
+  });
+
   return (
-    <View style={styles.container}>
-      {/* Header with icon */}
-      <View style={styles.header}>
-        <View style={styles.iconContainer}>
-          <View style={styles.icon}>
-            <Text style={styles.iconText}>H</Text>
+    <ScrollView style={styles.container}>
+      {/* Beautiful Background Design */}
+      <View style={styles.backgroundContainer}>
+        {/* Main gradient background */}
+        <LinearGradient
+          colors={[colors.primary, colors.emerald200 || colors.primary + "80"]}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.gradientBackground}
+        />
+      </View>
+
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+        <View style={styles.content}>
+          <View style={styles.header}>
+            <View style={styles.profileContainer}>
+              <View style={styles.profileIcon}>
+                <Ionicons name="person" size={24} color={colors.surface} />
+              </View>
+            </View>
+            <Text style={styles.title}>{t("auth.sign_in")}</Text>
+            <Text style={styles.subtitle}>{t("auth.welcome_back")}</Text>
+          </View>
+
+          <View style={styles.formContainer}>
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>{t("auth.email")}</Text>
+              <TextInput
+                style={styles.input}
+                placeholder={t("auth.enter_email")}
+                placeholderTextColor={colors.textSecondary}
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                editable={!isLoading}
+              />
+            </View>
+
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>{t("auth.password")}</Text>
+              <TextInput
+                style={styles.input}
+                placeholder={t("auth.enter_password")}
+                placeholderTextColor={colors.textSecondary}
+                value={password}
+                onChangeText={setPassword}
+                secureTextEntry
+                editable={!isLoading}
+              />
+            </View>
+
+            <TouchableOpacity style={styles.forgotPassword}>
+              <Link href="/forgotPassword" asChild>
+                <TouchableOpacity>
+                  <Text style={styles.forgotPasswordText}>
+                    {t("auth.forgot_password")}
+                  </Text>
+                </TouchableOpacity>
+              </Link>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.signInButton}
+              onPress={handleSignIn}
+              disabled={isLoading}
+            >
+              <View style={styles.signInGradient}>
+                {isLoading ? (
+                  <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="small" color={colors.surface} />
+                    <Text style={styles.loadingText}>
+                      {t("auth.loading.signing_in")}
+                    </Text>
+                  </View>
+                ) : (
+                  <>
+                    <Ionicons name="log-in" size={18} color={colors.surface} />
+                    <Text style={styles.signInButtonText}>
+                      {t("auth.sign_in")}
+                    </Text>
+                  </>
+                )}
+              </View>
+            </TouchableOpacity>
+            <View style={styles.footer}>
+              <Text style={styles.footerText}>{t("auth.no_account")}</Text>
+              <Link href="/signup" asChild>
+                <TouchableOpacity>
+                  <Text style={styles.linkText}>{t("auth.sign_up")}</Text>
+                </TouchableOpacity>
+              </Link>
+            </View>
           </View>
         </View>
-
-        <Text style={[styles.title, isRTL && styles.titleRTL]}>
-          {t("auth.sign_in")}
-        </Text>
-      </View>
-
-      {/* Form */}
-      <View style={styles.form}>
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={[styles.input, isRTL && styles.inputRTL]}
-            placeholder={t("auth.email")}
-            placeholderTextColor="#9CA3AF"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            textAlign={isRTL ? "right" : "left"}
-            editable={!isLoading}
-          />
-        </View>
-
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={[styles.input, isRTL && styles.inputRTL]}
-            placeholder={t("auth.password")}
-            placeholderTextColor="#9CA3AF"
-            value={password}
-            onChangeText={setPassword}
-            secureTextEntry
-            textAlign={isRTL ? "right" : "left"}
-            editable={!isLoading}
-          />
-        </View>
-
-        <TouchableOpacity
-          style={[styles.signInButton, isLoading && styles.buttonDisabled]}
-          onPress={handleSignIn}
-          disabled={isLoading}
-        >
-          {isLoading ? (
-            <ActivityIndicator size="small" color="#ffffff" />
-          ) : (
-            <Text style={styles.signInButtonText}>{t("auth.sign_in")}</Text>
-          )}
-        </TouchableOpacity>
-
-        {error && <Text style={styles.errorText}>{error}</Text>}
-
-        {/* Divider */}
-        <View style={styles.dividerContainer}>
-          <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>Or</Text>
-          <View style={styles.dividerLine} />
-        </View>
-
-        {/* Social Login Buttons */}
-        <View style={[styles.footer, isRTL && styles.footerRTL]}>
-          <Text style={styles.footerText}>{t("auth.no_account")} </Text>
-          <Link href="/signup" asChild>
-            <TouchableOpacity>
-              <Text style={styles.linkText}>{t("auth.sign_up")}</Text>
-            </TouchableOpacity>
-          </Link>
-        </View>
-      </View>
-    </View>
+      </KeyboardAvoidingView>
+    </ScrollView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#ffffff",
-    paddingTop: 60,
-  },
-  containerRTL: {
-    flexDirection: "row-reverse",
-  },
-  header: {
-    alignItems: "center",
-    marginBottom: 60,
-    paddingHorizontal: 24,
-  },
-  iconContainer: {
-    marginBottom: 32,
-  },
-  icon: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: "#10B981",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  iconText: {
-    color: "#ffffff",
-    fontSize: 24,
-    fontWeight: "700",
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: "600",
-    color: "#1F2937",
-    textAlign: "center",
-  },
-  titleRTL: {
-    textAlign: "center",
-  },
-  form: {
-    paddingHorizontal: 24,
-    flex: 1,
-  },
-  inputContainer: {
-    marginBottom: 16,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    borderRadius: 8,
-    padding: 16,
-    fontSize: 16,
-    backgroundColor: "#F9FAFB",
-    color: "#1F2937",
-  },
-  inputRTL: {
-    textAlign: "right",
-  },
-  signInButton: {
-    backgroundColor: "#10B981",
-    borderRadius: 25,
-    padding: 16,
-    alignItems: "center",
-    marginTop: 24,
-    marginBottom: 32,
-  },
-  buttonDisabled: {
-    opacity: 0.7,
-  },
-  signInButtonText: {
-    color: "#ffffff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  errorText: {
-    color: "#ef4444",
-    fontSize: 14,
-    textAlign: "center",
-    marginTop: 16,
-  },
-  dividerContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginVertical: 24,
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: "#E5E7EB",
-  },
-  dividerText: {
-    marginHorizontal: 16,
-    color: "#9CA3AF",
-    fontSize: 14,
-  },
-  socialContainer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: 20,
-    marginBottom: 40,
-  },
-  socialContainerRTL: {
-    flexDirection: "row-reverse",
-  },
-  socialButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: "#ffffff",
-    justifyContent: "center",
-    alignItems: "center",
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-  },
-  googleText: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#4285F4",
-  },
-  facebookText: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#1877F2",
-  },
-  twitterText: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#1DA1F2",
-  },
-  footer: {
-    flexDirection: "row",
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  footerRTL: {
-    flexDirection: "row-reverse",
-  },
-  footerText: {
-    fontSize: 14,
-    color: "#9CA3AF",
-  },
-  linkText: {
-    fontSize: 14,
-    color: "#10B981",
-    fontWeight: "600",
-  },
-});

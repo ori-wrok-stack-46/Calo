@@ -7,13 +7,20 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
+  Dimensions,
+  KeyboardAvoidingView,
+  Platform,
+  SafeAreaView,
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useLanguage } from "@/src/i18n/context/LanguageContext";
 import { useTheme } from "@/src/context/ThemeContext";
 import { userAPI } from "@/src/services/api";
-import { Mail, ArrowLeft } from "lucide-react-native";
+
+const { width, height } = Dimensions.get("window");
 
 export default function ForgotPasswordScreen() {
   const { t } = useTranslation();
@@ -24,37 +31,34 @@ export default function ForgotPasswordScreen() {
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleSendResetCode = async () => {
+  const validateEmail = (email: string) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const handleForgotPassword = async () => {
     if (!email.trim()) {
       Alert.alert(t("common.error"), t("auth.errors.required_field"));
       return;
     }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      Alert.alert(t("common.error"), t("auth.errors.invalid_email"));
+    if (!validateEmail(email)) {
+      Alert.alert(t("common.error"), t("auth.email_validation_error"));
       return;
     }
 
     try {
       setIsLoading(true);
-      console.log("📧 Sending password reset request for:", email);
-
       const response = await userAPI.forgotPassword(email);
 
       if (response.success) {
         Alert.alert(
-          t("auth.forgot_password_page.email_sent"),
-          t("auth.forgot_password_page.reset_code_sent"),
+          t("common.success"),
+          t("auth.forgot_password_page.reset_sent"),
           [
             {
               text: t("common.ok"),
-              onPress: () => {
-                router.push({
-                  pathname: "/(auth)/reset-password-verify",
-                  params: { email },
-                });
-              },
+              onPress: () => router.back(),
             },
           ]
         );
@@ -62,10 +66,9 @@ export default function ForgotPasswordScreen() {
         throw new Error(response.error || "Failed to send reset email");
       }
     } catch (error: any) {
-      console.error("💥 Forgot password error:", error);
       Alert.alert(
         t("common.error"),
-        error.message || t("auth.reset_password.reset_failed")
+        error.message || t("auth.forgot_password_page.reset_failed")
       );
     } finally {
       setIsLoading(false);
@@ -77,219 +80,245 @@ export default function ForgotPasswordScreen() {
       flex: 1,
       backgroundColor: colors.background,
     },
-    containerRTL: {
-      flexDirection: "row-reverse",
-    },
-    backgroundAccent: {
+    backgroundContainer: {
       position: "absolute",
       top: 0,
       left: 0,
       right: 0,
-      height: "35%",
-      backgroundColor: "#f0fdf4",
-      borderBottomLeftRadius: 30,
-      borderBottomRightRadius: 30,
+      bottom: 0,
     },
-    header: {
-      paddingTop: 60,
-      paddingHorizontal: 20,
-      marginBottom: 20,
-      zIndex: 2,
+    gradientBackground: {
+      position: "absolute",
+      left: 0,
+      right: 0,
+      top: 0,
+      height: height * 1.2,
     },
-    backButton: {
-      width: 40,
-      height: 40,
-      borderRadius: 20,
-      backgroundColor: colors.primary + "20",
-      justifyContent: "center",
-      alignItems: "center",
-    },
+    // Main white cloud base - larger and positioned better
     content: {
       flex: 1,
-      padding: 24,
+      paddingHorizontal: 24,
+      paddingTop: 60,
       justifyContent: "center",
-      zIndex: 1,
+      zIndex: 10,
     },
-    headerSection: {
-      marginBottom: 48,
+    header: {
       alignItems: "center",
+      marginBottom: 50,
     },
-    iconContainer: {
-      width: 80,
-      height: 80,
-      borderRadius: 40,
-      backgroundColor: colors.primary + "20",
+    profileContainer: {
+      width: 90,
+      height: 90,
+      borderRadius: 45,
+      backgroundColor: colors.surface,
+      alignItems: "center",
       justifyContent: "center",
-      alignItems: "center",
       marginBottom: 24,
+      shadowColor: colors.shadow,
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.15,
+      shadowRadius: 16,
+      elevation: 8,
+    },
+    profileIcon: {
+      width: 50,
+      height: 50,
+      borderRadius: 25,
+      backgroundColor: colors.primary,
+      alignItems: "center",
+      justifyContent: "center",
     },
     title: {
-      fontSize: 36,
-      fontWeight: "700",
+      fontSize: 28,
+      fontWeight: "800",
       color: colors.text,
       marginBottom: 8,
-      letterSpacing: -0.5,
       textAlign: "center",
-    },
-    titleRTL: {
-      textAlign: "right",
     },
     subtitle: {
       fontSize: 16,
       color: colors.textSecondary,
-      fontWeight: "500",
       textAlign: "center",
-      lineHeight: 24,
-      paddingHorizontal: 20,
     },
-    subtitleRTL: {
-      textAlign: "right",
-    },
-    form: {
-      flex: 1,
-      maxHeight: 300,
+    formContainer: {
+      backgroundColor: colors.surface,
+      borderRadius: 25,
+      padding: 24,
     },
     inputContainer: {
-      marginBottom: 32,
-      shadowColor: colors.primary,
-      shadowOffset: {
-        width: 0,
-        height: 2,
-      },
-      shadowOpacity: 0.1,
-      shadowRadius: 8,
-      elevation: 3,
+      marginBottom: 20,
+    },
+    label: {
+      fontSize: 14,
+      fontWeight: "600",
+      color: colors.text,
+      marginBottom: 8,
+      textAlign: isRTL ? "right" : "left",
     },
     input: {
-      borderWidth: 2,
+      backgroundColor: colors.background,
+      borderRadius: 12,
+      borderWidth: 1,
       borderColor: colors.border,
-      borderRadius: 16,
-      padding: 18,
+      padding: 16,
       fontSize: 16,
-      backgroundColor: colors.surface,
       color: colors.text,
-      fontWeight: "500",
+      textAlign: isRTL ? "right" : "left",
     },
-    inputRTL: {
-      textAlign: "right",
-    },
-    sendButton: {
-      backgroundColor: colors.primary,
-      borderRadius: 16,
-      padding: 18,
-      alignItems: "center",
-      shadowColor: colors.primary,
-      shadowOffset: {
-        width: 0,
-        height: 4,
-      },
-      shadowOpacity: 0.3,
-      shadowRadius: 8,
-      elevation: 6,
+    forgotPassword: {
+      alignSelf: isRTL ? "flex-start" : "flex-end",
+      marginTop: 8,
       marginBottom: 24,
     },
-    buttonDisabled: {
-      opacity: 0.7,
+    forgotPasswordText: {
+      color: colors.primary,
+      fontSize: 14,
+      fontWeight: "600",
     },
-    sendButtonContent: {
-      flexDirection: "row",
+    signInButton: {
+      borderRadius: 12,
+      overflow: "hidden",
+      marginBottom: 20,
+    },
+    signInGradient: {
+      paddingVertical: 16,
       alignItems: "center",
+      justifyContent: "center",
+      flexDirection: "row",
+      backgroundColor: colors.primary,
     },
-    sendButtonText: {
-      color: "#ffffff",
-      fontSize: 18,
+    signInButtonText: {
+      color: colors.surface,
+      fontSize: 16,
       fontWeight: "700",
-      letterSpacing: 0.5,
-      marginLeft: 8,
+      marginLeft: isRTL ? 0 : 8,
+      marginRight: isRTL ? 8 : 0,
     },
-    backToSigninButton: {
-      alignSelf: "center",
-      paddingVertical: 12,
+    socialContainer: {
+      flexDirection: "row",
+      justifyContent: "center",
+      gap: 12,
+      marginVertical: 20,
     },
-    backToSigninText: {
-      fontSize: 15,
+    socialButton: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: colors.background,
+      alignItems: "center",
+      justifyContent: "center",
+      borderWidth: 1,
+      borderColor: colors.border,
+    },
+    footer: {
+      flexDirection: isRTL ? "row-reverse" : "row",
+      justifyContent: "center",
+      alignItems: "center",
+      paddingVertical: 20,
+    },
+    footerText: {
+      fontSize: 14,
+      color: colors.textSecondary,
+    },
+    linkText: {
+      fontSize: 14,
       color: colors.primary,
       fontWeight: "600",
-      textDecorationLine: "underline",
+      marginLeft: isRTL ? 0 : 4,
+      marginRight: isRTL ? 4 : 0,
+    },
+    loadingContainer: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    loadingText: {
+      color: colors.surface,
+      fontSize: 16,
+      fontWeight: "700",
+      marginLeft: isRTL ? 0 : 8,
+      marginRight: isRTL ? 8 : 0,
     },
   });
 
   return (
-    <View style={[styles.container, isRTL && styles.containerRTL]}>
-      <View style={styles.backgroundAccent} />
+    <SafeAreaView style={styles.container}>
+      <LinearGradient
+        colors={[colors.primary, colors.emerald200]}
+        style={styles.gradientBackground}
+      />
 
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <ArrowLeft size={24} color={colors.primary} />
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.content}>
-        <View style={styles.headerSection}>
-          <View style={styles.iconContainer}>
-            <Mail size={32} color={colors.primary} />
-          </View>
-
-          <Text style={[styles.title, isRTL && styles.titleRTL]}>
-            {t("auth.forgot_password_page.title")}
-          </Text>
-
-          <Text style={[styles.subtitle, isRTL && styles.subtitleRTL]}>
-            {t("auth.forgot_password_page.subtitle")}
-          </Text>
-        </View>
-
-        <View style={styles.form}>
-          <View style={styles.inputContainer}>
-            <TextInput
-              style={[styles.input, isRTL && styles.inputRTL]}
-              placeholder={t("auth.forgot_password_page.email_placeholder")}
-              placeholderTextColor={colors.textSecondary}
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-              editable={!isLoading}
-              textAlign={isRTL ? "right" : "left"}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+        <View style={styles.content}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
+            <Ionicons
+              name={isRTL ? "chevron-forward" : "chevron-back"}
+              size={20}
+              color={colors.text}
             />
+          </TouchableOpacity>
+
+          <View style={styles.header}>
+            <View style={styles.iconContainer}>
+              <View style={styles.icon}>
+                <Ionicons name="lock-closed" size={22} color={colors.surface} />
+              </View>
+            </View>
+            <Text style={styles.title}>
+              {t("auth.forgot_password_page.title")}
+            </Text>
+            <Text style={styles.subtitle}>
+              {t("auth.forgot_password_page.enter_email")}
+            </Text>
           </View>
 
-          <TouchableOpacity
-            style={[
-              styles.sendButton,
-              (!email.trim() || isLoading) && styles.buttonDisabled,
-            ]}
-            onPress={handleSendResetCode}
-            disabled={!email.trim() || isLoading}
-          >
-            <View style={styles.sendButtonContent}>
-              {isLoading ? (
-                <ActivityIndicator color="#ffffff" size="small" />
-              ) : (
-                <>
-                  <Mail size={20} color="#ffffff" />
-                  <Text style={styles.sendButtonText}>
-                    {t("auth.forgot_password_page.send_reset_code")}
-                  </Text>
-                </>
-              )}
+          <View style={styles.formContainer}>
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>{t("auth.email")}</Text>
+              <TextInput
+                style={styles.input}
+                placeholder={t("auth.enter_email")}
+                placeholderTextColor={colors.textSecondary}
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                editable={!isLoading}
+              />
             </View>
-          </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.backToSigninButton}
-            onPress={() => router.replace("/(auth)/signin")}
-          >
-            <Text style={styles.backToSigninText}>
-              {t("auth.forgot_password_page.back_to_signin")}
-            </Text>
-          </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.sendButton}
+              onPress={handleForgotPassword}
+              disabled={isLoading}
+            >
+              <View style={styles.sendGradient}>
+                {isLoading ? (
+                  <View style={styles.loadingContainer}>
+                    <ActivityIndicator color={colors.surface} size="small" />
+                    <Text style={styles.loadingText}>
+                      {t("common.loading")}
+                    </Text>
+                  </View>
+                ) : (
+                  <>
+                    <Ionicons name="mail" size={18} color={colors.surface} />
+                    <Text style={styles.sendButtonText}>
+                      {t("auth.forgot_password_page.send_reset")}
+                    </Text>
+                  </>
+                )}
+              </View>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
-    </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }

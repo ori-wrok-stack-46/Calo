@@ -8,6 +8,7 @@ import {
   ScrollView,
   Dimensions,
   Platform,
+  Pressable,
 } from "react-native";
 import { BlurView } from "expo-blur";
 import { LinearGradient } from "expo-linear-gradient";
@@ -16,7 +17,8 @@ import Animated, {
   useSharedValue,
   withSpring,
   withTiming,
-  interpolate,
+  withSequence,
+  withDelay,
 } from "react-native-reanimated";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
@@ -26,25 +28,40 @@ import {
   Moon,
   CircleHelp as HelpCircle,
   X,
+  Sparkles,
 } from "lucide-react-native";
-import { useLanguage } from "../src/i18n/context/LanguageContext";
 import { useTheme } from "../src/context/ThemeContext";
-import { Colors, EmeraldSpectrum } from "@/constants/Colors";
+import { useLanguage } from "@/src/i18n/context/LanguageContext";
+import { ToastService } from "@/src/services/totastService";
 
 interface HelpContent {
   title: string;
   description: string;
+  quickTips?: string[];
+  additionalSupport?: string;
 }
 
 interface ToolBarProps {
   helpContent?: HelpContent;
+  onLanguageChange?: (language: string) => void;
+  onThemeChange?: (isDark: boolean) => void;
 }
 
-const { width: screenWidth } = Dimensions.get("window");
-const AnimatedTouchableOpacity =
-  Animated.createAnimatedComponent(TouchableOpacity);
+const SPRING_CONFIG = {
+  damping: 15,
+  stiffness: 200,
+  mass: 0.8,
+};
 
-const ToolBar: React.FC<ToolBarProps> = ({ helpContent }) => {
+const TIMING_CONFIG = {
+  duration: 300,
+};
+
+const ToolBar: React.FC<ToolBarProps> = ({
+  helpContent,
+  onLanguageChange,
+  onThemeChange,
+}) => {
   const { language, changeLanguage, isRTL } = useLanguage();
   const { isDark, toggleTheme, colors } = useTheme();
   const [showHelp, setShowHelp] = useState(false);
@@ -56,11 +73,17 @@ const ToolBar: React.FC<ToolBarProps> = ({ helpContent }) => {
   const fabRotation = useSharedValue(0);
   const menuOpacity = useSharedValue(0);
   const backdropOpacity = useSharedValue(0);
+  const pulseScale = useSharedValue(1);
 
   // Button positions for radial menu
   const button1Position = useSharedValue({ x: 0, y: 0 });
   const button2Position = useSharedValue({ x: 0, y: 0 });
   const button3Position = useSharedValue({ x: 0, y: 0 });
+
+  // Button scales for staggered animation
+  const button1Scale = useSharedValue(0);
+  const button2Scale = useSharedValue(0);
+  const button3Scale = useSharedValue(0);
 
   const handleToggleMenu = useCallback(() => {
     const newExpanded = !isExpanded;
@@ -68,72 +91,141 @@ const ToolBar: React.FC<ToolBarProps> = ({ helpContent }) => {
 
     const expandDirection = isRTL ? 1 : -1;
 
-    if (newExpanded) {
-      fabRotation.value = withSpring(45, { damping: 15, stiffness: 200 });
-      menuOpacity.value = withTiming(1, { duration: 300 });
-      backdropOpacity.value = withTiming(0.3, { duration: 300 });
+    // Add haptic feedback
+    fabScale.value = withSequence(
+      withTiming(0.95, { duration: 100 }),
+      withSpring(1, SPRING_CONFIG)
+    );
 
+    if (newExpanded) {
+      // Opening animation
+      fabRotation.value = withSpring(45, SPRING_CONFIG);
+      menuOpacity.value = withTiming(1, TIMING_CONFIG);
+      backdropOpacity.value = withTiming(0.4, TIMING_CONFIG);
+
+      // Staggered button animations
+      // Perfect quarter circle animation for buttons
+      const radius = 80; // Adjust this to change the size of the arc
+
+      // Calculate positions for a perfect quarter circle
+      // Angles: 15°, 45°, 75° (or adjust as needed)
+      const angle1 = (15 * Math.PI) / 180; // 15 degrees in radians
+      const angle2 = (45 * Math.PI) / 180; // 45 degrees in radians
+      const angle3 = (75 * Math.PI) / 180; // 75 degrees in radians
+
+      // For right expansion (expandDirection = 1)
+      // For left expansion (expandDirection = -1), we flip the x coordinates
       button1Position.value = withSpring(
-        { x: 80 * expandDirection, y: -10 },
-        { damping: 12, stiffness: 180 }
+        {
+          x: expandDirection * radius * Math.cos(angle1),
+          y: -radius * Math.sin(angle1),
+        },
+        SPRING_CONFIG
       );
+      button1Scale.value = withDelay(50, withSpring(1, SPRING_CONFIG));
+
       button2Position.value = withSpring(
-        { x: 65 * expandDirection, y: -55 },
-        { damping: 12, stiffness: 180 }
+        {
+          x: expandDirection * radius * Math.cos(angle2),
+          y: -radius * Math.sin(angle2),
+        },
+        SPRING_CONFIG
       );
+      button2Scale.value = withDelay(100, withSpring(1, SPRING_CONFIG));
+
       button3Position.value = withSpring(
-        { x: 35 * expandDirection, y: -85 },
-        { damping: 12, stiffness: 180 }
+        {
+          x: expandDirection * radius * Math.cos(angle3),
+          y: -radius * Math.sin(angle3),
+        },
+        SPRING_CONFIG
       );
+      button3Scale.value = withDelay(150, withSpring(1, SPRING_CONFIG));
+      button3Scale.value = withDelay(150, withSpring(1, SPRING_CONFIG));
     } else {
-      fabRotation.value = withSpring(0, { damping: 15, stiffness: 200 });
+      // Closing animation
+      fabRotation.value = withSpring(0, SPRING_CONFIG);
       menuOpacity.value = withTiming(0, { duration: 200 });
       backdropOpacity.value = withTiming(0, { duration: 200 });
 
-      button1Position.value = withSpring(
-        { x: 0, y: 0 },
-        { damping: 15, stiffness: 150 }
+      // Reset button scales first, then positions
+      button1Scale.value = withTiming(0, { duration: 150 });
+      button2Scale.value = withTiming(0, { duration: 150 });
+      button3Scale.value = withTiming(0, { duration: 150 });
+
+      button1Position.value = withDelay(
+        100,
+        withSpring({ x: 0, y: 0 }, SPRING_CONFIG)
       );
-      button2Position.value = withSpring(
-        { x: 0, y: 0 },
-        { damping: 15, stiffness: 150 }
+      button2Position.value = withDelay(
+        100,
+        withSpring({ x: 0, y: 0 }, SPRING_CONFIG)
       );
-      button3Position.value = withSpring(
-        { x: 0, y: 0 },
-        { damping: 15, stiffness: 150 }
+      button3Position.value = withDelay(
+        100,
+        withSpring({ x: 0, y: 0 }, SPRING_CONFIG)
       );
     }
   }, [
     isExpanded,
     isRTL,
     fabRotation,
+    fabScale,
     menuOpacity,
     backdropOpacity,
     button1Position,
     button2Position,
     button3Position,
+    button1Scale,
+    button2Scale,
+    button3Scale,
   ]);
 
   const handleLanguageToggle = useCallback(async () => {
+    console.log("Language button pressed!");
     const newLanguage = language === "he" ? "en" : "he";
     try {
       await changeLanguage(newLanguage);
+      onLanguageChange?.(newLanguage);
       handleToggleMenu();
+
+      // Show feedback
+      ToastService.success(
+        "Language Changed",
+        `Switched to ${newLanguage === "he" ? "Hebrew" : "English"}`
+      );
     } catch (error) {
       console.error("Error changing language:", error);
+      ToastService.error("Error", "Failed to change language");
     }
-  }, [language, changeLanguage, handleToggleMenu]);
+  }, [language, changeLanguage, handleToggleMenu, onLanguageChange]);
 
   const handleThemeToggle = useCallback(() => {
+    console.log("Theme button pressed!");
     try {
       toggleTheme();
+      onThemeChange?.(!isDark);
       handleToggleMenu();
+
+      // Add a pulse animation for feedback
+      pulseScale.value = withSequence(
+        withTiming(1.1, { duration: 150 }),
+        withTiming(1, { duration: 150 })
+      );
+
+      // Show feedback
+      ToastService.success(
+        "Theme Changed",
+        `Switched to ${!isDark ? "dark" : "light"} theme`
+      );
     } catch (error) {
       console.error("Error toggling theme:", error);
+      ToastService.error("Error", "Failed to change theme");
     }
-  }, [toggleTheme, handleToggleMenu]);
+  }, [toggleTheme, handleToggleMenu, onThemeChange, isDark, pulseScale]);
 
   const handleHelpPress = useCallback(() => {
+    console.log("Help button pressed!");
     setShowHelp(true);
     handleToggleMenu();
   }, [handleToggleMenu]);
@@ -143,62 +235,44 @@ const ToolBar: React.FC<ToolBarProps> = ({ helpContent }) => {
   }, []);
 
   // Animated styles
-  const fabStyle = useAnimatedStyle(
-    () => ({
-      transform: [
-        { scale: fabScale.value },
-        { rotate: `${fabRotation.value}deg` },
-      ],
-    }),
-    []
-  );
+  const fabStyle = useAnimatedStyle(() => ({
+    transform: [
+      { scale: fabScale.value * pulseScale.value },
+      { rotate: `${fabRotation.value}deg` },
+    ],
+  }));
 
-  const backdropStyle = useAnimatedStyle(
-    () => ({
-      opacity: backdropOpacity.value,
-    }),
-    []
-  );
+  const backdropStyle = useAnimatedStyle(() => ({
+    opacity: backdropOpacity.value,
+  }));
 
-  const menuContainerStyle = useAnimatedStyle(
-    () => ({
-      opacity: menuOpacity.value,
-    }),
-    []
-  );
+  const menuContainerStyle = useAnimatedStyle(() => ({
+    opacity: menuOpacity.value,
+  }));
 
-  const button1Style = useAnimatedStyle(
-    () => ({
-      transform: [
-        { translateX: button1Position.value.x },
-        { translateY: button1Position.value.y },
-        { scale: interpolate(menuOpacity.value, [0, 1], [0.3, 1]) },
-      ],
-    }),
-    []
-  );
+  const button1Style = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: button1Position.value.x },
+      { translateY: button1Position.value.y },
+      { scale: button1Scale.value },
+    ],
+  }));
 
-  const button2Style = useAnimatedStyle(
-    () => ({
-      transform: [
-        { translateX: button2Position.value.x },
-        { translateY: button2Position.value.y },
-        { scale: interpolate(menuOpacity.value, [0, 1], [0.3, 1]) },
-      ],
-    }),
-    []
-  );
+  const button2Style = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: button2Position.value.x },
+      { translateY: button2Position.value.y },
+      { scale: button2Scale.value },
+    ],
+  }));
 
-  const button3Style = useAnimatedStyle(
-    () => ({
-      transform: [
-        { translateX: button3Position.value.x },
-        { translateY: button3Position.value.y },
-        { scale: interpolate(menuOpacity.value, [0, 1], [0.3, 1]) },
-      ],
-    }),
-    []
-  );
+  const button3Style = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: button3Position.value.x },
+      { translateY: button3Position.value.y },
+      { scale: button3Scale.value },
+    ],
+  }));
 
   const toolbarPosition = useMemo(
     () => ({
@@ -216,10 +290,9 @@ const ToolBar: React.FC<ToolBarProps> = ({ helpContent }) => {
           style={[styles.backdrop, backdropStyle]}
           pointerEvents="auto"
         >
-          <TouchableOpacity
+          <Pressable
             style={StyleSheet.absoluteFillObject}
             onPress={handleToggleMenu}
-            activeOpacity={1}
           />
         </Animated.View>
       )}
@@ -229,70 +302,91 @@ const ToolBar: React.FC<ToolBarProps> = ({ helpContent }) => {
         {/* Menu Items */}
         <Animated.View style={[styles.menuContainer, menuContainerStyle]}>
           {/* Language Button */}
-          <AnimatedTouchableOpacity
-            style={[styles.menuButton, button1Style]}
-            onPress={handleLanguageToggle}
-            activeOpacity={0.8}
-          >
-            <View style={styles.buttonContent}>
-              <Globe size={18} color="#FFFFFF" strokeWidth={2.5} />
-              <Text style={styles.buttonLabel}>
-                {language === "he" ? "EN" : "עב"}
-              </Text>
-            </View>
-          </AnimatedTouchableOpacity>
-
-          {/* Theme Button */}
-          <AnimatedTouchableOpacity
-            style={[styles.menuButton, button2Style]}
-            onPress={handleThemeToggle}
-            activeOpacity={0.8}
-          >
-            <View style={styles.buttonContent}>
-              {isDark ? (
-                <Sun size={18} color="#FFFFFF" strokeWidth={2.5} />
-              ) : (
-                <Moon size={18} color="#FFFFFF" strokeWidth={2.5} />
-              )}
-            </View>
-          </AnimatedTouchableOpacity>
-
-          {/* Help Button */}
-          {helpContent && (
-            <AnimatedTouchableOpacity
-              style={[styles.menuButton, button3Style]}
-              onPress={handleHelpPress}
+          <Animated.View style={[styles.menuButton, button1Style]}>
+            <TouchableOpacity
+              style={[
+                styles.buttonTouchable,
+                { backgroundColor: colors.primary },
+              ]}
+              onPress={handleLanguageToggle}
               activeOpacity={0.8}
             >
               <View style={styles.buttonContent}>
-                <HelpCircle size={18} color="#FFFFFF" strokeWidth={2.5} />
+                <Globe size={20} color={colors.onPrimary} strokeWidth={2.5} />
+                <Text style={[styles.buttonLabel, { color: colors.onPrimary }]}>
+                  {language === "he" ? "EN" : "עב"}
+                </Text>
               </View>
-            </AnimatedTouchableOpacity>
+            </TouchableOpacity>
+          </Animated.View>
+
+          {/* Theme Button */}
+          <Animated.View style={[styles.menuButton, button2Style]}>
+            <TouchableOpacity
+              style={[
+                styles.buttonTouchable,
+                { backgroundColor: colors.primary },
+              ]}
+              onPress={handleThemeToggle}
+              activeOpacity={0.8}
+            >
+              <View style={styles.buttonContent}>
+                {isDark ? (
+                  <Sun size={20} color={colors.onPrimary} strokeWidth={2.5} />
+                ) : (
+                  <Moon size={20} color={colors.onPrimary} strokeWidth={2.5} />
+                )}
+              </View>
+            </TouchableOpacity>
+          </Animated.View>
+
+          {/* Help Button */}
+          {helpContent && (
+            <Animated.View style={[styles.menuButton, button3Style]}>
+              <TouchableOpacity
+                style={[
+                  styles.buttonTouchable,
+                  { backgroundColor: colors.primary },
+                ]}
+                onPress={handleHelpPress}
+                activeOpacity={0.8}
+              >
+                <View style={styles.buttonContent}>
+                  <HelpCircle
+                    size={20}
+                    color={colors.onPrimary}
+                    strokeWidth={2.5}
+                  />
+                </View>
+              </TouchableOpacity>
+            </Animated.View>
           )}
         </Animated.View>
 
         {/* Main FAB */}
-        <AnimatedTouchableOpacity
-          style={[styles.fab, fabStyle]}
-          onPress={handleToggleMenu}
-          activeOpacity={0.85}
-        >
-          <LinearGradient
-            colors={[colors.primary, `${colors.primary}E6`]}
-            style={styles.fabGradient}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
+        <Animated.View style={fabStyle}>
+          <TouchableOpacity
+            style={styles.fab}
+            onPress={handleToggleMenu}
+            activeOpacity={0.9}
           >
-            {isExpanded ? (
-              <X size={24} color="#FFFFFF" strokeWidth={3} />
-            ) : (
-              <Settings size={24} color="#FFFFFF" strokeWidth={3} />
-            )}
-          </LinearGradient>
-        </AnimatedTouchableOpacity>
+            <LinearGradient
+              colors={[colors.primary, colors.primary]}
+              style={styles.fabGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              {isExpanded ? (
+                <X size={24} color={colors.onPrimary} strokeWidth={3} />
+              ) : (
+                <Settings size={24} color={colors.onPrimary} strokeWidth={3} />
+              )}
+            </LinearGradient>
+          </TouchableOpacity>
+        </Animated.View>
       </View>
 
-      {/* Help Modal - Fixed rendering and backdrop */}
+      {/* Help Modal */}
       <Modal
         visible={showHelp}
         transparent={true}
@@ -301,11 +395,15 @@ const ToolBar: React.FC<ToolBarProps> = ({ helpContent }) => {
         statusBarTranslucent={true}
         presentationStyle="overFullScreen"
       >
-        <View style={styles.modalOverlay}>
-          <TouchableOpacity
+        <View
+          style={[
+            styles.modalOverlay,
+            { backgroundColor: colors.shadow + "80" },
+          ]}
+        >
+          <Pressable
             style={StyleSheet.absoluteFillObject}
             onPress={handleCloseHelp}
-            activeOpacity={1}
           />
 
           <View style={styles.modalContainer}>
@@ -316,13 +414,11 @@ const ToolBar: React.FC<ToolBarProps> = ({ helpContent }) => {
                 styles.modalContent,
                 {
                   backgroundColor:
-                    (isDark ? colors.surface : colors.background) +
-                    (Platform.OS === "ios" ? "00" : "F0"),
+                    Platform.OS === "ios"
+                      ? colors.surface + "00"
+                      : colors.surface + "F0",
                   shadowColor: colors.shadow,
-                  shadowOffset: { width: 0, height: 10 },
-                  shadowOpacity: 0.3,
-                  shadowRadius: 20,
-                  elevation: 20,
+                  borderColor: colors.outline + "20",
                 },
               ]}
             >
@@ -330,16 +426,20 @@ const ToolBar: React.FC<ToolBarProps> = ({ helpContent }) => {
               <View
                 style={[
                   styles.modalHeader,
-                  { borderBottomColor: isDark ? "#374151" : "#E5E7EB" },
+                  { borderBottomColor: colors.outline + "30" },
                 ]}
               >
                 <View style={styles.modalTitleContainer}>
-                  <HelpCircle size={24} color={colors.primary} />
-                  <Text
+                  <View
                     style={[
-                      styles.modalTitle,
-                      { color: isDark ? "#F9FAFB" : "#111827" },
+                      styles.iconContainer,
+                      { backgroundColor: colors.primaryContainer },
                     ]}
+                  >
+                    <Sparkles size={20} color={colors.primary} />
+                  </View>
+                  <Text
+                    style={[styles.modalTitle, { color: colors.onSurface }]}
                   >
                     {helpContent?.title ||
                       (language === "he" ? "עזרה" : "Help")}
@@ -349,10 +449,11 @@ const ToolBar: React.FC<ToolBarProps> = ({ helpContent }) => {
                   onPress={handleCloseHelp}
                   style={[
                     styles.closeButton,
-                    { backgroundColor: isDark ? "#374151" : "#F3F4F6" },
+                    { backgroundColor: colors.surfaceVariant },
                   ]}
+                  activeOpacity={0.7}
                 >
-                  <X size={20} color={isDark ? "#F9FAFB" : "#111827"} />
+                  <X size={20} color={colors.onSurfaceVariant} />
                 </TouchableOpacity>
               </View>
 
@@ -360,84 +461,92 @@ const ToolBar: React.FC<ToolBarProps> = ({ helpContent }) => {
               <ScrollView
                 style={styles.modalBody}
                 showsVerticalScrollIndicator={false}
-                contentContainerStyle={{ flexGrow: 1 }}
+                contentContainerStyle={styles.scrollContent}
               >
                 <View style={styles.modalBodyContent}>
                   {helpContent ? (
                     <View>
                       <Text
-                        style={[
-                          styles.modalText,
-                          { color: isDark ? "#E5E7EB" : "#374151" },
-                        ]}
+                        style={[styles.modalText, { color: colors.onSurface }]}
                       >
                         {helpContent.description}
                       </Text>
 
-                      <View
-                        style={[
-                          styles.helpSection,
-                          { borderTopColor: isDark ? "#374151" : "#E5E7EB" },
-                        ]}
-                      >
-                        <Text
+                      {helpContent.quickTips && (
+                        <View
                           style={[
-                            styles.helpSectionTitle,
-                            { color: isDark ? "#F9FAFB" : "#111827" },
+                            styles.helpSection,
+                            { borderTopColor: colors.outline + "30" },
                           ]}
                         >
-                          {language === "he" ? "טיפים מהירים:" : "Quick Tips:"}
-                        </Text>
-                        <Text
-                          style={[
-                            styles.helpSectionText,
-                            { color: isDark ? "#D1D5DB" : "#4B5563" },
-                          ]}
-                        >
-                          {language === "he"
-                            ? "• השתמש במצלמה לסריקת ארוחות לניתוח תזונתי\n• עקוב אחר צריכת המים היומית לבריאות טובה יותר\n• השלם את השאלון להמלצות מותאמות אישית\n• בדוק את הסטטיסטיקות למעקב אחר ההתקדמות"
-                            : "• Use the camera to scan meals for nutrition analysis\n• Track your water intake daily for better health\n• Complete your questionnaire for personalized recommendations\n• Check your statistics to monitor progress"}
-                        </Text>
-                      </View>
+                          <Text
+                            style={[
+                              styles.helpSectionTitle,
+                              { color: colors.onSurface },
+                            ]}
+                          >
+                            {language === "he"
+                              ? "טיפים מהירים:"
+                              : "Quick Tips:"}
+                          </Text>
+                          <View style={styles.tipsContainer}>
+                            {helpContent.quickTips.map((tip, index) => (
+                              <View key={index} style={styles.tipItem}>
+                                <View
+                                  style={[
+                                    styles.tipBullet,
+                                    { backgroundColor: colors.primary },
+                                  ]}
+                                />
+                                <Text
+                                  style={[
+                                    styles.tipText,
+                                    { color: colors.onSurfaceVariant },
+                                  ]}
+                                >
+                                  {tip}
+                                </Text>
+                              </View>
+                            ))}
+                          </View>
+                        </View>
+                      )}
 
-                      <View
-                        style={[
-                          styles.helpSection,
-                          { borderTopColor: isDark ? "#374151" : "#E5E7EB" },
-                        ]}
-                      >
-                        <Text
+                      {helpContent.additionalSupport && (
+                        <View
                           style={[
-                            styles.helpSectionTitle,
-                            { color: isDark ? "#F9FAFB" : "#111827" },
+                            styles.helpSection,
+                            { borderTopColor: colors.outline + "30" },
                           ]}
                         >
-                          {language === "he"
-                            ? "תמיכה נוספת:"
-                            : "Additional Support:"}
-                        </Text>
-                        <Text
-                          style={[
-                            styles.helpSectionText,
-                            { color: isDark ? "#D1D5DB" : "#4B5563" },
-                          ]}
-                        >
-                          {language === "he"
-                            ? "לעזרה נוספת, צור קשר עם הצוות שלנו או עיין במדריכי המשתמש המלאים."
-                            : "For additional help, contact our support team or refer to the comprehensive user guides."}
-                        </Text>
-                      </View>
+                          <Text
+                            style={[
+                              styles.helpSectionTitle,
+                              { color: colors.onSurface },
+                            ]}
+                          >
+                            {language === "he"
+                              ? "תמיכה נוספת:"
+                              : "Additional Support:"}
+                          </Text>
+                          <Text
+                            style={[
+                              styles.helpSectionText,
+                              { color: colors.onSurfaceVariant },
+                            ]}
+                          >
+                            {helpContent.additionalSupport}
+                          </Text>
+                        </View>
+                      )}
                     </View>
                   ) : (
                     <View style={styles.noHelpContent}>
-                      <HelpCircle size={48} color="#9CA3AF" />
+                      <HelpCircle size={48} color={colors.outline} />
                       <Text
                         style={[
                           styles.modalText,
-                          {
-                            color: isDark ? "#E5E7EB" : "#374151",
-                            textAlign: "center",
-                          },
+                          { color: colors.onSurface, textAlign: "center" },
                         ]}
                       >
                         {language === "he"
@@ -463,7 +572,6 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: "rgba(0, 0, 0, 0.2)",
     zIndex: 998,
   },
   container: {
@@ -479,14 +587,18 @@ const styles = StyleSheet.create({
   },
   menuButton: {
     position: "absolute",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  buttonTouchable: {
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: EmeraldSpectrum.emerald500,
-    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
     elevation: 8,
   },
   buttonContent: {
@@ -501,14 +613,12 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     textTransform: "uppercase",
     textAlign: "center",
-    color: "#FFFFFF",
     marginTop: 2,
   },
   fab: {
     width: 64,
     height: 64,
     borderRadius: 32,
-    shadowColor: "#000",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.3,
     shadowRadius: 16,
@@ -520,13 +630,11 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderRadius: 32,
   },
-  // Modal styles - fixed and enhanced
   modalOverlay: {
     flex: 1,
     justifyContent: "center",
     alignItems: "center",
     padding: 20,
-    backgroundColor: "rgba(0, 0, 0, 0.8)",
   },
   modalContainer: {
     width: "100%",
@@ -543,7 +651,10 @@ const styles = StyleSheet.create({
     maxHeight: "100%",
     minHeight: 300,
     borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.1)",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 20,
   },
   modalHeader: {
     flexDirection: "row",
@@ -560,10 +671,17 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 12,
   },
+  iconContainer: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
   modalTitle: {
     fontSize: 20,
     fontWeight: "800",
-    marginLeft: 12,
     flex: 1,
   },
   closeButton: {
@@ -576,6 +694,9 @@ const styles = StyleSheet.create({
   modalBody: {
     maxHeight: 450,
     minHeight: 200,
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
   modalBodyContent: {
     padding: 24,
@@ -598,6 +719,26 @@ const styles = StyleSheet.create({
   helpSectionText: {
     fontSize: 15,
     lineHeight: 22,
+  },
+  tipsContainer: {
+    gap: 12,
+  },
+  tipItem: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 12,
+  },
+  tipBullet: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    marginTop: 8,
+    flexShrink: 0,
+  },
+  tipText: {
+    fontSize: 15,
+    lineHeight: 22,
+    flex: 1,
   },
   noHelpContent: {
     padding: 40,

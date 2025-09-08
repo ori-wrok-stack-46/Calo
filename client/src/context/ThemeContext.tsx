@@ -2,13 +2,13 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import { useColorScheme } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-// Refined emerald color scheme for nutrition app
-const tintColorLight = "#10b981"; // emerald-500 (more vibrant)
-const tintColorDark = "#34d399"; // emerald-400 (softer for dark mode)
+// Refined teal color scheme for nutrition app (using emerald names)
+const tintColorLight = "#0d9488"; // teal-600 (vibrant and professional)
+const tintColorDark = "#5eead4"; // teal-300 (softer for dark mode)
 
 export const Colors = {
   light: {
-    detructive: "#ef4444",
+    destructive: "#ef4444",
     // Core text and backgrounds
     text: "#1f2937", // gray-800 (warmer black for readability)
     background: "#ffffff", // pure white for cleanliness
@@ -17,29 +17,35 @@ export const Colors = {
     // Icons and interactive elements
     icon: "#6b7280", // gray-500 (neutral icons)
     tabIconDefault: "#9ca3af", // gray-400 (inactive tabs)
-    tabIconSelected: tintColorLight, // emerald-500 (active)
+    tabIconSelected: tintColorLight, // teal-600 (active)
     tabInactive: "#d1d5db", // gray-300 (subtle inactive)
 
     // Borders and surfaces
     border: "#e5e7eb", // gray-200 (clean borders)
     card: "#f9fafb", // gray-50 (subtle card background)
     surface: "#ffffff", // pure white surfaces
+    surfaceVariant: "#f3f4f6", // gray-100 (variant surfaces)
     onSurface: "#111827", // gray-900 (strong contrast)
+    onSurfaceVariant: "#6b7280", // gray-500 (muted on surface)
     outline: "#d1d5db", // gray-300 (subtle outlines)
 
     // Brand colors
-    primary: tintColorLight, // emerald-500
-    primaryLight: "#a7f3d0", // emerald-200 (soft accent)
-    success: "#10b981", // emerald-500 (success states)
+    primary: tintColorLight, // teal-600
+    primaryContainer: "#ccfbf1", // teal-100 (container background)
+    onPrimary: "#ffffff", // white text on primary
+    onPrimaryContainer: "#042f2e", // teal-900 (text on primary container)
+    primaryLight: "#99f6e4", // teal-200 (soft accent)
+    success: "#0d9488", // teal-600 (success states)
     disabled: "#d1d5db",
-    // Emerald variations
-    emerald: "#10b981", // emerald-500 (main brand)
-    emerald50: "#ecfdf5", // very light emerald
-    emerald100: "#d1fae5", // light emerald
-    emerald200: "#a7f3d0", // soft emerald
-    emerald500: "#10b981", // main emerald
-    emerald600: "#059669", // deeper emerald
-    emerald700: "#047857", // dark emerald
+
+    // Emerald variations (now using teal values)
+    emerald: "#0d9488", // teal-600 (main brand)
+    emerald50: "#f0fdfa", // teal-50 (very light)
+    emerald100: "#ccfbf1", // teal-100 (light)
+    emerald200: "#99f6e4", // teal-200 (soft)
+    emerald500: "#14b8a6", // teal-500
+    emerald600: "#0d9488", // teal-600 (main)
+    emerald700: "#0f766e", // teal-700 (dark)
 
     // Secondary text
     textSecondary: "#6b7280", // gray-500 (muted text)
@@ -48,7 +54,7 @@ export const Colors = {
     muted: "#9ca3af", // gray-400 (muted elements, placeholders)
 
     // Special elements
-    shadow: "rgba(0, 0, 0, 0.08)", // subtle shadow
+    shadow: "#000000", // shadow color
     glass: "rgba(255, 255, 255, 0.85)",
     glassStroke: "rgba(255, 255, 255, 0.3)",
     backdrop: "rgba(0, 0, 0, 0.05)",
@@ -59,6 +65,7 @@ export const Colors = {
     info: "#3b82f6", // blue-500
   },
   dark: {
+    destructive: "#f87171",
     // Core text and backgrounds
     text: "#f9fafb", // gray-50 (soft white)
     background: "#111827", // gray-900 (rich black)
@@ -67,29 +74,35 @@ export const Colors = {
     // Icons and interactive elements
     icon: "#9ca3af", // gray-400 (visible icons)
     tabIconDefault: "#6b7280", // gray-500 (inactive tabs)
-    tabIconSelected: tintColorDark, // emerald-400 (active)
+    tabIconSelected: tintColorDark, // teal-300 (active)
     tabInactive: "#4b5563", // gray-600 (muted inactive)
 
     // Borders and surfaces
     border: "#374151", // gray-700 (visible borders)
     card: "#1f2937", // gray-800 (elevated surfaces)
     surface: "#1f2937", // gray-800 (card surfaces)
+    surfaceVariant: "#374151", // gray-700 (variant surfaces)
     onSurface: "#f3f4f6", // gray-100 (high contrast)
+    onSurfaceVariant: "#d1d5db", // gray-300 (muted on surface)
     outline: "#4b5563", // gray-600 (subtle outlines)
 
     // Brand colors
-    primary: tintColorDark, // emerald-400
-    primaryLight: "#065f46", // emerald-800 (dark mode accent)
-    success: "#34d399", // emerald-400 (success states)
-    isabled: "#d1d5db",
-    // Emerald variations
-    emerald: "#34d399", // emerald-400 (adjusted for dark)
-    emerald50: "#064e3b", // emerald-900 (darkest)
-    emerald100: "#065f46", // emerald-800
-    emerald200: "#047857", // emerald-700
-    emerald500: "#34d399", // emerald-400 (main for dark)
-    emerald600: "#10b981", // emerald-500
-    emerald700: "#6ee7b7", // emerald-300 (lighter for dark)
+    primary: tintColorDark, // teal-300
+    primaryContainer: "#134e4a", // teal-800 (container background)
+    onPrimary: "#042f2e", // teal-900 (text on primary)
+    onPrimaryContainer: "#ccfbf1", // teal-100 (text on primary container)
+    primaryLight: "#042f2e", // teal-900 (dark mode accent)
+    success: "#5eead4", // teal-300 (success states)
+    disabled: "#4b5563",
+
+    // Emerald variations (now using teal values)
+    emerald: "#5eead4", // teal-300 (adjusted for dark)
+    emerald50: "#042f2e", // teal-900 (darkest)
+    emerald100: "#134e4a", // teal-800
+    emerald200: "#0f766e", // teal-700
+    emerald500: "#5eead4", // teal-300 (main for dark)
+    emerald600: "#14b8a6", // teal-500
+    emerald700: "#7dd3fc", // teal-200 (lighter for dark)
 
     // Secondary text
     textSecondary: "#d1d5db", // gray-300 (readable secondary)
@@ -98,7 +111,7 @@ export const Colors = {
     muted: "#6b7280", // gray-500 (muted elements, placeholders)
 
     // Special elements
-    shadow: "rgba(0, 0, 0, 0.25)", // deeper shadow
+    shadow: "#000000", // shadow color
     glass: "rgba(31, 41, 55, 0.8)", // gray-800 glass
     glassStroke: "rgba(75, 85, 99, 0.3)", // gray-600 stroke
     backdrop: "rgba(0, 0, 0, 0.4)",
@@ -111,32 +124,32 @@ export const Colors = {
 };
 
 export const EmeraldSpectrum = {
-  // Core emerald palette
-  emerald50: "#ecfdf5", // lightest - backgrounds
-  emerald100: "#d1fae5", // very light - subtle highlights
-  emerald200: "#a7f3d0", // light - accents and borders
-  emerald300: "#6ee7b7", // medium light - icons
-  emerald400: "#34d399", // medium - primary for dark mode
-  emerald500: "#10b981", // main - primary brand color
-  emerald600: "#059669", // medium dark - hover states
-  emerald700: "#047857", // dark - active states
-  emerald800: "#065f46", // darker - text on light backgrounds
-  emerald900: "#064e3b", // darkest - strong text
-  emerald950: "#022c22", // deepest - dark mode backgrounds
+  // Teal-based color spectrum (keeping emerald names for compatibility)
+  emerald50: "#f0fdfa", // teal-50 - Lightest background
+  emerald100: "#ccfbf1", // teal-100 - Very light hover bg
+  emerald200: "#99f6e4", // teal-200 - Soft light borders
+  emerald300: "#5eead4", // teal-300 - Medium light icons
+  emerald400: "#2dd4bf", // teal-400 - Slightly muted base
+  emerald500: "#14b8a6", // teal-500 - Main brand color
+  emerald600: "#0d9488", // teal-600 - Slightly darker hover
+  emerald700: "#0f766e", // teal-700 - Darker active states
+  emerald800: "#134e4a", // teal-800 - Much darker text contrast
+  emerald900: "#042f2e", // teal-900 - Deep dark mode bg
+  emerald950: "#022c22", // Custom deep teal - Very deep headers, dark accents
 
-  // Semantic emerald colors for nutrition app
-  fresh: "#10b981", // emerald-500 (fresh foods, vegetables)
-  healthy: "#34d399", // emerald-400 (health indicators)
-  natural: "#6ee7b7", // emerald-300 (natural ingredients)
-  organic: "#a7f3d0", // emerald-200 (organic labels)
-  growth: "#047857", // emerald-700 (progress, goals)
-  vitality: "#059669", // emerald-600 (energy, nutrients)
+  // Semantic mappings (still using emerald names for compatibility)
+  fresh: "#14b8a6", // teal-500 - main color
+  healthy: "#2dd4bf", // teal-400 - slightly lighter
+  natural: "#5eead4", // teal-300 - medium-light
+  organic: "#99f6e4", // teal-200 - soft & light
+  growth: "#0f766e", // teal-700 - deeper tone
+  vitality: "#0d9488", // teal-600 - energetic tone
 
-  // Additional utility colors
-  nutrition: "#10b981", // main nutrition color
-  supplement: "#34d399", // supplement indicators
-  goal: "#047857", // goal achievement
-  progress: "#059669", // progress tracking
+  // Additional mappings
+  nutrition: "#14b8a6", // teal-500 - main nutrition accent
+  supplement: "#2dd4bf", // teal-400 - secondary
+  goal: "#0f766e", // teal-700 - progress tracking
+  progress: "#0d9488", // teal-600 - ongoing progress
 };
 
 interface ThemeContextType {
@@ -145,6 +158,7 @@ interface ThemeContextType {
   colors: typeof Colors.light | typeof Colors.dark;
   theme: "light" | "dark";
   emeraldSpectrum: typeof EmeraldSpectrum;
+  isLoaded: boolean;
 }
 
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
@@ -171,6 +185,8 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
       }
     } catch (error) {
       console.error("Error loading theme preference:", error);
+      // Fallback to system preference on error
+      setIsDark(systemColorScheme === "dark");
     } finally {
       setIsLoaded(true);
     }
@@ -205,6 +221,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
         colors,
         theme,
         emeraldSpectrum: EmeraldSpectrum,
+        isLoaded,
       }}
     >
       {children}

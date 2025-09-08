@@ -7,13 +7,20 @@ import {
   StyleSheet,
   Alert,
   ActivityIndicator,
+  Dimensions,
+  KeyboardAvoidingView,
+  Platform,
+  SafeAreaView,
 } from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import { Ionicons } from "@expo/vector-icons";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useLanguage } from "@/src/i18n/context/LanguageContext";
 import { useTheme } from "@/src/context/ThemeContext";
 import { userAPI } from "@/src/services/api";
-import { Lock, ArrowLeft, Eye, EyeOff } from "lucide-react-native";
+
+const { width, height } = Dimensions.get("window");
 
 export default function ResetPasswordScreen() {
   const { t } = useTranslation();
@@ -54,8 +61,6 @@ export default function ResetPasswordScreen() {
 
     try {
       setIsLoading(true);
-      console.log("🔑 Resetting password with token");
-
       const response = await userAPI.resetPassword(
         resetToken as string,
         password
@@ -78,7 +83,6 @@ export default function ResetPasswordScreen() {
         throw new Error(response.error || "Failed to reset password");
       }
     } catch (error: any) {
-      console.error("💥 Reset password error:", error);
       Alert.alert(
         t("common.error"),
         error.message || t("auth.reset_password.reset_failed")
@@ -102,172 +106,169 @@ export default function ResetPasswordScreen() {
       flex: 1,
       backgroundColor: colors.background,
     },
-    containerRTL: {
-      flexDirection: "row-reverse",
-    },
-    backgroundAccent: {
+    gradientBackground: {
       position: "absolute",
-      top: 0,
       left: 0,
       right: 0,
-      height: "35%",
-      backgroundColor: "#f0fdf4",
-      borderBottomLeftRadius: 30,
-      borderBottomRightRadius: 30,
+      top: 0,
+      height: height * 0.5,
     },
-    header: {
+    cloudShape: {
+      position: "absolute",
+      backgroundColor: colors.surface,
+      borderRadius: 50,
+      opacity: 0.9,
+    },
+    cloud1: {
+      width: width * 0.7,
+      height: 100,
+      top: height * 0.15,
+      left: width * 0.15,
+      transform: [{ rotate: "10deg" }],
+    },
+    cloud2: {
+      width: width * 0.5,
+      height: 70,
+      top: height * 0.25,
+      right: -width * 0.05,
+      transform: [{ rotate: "-12deg" }],
+    },
+    content: {
+      flex: 1,
+      paddingHorizontal: 24,
       paddingTop: 60,
-      paddingHorizontal: 20,
-      marginBottom: 20,
-      zIndex: 2,
+      justifyContent: "center",
     },
     backButton: {
       width: 40,
       height: 40,
       borderRadius: 20,
-      backgroundColor: colors.primary + "20",
-      justifyContent: "center",
+      backgroundColor: colors.surface,
       alignItems: "center",
-    },
-    content: {
-      flex: 1,
-      padding: 24,
       justifyContent: "center",
-      zIndex: 1,
+      marginBottom: 30,
+      shadowColor: colors.shadow,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 3,
     },
-    headerSection: {
-      marginBottom: 48,
+    header: {
       alignItems: "center",
+      marginBottom: 40,
     },
     iconContainer: {
       width: 80,
       height: 80,
       borderRadius: 40,
-      backgroundColor: colors.primary + "40",
-      justifyContent: "center",
+      backgroundColor: colors.surface,
       alignItems: "center",
+      justifyContent: "center",
       marginBottom: 24,
-      shadowColor: colors.primary,
-      shadowOffset: {
-        width: 0,
-        height: 4,
-      },
-      shadowOpacity: 0.3,
+      shadowColor: colors.shadow,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.1,
       shadowRadius: 8,
       elevation: 4,
     },
+    icon: {
+      width: 44,
+      height: 44,
+      borderRadius: 22,
+      backgroundColor: colors.primary,
+      alignItems: "center",
+      justifyContent: "center",
+    },
     title: {
-      fontSize: 36,
-      fontWeight: "700",
+      fontSize: 24,
+      fontWeight: "800",
       color: colors.text,
       marginBottom: 8,
-      letterSpacing: -0.5,
       textAlign: "center",
-    },
-    titleRTL: {
-      textAlign: "right",
     },
     subtitle: {
-      fontSize: 16,
+      fontSize: 14,
       color: colors.textSecondary,
-      fontWeight: "500",
       textAlign: "center",
-      lineHeight: 24,
+      lineHeight: 20,
+      paddingHorizontal: 20,
     },
-    subtitleRTL: {
-      textAlign: "right",
-    },
-    form: {
-      flex: 1,
-      maxHeight: 500,
+    formContainer: {
+      backgroundColor: colors.surface,
+      borderRadius: 20,
+      padding: 24,
+      marginBottom: 20,
+      shadowColor: colors.shadow,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.1,
+      shadowRadius: 12,
+      elevation: 6,
     },
     inputContainer: {
       marginBottom: 20,
-      shadowColor: colors.primary,
-      shadowOffset: {
-        width: 0,
-        height: 2,
-      },
-      shadowOpacity: 0.1,
-      shadowRadius: 8,
-      elevation: 3,
-    },
-    passwordInputContainer: {
       position: "relative",
     },
-    input: {
-      borderWidth: 2,
-      borderColor: colors.border,
-      borderRadius: 16,
-      padding: 18,
-      paddingRight: 60,
-      fontSize: 16,
-      backgroundColor: colors.surface,
+    label: {
+      fontSize: 14,
+      fontWeight: "600",
       color: colors.text,
-      fontWeight: "500",
+      marginBottom: 8,
+      textAlign: isRTL ? "right" : "left",
+    },
+    input: {
+      backgroundColor: colors.background,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+      padding: 16,
+      paddingRight: 50,
+      fontSize: 16,
+      color: colors.text,
+      textAlign: isRTL ? "right" : "left",
     },
     inputRTL: {
-      textAlign: "right",
-      paddingLeft: 60,
-      paddingRight: 18,
+      paddingLeft: 50,
+      paddingRight: 16,
     },
     eyeButton: {
       position: "absolute",
-      right: 20,
-      top: 20,
-      padding: 4,
+      right: 15,
+      top: 42,
+      padding: 5,
     },
     eyeButtonRTL: {
-      left: 20,
+      left: 15,
       right: "auto",
     },
     resetButton: {
-      backgroundColor: colors.primary,
-      borderRadius: 16,
-      padding: 18,
+      borderRadius: 12,
+      overflow: "hidden",
+      marginTop: 10,
+    },
+    resetGradient: {
+      paddingVertical: 16,
       alignItems: "center",
-      shadowColor: colors.primary,
-      shadowOffset: {
-        width: 0,
-        height: 4,
-      },
-      shadowOpacity: 0.3,
-      shadowRadius: 8,
-      elevation: 6,
-      marginBottom: 24,
-      marginTop: 12,
-    },
-    resetButtonDisabled: {
-      opacity: 0.5,
-    },
-    resetButtonContent: {
+      justifyContent: "center",
       flexDirection: "row",
-      alignItems: "center",
+      backgroundColor: colors.primary,
     },
     resetButtonText: {
-      fontSize: 18,
+      color: colors.surface,
+      fontSize: 16,
       fontWeight: "700",
-      color: "#ffffff",
-      marginLeft: 8,
-      letterSpacing: 0.5,
+      marginLeft: isRTL ? 0 : 8,
+      marginRight: isRTL ? 8 : 0,
     },
     passwordRequirements: {
-      backgroundColor: colors.surface,
+      backgroundColor: colors.background,
       borderRadius: 12,
       padding: 16,
       borderLeftWidth: 4,
       borderLeftColor: colors.primary,
-      shadowColor: colors.primary,
-      shadowOffset: {
-        width: 0,
-        height: 2,
-      },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
-      elevation: 2,
+      marginBottom: 10,
     },
     requirementsTitle: {
-      fontSize: 14,
+      fontSize: 13,
       fontWeight: "600",
       color: colors.text,
       marginBottom: 8,
@@ -275,44 +276,70 @@ export default function ResetPasswordScreen() {
     requirementText: {
       fontSize: 12,
       color: colors.textSecondary,
-      lineHeight: 18,
+      lineHeight: 16,
+    },
+    loadingContainer: {
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    loadingText: {
+      color: colors.surface,
+      fontSize: 16,
+      fontWeight: "700",
+      marginLeft: isRTL ? 0 : 8,
+      marginRight: isRTL ? 8 : 0,
     },
   });
 
   return (
-    <View style={[styles.container, isRTL && styles.containerRTL]}>
-      <View style={styles.backgroundAccent} />
+    <SafeAreaView style={styles.container}>
+      <LinearGradient
+        colors={[colors.primary, colors.emerald200]}
+        style={styles.gradientBackground}
+      />
 
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <ArrowLeft size={24} color={colors.primary} />
-        </TouchableOpacity>
-      </View>
+      <View style={[styles.cloudShape, styles.cloud1]} />
+      <View style={[styles.cloudShape, styles.cloud2]} />
 
-      <View style={styles.content}>
-        <View style={styles.headerSection}>
-          <View style={styles.iconContainer}>
-            <Lock size={32} color={colors.primary} />
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+        <View style={styles.content}>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => router.back()}
+          >
+            <Ionicons
+              name={isRTL ? "chevron-forward" : "chevron-back"}
+              size={20}
+              color={colors.text}
+            />
+          </TouchableOpacity>
+
+          <View style={styles.header}>
+            <View style={styles.iconContainer}>
+              <View style={styles.icon}>
+                <Ionicons name="key" size={22} color={colors.surface} />
+              </View>
+            </View>
+            <Text style={styles.title}>
+              {t("auth.reset_password.reset_password_title")}
+            </Text>
+            <Text style={styles.subtitle}>
+              {t("auth.reset_password.enter_new_password")}
+            </Text>
           </View>
 
-          <Text style={[styles.title, isRTL && styles.titleRTL]}>
-            {t("auth.reset_password.reset_password_title")}
-          </Text>
-
-          <Text style={[styles.subtitle, isRTL && styles.subtitleRTL]}>
-            {t("auth.reset_password.enter_new_password")}
-          </Text>
-        </View>
-
-        <View style={styles.form}>
-          <View style={styles.inputContainer}>
-            <View style={styles.passwordInputContainer}>
+          <View style={styles.formContainer}>
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>
+                {t("auth.reset_password.new_password")}
+              </Text>
               <TextInput
                 style={[styles.input, isRTL && styles.inputRTL]}
-                placeholder={t("auth.reset_password.new_password")}
+                placeholder={t("auth.enter_password")}
                 placeholderTextColor={colors.textSecondary}
                 value={password}
                 onChangeText={setPassword}
@@ -320,26 +347,26 @@ export default function ResetPasswordScreen() {
                 autoCapitalize="none"
                 autoCorrect={false}
                 editable={!isLoading}
-                textAlign={isRTL ? "right" : "left"}
               />
               <TouchableOpacity
                 style={[styles.eyeButton, isRTL && styles.eyeButtonRTL]}
                 onPress={() => setShowPassword(!showPassword)}
               >
-                {showPassword ? (
-                  <EyeOff size={20} color={colors.textSecondary} />
-                ) : (
-                  <Eye size={20} color={colors.textSecondary} />
-                )}
+                <Ionicons
+                  name={showPassword ? "eye-off" : "eye"}
+                  size={18}
+                  color={colors.textSecondary}
+                />
               </TouchableOpacity>
             </View>
-          </View>
 
-          <View style={styles.inputContainer}>
-            <View style={styles.passwordInputContainer}>
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>
+                {t("auth.reset_password.confirm_new_password")}
+              </Text>
               <TextInput
                 style={[styles.input, isRTL && styles.inputRTL]}
-                placeholder={t("auth.reset_password.confirm_new_password")}
+                placeholder={t("auth.enter_password_again")}
                 placeholderTextColor={colors.textSecondary}
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
@@ -347,53 +374,54 @@ export default function ResetPasswordScreen() {
                 autoCapitalize="none"
                 autoCorrect={false}
                 editable={!isLoading}
-                textAlign={isRTL ? "right" : "left"}
               />
               <TouchableOpacity
                 style={[styles.eyeButton, isRTL && styles.eyeButtonRTL]}
                 onPress={() => setShowConfirmPassword(!showConfirmPassword)}
               >
-                {showConfirmPassword ? (
-                  <EyeOff size={20} color={colors.textSecondary} />
-                ) : (
-                  <Eye size={20} color={colors.textSecondary} />
-                )}
+                <Ionicons
+                  name={showConfirmPassword ? "eye-off" : "eye"}
+                  size={18}
+                  color={colors.textSecondary}
+                />
               </TouchableOpacity>
             </View>
-          </View>
 
-          <TouchableOpacity
-            style={[
-              styles.resetButton,
-              (!isFormValid() || isLoading) && styles.resetButtonDisabled,
-            ]}
-            onPress={handleResetPassword}
-            disabled={!isFormValid() || isLoading}
-          >
-            <View style={styles.resetButtonContent}>
-              {isLoading ? (
-                <ActivityIndicator color="#ffffff" size="small" />
-              ) : (
-                <>
-                  <Lock size={20} color="#ffffff" />
-                  <Text style={styles.resetButtonText}>
-                    {t("auth.reset_password.title")}
-                  </Text>
-                </>
-              )}
+            <View style={styles.passwordRequirements}>
+              <Text style={styles.requirementsTitle}>
+                {t("auth.reset_password.password_requirements")}:
+              </Text>
+              <Text style={styles.requirementText}>
+                • {t("auth.reset_password.password_requirement_length")}
+              </Text>
             </View>
-          </TouchableOpacity>
 
-          <View style={styles.passwordRequirements}>
-            <Text style={styles.requirementsTitle}>
-              {t("auth.reset_password.password_requirements")}:
-            </Text>
-            <Text style={styles.requirementText}>
-              • {t("auth.reset_password.password_requirement_length")}
-            </Text>
+            <TouchableOpacity
+              style={styles.resetButton}
+              onPress={handleResetPassword}
+              disabled={!isFormValid() || isLoading}
+            >
+              <View style={styles.resetGradient}>
+                {isLoading ? (
+                  <View style={styles.loadingContainer}>
+                    <ActivityIndicator color={colors.surface} size="small" />
+                    <Text style={styles.loadingText}>
+                      {t("common.loading")}
+                    </Text>
+                  </View>
+                ) : (
+                  <>
+                    <Ionicons name="key" size={18} color={colors.surface} />
+                    <Text style={styles.resetButtonText}>
+                      {t("auth.reset_password.title")}
+                    </Text>
+                  </>
+                )}
+              </View>
+            </TouchableOpacity>
           </View>
         </View>
-      </View>
-    </View>
+      </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
