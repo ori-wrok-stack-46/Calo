@@ -4,7 +4,6 @@ import { prisma } from "../lib/database";
 import { z } from "zod";
 import { mealAnalysisSchema, mealUpdateSchema } from "../types/nutrition";
 import { NutritionService } from "../services/nutrition";
-import { StatisticsService } from "../services/statistics";
 import { AchievementService } from "../services/achievements";
 
 const router = Router();
@@ -337,7 +336,9 @@ router.post("/analyze", authenticateToken, async (req: AuthRequest, res) => {
       date,
       updateText,
       editedIngredients = [],
-    } = validationResult.data;
+      mealType,
+      mealPeriod,
+    } = req.body;
 
     if (!imageBase64 || imageBase64.trim() === "") {
       return res.status(400).json({
@@ -383,6 +384,8 @@ router.post("/analyze", authenticateToken, async (req: AuthRequest, res) => {
       date: z.string().optional(),
       updateText: z.string().optional(),
       editedIngredients: z.array(z.any()).default([]),
+      mealType: z.string().optional(),
+      mealPeriod: z.string().optional(),
     });
 
     const validatedData = analysisSchema.parse({
@@ -391,6 +394,8 @@ router.post("/analyze", authenticateToken, async (req: AuthRequest, res) => {
       date,
       updateText,
       editedIngredients,
+      mealType,
+      mealPeriod,
     });
 
     const result = await NutritionService.analyzeMeal(req.user.user_id, {
@@ -399,6 +404,8 @@ router.post("/analyze", authenticateToken, async (req: AuthRequest, res) => {
       date: validatedData.date || new Date().toISOString().split("T")[0],
       updateText: validatedData.updateText,
       editedIngredients: validatedData.editedIngredients,
+      mealType: validatedData.mealType,
+      mealPeriod: validatedData.mealPeriod,
     });
 
     console.log("✅ Analysis completed successfully");
@@ -636,13 +643,6 @@ router.get("/stats/range", authenticateToken, async (req: AuthRequest, res) => {
     );
     console.log("📊 req.query keys:", Object.keys(req.query));
     console.log("📊 req.query values:", Object.values(req.query));
-
-    // Log each possible parameter variation
-    console.log("📊 req.query.startDate:", req.query.startDate);
-    console.log("📊 req.query.endDate:", req.query.endDate);
-    console.log("📊 req.query.start:", req.query.start);
-    console.log("📊 req.query.end:", req.query.end);
-    console.log("📊 === RANGE STATS DEBUG END ===");
 
     // Try both parameter name variations
     const startDate = req.query.startDate || req.query.start;

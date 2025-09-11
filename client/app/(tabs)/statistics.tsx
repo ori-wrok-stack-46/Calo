@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -60,18 +60,19 @@ import { useTranslation } from "react-i18next";
 import { useLanguage } from "@/src/i18n/context/LanguageContext";
 import { api } from "@/src/services/api";
 import LoadingScreen from "@/components/LoadingScreen";
-import { StatisticsData } from "@/src/store/calendarSlice";
+import { StatisticsData } from "@/src/store/calendarSlice"; // This import seems redundant with the new definition. Keeping for now as per instructions.
 import {
   UserQuestionnaire,
   NutritionMetric,
   ProgressData,
-  Achievement,
+  Achievement, // This import also seems redundant with the new definition.
   TimeFilterOption,
 } from "@/src/types/statistics";
 import * as Print from "expo-print";
 import * as Sharing from "expo-sharing";
 import { useSelector } from "react-redux";
 import { RootState } from "@/src/store";
+import { getStatusColor } from "@/src/utils/statisticsHelper";
 
 const { width, height } = Dimensions.get("window");
 const CHART_WIDTH = width - 40;
@@ -692,6 +693,34 @@ export default function StatisticsScreen() {
 
   const { user } = useSelector((state: RootState) => state.auth);
 
+  // Fetch achievements data separately
+  const fetchAchievements = async () => {
+    try {
+      const response = await api.get("/statistics/achievements");
+      if (response.data.success && response.data.data) {
+        setAchievements(response.data.data.map((achievement: any) => ({
+          id: achievement.id,
+          title: achievement.title || { en: "Achievement", he: "הישג" },
+          description: achievement.description || {
+            en: "Description",
+            he: "תיאור",
+          },
+          icon: achievement.icon || "trophy",
+          color: getRarityColor(achievement.rarity || "COMMON"),
+          progress: achievement.progress || 0,
+          maxProgress: achievement.max_progress || 1,
+          unlocked: achievement.unlocked || false,
+          category: achievement.category || "MILESTONE",
+          xpReward: achievement.xpReward || 0,
+          rarity: achievement.rarity || "COMMON",
+          unlockedDate: achievement.unlockedDate,
+        })));
+      }
+    } catch (error) {
+      console.error("Failed to fetch achievements:", error);
+    }
+  };
+
   // Fetch statistics data from API
   const fetchStatistics = async (period: "today" | "week" | "month") => {
     setIsLoading(true);
@@ -1022,25 +1051,33 @@ export default function StatisticsScreen() {
 
   // Generate achievements from real API data
   const generateAchievements = (): Achievement[] => {
-    if (!statisticsData?.achievements) return [];
+    if (!statisticsData?.achievements && achievements.length === 0) {
+      // Fetch achievements separately if not in stats data
+      fetchAchievements();
+      return [];
+    }
 
-    return statisticsData.achievements.map((achievement: any) => ({
-      id: achievement.id,
-      title: achievement.title || { en: "Achievement", he: "הישג" },
-      description: achievement.description || {
-        en: "Description",
-        he: "תיאור",
-      },
-      icon: achievement.icon || "trophy",
-      color: getRarityColor(achievement.rarity || "COMMON"),
-      progress: achievement.progress || 0,
-      maxProgress: achievement.max_progress || 1,
-      unlocked: achievement.unlocked || false,
-      category: achievement.category || "MILESTONE",
-      xpReward: achievement.xpReward || 0,
-      rarity: achievement.rarity || "COMMON",
-      unlockedDate: achievement.unlockedDate,
-    }));
+    if (statisticsData?.achievements) {
+      return statisticsData.achievements.map((achievement: any) => ({
+        id: achievement.id,
+        title: achievement.title || { en: "Achievement", he: "הישג" },
+        description: achievement.description || {
+          en: "Description",
+          he: "תיאור",
+        },
+        icon: achievement.icon || "trophy",
+        color: getRarityColor(achievement.rarity || "COMMON"),
+        progress: achievement.progress || 0,
+        maxProgress: achievement.max_progress || 1,
+        unlocked: achievement.unlocked || false,
+        category: achievement.category || "MILESTONE",
+        xpReward: achievement.xpReward || 0,
+        rarity: achievement.rarity || "COMMON",
+        unlockedDate: achievement.unlockedDate,
+      }));
+    }
+
+    return achievements;
   };
 
   // Update metrics when data changes
@@ -1433,7 +1470,7 @@ export default function StatisticsScreen() {
       </head>
       <body>
         <h1>Statistics Report</h1>
-        
+
         <div class="section">
           <h2>Progress Overview</h2>
           <p>Average Completion: ${progressStats?.averageCompletion || 0}%</p>
@@ -1650,7 +1687,7 @@ export default function StatisticsScreen() {
                     </View>
                     <View style={styles.levelDetails}>
                       <Text style={styles.levelText}>
-                        {t("statistics.level") || "Level"}{" "}
+                        {t("statistics.level") || "Level"}
                         {gamificationStats.level}
                       </Text>
                       <Text style={styles.xpText}>
@@ -2912,8 +2949,6 @@ const styles = StyleSheet.create({
   metricStatusText: {
     fontSize: 13,
     fontWeight: "600",
-    marginLeft: 8,
-    letterSpacing: 0.2,
   },
   metricTrend: {
     alignItems: "center",

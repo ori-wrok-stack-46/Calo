@@ -62,11 +62,19 @@ function validateAndCleanBase64(imageBase64: string): string {
 }
 
 export class OpenAIService {
-  private static openai = process.env.OPENAI_API_KEY
-    ? new OpenAI({
+  private static openai: OpenAI | null = null;
+
+  static {
+    if (process.env.OPENAI_API_KEY) {
+      this.openai = new OpenAI({
         apiKey: process.env.OPENAI_API_KEY,
-      })
-    : null;
+      });
+    } else {
+      console.warn(
+        "⚠️ OpenAI API key not found. AI features will use fallback responses."
+      );
+    }
+  }
 
   static async generateText(
     prompt: string,
@@ -1493,7 +1501,7 @@ Language: ${language}`;
     };
   }
 
-  private static async updateMealAnalysis(
+   static async updateMealAnalysis(
     originalAnalysis: MealAnalysisResult,
     updateText: string,
     language: string = "english"

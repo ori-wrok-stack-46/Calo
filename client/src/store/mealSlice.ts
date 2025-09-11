@@ -261,14 +261,44 @@ export const analyzeMeal = createAsyncThunk(
         };
         console.log("Pending meal created:", pendingMeal);
 
-        // Save to storage with error handling
+        // Save to storage with improved error handling
         try {
           const serializedMeal = JSON.stringify(pendingMeal);
           await AsyncStorage.setItem(PENDING_MEAL_KEY, serializedMeal);
           console.log("Pending meal saved to storage successfully");
-        } catch (storageError) {
+        } catch (storageError: any) {
           console.warn("Failed to save pending meal to storage:", storageError);
-          // Don't fail the analysis if storage fails
+
+          // If storage is full, try emergency cleanup and retry
+          if (
+            storageError?.message?.includes("disk is full") ||
+            storageError?.message?.includes("SQLITE_FULL") ||
+            storageError?.code === 13
+          ) {
+            try {
+              const { StorageCleanupService } = await import(
+                "@/src/utils/storageCleanup"
+              );
+              await StorageCleanupService.emergencyCleanup();
+
+              // Retry saving after emergency cleanup
+              const compactMeal = JSON.stringify({
+                analysis: pendingMeal.analysis,
+                timestamp: pendingMeal.timestamp,
+                // Skip image_base_64 if storage is critically full
+              });
+              await AsyncStorage.setItem(PENDING_MEAL_KEY, compactMeal);
+              console.log(
+                "Pending meal saved after emergency cleanup (without image)"
+              );
+            } catch (retryError) {
+              console.error(
+                "Failed to save even after emergency cleanup:",
+                retryError
+              );
+              // Continue without saving to storage, analysis is still in memory
+            }
+          }
         }
 
         console.log("Analysis completed successfully");
@@ -284,7 +314,18 @@ export const analyzeMeal = createAsyncThunk(
 
       let errorMessage = "Analysis failed";
       if (error instanceof Error) {
-        errorMessage = error.message;
+        if (error.message.includes("Network")) {
+          errorMessage =
+            "Network error during meal analysis. Please check your connection and try again.";
+        } else if (error.message.includes("timeout")) {
+          errorMessage =
+            "Analysis timed out. Please try again with a clearer image.";
+        } else if (error.message.includes("_retry")) {
+          errorMessage =
+            "Connection issue. Please check your internet connection and try again.";
+        } else {
+          errorMessage = error.message;
+        }
       } else if (typeof error === "string") {
         errorMessage = error;
       }
@@ -698,23 +739,41 @@ const mealSlice = createSlice({
         state.error = null;
         console.log("Meal posted successfully");
 
-        // Trigger immediate cache invalidation
+        // Trigger immediate cache invalidation and data refresh
         import("../services/queryClient").then(({ queryClient }) => {
           const today = new Date().toISOString().split("T")[0];
-          // Cancel ongoing queries first
-          queryClient.cancelQueries({ queryKey: ["meals"] });
-          queryClient.cancelQueries({ queryKey: ["dailyStats"] });
 
-          // Remove stale data
+          // Cancel all ongoing queries first
+          queryClient.cancelQueries();
+
+          // Remove stale data completely
           queryClient.removeQueries({ queryKey: ["meals"] });
-          queryClient.removeQueries({ queryKey: ["dailyStats", today] });
+          queryClient.removeQueries({ queryKey: ["dailyStats"] });
           queryClient.removeQueries({ queryKey: ["statistics"] });
           queryClient.removeQueries({ queryKey: ["recent-meals"] });
+          queryClient.removeQueries({ queryKey: ["achievements"] });
 
-          // Force immediate refetch
-          queryClient.refetchQueries({ queryKey: ["meals"] });
-          queryClient.refetchQueries({ queryKey: ["dailyStats", today] });
-          queryClient.refetchQueries({ queryKey: ["statistics"] });
+          // Force immediate refetch with no cache
+          queryClient.refetchQueries({
+            queryKey: ["meals"],
+            type: "all",
+            exact: false,
+          });
+          queryClient.refetchQueries({
+            queryKey: ["dailyStats"],
+            type: "all",
+            exact: false,
+          });
+          queryClient.refetchQueries({
+            queryKey: ["statistics"],
+            type: "all",
+            exact: false,
+          });
+        });
+
+        // Also dispatch fetchMeals to update Redux state immediately
+        import("./index").then(({ store }) => {
+          store.dispatch({ type: "meal/fetchMeals/pending" });
         });
       })
       .addCase(postMeal.rejected, (state, action) => {

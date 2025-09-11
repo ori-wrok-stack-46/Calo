@@ -61,11 +61,12 @@ model User {
 
   Session Session[]
 
-  badges          UserBadge[]
-  achievements    UserAchievement[]
-  dailyGoals      DailyGoal[]
-  WaterIntake     WaterIntake[]
-  mealCompletions MealCompletion[]
+  badges            UserBadge[]
+  achievements      UserAchievement[]
+  dailyGoals        DailyGoal[]
+  WaterIntake       WaterIntake[]
+  mealCompletions   MealCompletion[]
+  aiRecommendations AiRecommendation[]
 
   active_meal_plan_id String?
   active_menu_id      String?
@@ -234,6 +235,7 @@ model Meal {
   upload_time            DateTime       @default(now())
   analysis_status        AnalysisStatus
   meal_name              String?
+  meal_period            String? // "breakfast", "lunch", "dinner", "snack", "late_night", "other"
   calories               Float?
   protein_g              Float?
   carbs_g                Float?
@@ -693,6 +695,26 @@ model MealCompletion {
   @@index([plan_id])
   @@index([menu_id])
   @@map("meal_completions")
+}
+
+model AiRecommendation {
+  id               String   @id @default(cuid())
+  user_id          String
+  date             String // YYYY-MM-DD format
+  recommendations  Json
+  priority_level   String   @default("medium") // "low", "medium", "high"
+  confidence_score Float    @default(0.75)
+  based_on         Json?
+  is_read          Boolean  @default(false)
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
+
+  user User @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+
+  @@unique([user_id, date])
+  @@index([user_id, date])
+  @@index([date])
+  @@map("ai_recommendations")
 }
 
 // Add the missing relation in User model

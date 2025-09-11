@@ -15,12 +15,16 @@ const { width, height } = Dimensions.get("window");
 
 interface ScanningAnimationProps {
   visible: boolean;
-  onComplete?: () => void;
+  onComplete: () => void;
+  progress?: number;
+  isAnalyzing: boolean; // Added to control animation based on analysis status
 }
 
 export const ScanningAnimation: React.FC<ScanningAnimationProps> = ({
   visible,
   onComplete,
+  progress, // This prop seems unused in the original code for animation control
+  isAnalyzing, // New prop to control animation flow
 }) => {
   const { colors, isDark } = useTheme();
   const { t } = useTranslation();
@@ -34,8 +38,8 @@ export const ScanningAnimation: React.FC<ScanningAnimationProps> = ({
   const scanLineAnim = useRef(new Animated.Value(0)).current;
 
   // State
+  const [progressState, setProgressState] = useState(0);
   const [currentStep, setCurrentStep] = useState(0);
-  const [progress, setProgress] = useState(0);
 
   const steps = [
     {
@@ -84,6 +88,49 @@ export const ScanningAnimation: React.FC<ScanningAnimationProps> = ({
     }
   }, [visible]);
 
+  // Updated effect to control animation based on isAnalyzing prop
+  useEffect(() => {
+    if (!isAnalyzing) {
+      // When analysis is complete or not running, reset progress and step
+      setProgressState(0);
+      setCurrentStep(0);
+      // Optionally, you might want to trigger onComplete here if isAnalyzing becomes false after being true
+      // or handle the final state of the animation differently.
+      // For now, we'll just reset.
+      return;
+    }
+
+    let progressValue = 0;
+    const interval = setInterval(() => {
+      setProgressState((prev) => {
+        progressValue = prev + 1;
+
+        // Update step based on progress
+        if (progressValue < 30) {
+          setCurrentStep(0); // Analyzing image
+        } else if (progressValue < 60) {
+          setCurrentStep(1); // Identifying ingredients
+        } else if (progressValue < 85) {
+          setCurrentStep(2); // Calculating nutrition
+        } else {
+          setCurrentStep(3); // Finalizing results
+        }
+
+        // Don't complete until analysis is actually done
+        // The intention here is to keep the animation going or stuck at a high percentage
+        // until the external 'isAnalyzing' flag turns false.
+        if (progressValue >= 95 && isAnalyzing) {
+          return 95; // Hold at 95% until analysis completes
+        }
+
+        return Math.min(progressValue, 100);
+      });
+    }, 150); // Slower progress for more realistic timing
+
+    // Cleanup interval when the component unmounts or isAnalyzing changes to false
+    return () => clearInterval(interval);
+  }, [isAnalyzing]); // Dependency array includes isAnalyzing
+
   const startAnimation = () => {
     // Initial entrance animation
     Animated.parallel([
@@ -100,13 +147,14 @@ export const ScanningAnimation: React.FC<ScanningAnimationProps> = ({
       }),
     ]).start();
 
-    // Start continuous animations
+    // Start continuous animations (these should ideally run independently or be tied to visible)
+    // If isAnalyzing controls the progress, these might need adjustment or to be started conditionally.
     startRotation();
     startPulse();
     startScanLine();
 
-    // Progress through steps
-    progressThroughSteps();
+    // Progress through steps is now handled by the new useEffect hook based on isAnalyzing
+    // progressThroughSteps(); // This function is no longer needed for progress control
   };
 
   const startRotation = () => {
@@ -153,33 +201,35 @@ export const ScanningAnimation: React.FC<ScanningAnimationProps> = ({
     ).start();
   };
 
-  const progressThroughSteps = () => {
-    let totalTime = 0;
-    let currentProgress = 0;
+  // This function was responsible for driving progress through steps based on fixed durations.
+  // It's replaced by the useEffect hook that uses 'isAnalyzing' and a fixed interval.
+  // const progressThroughSteps = () => {
+  //   let totalTime = 0;
+  //   let currentProgress = 0;
 
-    steps.forEach((step, index) => {
-      setTimeout(() => {
-        setCurrentStep(index);
-        currentProgress += 100 / steps.length;
-        setProgress(currentProgress);
+  //   steps.forEach((step, index) => {
+  //     setTimeout(() => {
+  //       setCurrentStep(index);
+  //       currentProgress += 100 / steps.length;
+  //       setProgressState(currentProgress);
 
-        Animated.timing(progressAnim, {
-          toValue: currentProgress / 100,
-          duration: step.duration,
-          useNativeDriver: false,
-        }).start();
+  //       Animated.timing(progressAnim, {
+  //         toValue: currentProgress / 100,
+  //         duration: step.duration,
+  //         useNativeDriver: false,
+  //       }).start();
 
-        // Complete animation
-        if (index === steps.length - 1) {
-          setTimeout(() => {
-            onComplete?.();
-          }, step.duration + 500);
-        }
-      }, totalTime);
+  //       // Complete animation
+  //       if (index === steps.length - 1) {
+  //         setTimeout(() => {
+  //           onComplete?.();
+  //         }, step.duration + 500);
+  //       }
+  //     }, totalTime);
 
-      totalTime += step.duration;
-    });
-  };
+  //     totalTime += step.duration;
+  //   });
+  // };
 
   const resetAnimation = () => {
     fadeAnim.setValue(0);
@@ -189,7 +239,7 @@ export const ScanningAnimation: React.FC<ScanningAnimationProps> = ({
     pulseAnim.setValue(1);
     scanLineAnim.setValue(0);
     setCurrentStep(0);
-    setProgress(0);
+    setProgressState(0);
   };
 
   const spin = rotateAnim.interpolate({
@@ -202,8 +252,19 @@ export const ScanningAnimation: React.FC<ScanningAnimationProps> = ({
     outputRange: [-150, 150],
   });
 
+  // Ensure animation completes and then calls onComplete
+  useEffect(() => {
+    if (progressState >= 95 && !isAnalyzing) {
+      // If progress reached near completion and analysis is done
+      setTimeout(() => {
+        onComplete?.();
+      }, 500); // Small delay before calling complete
+    }
+  }, [progressState, isAnalyzing, onComplete]);
+
   if (!visible) return null;
 
+  // Use the currentStep state determined by the new useEffect
   const CurrentIcon = steps[currentStep]?.icon || Zap;
   const currentColor = steps[currentStep]?.color || colors.emerald500;
 
@@ -304,12 +365,12 @@ export const ScanningAnimation: React.FC<ScanningAnimationProps> = ({
           <View style={styles.progressContainer}>
             <View style={styles.progressHeader}>
               <Text style={[styles.progressLabel, { color: colors.text }]}>
-                {progress < 100
+                {progressState < 95 // Changed threshold to align with holding state
                   ? t("camera.scanAnimation.progress")
                   : t("camera.scanAnimation.complete")}
               </Text>
               <Text style={[styles.progressPercent, { color: currentColor }]}>
-                {Math.round(progress)}%
+                {Math.round(progressState)}%
               </Text>
             </View>
 
@@ -574,5 +635,23 @@ const styles = StyleSheet.create({
     height: 200,
     borderRadius: 100,
     zIndex: -1,
+  },
+  scanningText: {
+    color: "#FFFFFF",
+    fontSize: 18,
+    fontWeight: "600",
+    textAlign: "center",
+    marginTop: 20,
+  },
+  progressFill: {
+    height: "100%",
+    backgroundColor: "#10B981",
+    borderRadius: 4,
+  },
+  progressText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "500",
+    marginTop: 8,
   },
 });

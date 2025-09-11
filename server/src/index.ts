@@ -19,7 +19,6 @@ import recommendedMenuRoutes  from "./routes/recommendedMenu";
 import { calendarRoutes } from "./routes/calendar";
 import statisticsRoutes from "./routes/statistics";
 import foodScannerRoutes from "./routes/foodScanner";
-import { healthRoutes } from "./routes/health";
 import { CronJobService } from "./services/cronJobs";
 import { UserCleanupService } from "./services/userCleanup";
 import "./services/cron";

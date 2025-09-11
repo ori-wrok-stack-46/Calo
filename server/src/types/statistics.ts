@@ -1,3 +1,5 @@
+import { NutritionGoals } from "../services/statistics";
+
 export interface NutritionStatistics {
   average_calories_daily: number;
   calorie_goal_achievement_percent: number;
@@ -63,4 +65,25 @@ export interface DailyBreakdown {
   energy?: string;
   satiety?: string;
   meal_quality?: number;
+}
+
+interface PeriodStatistics {
+  period_type: string;
+  start_date: string;
+  end_date: string;
+  total_days: number;
+  goals: NutritionGoals;
+  consumption: NutritionGoals;
+  progress_percentages: NutritionGoals;
+  daily_averages: NutritionGoals;
+  meal_count: number;
+  completion_rate: number;
+  averageFluids?: number;
+  averageCalories?: number;
+  averageProtein?: number;
+  averageCarbs?: number;
+  averageFats?: number;
+  averageFiber?: number;
+  averageSugar?: number;
+  averageSodium?: number;
 }

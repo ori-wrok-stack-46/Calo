@@ -3,7 +3,9 @@ import { AnalysisStatus } from "@prisma/client";
 export function mapMealDataToPrismaFields(
   mealData: any,
   user_id: string,
-  imageBase64?: string
+  imageBase64?: string,
+  mealType?: string,
+  mealPeriod?: string
 ) {
   // Defensive parsing helpers
   const parseNumber = (value: any) =>
@@ -107,6 +109,8 @@ export function mapMealDataToPrismaFields(
     upload_time: new Date(),
     analysis_status: AnalysisStatus.COMPLETED,
     meal_name: mealData.meal_name ?? mealData.name ?? "Unknown meal",
+    meal_type: mealType || "OTHER",
+    meal_period: mealPeriod || "other",
 
     // Macronutrients
     calories,

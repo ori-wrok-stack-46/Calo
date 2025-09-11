@@ -34,7 +34,6 @@ export interface StatisticsData {
   averageSodium: number;
   averageFluids: number;
   achievements: any[];
-  badges: any[];
   dailyBreakdown: any[];
   successfulDays: number;
   averageCompletion: number;
@@ -56,33 +55,189 @@ interface UserStats {
   aiRequestsCount: number;
 }
 
+export interface NutritionGoals {
+  calories: number;
+  protein_g: number;
+  carbs_g: number;
+  fats_g: number;
+  fiber_g: number;
+  sodium_mg: number;
+  sugar_g: number;
+  water_ml: number;
+}
+
+export interface PeriodStatistics {
+  period_type: string;
+  start_date: string;
+  end_date: string;
+  total_days: number;
+  goals: NutritionGoals;
+  consumption: NutritionGoals;
+  progress_percentages: NutritionGoals;
+  daily_averages: NutritionGoals;
+  meal_count: number;
+  completion_rate: number;
+  averageFluids?: number;
+  averageCalories?: number;
+  averageProtein?: number;
+  averageCarbs?: number;
+  averageFats?: number;
+  averageFiber?: number;
+  averageSugar?: number;
+  averageSodium?: number;
+}
+
 export class StatisticsService {
+  static async getUserStatistics(user_id: string) {
+    try {
+      console.log("📊 Getting user statistics for:", user_id);
+
+      // Get user with gamification data
+      const user = await prisma.user.findUnique({
+        where: { user_id },
+        select: {
+          level: true,
+          total_points: true,
+          current_xp: true,
+          current_streak: true,
+          best_streak: true,
+          total_complete_days: true,
+          last_complete_date: true,
+        },
+      });
+
+      if (!user) {
+        console.log("❌ User not found, creating default stats");
+        // Return default values if user not found
+        return {
+          user: {
+            level: 1,
+            total_points: 0,
+            current_xp: 0,
+            current_streak: 0,
+            best_streak: 0,
+            total_complete_days: 0,
+            last_complete_date: null,
+          },
+          meals: {
+            total_meals: 0,
+            total_calories: 0,
+            total_protein: 0,
+            total_carbs: 0,
+            total_fats: 0,
+          },
+          achievements: [],
+        };
+      }
+
+      // Get meal statistics
+      const mealStats = await prisma.meal.aggregate({
+        where: { user_id },
+        _count: { meal_id: true },
+        _sum: {
+          calories: true,
+          protein_g: true,
+          carbs_g: true,
+          fats_g: true,
+        },
+      });
+
+      // Get recent achievements
+      const recentAchievements = await prisma.userAchievement.findMany({
+        where: {
+          user_id,
+          unlocked: true,
+        },
+        include: {
+          achievement: true,
+        },
+        orderBy: {
+          unlocked_date: "desc",
+        },
+        take: 5,
+      });
+
+      console.log("✅ User statistics retrieved successfully");
+
+      return {
+        user: {
+          level: user.level || 1,
+          total_points: user.total_points || 0,
+          current_xp: user.current_xp || 0,
+          current_streak: user.current_streak || 0,
+          best_streak: user.best_streak || 0,
+          total_complete_days: user.total_complete_days || 0,
+          last_complete_date: user.last_complete_date,
+        },
+        meals: {
+          total_meals: mealStats._count.meal_id || 0,
+          total_calories: Math.round(mealStats._sum.calories || 0),
+          total_protein: Math.round(mealStats._sum.protein_g || 0),
+          total_carbs: Math.round(mealStats._sum.carbs_g || 0),
+          total_fats: Math.round(mealStats._sum.fats_g || 0),
+        },
+        achievements: recentAchievements.map((ua) => ({
+          id: ua.achievement.id,
+          title: ua.achievement.title,
+          description: ua.achievement.description,
+          icon: ua.achievement.icon,
+          unlocked_date: ua.unlocked_date,
+          points_awarded: ua.achievement.points_awarded,
+        })),
+      };
+    } catch (error) {
+      console.error("💥 Error getting user statistics:", error);
+      throw error;
+    }
+  }
+
   static async getNutritionStatistics(
     userId: string,
-    period: "today" | "week" | "month" = "week"
-  ): Promise<{ success: boolean; data: StatisticsData }> {
+    period: "today" | "week" | "month" | "custom" = "week",
+    startDate?: Date,
+    endDate?: Date
+  ): Promise<{ success: boolean; data: StatisticsData | PeriodStatistics }> {
     try {
       console.log(
         `📊 Getting statistics for user: ${userId}, period: ${period}`
       );
 
       const now = new Date();
-      let startDate: Date;
+      let definedStartDate: Date;
+      let definedEndDate: Date;
 
-      switch (period) {
-        case "today":
-          startDate = new Date(
-            now.getFullYear(),
-            now.getMonth(),
-            now.getDate()
-          );
-          break;
-        case "week":
-          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-          break;
-        case "month":
-          startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-          break;
+      if (period === "custom" && startDate && endDate) {
+        definedStartDate = new Date(startDate);
+        definedEndDate = new Date(endDate);
+      } else {
+        switch (period) {
+          case "today":
+            definedStartDate = new Date(
+              now.getFullYear(),
+              now.getMonth(),
+              now.getDate()
+            );
+            definedEndDate = now;
+            break;
+          case "week":
+            definedEndDate = now;
+            definedStartDate = new Date(
+              now.getTime() - 7 * 24 * 60 * 60 * 1000
+            );
+            break;
+          case "month":
+            definedEndDate = now;
+            definedStartDate = new Date(
+              now.getTime() - 30 * 24 * 60 * 60 * 1000
+            );
+            break;
+          default: // Default to week if period is invalid or not provided
+            definedEndDate = now;
+            definedStartDate = new Date(
+              now.getTime() - 7 * 24 * 60 * 60 * 1000
+            );
+            break;
+        }
       }
 
       // Execute all database queries in parallel for better performance
@@ -100,8 +255,8 @@ export class StatisticsService {
           where: {
             user_id: userId,
             created_at: {
-              gte: startDate,
-              lte: now,
+              gte: definedStartDate,
+              lte: definedEndDate,
             },
           },
           select: {
@@ -140,8 +295,8 @@ export class StatisticsService {
           where: {
             user_id: userId,
             date: {
-              gte: startDate,
-              lte: now,
+              gte: definedStartDate,
+              lte: definedEndDate,
             },
           },
           orderBy: {
@@ -154,8 +309,8 @@ export class StatisticsService {
           where: {
             user_id: userId,
             date: {
-              gte: startDate,
-              lte: now,
+              gte: definedStartDate,
+              lte: definedEndDate,
             },
           },
           select: {
@@ -249,8 +404,8 @@ export class StatisticsService {
           meals,
           dailyGoals,
           waterIntakes,
-          startDate,
-          now
+          definedStartDate,
+          definedEndDate
         ),
         Promise.resolve(this.calculateAverages(meals)),
         this.calculateStreaksOptimized(userId, userStats, meals, waterIntakes),
@@ -262,10 +417,78 @@ export class StatisticsService {
         this.calculateWellbeingMetricsOptimized(
           meals,
           waterIntakes,
-          startDate,
-          now
+          definedStartDate,
+          definedEndDate
         ),
       ]);
+
+      // Always calculate daily goals sum for the period
+      const userGoals = await this.getUserDailyGoals(userId);
+      const periodConsumption = await this.getPeriodConsumption(
+        userId,
+        definedStartDate,
+        definedEndDate
+      );
+      const totalDays = Math.max(
+        1,
+        Math.ceil(
+          (definedEndDate.getTime() - definedStartDate.getTime()) /
+            (1000 * 60 * 60 * 24)
+        )
+      );
+
+      // Calculate period goals (sum of daily goals for the period)
+      const periodGoals: NutritionGoals = {
+        calories: userGoals.calories * totalDays,
+        protein_g: userGoals.protein_g * totalDays,
+        carbs_g: userGoals.carbs_g * totalDays,
+        fats_g: userGoals.fats_g * totalDays,
+        fiber_g: userGoals.fiber_g * totalDays,
+        sodium_mg: userGoals.sodium_mg * totalDays,
+        sugar_g: userGoals.sugar_g * totalDays,
+        water_ml: userGoals.water_ml * totalDays,
+      };
+
+      if (
+        period === "custom" ||
+        period === "today" ||
+        period === "week" ||
+        period === "month"
+      ) {
+        const statisticsData: PeriodStatistics = {
+          period_type: period,
+          start_date: definedStartDate.toISOString().split("T")[0],
+          end_date: definedEndDate.toISOString().split("T")[0],
+          total_days: totalDays,
+          goals: periodGoals,
+          consumption: periodConsumption,
+          progress_percentages: this.calculateProgressPercentages(
+            periodGoals,
+            periodConsumption
+          ),
+          daily_averages: averages,
+          meal_count: await this.getMealCountForPeriod(
+            userId,
+            definedStartDate,
+            definedEndDate
+          ),
+          completion_rate: Math.round(
+            (periodConsumption.calories / periodGoals.calories) * 100
+          ),
+          averageFluids: averages.fluids,
+          averageCalories: averages.calories,
+          averageProtein: averages.protein,
+          averageCarbs: averages.carbs,
+          averageFats: averages.fats,
+          averageFiber: averages.fiber,
+          averageSugar: averages.sugar,
+          averageSodium: averages.sodium,
+        };
+        console.log(
+          `✅ Period statistics calculated successfully for user: ${userId}`
+        );
+        return { success: true, data: statisticsData };
+      }
 
       const statisticsData: StatisticsData = {
         level: user?.level || 1,
@@ -276,25 +499,26 @@ export class StatisticsService {
         perfectDays: wellbeingMetrics.perfectDays,
         dailyGoalDays: dailyGoals.length,
         totalDays: Math.ceil(
-          (now.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)
+          (definedEndDate.getTime() - definedStartDate.getTime()) /
+            (1000 * 60 * 60 * 24)
         ),
-        averageCalories: averages.calories,
-        averageProtein: averages.protein,
-        averageCarbs: averages.carbs,
-        averageFats: averages.fats,
-        averageFiber: averages.fiber,
-        averageSugar: averages.sugar,
-        averageSodium: averages.sodium,
-        averageFluids: averages.fluids,
-        achievements: achievementData,
-        dailyBreakdown,
-        successfulDays: streaks.successfulDays,
-        averageCompletion: streaks.averageCompletion,
-        bestStreak: userStats.bestStreak,
-        happyDays: wellbeingMetrics.happyDays,
-        highEnergyDays: wellbeingMetrics.highEnergyDays,
-        satisfiedDays: wellbeingMetrics.satisfiedDays,
-        averageMealQuality: wellbeingMetrics.averageMealQuality,
+        averageCalories: averages.calories || 0,
+        averageProtein: averages.protein || 0,
+        averageCarbs: averages.carbs || 0,
+        averageFats: averages.fats || 0,
+        averageFiber: averages.fiber || 0,
+        averageSugar: averages.sugar || 0,
+        averageSodium: averages.sodium || 0,
+        averageFluids: averages.fluids || 0,
+        achievements: achievementData || [],
+        dailyBreakdown: dailyBreakdown || [],
+        successfulDays: streaks.successfulDays || 0,
+        averageCompletion: streaks.averageCompletion || 0,
+        bestStreak: userStats.bestStreak || 0,
+        happyDays: wellbeingMetrics.happyDays || 0,
+        highEnergyDays: wellbeingMetrics.highEnergyDays || 0,
+        satisfiedDays: wellbeingMetrics.satisfiedDays || 0,
+        averageMealQuality: wellbeingMetrics.averageMealQuality || 3,
       };
 
       console.log(`✅ Statistics calculated successfully for user: ${userId}`);
@@ -791,6 +1015,7 @@ export class StatisticsService {
     };
   }
 
+  // This is the old calculateStreaks function, which is replaced by calculateStreaksOptimized
   private static async calculateStreaks(
     userId: string,
     userStats: UserStats
@@ -888,6 +1113,7 @@ export class StatisticsService {
     }
   }
 
+  // This is the old calculateWellbeingMetrics function, which is replaced by calculateWellbeingMetricsOptimized
   private static async calculateWellbeingMetrics(
     userId: string,
     startDate: Date,
@@ -1075,6 +1301,231 @@ export class StatisticsService {
       throw error;
     }
   }
-}
 
-// Remove the basicAchievements array since we're using the database
+  // Helper function to calculate progress percentages for PeriodStatistics
+  private static calculateProgressPercentages(
+    userGoals: NutritionGoals,
+    consumption: NutritionGoals
+  ): NutritionGoals {
+    const progressPercentages: NutritionGoals = {
+      calories:
+        userGoals.calories > 0
+          ? Math.round((consumption.calories / userGoals.calories) * 100)
+          : 0,
+      protein_g:
+        userGoals.protein_g > 0
+          ? Math.round((consumption.protein_g / userGoals.protein_g) * 100)
+          : 0,
+      carbs_g:
+        userGoals.carbs_g > 0
+          ? Math.round((consumption.carbs_g / userGoals.carbs_g) * 100)
+          : 0,
+      fats_g:
+        userGoals.fats_g > 0
+          ? Math.round((consumption.fats_g / userGoals.fats_g) * 100)
+          : 0,
+      fiber_g:
+        userGoals.fiber_g > 0
+          ? Math.round((consumption.fiber_g / userGoals.fiber_g) * 100)
+          : 0,
+      sodium_mg:
+        userGoals.sodium_mg > 0
+          ? Math.round((consumption.sodium_mg / userGoals.sodium_mg) * 100)
+          : 0,
+      sugar_g:
+        userGoals.sugar_g > 0
+          ? Math.round((consumption.sugar_g / userGoals.sugar_g) * 100)
+          : 0,
+      water_ml:
+        userGoals.water_ml > 0
+          ? Math.round((consumption.water_ml / userGoals.water_ml) * 100)
+          : 0,
+    };
+    return progressPercentages;
+  }
+
+  // Helper function to get user's daily goals
+  static async getUserDailyGoals(userId: string): Promise<NutritionGoals> {
+    try {
+      // Try to get user-specific goals first
+      const goals = await prisma.dailyGoal.findFirst({
+        where: { user_id: userId },
+        orderBy: { created_at: "desc" },
+      });
+
+      if (goals) {
+        return {
+          calories: Number(goals.calories) || 2000,
+          protein_g: Number(goals.protein_g) || 150,
+          carbs_g: Number(goals.carbs_g) || 250,
+          fats_g: Number(goals.fats_g) || 67,
+          fiber_g: Number(goals.fiber_g) || 25,
+          sodium_mg: Number(goals.sodium_mg) || 2300,
+          sugar_g: Number(goals.sugar_g) || 50,
+          water_ml: Number(goals.water_ml) || 2500,
+        };
+      }
+
+      // Try to get goals from questionnaire if no daily goals exist
+      const questionnaire = await prisma.userQuestionnaire.findFirst({
+        where: { user_id: userId },
+        orderBy: { date_completed: "desc" },
+      });
+
+      if (questionnaire) {
+        return {
+          calories: Number(questionnaire.daily_calories) || 2000,
+          protein_g: Number(questionnaire.daily_protein) || 150,
+          carbs_g: Number(questionnaire.daily_carbs) || 250,
+          fats_g: Number(questionnaire.daily_fats) || 67,
+          fiber_g: Number(questionnaire.daily_fiber) || 25,
+          sodium_mg: 2300,
+          sugar_g: 50,
+          water_ml: Number(questionnaire.daily_water) || 2500,
+        };
+      }
+
+      // Return defaults if no data found
+      return {
+        calories: 2000,
+        protein_g: 150,
+        carbs_g: 250,
+        fats_g: 67,
+        fiber_g: 25,
+        sodium_mg: 2300,
+        sugar_g: 50,
+        water_ml: 2500,
+      };
+    } catch (error) {
+      console.error("Error getting user daily goals:", error);
+      // Return defaults on error to prevent complete failure
+      return {
+        calories: 2000,
+        protein_g: 150,
+        carbs_g: 250,
+        fats_g: 67,
+        fiber_g: 25,
+        sodium_mg: 2300,
+        sugar_g: 50,
+        water_ml: 2500,
+      };
+    }
+  }
+
+  // Helper function to get consumption for a given period
+  static async getPeriodConsumption(
+    userId: string,
+    startDate: Date,
+    endDate: Date
+  ): Promise<NutritionGoals> {
+    try {
+      // Get meals for the period
+      const meals = await prisma.meal.findMany({
+        where: {
+          user_id: userId,
+          created_at: {
+            gte: startDate,
+            // Use 'lt' for endDate to exclude the end date itself if it represents a full day
+            lt: endDate,
+          },
+        },
+        select: {
+          calories: true,
+          protein_g: true,
+          carbs_g: true,
+          fats_g: true,
+          fiber_g: true,
+          sugar_g: true,
+          sodium_mg: true,
+        },
+      });
+
+      // Get water intake for the period
+      const waterIntakes = await prisma.waterIntake.findMany({
+        where: {
+          user_id: userId,
+          date: {
+            gte: startDate,
+            lt: endDate, // Use 'lt' for endDate
+          },
+        },
+        select: {
+          milliliters_consumed: true,
+        },
+      });
+
+      // Sum up all consumption from meals
+      const consumption = meals.reduce(
+        (acc, meal) => ({
+          calories: acc.calories + (meal.calories || 0),
+          protein_g: acc.protein_g + (meal.protein_g || 0),
+          carbs_g: acc.carbs_g + (meal.carbs_g || 0),
+          fats_g: acc.fats_g + (meal.fats_g || 0),
+          fiber_g: acc.fiber_g + (meal.fiber_g || 0),
+          sugar_g: acc.sugar_g + (meal.sugar_g || 0),
+          sodium_mg: acc.sodium_mg + (meal.sodium_mg || 0),
+          water_ml: acc.water_ml, // Initialize water_ml to 0 here
+        }),
+        {
+          calories: 0,
+          protein_g: 0,
+          carbs_g: 0,
+          fats_g: 0,
+          fiber_g: 0,
+          sugar_g: 0,
+          sodium_mg: 0,
+          water_ml: 0, // Ensure water_ml is initialized
+        }
+      );
+
+      // Add water consumption
+      consumption.water_ml = waterIntakes.reduce(
+        (total, intake) => total + (intake.milliliters_consumed || 0),
+        0
+      );
+
+      return consumption;
+    } catch (error) {
+      console.error("Error getting period consumption:", error);
+      throw error;
+    }
+  }
+
+  // Helper function to get the total number of meals within a period
+  static async getMealCountForPeriod(
+    userId: string,
+    startDate: Date,
+    endDate: Date
+  ): Promise<number> {
+    try {
+      const count = await prisma.meal.count({
+        where: {
+          user_id: userId,
+          created_at: {
+            gte: startDate,
+            lt: endDate, // Use 'lt' for endDate
+          },
+        },
+      });
+      return count;
+    } catch (error) {
+      console.error("Error getting meal count:", error);
+      return 0;
+    }
+  }
+
+  // This is the old getLegacyStatistics function, it seems to be a placeholder or for backward compatibility
+  static async getLegacyStatistics(userId: string): Promise<any> {
+    try {
+      console.log("📊 Getting legacy statistics for backward compatibility");
+
+      return {
+        totalDays: 0,
+        totalMeals: 0,
+      };
+    } catch (error) {
+      console.error("Error getting legacy statistics:", error);
+      throw error;
+    }
+  }
+}

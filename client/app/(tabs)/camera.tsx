@@ -45,6 +45,11 @@ import {
   HealthInsights,
   ScanningAnimation,
 } from "@/components/camera";
+import {
+  MealTypeSelector,
+  MealType,
+  MEAL_TYPES,
+} from "@/components/camera/MealTypeSelector";
 
 const { width: screenWidth } = Dimensions.get("window");
 
@@ -129,6 +134,11 @@ export default function CameraScreen() {
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [showResults, setShowResults] = useState(false);
   const [showScanAnimation, setShowScanAnimation] = useState(false);
+  const [selectedMealType, setSelectedMealType] = useState<MealType | null>(
+    null
+  );
+  const [showMealTypeSelector, setShowMealTypeSelector] = useState(true);
+  const [analysisProgress, setAnalysisProgress] = useState(0);
 
   // Animation refs
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -223,6 +233,14 @@ export default function CameraScreen() {
 
   // Image selection handlers
   const handleTakePhoto = async () => {
+    if (!selectedMealType) {
+      Alert.alert(
+        "Select Meal Type",
+        "Please select a meal type before taking a photo"
+      );
+      return;
+    }
+
     if (hasPermission === null) {
       Alert.alert(
         t("common.error"),
@@ -252,6 +270,8 @@ export default function CameraScreen() {
         setSelectedImage(imageUri);
         resetAnalysisState();
         setShowResults(false);
+        // Hide meal type selector once an image is selected
+        setShowMealTypeSelector(false);
       }
     } catch (error) {
       console.error("Camera error:", error);
@@ -260,6 +280,13 @@ export default function CameraScreen() {
   };
 
   const handleSelectFromGallery = async () => {
+    if (!selectedMealType) {
+      Alert.alert(
+        "Select Meal Type",
+        "Please select a meal type before selecting from gallery"
+      );
+      return;
+    }
     try {
       const { status } =
         await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -284,6 +311,8 @@ export default function CameraScreen() {
         setSelectedImage(imageUri);
         resetAnalysisState();
         setShowResults(false);
+        // Hide meal type selector once an image is selected
+        setShowMealTypeSelector(false);
       }
     } catch (error) {
       console.error("Gallery error:", error);
@@ -312,13 +341,24 @@ export default function CameraScreen() {
       Alert.alert(t("common.error"), "Please select an image first");
       return;
     }
+    if (!selectedMealType) {
+      Alert.alert(t("common.error"), "Please select a meal type first");
+      return;
+    }
 
-    // Show scanning animation
+    // Show scanning animation with progress
     setShowScanAnimation(true);
+    setAnalysisProgress(0);
+
+    // Simulate progress during analysis
+    const progressInterval = setInterval(() => {
+      setAnalysisProgress((prev) => Math.min(prev + 10, 90));
+    }, 1000);
 
     try {
       const base64Image = await processImage(selectedImage);
       if (!base64Image) {
+        clearInterval(progressInterval);
         setShowScanAnimation(false);
         Alert.alert(t("common.error"), "Could not process image.");
         return;
@@ -329,43 +369,61 @@ export default function CameraScreen() {
         language: isRTL ? "hebrew" : "english",
         includeDetailedIngredients: true,
         includeNutritionBreakdown: true,
-        updateText: "",
+        updateText:
+          userComment.trim() || "Please provide detailed nutritional analysis.",
+        mealType: selectedMealType.id,
+        mealPeriod: selectedMealType.period,
       };
 
-      analysisParams.updateText =
-        (userComment.trim()
-          ? userComment.trim() +
-            " " +
-            "Please provide a comprehensive list of ALL ingredients with detailed nutritional information."
-          : "Please identify ALL ingredients in this meal with complete nutritional information for each ingredient including calories, protein, carbs, fat, fiber, sugar, and sodium content.") ||
-        "";
+      console.log("🚀 Starting analysis with params:", {
+        hasImage: !!analysisParams.imageBase64,
+        language: analysisParams.language,
+        mealType: analysisParams.mealType,
+      });
 
       const result = await dispatch(analyzeMeal(analysisParams));
 
+      clearInterval(progressInterval);
+      setAnalysisProgress(100);
+
       if (analyzeMeal.fulfilled.match(result)) {
-        if (result.payload?.analysis?.ingredients) {
-          console.log(
-            "🥗 Ingredients found:",
-            result.payload.analysis.ingredients.length
-          );
-        }
-        // Animation will be hidden by onScanComplete
-        scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+        console.log("✅ Analysis successful:", result.payload);
+        setTimeout(() => {
+          setShowScanAnimation(false);
+          scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+        }, 500);
       } else {
         setShowScanAnimation(false);
+        const errorMessage =
+          result.payload ||
+          "Failed to analyze meal. Please check your connection and try again.";
+        console.error("❌ Analysis failed:", errorMessage);
         Alert.alert(
           t("camera.analysis_failed"),
-          typeof result.payload === "string"
-            ? result.payload
-            : "Failed to analyze meal. Please try again."
+          typeof errorMessage === "string"
+            ? errorMessage
+            : "Analysis failed. Please try again."
         );
       }
     } catch (error) {
+      clearInterval(progressInterval);
       setShowScanAnimation(false);
-      Alert.alert(
-        t("camera.analysis_failed"),
-        error instanceof Error ? error.message : "Analysis failed"
-      );
+      console.error("💥 Analysis error:", error);
+
+      let errorMessage = "Analysis failed";
+      if (error instanceof Error) {
+        if (error.message.includes("Network")) {
+          errorMessage =
+            "Network error. Please check your connection and try again.";
+        } else if (error.message.includes("timeout")) {
+          errorMessage =
+            "Analysis timed out. Please try again with a clearer image.";
+        } else {
+          errorMessage = error.message;
+        }
+      }
+
+      Alert.alert(t("camera.analysis_failed"), errorMessage);
     }
   };
 
@@ -377,7 +435,11 @@ export default function CameraScreen() {
   // Re-analysis after edits
   const handleReAnalyze = async () => {
     if (!selectedImage || !hasBeenAnalyzed) {
-      Alert.alert(t("common.error") || "Error", "No meal to re-analyze");
+      Alert.alert(t("common.error"), "No meal to re-analyze");
+      return;
+    }
+    if (!selectedMealType) {
+      Alert.alert(t("common.error"), "Please select a meal type first");
       return;
     }
 
@@ -458,6 +520,10 @@ export default function CameraScreen() {
       Alert.alert(t("common.error"), "No analysis data to save");
       return;
     }
+    if (!selectedMealType) {
+      Alert.alert(t("common.error"), "Please select a meal type to save");
+      return;
+    }
 
     try {
       const result = await dispatch(postMeal());
@@ -472,6 +538,9 @@ export default function CameraScreen() {
               resetAnalysisState();
               setSelectedImage(null);
               setShowResults(false);
+              // Reset meal type selection after saving
+              setSelectedMealType(null);
+              setShowMealTypeSelector(true);
             },
           },
         ]);
@@ -501,6 +570,9 @@ export default function CameraScreen() {
     setSelectedImage(null);
     setShowDeleteConfirm(false);
     setShowResults(false);
+    // Reset meal type selection after discarding
+    setSelectedMealType(null);
+    setShowMealTypeSelector(true);
     Alert.alert(t("common.success"), "Meal analysis discarded successfully");
   };
 
@@ -1043,45 +1115,99 @@ export default function CameraScreen() {
         backgroundColor={colors.background}
       />
 
-      <ScrollView
-        ref={scrollViewRef}
-        style={styles.scrollView}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {!selectedImage ? (
-          <ImageSelector
-            onTakePhoto={handleTakePhoto}
-            onSelectFromGallery={handleSelectFromGallery}
-          />
-        ) : (
-          <>
-            <SelectedImage
-              imageUri={selectedImage}
-              userComment={userComment}
-              isAnalyzing={isAnalyzing}
-              hasBeenAnalyzed={hasBeenAnalyzed}
-              onRemoveImage={() => {
-                resetAnalysisState();
-                setSelectedImage(null);
-                setShowResults(false);
-              }}
-              onRetakePhoto={handleTakePhoto}
-              onAnalyze={handleAnalyzeImage}
-              onCommentChange={setUserComment}
+      {/* Show meal type selector first, before any camera interaction */}
+      {!selectedMealType ? (
+        <View style={styles.mealTypeSelectionScreen}>
+          <View style={styles.header}>
+            <Text style={[styles.title, { color: colors.text }]}>
+              {t("camera.selectMealType")}
+            </Text>
+          </View>
+          <MealTypeSelector onSelect={setSelectedMealType} />
+        </View>
+      ) : !selectedImage ? (
+        <ScrollView
+          ref={scrollViewRef}
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.imageSelectionContainer}>
+            <View style={styles.selectedMealTypeBanner}>
+              <Text
+                style={[
+                  styles.selectedMealTypeBannerText,
+                  { color: colors.text },
+                ]}
+              >
+                📸 Ready to capture your {selectedMealType.label.toLowerCase()}
+              </Text>
+              <TouchableOpacity
+                onPress={() => {
+                  setSelectedMealType(null);
+                }}
+                style={styles.changeMealTypeButton}
+              >
+                <Text style={styles.changeMealTypeButtonText}>Change</Text>
+              </TouchableOpacity>
+            </View>
+            <ImageSelector
+              onTakePhoto={handleTakePhoto}
+              onSelectFromGallery={handleSelectFromGallery}
             />
-            {showResults && analysisData && renderAnalysisResults()}
-          </>
-        )}
-      </ScrollView>
+          </View>
+        </ScrollView>
+      ) : (
+        <ScrollView
+          ref={scrollViewRef}
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <SelectedImage
+            imageUri={selectedImage}
+            userComment={userComment}
+            isAnalyzing={isAnalyzing}
+            hasBeenAnalyzed={hasBeenAnalyzed}
+            onRemoveImage={() => {
+              resetAnalysisState();
+              setSelectedImage(null);
+              setShowResults(false);
+              setSelectedMealType(null);
+              setShowMealTypeSelector(true);
+            }}
+            onRetakePhoto={handleTakePhoto}
+            onAnalyze={handleAnalyzeImage}
+            onCommentChange={setUserComment}
+          />
+          {showResults && analysisData && renderAnalysisResults()}
+        </ScrollView>
+      )}
+
+      {/* Show selected meal type */}
+      {selectedMealType && !showMealTypeSelector && !selectedImage && (
+        <View style={styles.selectedMealType}>
+          <Text style={styles.selectedMealText}>
+            Selected: {selectedMealType.label}
+          </Text>
+          <TouchableOpacity
+            onPress={() => setShowMealTypeSelector(true)}
+            style={styles.changeMealType}
+          >
+            <Text style={styles.changeMealTypeText}>Change</Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       {renderEditModal()}
       {renderDeleteConfirmModal()}
 
-      {/* Scanning Animation */}
+      {/* Enhanced Scanning Animation */}
       <ScanningAnimation
         visible={showScanAnimation}
         onComplete={handleScanComplete}
+        progress={analysisProgress}
+        isAnalyzing={false}
       />
     </SafeAreaView>
   );
@@ -1146,6 +1272,23 @@ const processImage = async (imageUri: string): Promise<string | null> => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  mealTypeSelectionScreen: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  header: {
+    width: "100%",
+    paddingVertical: 20,
+    marginBottom: 24,
+    alignItems: "center",
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: "700",
+    letterSpacing: 0.5,
   },
   scrollView: {
     flex: 1,
@@ -1348,5 +1491,64 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
     color: "#FFFFFF",
+  },
+  selectedMealType: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: "#F0FDFA",
+    padding: 16,
+    marginHorizontal: 20,
+    marginBottom: 20,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#14B8A6",
+  },
+  selectedMealText: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#0F172A",
+  },
+  changeMealType: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: "#14B8A6",
+    borderRadius: 8,
+  },
+  changeMealTypeText: {
+    color: "#ffffff",
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  imageSelectionContainer: {
+    flex: 1,
+  },
+  selectedMealTypeBanner: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: "#E6FFFA",
+    padding: 16,
+    marginHorizontal: 20,
+    marginBottom: 20,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#14B8A6",
+  },
+  selectedMealTypeBannerText: {
+    fontSize: 16,
+    fontWeight: "600",
+    flex: 1,
+  },
+  changeMealTypeButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: "#14B8A6",
+    borderRadius: 8,
+  },
+  changeMealTypeButtonText: {
+    color: "#ffffff",
+    fontSize: 14,
+    fontWeight: "600",
   },
 });

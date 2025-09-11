@@ -133,6 +133,43 @@ const NUTRITION_ICONS = {
   },
 };
 
+// Helper function to get meal type background color
+const getMealTypeBackgroundColor = (mealPeriod: string): string => {
+  switch (mealPeriod) {
+    case "breakfast":
+      return "#F0FDFA"; // Light teal
+    case "lunch":
+      return "#E6FFFA"; // Mid teal
+    case "dinner":
+      return "#CCFBF1"; // Dark teal
+    case "snack":
+      return "#F7FFFE"; // Super light teal
+    case "late_night":
+      return "#ECFDF5"; // Light green teal
+    case "other":
+    default:
+      return "#FEF3E2"; // Light orange for "other"
+  }
+};
+
+const getMealTypeBorderColor = (mealPeriod: string): string => {
+  switch (mealPeriod) {
+    case "breakfast":
+      return "#14B8A6";
+    case "lunch":
+      return "#0891B2";
+    case "dinner":
+      return "#0E7490";
+    case "snack":
+      return "#5EEAD4";
+    case "late_night":
+      return "#2DD4BF";
+    case "other":
+    default:
+      return "#6B7280";
+  }
+};
+
 // Enhanced Swipeable Meal Card Component
 const SwipeableMealCard = ({
   meal,
@@ -410,7 +447,9 @@ const SwipeableMealCard = ({
           style={[
             styles.modernMealCard,
             {
-              backgroundColor: colors.card,
+              backgroundColor: getMealTypeBackgroundColor(
+                meal.meal_period || "other"
+              ),
               borderColor: colors.border,
               shadowColor: colors.shadow,
             },
@@ -455,12 +494,26 @@ const SwipeableMealCard = ({
             </View>
 
             <View style={styles.cardInfo}>
-              <Text
-                style={[styles.mealTitle, { color: colors.text }]}
-                numberOfLines={1}
-              >
-                {meal.meal_name || meal.name || t("common.unknown_meal")}
-              </Text>
+              <View style={styles.mealHeader}>
+                <Text style={styles.mealName} numberOfLines={1}>
+                  {meal.meal_name || meal.name || t("common.unknown_meal")}
+                </Text>
+                <View
+                  style={[
+                    styles.mealTypeBadge,
+                    {
+                      backgroundColor: getMealTypeBorderColor(
+                        meal.meal_period || "other"
+                      ),
+                    },
+                  ]}
+                >
+                  <Text style={styles.mealTypeText}>
+                    {(meal.meal_period || "other").charAt(0).toUpperCase() +
+                      (meal.meal_period || "other").slice(1)}
+                  </Text>
+                </View>
+              </View>
 
               <View style={styles.mealMetaRow}>
                 <View
@@ -1090,6 +1143,7 @@ export default function HistoryScreen() {
 
     return (
       <SwipeableMealCard
+        key={item.data.meal_id}
         meal={item.data}
         onDelete={handleRemoveMeal}
         onDuplicate={handleDuplicateMeal}
@@ -1101,12 +1155,7 @@ export default function HistoryScreen() {
   };
 
   if (isLoading && !meals.length) {
-    return (
-      <LoadingScreen
-        text={t("history.loading")}
-
-      />
-    );
+    return <LoadingScreen text={t("history.loading")} />;
   }
 
   return (
@@ -1757,11 +1806,31 @@ const styles = StyleSheet.create({
   cardInfo: {
     flex: 1,
   },
-
-  mealTitle: {
-    fontSize: 18,
-    fontWeight: "700",
-    marginBottom: 8,
+  mealHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 4,
+  },
+  mealName: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#0F172A",
+    flex: 1,
+    marginRight: 8,
+  },
+  mealTypeBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    minWidth: 60,
+  },
+  mealTypeText: {
+    color: "#ffffff",
+    fontSize: 10,
+    fontWeight: "600",
+    textAlign: "center",
+    textTransform: "capitalize",
   },
 
   mealMetaRow: {

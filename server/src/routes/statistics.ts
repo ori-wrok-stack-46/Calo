@@ -3,6 +3,7 @@ import { authenticateToken, AuthRequest } from "../middleware/auth"; // Import y
 import { StatisticsService } from "../services/statistics";
 import { z } from "zod";
 import { AchievementService } from "../services/achievements";
+import { AIRecommendationService } from "../services/aiRecommendations";
 
 const router = Router();
 
@@ -33,6 +34,8 @@ router.get(
       let statisticsPeriod: "today" | "week" | "month" | undefined;
 
       if (period === "custom") {
+        // Assuming custom period logic would be handled here or passed differently
+        // For now, defaulting to 'week' if 'custom' is requested without further parameters
         statisticsPeriod = "week";
       } else {
         statisticsPeriod = period;
@@ -76,15 +79,18 @@ router.get(
         });
       }
 
-      if (error === "Statistics request timeout") {
+      if (
+        error instanceof Error &&
+        error.message === "Statistics request timeout"
+      ) {
         return res.status(408).json({
           error: "Request timeout",
           message: "Statistics calculation took too long. Please try again.",
         });
       }
 
-      // Handle database connection/table issues
-      if (error === "P2010") {
+      // Handle database connection/table issues (example for Prisma error code)
+      if (typeof error === "string" && error.includes("P2010")) {
         return res.status(503).json({
           error: "Database schema issue",
           message:
@@ -219,6 +225,37 @@ router.get(
     } catch (error) {
       console.error("Error generating insights:", error);
       res.status(500).json({ error: "Failed to generate insights" });
+    }
+  }
+);
+
+// Get AI-powered recommendations
+router.get(
+  "/recommendations",
+  authenticateToken,
+  async (req: AuthRequest, res: Response) => {
+    const userId = req.user?.user_id?.toString();
+
+    if (!userId) {
+      return res.status(401).json({ error: "User not authenticated" });
+    }
+
+    try {
+      console.log(`💡 Fetching AI recommendations for user: ${userId}`);
+      const recommendations =
+        await AIRecommendationService.getUserRecommendations(userId);
+      res.json(recommendations);
+    } catch (error) {
+      console.error(
+        `❌ Error fetching AI recommendations for user ${userId}:`,
+        error
+      );
+      res
+        .status(500)
+        .json({
+          error: "Failed to fetch AI recommendations",
+          message: error instanceof Error ? error.message : "Unknown error",
+        });
     }
   }
 );

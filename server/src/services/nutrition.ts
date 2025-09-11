@@ -88,6 +88,8 @@ export class NutritionService {
       "🥗 Edited ingredients provided:",
       data.editedIngredients?.length || 0
     );
+    console.log("🍽️ Meal Type:", data.mealType);
+    console.log("🕰️ Meal Period:", data.mealPeriod);
 
     // Perform AI analysis with timeout and proper error handling
     let analysis;
@@ -195,7 +197,9 @@ export class NutritionService {
     const mappedMeal = mapMealDataToPrismaFields(
       analysis,
       user_id,
-      cleanBase64
+      cleanBase64,
+      data.mealType,
+      data.mealPeriod
     );
 
     // Validate that we have meaningful data
@@ -389,7 +393,13 @@ export class NutritionService {
       // Use transaction for better performance and consistency
       const meal = await prisma.$transaction(async (tx) => {
         return await tx.meal.create({
-          data: mapMealDataToPrismaFields(mealData, user_id, imageBase64),
+          data: mapMealDataToPrismaFields(
+            mealData,
+            user_id,
+            imageBase64,
+            mealData.mealType,
+            mealData.mealPeriod
+          ),
         });
       });
 
@@ -416,6 +426,48 @@ export class NutritionService {
         orderBy: { created_at: "desc" },
         skip: offset,
         take: limit,
+        select: {
+          meal_id: true,
+          user_id: true,
+          image_url: true,
+          upload_time: true,
+          analysis_status: true,
+          meal_name: true,
+          meal_period: true,
+          calories: true,
+          protein_g: true,
+          carbs_g: true,
+          fats_g: true,
+          saturated_fats_g: true,
+          polyunsaturated_fats_g: true,
+          monounsaturated_fats_g: true,
+          omega_3_g: true,
+          omega_6_g: true,
+          fiber_g: true,
+          soluble_fiber_g: true,
+          insoluble_fiber_g: true,
+          sugar_g: true,
+          cholesterol_mg: true,
+          sodium_mg: true,
+          alcohol_g: true,
+          caffeine_mg: true,
+          liquids_ml: true,
+          serving_size_g: true,
+          allergens_json: true,
+          vitamins_json: true,
+          micronutrients_json: true,
+          glycemic_index: true,
+          insulin_index: true,
+          food_category: true,
+          processing_level: true,
+          confidence: true,
+          cooking_method: true,
+          additives_json: true,
+          health_risk_notes: true,
+          ingredients: true,
+          created_at: true,
+          updated_at: true,
+        },
       });
 
       const transformedMeals = meals.map(transformMealForClient);
@@ -603,9 +655,6 @@ export class NutritionService {
         acc[date].meals.push({
           meal_id: meal.meal_id,
           user_id: meal.user_id,
-          image_url: meal.image_url,
-          upload_time: meal.upload_time,
-          analysis_status: meal.analysis_status,
           meal_name: meal.meal_name,
           calories: meal.calories,
           protein_g: meal.protein_g,
@@ -628,18 +677,9 @@ export class NutritionService {
           serving_size_g: meal.serving_size_g,
           glycemic_index: meal.glycemic_index,
           insulin_index: meal.insulin_index,
-          food_category: meal.food_category,
-          processing_level: meal.processing_level,
           confidence: meal.confidence,
-          cooking_method: meal.cooking_method,
-          allergens_json: meal.allergens_json,
-          vitamins_json: meal.vitamins_json,
-          micronutrients_json: meal.micronutrients_json,
-          additives_json: meal.additives_json,
-          health_risk_notes: meal.health_risk_notes,
-          ingredients: meal.ingredients,
           created_at: meal.created_at,
-          updated_at: meal.updated_at,
+          upload_time: meal.upload_time,
         });
 
         return acc;
@@ -872,11 +912,22 @@ export class NutritionService {
 function mapMealDataToPrismaFields(
   mealData: any,
   user_id: string,
-  imageBase64?: string
+  imageBase64?: string,
+  mealType?: string,
+  mealPeriod?: string
 ) {
   const ingredients = Array.isArray(mealData.ingredients)
     ? mealData.ingredients
     : [];
+
+  // Ensure meal_period is properly set - remove meal_type as it doesn't exist in schema
+  const finalMealPeriod =
+    mealPeriod || mealData.mealPeriod || mealData.meal_period || "other";
+
+  console.log("🍽️ Mapping meal data with:", {
+    mealPeriod: finalMealPeriod,
+    originalMealPeriod: mealPeriod,
+  });
 
   return {
     user_id,
@@ -925,8 +976,9 @@ function mapMealDataToPrismaFields(
     health_risk_notes: mealData.health_risk_notes || "",
     confidence: mealData.confidence || 75,
 
-    // System fields
+    // System fields - ENSURE meal_period is properly set (removed meal_type)
     ingredients: ingredients,
     created_at: new Date(),
+    meal_period: finalMealPeriod,
   };
 }
