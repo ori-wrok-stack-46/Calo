@@ -9,6 +9,8 @@ export const mealAnalysisSchema = z.object({
     .optional(),
   updateText: z.string().optional(), // For meal updates
   editedIngredients: z.array(z.any()).default([]), // For user-edited ingredients
+  mealType: z.string().optional(),
+  mealPeriod: z.string().optional(),
 });
 
 export const mealUpdateSchema = z.object({

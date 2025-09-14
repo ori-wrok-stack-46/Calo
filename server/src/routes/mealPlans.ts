@@ -124,7 +124,12 @@ router.post(
         prisma.userQuestionnaire.findFirst({
           where: { user_id: userId },
           orderBy: { date_completed: "desc" },
-        }),
+              orderBy: [
+                { day_of_week: "asc" },
+                { meal_timing: "asc" }
+              ],
+        }
+        )
         prisma.nutritionPlan.findFirst({
           where: { user_id: userId },
           orderBy: { created_at: "desc" },
@@ -444,10 +449,7 @@ router.get("/current", authenticateToken, async (req: AuthRequest, res) => {
             include: {
               ingredients: true,
             },
-            orderBy: [
-              { day_number: "asc" },
-              { meal_type: "asc" }
-            ],
+            orderBy: [{ day_number: "asc" }, { meal_type: "asc" }],
           },
         },
       });
