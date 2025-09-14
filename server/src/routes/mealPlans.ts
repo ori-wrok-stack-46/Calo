@@ -444,7 +444,10 @@ router.get("/current", authenticateToken, async (req: AuthRequest, res) => {
             include: {
               ingredients: true,
             },
-            orderBy: [{ day_number: "asc" }, { meal_type: "asc" }],
+            orderBy: [
+              { day_number: "asc" },
+              { meal_type: "asc" }
+            ],
           },
         },
       });

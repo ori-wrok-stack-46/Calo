@@ -33,7 +33,10 @@ router.get("/", authenticateToken, async (req: AuthRequest, res: Response) => {
           include: {
             ingredients: true,
           },
-          orderBy: [{ day_number: "asc" }, { meal_type: "asc" }],
+          orderBy: [
+            { day_number: "asc" },
+            { meal_type: "asc" }
+          ],
         },
       },
       orderBy: { created_at: "desc" },
