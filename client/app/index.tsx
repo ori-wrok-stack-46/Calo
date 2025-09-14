@@ -4,6 +4,7 @@ import { useSelector, useDispatch } from "react-redux";
 import { RootState, AppDispatch } from "@/src/store";
 import { loadStoredAuth } from "@/src/store/authSlice";
 import { loadPendingMeal } from "@/src/store/mealSlice";
+import React from "react";
 
 export default function Index() {
   const dispatch = useDispatch<AppDispatch>();

@@ -824,7 +824,8 @@ export default function CameraScreen() {
 
           <ScrollView
             style={styles.modalBody}
-            showsVerticalScrollIndicator={false}
+            showsVerticalIndicator={false}
+            keyboardShouldPersistTaps="handled"
           >
             <View style={styles.inputGroup}>
               <Text style={[styles.inputLabel, { color: colors.text }]}>
@@ -1127,10 +1128,12 @@ export default function CameraScreen() {
         </View>
       ) : !selectedImage ? (
         <ScrollView
-          ref={scrollViewRef}
-          style={styles.scrollView}
+          style={styles.container}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          bounces={true}
+          alwaysBounceVertical={true}
         >
           <View style={styles.imageSelectionContainer}>
             <View style={styles.selectedMealTypeBanner}>
@@ -1159,10 +1162,12 @@ export default function CameraScreen() {
         </ScrollView>
       ) : (
         <ScrollView
-          ref={scrollViewRef}
-          style={styles.scrollView}
+          style={styles.container}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          bounces={true}
+          alwaysBounceVertical={true}
         >
           <SelectedImage
             imageUri={selectedImage}

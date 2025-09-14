@@ -1430,6 +1430,8 @@ export class StatisticsService {
           },
         },
         select: {
+          created_at: true,
+          upload_time: true,
           calories: true,
           protein_g: true,
           carbs_g: true,
@@ -1437,8 +1439,33 @@ export class StatisticsService {
           fiber_g: true,
           sugar_g: true,
           sodium_mg: true,
+          liquids_ml: true,
         },
       });
+
+      // Calculate totals
+      const totals = meals.reduce(
+        (acc, meal) => ({
+          calories: acc.calories + (meal.calories || 0),
+          protein_g: acc.protein_g + (meal.protein_g || 0),
+          carbs_g: acc.carbs_g + (meal.carbs_g || 0),
+          fats_g: acc.fats_g + (meal.fats_g || 0),
+          fiber_g: acc.fiber_g + (meal.fiber_g || 0),
+          sugar_g: acc.sugar_g + (meal.sugar_g || 0),
+          sodium_mg: acc.sodium_mg + (meal.sodium_mg || 0),
+          water_ml: acc.water_ml + (meal.liquids_ml || 0),
+        }),
+        {
+          calories: 0,
+          protein_g: 0,
+          carbs_g: 0,
+          fats_g: 0,
+          fiber_g: 0,
+          sugar_g: 0,
+          sodium_mg: 0,
+          water_ml: 0,
+        }
+      );
 
       // Get water intake for the period
       const waterIntakes = await prisma.waterIntake.findMany({
@@ -1454,37 +1481,13 @@ export class StatisticsService {
         },
       });
 
-      // Sum up all consumption from meals
-      const consumption = meals.reduce(
-        (acc, meal) => ({
-          calories: acc.calories + (meal.calories || 0),
-          protein_g: acc.protein_g + (meal.protein_g || 0),
-          carbs_g: acc.carbs_g + (meal.carbs_g || 0),
-          fats_g: acc.fats_g + (meal.fats_g || 0),
-          fiber_g: acc.fiber_g + (meal.fiber_g || 0),
-          sugar_g: acc.sugar_g + (meal.sugar_g || 0),
-          sodium_mg: acc.sodium_mg + (meal.sodium_mg || 0),
-          water_ml: acc.water_ml, // Initialize water_ml to 0 here
-        }),
-        {
-          calories: 0,
-          protein_g: 0,
-          carbs_g: 0,
-          fats_g: 0,
-          fiber_g: 0,
-          sugar_g: 0,
-          sodium_mg: 0,
-          water_ml: 0, // Ensure water_ml is initialized
-        }
-      );
-
-      // Add water consumption
-      consumption.water_ml = waterIntakes.reduce(
+      // Add water consumption to totals
+      totals.water_ml = waterIntakes.reduce(
         (total, intake) => total + (intake.milliliters_consumed || 0),
-        0
+        totals.water_ml
       );
 
-      return consumption;
+      return totals;
     } catch (error) {
       console.error("Error getting period consumption:", error);
       throw error;

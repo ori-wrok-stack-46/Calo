@@ -24,65 +24,96 @@ interface MealTypeSelectorProps {
   selectedType?: MealType;
 }
 
-const MEAL_TYPES: MealType[] = [
+// Updated MEAL_TYPES with new time ranges and icons
+export const MEAL_TYPES: MealType[] = [
   {
     id: "breakfast",
     label: "Breakfast",
-    period: "breakfast",
-    icon: <Sunrise size={24} color="#ffffff" />,
-    color: "#14B8A6", // Light teal
-    backgroundColor: "#F0FDFA",
+    period: "morning",
+    icon: <Sunrise size={24} color="#ffffff" />, // Changed to lucide-react-native icon
+    color: "#F39C12",
+    backgroundColor: "#Fef3c7", // Kept original background color for consistency
   },
   {
     id: "lunch",
     label: "Lunch",
-    period: "lunch",
-    icon: <Sun size={24} color="#ffffff" />,
-    color: "#0891B2", // Mid teal
-    backgroundColor: "#E6FFFA",
+    period: "afternoon",
+    icon: <Sun size={24} color="#ffffff" />, // Changed to lucide-react-native icon
+    color: "#E67E22",
+    backgroundColor: "#d1fae5", // Kept original background color
   },
   {
     id: "dinner",
     label: "Dinner",
-    period: "dinner",
-    icon: <Moon size={24} color="#ffffff" />,
-    color: "#0E7490", // Dark teal
-    backgroundColor: "#CCFBF1",
+    period: "evening",
+    icon: <Moon size={24} color="#ffffff" />, // Changed to lucide-react-native icon
+    color: "#8E44AD",
+    backgroundColor: "#ede9fe", // Kept original background color
   },
   {
     id: "snack",
     label: "Snack",
-    period: "snack",
+    period: "anytime",
+    icon: <Cookie size={24} color="#ffffff" />, // Changed to lucide-react-native icon
+    color: "#16A085",
+    backgroundColor: "#fee2e2", // Kept original background color
+  },
+  {
+    id: "morning_snack",
+    label: "Morning Snack",
+    period: "morning_snack",
     icon: <Cookie size={24} color="#ffffff" />,
-    color: "#5EEAD4", // Super light teal
-    backgroundColor: "#F7FFFE",
+    color: "#f97316",
+    backgroundColor: "#fed7aa",
+  },
+  {
+    id: "afternoon_snack",
+    label: "Afternoon Snack",
+    period: "afternoon_snack",
+    icon: <Cookie size={24} color="#ffffff" />,
+    color: "#ec4899",
+    backgroundColor: "#fce7f3",
   },
   {
     id: "late_night",
     label: "Late Night",
     period: "late_night",
     icon: <Clock size={24} color="#ffffff" />,
-    color: "#2DD4BF",
-    backgroundColor: "#ECFDF5",
+    color: "#6366f1",
+    backgroundColor: "#e0e7ff",
   },
   {
     id: "other",
     label: "Other",
     period: "other",
     icon: <MoreHorizontal size={24} color="#ffffff" />,
-    color: "#6B7280",
-    backgroundColor: "#F9FAFB",
+    color: "#64748b",
+    backgroundColor: "#f1f5f9",
   },
 ];
 
-// Time restriction configuration
-const TIME_RESTRICTIONS = {
-  breakfast: { start: 5, end: 11.59 }, // 5:00 AM to 11:59 AM
-  lunch: { start: 12, end: 17.59 }, // 12:00 PM to 5:59 PM
-  dinner: { start: 18, end: 21.59 }, // 6:00 PM to 9:59 PM
-  late_night: { start: 22, end: 4.59 }, // 10:00 PM to 4:59 AM (next day)
-  snack: { start: 0, end: 23.59 }, // Snacks available all day
-  other: { start: 0, end: 23.59 }, // Other available all day
+// Proper time ranges for meal types, adjusted for 24-hour format and midnight crossing
+const MEAL_TIME_RANGES = {
+  breakfast: { start: 5, end: 24 }, // 5:00 AM to 11:59 PM
+  morning_snack: { start: 9, end: 12 }, // 9:00 AM - 11:59 AM
+  lunch: { start: 12, end: 24 }, // 12:00 PM to 11:59 PM
+  afternoon_snack: { start: 14, end: 18 }, // 2:00 PM - 5:59 PM
+  dinner: { start: 18, end: 24 }, // 6:00 PM to 11:59 PM
+  late_night: { start: 22, end: 24 }, // 10:00 PM to 11:59 PM
+  snack: { start: 0, end: 24 }, // Available all day
+  other: { start: 0, end: 24 }, // Available all day
+};
+
+// Proper meal type ID to display name mapping
+const MEAL_TYPE_DISPLAY_MAP = {
+  breakfast: "Breakfast",
+  lunch: "Lunch",
+  dinner: "Dinner",
+  snack: "Snack",
+  morning_snack: "Morning Snack",
+  afternoon_snack: "Afternoon Snack",
+  late_night: "Late Night",
+  other: "Other",
 };
 
 const formatTimeString = (hour: number): string => {
@@ -97,33 +128,42 @@ const getCurrentHour = (): number => {
   return now.getHours() + now.getMinutes() / 60;
 };
 
-const isMealTypeAvailable = (mealTypeId: string): boolean => {
-  // Always allow snack and other meal types
-  if (mealTypeId === "snack" || mealTypeId === "other") {
-    return true;
-  }
+const isMealTypeAvailable = (mealType: MealType) => {
+  const now = new Date();
+  const currentHour = now.getHours();
+  const ranges = MEAL_TIME_RANGES[mealType.id as keyof typeof MEAL_TIME_RANGES];
 
-  const currentHour = getCurrentHour();
-  const restriction =
-    TIME_RESTRICTIONS[mealTypeId as keyof typeof TIME_RESTRICTIONS];
+  if (!ranges) return true;
 
-  if (!restriction) return true;
-
-  // Handle overnight periods (like late_night)
-  if (restriction.start > restriction.end) {
-    return currentHour >= restriction.start || currentHour <= restriction.end;
-  }
-
-  return currentHour >= restriction.start && currentHour <= restriction.end;
+  // Check if the current hour falls within the defined range
+  return currentHour >= ranges.start && currentHour < ranges.end;
 };
 
-const getNextAvailableTime = (mealTypeId: string): string => {
-  const restriction =
-    TIME_RESTRICTIONS[mealTypeId as keyof typeof TIME_RESTRICTIONS];
-  if (!restriction) return "";
+const getNextAvailableTime = (mealTypeId: string) => {
+  const ranges = MEAL_TIME_RANGES[mealTypeId as keyof typeof MEAL_TIME_RANGES];
+  if (!ranges) return "now";
 
-  return formatTimeString(Math.floor(restriction.start));
+  const formatHour = (hour: number) => {
+    if (hour === 0) return "12:00 AM";
+    if (hour === 24) return "11:59 PM"; // Handle end of day
+    if (hour < 12) return `${hour}:00 AM`;
+    if (hour === 12) return "12:00 PM";
+    return `${hour - 12}:00 PM`;
+  };
+
+  const currentHour = new Date().getHours();
+
+  if (currentHour < ranges.start) {
+    return formatHour(ranges.start);
+  } else if (currentHour >= ranges.end) {
+    // If current hour is beyond the end time, the next availability is the start time of the next day
+    return `tomorrow at ${formatHour(ranges.start)}`;
+  }
+
+  return formatHour(ranges.start); // Fallback, should ideally not be reached if logic is sound
 };
+
+// Removed getAutoMealType as it was not used in the provided snippet.
 
 export const MealTypeSelector: React.FC<MealTypeSelectorProps> = ({
   onSelect,
@@ -141,7 +181,7 @@ export const MealTypeSelector: React.FC<MealTypeSelectorProps> = ({
   }, []);
 
   const handleMealTypeSelect = (mealType: MealType) => {
-    const isAvailable = isMealTypeAvailable(mealType.id);
+    const isAvailable = isMealTypeAvailable(mealType);
 
     if (!isAvailable) {
       const nextAvailableTime = getNextAvailableTime(mealType.id);
@@ -165,7 +205,7 @@ export const MealTypeSelector: React.FC<MealTypeSelectorProps> = ({
 
       <View style={styles.grid}>
         {MEAL_TYPES.map((mealType) => {
-          const isAvailable = isMealTypeAvailable(mealType.id);
+          const isAvailable = isMealTypeAvailable(mealType);
           const isSelected = selectedType?.id === mealType.id;
 
           return (
@@ -213,66 +253,73 @@ export const MealTypeSelector: React.FC<MealTypeSelectorProps> = ({
   );
 };
 
+// Updated styles for improved design
 const styles = StyleSheet.create({
   container: {
-    padding: 20,
-    backgroundColor: "#ffffff",
+    flex: 1,
+    padding: 24,
+    justifyContent: "center",
+    backgroundColor: "#F8FAFC", // Light gray background
   },
   title: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: "#0F172A",
-    marginBottom: 8,
+    fontSize: 32,
+    fontWeight: "800",
     textAlign: "center",
+    marginBottom: 16,
+    color: "#1F2937", // Dark gray title
+    letterSpacing: 0.5,
   },
   subtitle: {
-    fontSize: 16,
-    color: "#64748B",
-    marginBottom: 24,
+    fontSize: 18,
     textAlign: "center",
+    marginBottom: 40,
+    color: "#6B7280", // Medium gray subtitle
+    lineHeight: 28,
+    paddingHorizontal: 20,
   },
   grid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-between",
-    gap: 12,
+    gap: 16,
+    paddingHorizontal: 8,
   },
   mealTypeCard: {
-    width: "48%",
-    padding: 16,
-    borderRadius: 16,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    padding: 24,
     alignItems: "center",
-    borderWidth: 2,
-    borderColor: "transparent",
-    marginBottom: 12,
+    justifyContent: "center",
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 6,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+    minHeight: 160,
+    width: "100%",
+    marginBottom: 16,
   },
   selected: {
-    borderColor: "#14B8A6",
-    shadowColor: "#14B8A6",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 4,
+    // Renamed from selectedCard for consistency with original code's selected state
+    borderColor: "#16A085", // Teal border for selected card
+    backgroundColor: "#F0FDFA", // Light teal background for selected card
+    transform: [{ scale: 1.05 }], // Slightly enlarge selected card
+    shadowColor: "#16A085",
+    shadowOpacity: 0.25, // Stronger shadow for selected card
   },
   iconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 56, // Larger icon container
+    height: 56,
+    borderRadius: 28, // Circular container
     justifyContent: "center",
     alignItems: "center",
-    marginBottom: 12,
+    marginBottom: 16, // Increased margin below icon
   },
   label: {
-    fontSize: 16,
-    fontWeight: "600",
-    textAlign: "center",
-  },
-  unavailable: {
-    opacity: 0.5,
-    borderColor: "#E5E7EB",
-  },
-  unavailableIcon: {
-    opacity: 0.6,
+    fontSize: 22,
+    fontWeight: "700",
+    color: "#1F2937",
+    marginBottom: 8,
+    letterSpacing: 0.5,
   },
   unavailableText: {
     fontSize: 12,
@@ -281,6 +328,12 @@ const styles = StyleSheet.create({
     marginTop: 4,
     fontWeight: "500",
   },
+  unavailable: {
+    opacity: 0.5,
+    borderColor: "#E5E7EB",
+  },
+  unavailableIcon: {
+    opacity: 0.6,
+  },
 });
 
-export { MEAL_TYPES };

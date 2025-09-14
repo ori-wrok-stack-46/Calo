@@ -1126,7 +1126,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 12,
-    elevation: 6,
   },
   buttonGradient: {
     paddingVertical: 18,
@@ -1153,7 +1152,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.25,
     shadowRadius: 16,
-    elevation: 12,
   },
   modalText: {
     fontSize: 16,

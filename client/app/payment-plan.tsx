@@ -642,7 +642,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
-    elevation: 3,
   },
   headerGradient: {
     marginHorizontal: 20,
@@ -652,7 +651,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
-    elevation: 4,
   },
   header: {
     alignItems: "center",
@@ -698,7 +696,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.3,
     shadowRadius: 4,
-    elevation: 4,
   },
   popularText: {
     color: "#1a1a1a",
@@ -715,13 +712,11 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.12,
     shadowRadius: 16,
-    elevation: 8,
   },
   recommendedCard: {
     borderWidth: 3,
     shadowOpacity: 0.2,
     shadowRadius: 20,
-    elevation: 12,
   },
   cardGradient: {
     padding: 24,
@@ -811,12 +806,10 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
-    elevation: 4,
   },
   recommendedButton: {
     shadowOpacity: 0.3,
     shadowRadius: 12,
-    elevation: 8,
   },
   buttonGradient: {
     paddingVertical: 18,
@@ -875,7 +868,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.3,
     shadowRadius: 12,
-    elevation: 12,
   },
   modalGradient: {
     flex: 1,
@@ -918,7 +910,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
-    elevation: 4,
   },
   summaryGradient: {
     padding: 24,
@@ -1044,7 +1035,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
-    elevation: 4,
   },
   loadingButton: {
     opacity: 0.7,

@@ -204,7 +204,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.3,
     shadowRadius: 20,
-    elevation: 8,
   },
   icon: {
     textShadowColor: "rgba(16, 185, 129, 0.44)",
@@ -256,7 +255,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 8,
-    elevation: 4,
   },
   primaryButton: {
     backgroundColor: "#10B981",

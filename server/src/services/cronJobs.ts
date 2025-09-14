@@ -1,68 +1,80 @@
 import cron from "node-cron";
 import { prisma } from "../lib/database";
 import { AIRecommendationService } from "./aiRecommendations";
+import { DailyGoalsService } from "./dailyGoal";
 
 export class CronJobService {
   static initializeCronJobs() {
-    // Reset water badges daily at midnight
-    cron.schedule("0 0 * * *", async () => {
-      console.log("🕛 Running daily reset job at midnight");
-      await this.resetDailyBadges();
+    console.log("🚀 Initializing cron jobs...");
+
+    // Database cleanup every 4 hours (emergency mode)
+    cron.schedule("0 */4 * * *", async () => {
+      console.log("🗄️ Running 4-hourly database cleanup");
+      await this.emergencyDatabaseCleanup();
     });
 
-    // Generate daily AI recommendations at 6:00 AM
+    // Create daily goals for all users at 00:30 AM
+    cron.schedule("30 0 * * *", async () => {
+      console.log("📊 Running daily goals creation at 00:30 AM");
+      await this.createDailyGoalsForAllUsers();
+    });
+
+    // Generate daily AI recommendations at 06:00 AM
     cron.schedule("0 6 * * *", async () => {
       console.log("🤖 Running daily AI recommendations job at 6:00 AM");
       await this.generateDailyRecommendationsForAllUsers();
     });
 
-    // Create daily goals for new users at 1:00 AM
-    cron.schedule("0 1 * * *", async () => {
-      console.log("📊 Creating daily goals for all users");
-      await this.createDailyGoalsForAllUsers();
+    // Emergency backup job - run every 2 hours for missed items
+    cron.schedule("0 */2 * * *", async () => {
+      console.log("🆘 Running emergency backup creation job");
+      await this.emergencyCreateMissingItems();
     });
 
-    console.log("📅 Cron jobs initialized");
-  }
+    console.log("✅ Cron jobs initialized");
 
-  private static async resetDailyBadges() {
-    try {
-      const yesterday = new Date();
-      yesterday.setDate(yesterday.getDate() - 1);
-      yesterday.setHours(0, 0, 0, 0);
-
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      console.log("🧹 Cleaning up daily badges from:", yesterday.toISOString());
-
-      // This doesn't delete badges, just ensures they're date-specific
-      // The scuba diver badge logic already handles daily awards correctly
-
-      console.log("✅ Daily badge reset completed");
-    } catch (error) {
-      console.error("❌ Error resetting daily badges:", error);
-    }
+    // Run immediate setup on startup
+    setTimeout(async () => {
+      console.log("🚀 Running immediate startup tasks...");
+      try {
+        await this.runImmediateCleanupAndSetup();
+      } catch (error) {
+        console.error("❌ Startup tasks failed:", error);
+      }
+    }, 3000); // Wait 3 seconds after startup
   }
 
   static async createDailyGoalsForAllUsers(): Promise<void> {
-    console.log("🧹 Initializing user cleanup jobs...");
+    console.log("📊 Starting daily goals creation...");
 
     try {
       // Test database connection first
       await prisma.$connect();
 
       const today = new Date();
-      today.setHours(0, 0, 0, 0);
+      const todayString = today.toISOString().split("T")[0];
+      const todayDayOfWeek = today.getDay();
 
-      // Get all users who don't have today's daily goal
-      const usersWithoutTodayGoal = await prisma.user.findMany({
+      // Get users who should receive goals today
+      const eligibleUsers = await prisma.user.findMany({
         where: {
-          dailyGoals: {
-            none: {
-              date: today,
+          AND: [
+            // Users who haven't completed questionnaire should still get basic goals
+            {
+              OR: [
+                { is_questionnaire_completed: true },
+                { is_questionnaire_completed: false },
+              ],
             },
-          },
+            // Don't create goals if they already exist for today
+            {
+              dailyGoals: {
+                none: {
+                  date: todayString,
+                },
+              },
+            },
+          ],
         },
         include: {
           questionnaires: {
@@ -73,44 +85,59 @@ export class CronJobService {
       });
 
       console.log(
-        `📊 Creating daily goals for ${usersWithoutTodayGoal.length} users`
+        `📊 Found ${eligibleUsers.length} potentially eligible users`
       );
 
-      for (const user of usersWithoutTodayGoal) {
-        const questionnaire = user.questionnaires[0];
-        const defaultCalories = this.calculateDailyCalories(
-          questionnaire,
-          user
-        );
+      let successCount = 0;
+      let errorCount = 0;
+      let skippedCount = 0;
 
-        await prisma.dailyGoal.create({
-          data: {
-            user_id: user.user_id,
-            date: today,
-            calories: defaultCalories,
-            protein_g: (defaultCalories * 0.25) / 4,
-            carbs_g: (defaultCalories * 0.45) / 4,
-            fats_g: (defaultCalories * 0.3) / 9,
-            fiber_g: 25,
-            sodium_mg: 2300,
-            sugar_g: 50,
-            water_ml: 2500,
-          },
-        });
+      for (const user of eligibleUsers) {
+        try {
+          // Check if this user should get goals today based on subscription and signup date
+          const signupDayOfWeek = new Date(user.signup_date).getDay();
+          const isPremium =
+            user.subscription_type === "PREMIUM" ||
+            user.subscription_type === "GOLD";
+
+          // Premium users get daily goals every day
+          // Free users only get goals on their signup day of the week
+          const shouldCreateToday =
+            isPremium || todayDayOfWeek === signupDayOfWeek;
+
+          if (!shouldCreateToday) {
+            skippedCount++;
+            console.log(
+              `⏭️ Skipped user ${user.user_id} - not their goal day (signup: ${signupDayOfWeek}, today: ${todayDayOfWeek})`
+            );
+            continue;
+          }
+
+          // Use the DailyGoalsService to create goals
+          await DailyGoalsService.createOrUpdateDailyGoals(user.user_id);
+          successCount++;
+          console.log(
+            `✅ Created daily goal for user: ${user.user_id} (${
+              isPremium ? "Premium" : "Free"
+            })`
+          );
+        } catch (userError) {
+          errorCount++;
+          console.error(
+            `❌ Failed to create goal for user ${user.user_id}:`,
+            userError
+          );
+          continue;
+        }
       }
 
-      console.log("✅ Daily goals created for all users");
+      console.log(
+        `📊 Daily goals creation completed: ${successCount} success, ${errorCount} errors, ${skippedCount} skipped`
+      );
     } catch (error) {
-      if (
-        error instanceof Error &&
-        error.message.includes("Can't reach database server")
-      ) {
-        console.error(
-          "❌ Database connection error during cron job. Skipping daily goals creation."
-        );
-        return;
-      }
       console.error("❌ Error creating daily goals:", error);
+    } finally {
+      await prisma.$disconnect();
     }
   }
 
@@ -118,105 +145,197 @@ export class CronJobService {
     try {
       console.log("🤖 Starting daily AI recommendations generation...");
 
-      // Get all active users who have logged meals in the last 7 days
-      const recentDate = new Date();
-      recentDate.setDate(recentDate.getDate() - 7);
+      // Test database connection first
+      await prisma.$connect();
 
-      const activeUsers = await prisma.user.findMany({
+      const today = new Date().toISOString().split("T")[0];
+
+      // Get all users who don't have recommendations for today
+      const usersWithoutRecommendations = await prisma.user.findMany({
         where: {
-          meals: {
-            some: {
-              created_at: {
-                gte: recentDate,
+          AND: [
+            {
+              is_questionnaire_completed: true,
+            },
+            {
+              aiRecommendations: {
+                none: {
+                  date: today,
+                },
               },
             },
-          },
+          ],
         },
         select: {
           user_id: true,
+          email: true,
+          name: true,
         },
       });
 
       console.log(
-        `🎯 Generating recommendations for ${activeUsers.length} active users`
+        `🎯 Found ${usersWithoutRecommendations.length} users needing AI recommendations`
       );
+
+      if (usersWithoutRecommendations.length === 0) {
+        console.log("📝 No users need AI recommendations today");
+        return;
+      }
 
       let successCount = 0;
       let errorCount = 0;
 
-      // Process users in batches to avoid overwhelming the AI service
-      const batchSize = 5;
-      for (let i = 0; i < activeUsers.length; i += batchSize) {
-        const batch = activeUsers.slice(i, i + batchSize);
+      // Process users sequentially to avoid overwhelming the system
+      for (const user of usersWithoutRecommendations) {
+        try {
+          console.log(
+            `🤖 Generating recommendations for user: ${
+              user.name || user.email
+            } (${user.user_id})`
+          );
 
-        await Promise.allSettled(
-          batch.map(async (user) => {
-            try {
-              await AIRecommendationService.generateDailyRecommendations(
-                user.user_id
-              );
-              successCount++;
-              console.log(
-                `✅ Generated recommendations for user: ${user.user_id}`
-              );
-            } catch (error) {
-              errorCount++;
-              console.error(
-                `❌ Failed to generate recommendations for user ${user.user_id}:`,
-                error
-              );
-            }
-          })
-        );
+          // Generate new recommendations
+          const recommendation =
+            await AIRecommendationService.generateDailyRecommendations(
+              user.user_id
+            );
 
-        // Add delay between batches to be respectful to AI service
-        if (i + batchSize < activeUsers.length) {
-          await new Promise((resolve) => setTimeout(resolve, 2000)); // 2 second delay
+          if (recommendation) {
+            successCount++;
+            console.log(
+              `✅ Generated recommendations for user: ${user.user_id}`
+            );
+          } else {
+            throw new Error("No recommendation returned from AI service");
+          }
+        } catch (error) {
+          errorCount++;
+          console.error(
+            `❌ Failed to generate recommendations for user ${user.user_id}:`,
+            error instanceof Error ? error.message : error
+          );
+
+          // Continue with next user instead of failing completely
+          continue;
         }
+
+        // Small delay between users to be respectful
+        await new Promise((resolve) => setTimeout(resolve, 1000));
       }
 
       console.log(
-        `✅ Daily recommendations completed: ${successCount} success, ${errorCount} errors`
+        `✅ Daily recommendations completed: ${successCount} success, ${errorCount} errors out of ${usersWithoutRecommendations.length} users`
       );
     } catch (error) {
       console.error("💥 Error in daily recommendations generation:", error);
+    } finally {
+      await prisma.$disconnect();
     }
   }
 
-  private static calculateDailyCalories(questionnaire: any, user: any): number {
-    if (!questionnaire) return 2000;
+  private static async emergencyCreateMissingItems(): Promise<void> {
+    try {
+      console.log("🆘 Running emergency creation for missing items...");
 
-    const weight = questionnaire.weight_kg || 70;
-    const height = questionnaire.height_cm || 170;
-    const age = questionnaire.age || 30;
-    const gender = questionnaire.gender || "male";
+      // Create missing daily goals first
+      await this.createDailyGoalsForAllUsers();
 
-    let bmr;
-    if (gender.toLowerCase() === "male") {
-      bmr = 10 * weight + 6.25 * height - 5 * age + 5;
-    } else {
-      bmr = 10 * weight + 6.25 * height - 5 * age - 161;
+      // Then create missing AI recommendations
+      await this.generateDailyRecommendationsForAllUsers();
+
+      console.log("✅ Emergency creation completed");
+    } catch (error) {
+      console.error("❌ Emergency creation failed:", error);
     }
+  }
 
-    const activityMultipliers = {
-      NONE: 1.2,
-      LIGHT: 1.375,
-      MODERATE: 1.55,
-      HIGH: 1.725,
-    };
+  private static async emergencyDatabaseCleanup(): Promise<void> {
+    try {
+      console.log("🚨 Starting emergency database cleanup...");
 
-    const activityLevel = questionnaire.physical_activity_level || "LIGHT";
-    const multiplier = activityMultipliers[activityLevel] || 1.375;
+      // Test database connection first
+      await prisma.$connect();
 
-    let tdee = bmr * multiplier;
+      // 1. Clean old AI recommendations (keep last 30 days)
+      const thirtyDaysAgo = new Date();
+      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
-    const mainGoal = questionnaire.main_goal;
-    if (mainGoal === "WEIGHT_LOSS") {
-      tdee -= 500;
-    } else if (mainGoal === "WEIGHT_GAIN") {
-      tdee += 500;
+      const deletedRecommendations = await prisma.aiRecommendation.deleteMany({
+        where: {
+          created_at: {
+            lt: thirtyDaysAgo,
+          },
+        },
+      });
+
+      // 2. Clean old chat messages (keep last 50 per user)
+      const users = await prisma.user.findMany({
+        select: { user_id: true },
+      });
+
+      let totalMessagesDeleted = 0;
+      for (const user of users) {
+        const oldMessages = await prisma.chatMessage.findMany({
+          where: { user_id: user.user_id },
+          orderBy: { created_at: "desc" },
+          skip: 50, // Keep latest 50 messages
+          select: { message_id: true },
+        });
+
+        if (oldMessages.length > 0) {
+          const deleted = await prisma.chatMessage.deleteMany({
+            where: {
+              message_id: {
+                in: oldMessages.map((m) => m.message_id),
+              },
+            },
+          });
+          totalMessagesDeleted += deleted.count;
+        }
+      }
+
+      // 3. Clean expired sessions
+      const deletedSessions = await prisma.session.deleteMany({
+        where: {
+          expiresAt: {
+            lt: new Date(),
+          },
+        },
+      });
+
+      console.log(`✅ Emergency cleanup completed:
+        - AI Recommendations deleted: ${deletedRecommendations.count}
+        - Chat messages deleted: ${totalMessagesDeleted}
+        - Expired sessions deleted: ${deletedSessions.count}`);
+    } catch (error) {
+      console.error("❌ Emergency database cleanup failed:", error);
+    } finally {
+      await prisma.$disconnect();
     }
+  }
 
-    return Math.round(Math.max(1200, Math.min(4000, tdee)));
+  // Manual trigger for immediate cleanup and setup
+  static async runImmediateCleanupAndSetup(): Promise<void> {
+    console.log("🚀 Running immediate cleanup and setup...");
+
+    try {
+      // 1. Emergency database cleanup first
+      await this.emergencyDatabaseCleanup();
+
+      // 2. Create daily goals for all users
+      await this.createDailyGoalsForAllUsers();
+
+      // 3. Generate AI recommendations if possible
+      try {
+        await this.generateDailyRecommendationsForAllUsers();
+      } catch (aiError) {
+        console.error("⚠️ AI recommendations failed, but continuing:", aiError);
+      }
+
+      console.log("✅ Immediate cleanup and setup completed successfully");
+    } catch (error) {
+      console.error("❌ Immediate cleanup and setup failed:", error);
+      throw error;
+    }
   }
 }

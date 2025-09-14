@@ -29,6 +29,7 @@ type Ingredient = {
 };
 
 export interface MealAnalysisResult {
+  recommendations: string;
   // Basic identification
   name: string;
   description?: string;

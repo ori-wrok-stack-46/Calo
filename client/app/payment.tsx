@@ -643,7 +643,6 @@ const styles = StyleSheet.create({
     height: "100%",
     borderRadius: 16,
     overflow: "hidden",
-    elevation: 12,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.3,
@@ -765,7 +764,6 @@ const styles = StyleSheet.create({
     backgroundColor: "white",
     borderRadius: 20,
     padding: 24,
-    elevation: 8,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
@@ -841,7 +839,6 @@ const styles = StyleSheet.create({
   payButton: {
     borderRadius: 12,
     overflow: "hidden",
-    elevation: 4,
     shadowColor: "#047857",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -849,7 +846,6 @@ const styles = StyleSheet.create({
   },
   payButtonDisabled: {
     opacity: 0.6,
-    elevation: 0,
     shadowOpacity: 0,
   },
   payButtonGradient: {
@@ -882,7 +878,6 @@ const styles = StyleSheet.create({
     padding: 40,
     alignItems: "center",
     margin: 20,
-    elevation: 20,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.3,

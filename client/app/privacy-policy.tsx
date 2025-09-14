@@ -169,7 +169,6 @@ const PrivacyPolicyScreen = () => {
           shadowRadius: 3,
         },
         android: {
-          elevation: 2,
         },
       }),
     },
@@ -226,7 +225,6 @@ const PrivacyPolicyScreen = () => {
           shadowRadius: 8,
         },
         android: {
-          elevation: 3,
         },
       }),
     },
@@ -287,7 +285,6 @@ const PrivacyPolicyScreen = () => {
           shadowRadius: 4,
         },
         android: {
-          elevation: 2,
         },
       }),
     },
@@ -393,7 +390,6 @@ const PrivacyPolicyScreen = () => {
           shadowRadius: 8,
         },
         android: {
-          elevation: 3,
         },
       }),
     },

@@ -1,26 +1,65 @@
 import { prisma } from "../lib/database";
 
+// Define activity level type
+type ActivityLevel = "NONE" | "LIGHT" | "MODERATE" | "HIGH";
+
+// Define gender type
+type Gender = "MALE" | "FEMALE";
+
+// Define main goal type
+type MainGoal = "WEIGHT_LOSS" | "WEIGHT_GAIN" | "WEIGHT_MAINTENANCE";
+
 export class DailyGoalsService {
   static async createOrUpdateDailyGoals(userId: string) {
     try {
       console.log(`📊 Creating/updating daily goals for user: ${userId}`);
 
-      // Get user questionnaire data
-      const questionnaire = await prisma.userQuestionnaire.findFirst({
+      // Get user data including subscription type and signup date
+      const user = await prisma.user.findUnique({
         where: { user_id: userId },
-        orderBy: { date_completed: "desc" },
+        include: {
+          questionnaires: {
+            orderBy: { date_completed: "desc" },
+            take: 1,
+          },
+        },
       });
 
-      if (!questionnaire) {
-        console.log("No questionnaire found, using default goals");
+      if (!user) {
+        throw new Error("User not found");
+      }
+
+      const questionnaire = user.questionnaires[0];
+      const today = new Date();
+      const signupDate = new Date(user.signup_date);
+
+      // Check if user should get new daily goals based on subscription
+      const shouldCreateGoals = await this.shouldCreateDailyGoals(user, today);
+
+      if (!shouldCreateGoals) {
+        console.log(
+          `⏭️ Skipping daily goals creation for user ${userId} - not due yet`
+        );
+
+        // Return existing goals if any
+        const existingGoals = await prisma.dailyGoal.findFirst({
+          where: { user_id: userId },
+          orderBy: { date: "desc" },
+        });
+
+        return existingGoals || this.createDefaultGoals(userId, questionnaire);
       }
 
       // Calculate daily goals based on questionnaire
       const dailyGoals = this.calculateDailyGoals(questionnaire);
 
-      // Check if daily goals already exist
+      // Check if daily goals already exist for today
+      const todayString = today.toISOString().split("T")[0];
       const existingGoals = await prisma.dailyGoal.findFirst({
-        where: { user_id: userId },
+        where: {
+          user_id: userId,
+          date: todayString,
+        },
       });
 
       let savedGoals;
@@ -28,24 +67,90 @@ export class DailyGoalsService {
         // Update existing goals
         savedGoals = await prisma.dailyGoal.update({
           where: { id: existingGoals.id },
-          data: dailyGoals,
+          data: {
+            ...dailyGoals,
+            updated_at: new Date(),
+          },
         });
+        console.log("✅ Daily goals updated successfully");
       } else {
         // Create new goals
         savedGoals = await prisma.dailyGoal.create({
           data: {
             user_id: userId,
+            date: todayString,
             ...dailyGoals,
           },
         });
+        console.log("✅ Daily goals created successfully");
       }
 
-      console.log("✅ Daily goals saved successfully");
       return savedGoals;
     } catch (error) {
       console.error("Error creating/updating daily goals:", error);
       throw error;
     }
+  }
+
+  private static async shouldCreateDailyGoals(
+    user: any,
+    today: Date
+  ): Promise<boolean> {
+    try {
+      // Premium users get daily goals every day
+      if (
+        user.subscription_type === "PREMIUM" ||
+        user.subscription_type === "GOLD"
+      ) {
+        return true;
+      }
+
+      // Free users get new daily goals every 7 days based on signup day
+      const signupDate = new Date(user.signup_date);
+      const signupDayOfWeek = signupDate.getDay(); // 0 = Sunday, 1 = Monday, etc.
+      const todayDayOfWeek = today.getDay();
+
+      // Check if today is the user's "goal creation day"
+      if (todayDayOfWeek !== signupDayOfWeek) {
+        return false;
+      }
+
+      // Check if goals were already created this week
+      const weekStart = new Date(today);
+      weekStart.setDate(today.getDate() - todayDayOfWeek + signupDayOfWeek);
+      weekStart.setHours(0, 0, 0, 0);
+
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekStart.getDate() + 7);
+
+      const existingGoalsThisWeek = await prisma.dailyGoal.findFirst({
+        where: {
+          user_id: user.user_id,
+          created_at: {
+            gte: weekStart,
+            lt: weekEnd,
+          },
+        },
+      });
+
+      return !existingGoalsThisWeek;
+    } catch (error) {
+      console.error("Error checking if should create daily goals:", error);
+      return false; // Err on the side of caution
+    }
+  }
+
+  private static async createDefaultGoals(userId: string, questionnaire: any) {
+    const defaultGoals = this.calculateDailyGoals(questionnaire);
+    const today = new Date().toISOString().split("T")[0];
+
+    return await prisma.dailyGoal.create({
+      data: {
+        user_id: userId,
+        date: today,
+        ...defaultGoals,
+      },
+    });
   }
 
   private static calculateDailyGoals(questionnaire: any) {
@@ -61,7 +166,7 @@ export class DailyGoalsService {
       const weight = questionnaire.weight_kg || 70;
       const height = questionnaire.height_cm || 170;
       const age = questionnaire.age || 25;
-      const gender = questionnaire.gender || "MALE";
+      const gender: Gender = questionnaire.gender || "MALE";
 
       let bmr;
       if (gender === "MALE") {
@@ -71,18 +176,20 @@ export class DailyGoalsService {
       }
 
       // Apply activity level multiplier
-      const activityMultipliers = {
+      const activityMultipliers: Record<ActivityLevel, number> = {
         NONE: 1.2,
         LIGHT: 1.375,
         MODERATE: 1.55,
         HIGH: 1.725,
       };
 
-      const activityLevel = questionnaire.physical_activity_level || "MODERATE";
-      const tdee = bmr * (activityMultipliers[activityLevel] || 1.55);
+      const activityLevel: ActivityLevel =
+        questionnaire.physical_activity_level || "MODERATE";
+      const tdee = bmr * activityMultipliers[activityLevel];
 
       // Adjust based on goal
-      switch (questionnaire.main_goal) {
+      const mainGoal: MainGoal = questionnaire.main_goal;
+      switch (mainGoal) {
         case "WEIGHT_LOSS":
           baseCalories = Math.round(tdee - 500); // 500 calorie deficit
           break;
@@ -128,7 +235,18 @@ export class DailyGoalsService {
         return await this.createOrUpdateDailyGoals(userId);
       }
 
-      return goals;
+      if (goals) {
+        return {
+          calories: Number(goals.calories) || 2000,
+          protein_g: Number(goals.protein_g) || 150,
+          carbs_g: Number(goals.carbs_g) || 250,
+          fats_g: Number(goals.fats_g) || 67,
+          fiber_g: Number(goals.fiber_g) || 25,
+          sodium_mg: Number(goals.sodium_mg) || 2300,
+          sugar_g: Number(goals.sugar_g) || 50,
+          water_ml: Number(goals.water) || 2500,
+        };
+      }
     } catch (error) {
       console.error("Error fetching daily goals:", error);
       throw error;

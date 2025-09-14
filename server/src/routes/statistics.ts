@@ -250,14 +250,28 @@ router.get(
         `❌ Error fetching AI recommendations for user ${userId}:`,
         error
       );
-      res
-        .status(500)
-        .json({
-          error: "Failed to fetch AI recommendations",
-          message: error instanceof Error ? error.message : "Unknown error",
-        });
+      res.status(500).json({
+        error: "Failed to fetch AI recommendations",
+        message: error instanceof Error ? error.message : "Unknown error",
+      });
     }
   }
 );
+
+// Emergency setup trigger
+router.post("/debug/force-setup", async (req: any, res: Response) => {
+  try {
+    console.log("🚨 Manual emergency setup triggered");
+    const { CronJobService } = await import("../services/cronJobs");
+    await CronJobService.runImmediateCleanupAndSetup();
+    res.json({ success: true, message: "Emergency setup completed" });
+  } catch (error) {
+    console.error("❌ Manual emergency setup failed:", error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : "Setup failed",
+    });
+  }
+});
 
 export default router;

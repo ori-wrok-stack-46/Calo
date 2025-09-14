@@ -91,6 +91,40 @@ export class NutritionService {
     console.log("🍽️ Meal Type:", data.mealType);
     console.log("🕰️ Meal Period:", data.mealPeriod);
 
+    // Ensure proper meal type mapping
+    const mealTypeMapping = {
+      breakfast: "breakfast",
+      lunch: "lunch",
+      dinner: "dinner",
+      snack: "snack",
+      morning_snack: "morning_snack",
+      afternoon_snack: "afternoon_snack",
+      late_night: "late_night",
+      other: "other",
+    };
+
+    // Auto-detect meal type based on time if not provided
+    let finalMealType = data.mealType || data.mealPeriod;
+
+    if (!finalMealType) {
+      const currentHour = new Date().getHours();
+      if (currentHour >= 5 && currentHour < 12) {
+        finalMealType = "breakfast";
+      } else if (currentHour >= 12 && currentHour < 18) {
+        finalMealType = "lunch";
+      } else if (currentHour >= 18 && currentHour < 22) {
+        finalMealType = "dinner";
+      } else {
+        finalMealType = "other";
+      }
+    }
+
+    // Normalize meal type
+    finalMealType = mealTypeMapping[finalMealType] || "other";
+
+    console.log("🔄 Final meal type determined:", finalMealType);
+    console.log("📅 Original meal period:", data.mealPeriod);
+
     // Perform AI analysis with timeout and proper error handling
     let analysis;
     try {
