@@ -1,4 +1,4 @@
-type Ingredient = {
+export interface Ingredient {
   protein: number;
   carbs: number;
   fat: number;
